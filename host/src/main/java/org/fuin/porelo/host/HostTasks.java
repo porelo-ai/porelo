@@ -25,18 +25,12 @@ final class HostTasks {
             DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
                     .withResolverStyle(ResolverStyle.STRICT);
 
-    /** As long as a task's certificate holds. */
-    private static final java.time.Duration UNCERTIFIED_VALIDITY = java.time.Duration.ofDays(7);
-
     private final HostFiles files;
     private final ProjectRuntime runtime;
     private final Clock clock;
 
     HostTasks(HostFiles files) {
-        this(
-                files,
-                new ProjectRuntime(files, org.fuin.porelo.wire.LimitFactors.DEFAULT),
-                Clock.systemUTC());
+        this(files, new ProjectRuntime(files, HostLimits.DEFAULT), Clock.systemUTC());
     }
 
     HostTasks(HostFiles files, ProjectRuntime runtime, Clock clock) {
@@ -112,7 +106,8 @@ final class HostTasks {
                     65, person.login() + " is no person of porelo-people on this host");
         }
         final Instant now = clock.instant();
-        // Bounded as a certificate is, so the sweep ends its token as it ends a certified task's.
+        // Bounded as long as this host lets a certificate hold, so the sweep ends its token as it
+        // ends a certified task's.
         return recordAndToken(
                 person.login(),
                 "default",
@@ -129,7 +124,8 @@ final class HostTasks {
                         "valid_after",
                         now.toString(),
                         "valid_before",
-                        now.plus(UNCERTIFIED_VALIDITY).toString()));
+                        now.plus(java.time.Duration.ofDays(runtime.host().certificateDays()))
+                                .toString()));
     }
 
     /**

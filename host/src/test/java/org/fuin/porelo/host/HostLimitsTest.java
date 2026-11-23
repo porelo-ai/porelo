@@ -143,4 +143,40 @@ class HostLimitsTest {
         assertThat(good.code()).isEqualTo(missing.code());
         assertThat(good.err()).doesNotContain(HostLimits.FILE.substring(1));
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"010", "0x1E", "1_0", "1:30"})
+    void aDayCountInAnotherNumberFormThanPlainDecimalIsRefusedByName(String value)
+            throws IOException {
+        // YAML 1.1 reads these as 8, 30, 10 and 90 days; only a plain decimal is a day count.
+        fixture.put(HostLimits.FILE, "certificate_days: " + value + "\n");
+        assertThatThrownBy(this::read)
+                .isInstanceOf(HostRefusal.class)
+                .hasMessageContaining(fixture.path(HostLimits.FILE).toString())
+                .hasMessageContaining("certificate_days is no whole number from 1 to 3650");
+        fixture.put(HostLimits.FILE, "lent_token_days: " + value + "\n");
+        assertThatThrownBy(this::read)
+                .isInstanceOf(HostRefusal.class)
+                .hasMessageContaining("lent_token_days is no whole number from 1 to 3650");
+    }
+
+    @Test
+    void aDayCountHoldsFromOneTo3650Days() throws IOException {
+        fixture.put(HostLimits.FILE, "certificate_days: 1\nlent_token_days: 3650\n");
+        assertThat(read()).isEqualTo(new HostLimits(LimitFactors.DEFAULT, 1, 3650));
+        fixture.put(HostLimits.FILE, "certificate_days: 3650\nlent_token_days: 1\n");
+        assertThat(read()).isEqualTo(new HostLimits(LimitFactors.DEFAULT, 3650, 1));
+        fixture.put(HostLimits.FILE, "certificate_days: 3651\n");
+        assertThatThrownBy(this::read)
+                .hasMessageContaining("certificate_days is no whole number from 1 to 3650");
+    }
+
+    @Test
+    void aKeyWrittenTwiceIsRefusedByName() throws IOException {
+        fixture.put(HostLimits.FILE, "certificate_days: 30\ncertificate_days: 3\n");
+        assertThatThrownBy(this::read)
+                .isInstanceOf(HostRefusal.class)
+                .satisfies(ex -> assertThat(((HostRefusal) ex).exitCode()).isEqualTo(69))
+                .hasMessageContaining(fixture.path(HostLimits.FILE) + " holds a key twice");
+    }
 }

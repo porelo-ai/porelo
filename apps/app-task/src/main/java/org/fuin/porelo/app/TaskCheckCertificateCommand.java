@@ -41,6 +41,9 @@ import picocli.CommandLine.Spec;
         description = "Checks a task certificate on standard input for a host, and writes nothing.")
 public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
+    /** The most days {@code --most-days} takes, as a day count of the account's settings. */
+    static final int MOST_DAYS = 3650;
+
     /** A certificate line is a few hundred bytes; anything far longer is not one. */
     static final int MAX_LINE = 16 * 1024;
 
@@ -80,6 +83,15 @@ public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFac
             description = "A revocation list as ssh-keygen -k makes it.")
     private @Nullable Path krl;
 
+    @Option(
+            names = "--most-days",
+            paramLabel = "DAYS",
+            description =
+                    "The longest the certificate may hold, in whole days from 1 to "
+                            + MOST_DAYS
+                            + "; the host's own bound, 7 without it.")
+    private int mostDays = (int) TaskCertification.DEFAULT_VALIDITY.toDays();
+
     @Option(names = "--json", description = "Answers in JSON, for a program.")
     private boolean json;
 
@@ -101,6 +113,9 @@ public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFac
         }
         if (!PersonCard.isLogin(login)) {
             return refuse(err, 64, "'" + printable(login) + "' is not a login");
+        }
+        if (mostDays < 1 || mostDays > MOST_DAYS) {
+            return refuse(err, 64, "--most-days is a whole number from 1 to " + MOST_DAYS);
         }
         final List<String> inForce;
         try {
@@ -207,13 +222,9 @@ public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFac
         if (!certificate.keyId().equals(keyId)) {
             throw new TaskCertification.Refused("the certificate's key id is not '" + keyId + "'");
         }
-        // The host's own bound, in a unit of no person's account: none of their settings reach it,
-        // neither how long a certificate may hold nor the factors its clock slack follows.
+        // The host's own bound, named by the host: no setting of a person's account reaches it.
         TaskCertification.checkValidity(
-                certificate,
-                Instant.now(),
-                TaskCertification.DEFAULT_VALIDITY,
-                org.fuin.porelo.wire.LimitFactors.DEFAULT);
+                certificate, Instant.now(), java.time.Duration.ofDays(mostDays));
         if (!certificate.extensions().equals(EXTENSIONS)) {
             throw new TaskCertification.Refused(
                     "the certificate's extensions are not exactly "

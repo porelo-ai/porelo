@@ -97,7 +97,7 @@ final class HostReadFixture {
                             throw new AssertionError("the status read asks no person");
                         },
                         new HostSweep(files),
-                        new ProjectRuntime(files, org.fuin.porelo.wire.LimitFactors.DEFAULT),
+                        new ProjectRuntime(files, HostLimits.DEFAULT),
                         java.io.InputStream.nullInputStream(),
                         clock);
         return new Answer(code, out.toString(), err.toString());

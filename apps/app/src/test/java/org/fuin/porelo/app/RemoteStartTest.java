@@ -143,6 +143,36 @@ class RemoteStartTest {
     }
 
     @Test
+    void theClockSlackOnTheHostsAskedEndIsTheSameAtEveryMachinesFactor() throws Exception {
+        // The host checks with its own five minutes, whatever this account's factors are.
+        for (final String machines : List.of("0.1", "10")) {
+            final org.fuin.porelo.wire.LimitFactors limits =
+                    org.fuin.porelo.wire.LimitFactors.parse("machines=" + machines);
+            final java.time.Duration week = TaskCertification.DEFAULT_VALIDITY;
+            for (final long minutes : List.of(4L, 6L)) {
+                Files.deleteIfExists(dir.resolve("answered"));
+                final Instant end = Instant.now().plus(week).plusSeconds(minutes * 60);
+                final int code =
+                        new RemoteStart(
+                                        List.of(host(principalLine("task:uc:fix", end)).toString()),
+                                        socket,
+                                        null,
+                                        week,
+                                        limits)
+                                .run(
+                                        List.of("task", "run", "fix"),
+                                        "uc",
+                                        "fix",
+                                        new PrintWriter(new StringWriter()),
+                                        new PrintWriter(new StringWriter()));
+                assertThat(code)
+                        .as("%d minutes past the week at machines %s", minutes, machines)
+                        .isEqualTo(minutes == 4 ? 0 : 65);
+            }
+        }
+    }
+
+    @Test
     void aProjectThatIsNoProjectsNameCertifiesNothing() throws Exception {
         // ssh-keygen takes a comma in a principal as a second principal: "a,root" asked for and
         // matched as given would certify the task's key as root.

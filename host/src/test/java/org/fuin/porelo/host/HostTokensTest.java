@@ -91,6 +91,23 @@ class HostTokensTest {
     }
 
     @Test
+    void aLentTokenIsKeptForTheHostsLentTokenDays() {
+        final String two = "porelo-host-lend-20261028T120001Z-two";
+        final String three = "porelo-host-lend-20261027T120000Z-three";
+        host.add("alice", two);
+        host.add("alice", three);
+        host.limits = new HostLimits(org.fuin.porelo.wire.LimitFactors.DEFAULT, 7, 3);
+        assertThat(lend().code()).isZero();
+        assertThat(host.names("alice"))
+                .as("under three days a lend made two days ago stays, one made three days ago goes")
+                .contains(two)
+                .doesNotContain(three);
+        host.limits = HostLimits.DEFAULT;
+        assertThat(lend().code()).isZero();
+        assertThat(host.names("alice")).as("under today's one day").doesNotContain(two);
+    }
+
+    @Test
     void issuingRemovesOrdinaryTokensButLeavesEveryYoungLend() {
         host.add("alice", "legacy");
         final var lent = lend();

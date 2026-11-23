@@ -36,14 +36,14 @@ public final class PoreloHost implements Callable<Integer> {
      * a run of porelo-host reads its time factors in {@link #main}.
      */
     public PoreloHost() {
-        this(System.getenv(), new HostFiles(), HostPerson::from, LimitFactors.DEFAULT);
+        this(System.getenv(), new HostFiles(), HostPerson::from, HostLimits.DEFAULT);
     }
 
     private PoreloHost(
             Map<String, String> environment,
             HostFiles files,
             Function<Map<String, String>, HostPerson> person,
-            LimitFactors limits) {
+            HostLimits limits) {
         this(environment, files, person, new ProjectRuntime(files, limits));
     }
 
@@ -177,7 +177,8 @@ public final class PoreloHost implements Callable<Integer> {
     }
 
     /**
-     * Reads the host's time factors once, before anything else is done, and runs under them.
+     * Reads the host configuration once, before anything else is done, and runs under its time
+     * factors and day counts.
      *
      * @return The verb's exit code, or the refusal's when the host configuration is refused.
      */
@@ -189,14 +190,15 @@ public final class PoreloHost implements Callable<Integer> {
             PrintWriter err,
             HostFiles files,
             People people) {
-        final LimitFactors limits;
+        final HostLimits host;
         try {
-            limits = HostLimits.read(files).factors();
+            host = HostLimits.read(files);
         } catch (HostRefusal ex) {
             err.println(ex.getMessage());
             return ex.exitCode();
         }
-        final ProjectRuntime runtime = new ProjectRuntime(files, limits);
+        final LimitFactors limits = host.factors();
+        final ProjectRuntime runtime = new ProjectRuntime(files, host);
         final java.time.Clock clock = java.time.Clock.systemUTC();
         return run(
                 args,
@@ -230,7 +232,7 @@ public final class PoreloHost implements Callable<Integer> {
                 files,
                 person,
                 sweep,
-                new ProjectRuntime(files, LimitFactors.DEFAULT),
+                new ProjectRuntime(files, HostLimits.DEFAULT),
                 System.in,
                 java.time.Clock.systemUTC());
     }

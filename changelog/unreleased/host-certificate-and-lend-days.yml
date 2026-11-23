@@ -1,0 +1,2 @@
+title: "A host judges a task certificate by its own `certificate_days` in `/etc/porelo-host/host.yml`, so a person's longer `task.certificate_days` is refused there, and keeps a lent forge token for its `lent_token_days`; `config.yml` and `host.yml` take a number only as a plain decimal, and `host.yml` refuses a key written twice."
+type: fixed

@@ -176,6 +176,23 @@ class TaskCheckCertificateCommandTest {
     }
 
     @Test
+    void theHostsMostDaysBoundHowLongACertificateMayHold() throws Exception {
+        final String fortnight =
+                sign("person", "task:demo:fix", "porelo task fix by alice", "-1m:+14d");
+        assertThat(check(fortnight)).as("today's seven days without the option").isEqualTo(65);
+        assertThat(err.toString()).contains("longer than 7 days");
+        assertThat(check(fortnight, "--most-days", "14")).as(err::toString).isZero();
+        assertThat(check(fortnight, "--most-days", "13")).isEqualTo(65);
+        assertThat(err.toString()).contains("longer than 13 days");
+        final String week = issued("task:demo:fix", "porelo task fix by alice");
+        assertThat(check(week, "--most-days", "1")).isEqualTo(65);
+        assertThat(check(week, "--most-days", "3650")).as(err::toString).isZero();
+        for (final String wrong : List.of("0", "3651", "-1", "7.5", "seven")) {
+            assertThat(check(week, "--most-days", wrong)).as(wrong).isEqualTo(64);
+        }
+    }
+
+    @Test
     void anExpiredCertificateOrOneValidLongerThanAWeekIsRefused() throws Exception {
         assertThat(check(sign("person", "task:demo:fix", "porelo task fix by alice", "-2d:-1d")))
                 .isEqualTo(65);

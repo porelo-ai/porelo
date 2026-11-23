@@ -3,11 +3,17 @@ package org.fuin.porelo.host;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.fuin.porelo.wire.LimitFactors;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.DuplicateKeyException;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.YAMLException;
+import org.yaml.snakeyaml.nodes.Tag;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.resolver.Resolver;
 
 /**
  * The host configuration root's role writes, never a person's file: the four factors porelo-host's
@@ -49,8 +55,9 @@ record HostLimits(LimitFactors factors, int certificateDays, int lentTokenDays) 
      * @param files The host's file tree.
      * @return What the file names.
      * @throws HostRefusal With exit code 69, naming the file and what is wrong, when it is there
-     *     but not a plain file of root's alone, unreadable, no YAML mapping, holds another key, its
-     *     limits line is refused, or a day count is no whole number from 1 to 3650.
+     *     but not a plain file of root's alone, unreadable, no YAML mapping, holds another key or
+     *     one key twice, its limits line is refused, or a day count is no whole number from 1 to
+     *     3650 written as a plain decimal.
      */
     static HostLimits read(HostFiles files) {
         final Path path = files.path(FILE);
@@ -66,9 +73,20 @@ record HostLimits(LimitFactors factors, int certificateDays, int lentTokenDays) 
                     java.util.Objects.requireNonNull(
                             ex.getMessage(), "HostRefusal always has a safe diagnostic"));
         }
+        final LoaderOptions options = new LoaderOptions();
+        options.setAllowDuplicateKeys(false);
         final Object document;
         try {
-            document = new Yaml(new SafeConstructor(new LoaderOptions())).load(text);
+            document =
+                    new Yaml(
+                                    new SafeConstructor(options),
+                                    new Representer(new DumperOptions()),
+                                    new DumperOptions(),
+                                    options,
+                                    new PlainNumbers())
+                            .load(text);
+        } catch (DuplicateKeyException ex) {
+            throw refused(path, path + " holds a key twice");
         } catch (YAMLException ex) {
             throw refused(path, path + " is not YAML");
         }
@@ -112,6 +130,16 @@ record HostLimits(LimitFactors factors, int certificateDays, int lentTokenDays) 
     }
 
     /**
+     * Returns the same day counts under other time factors.
+     *
+     * @param other The factors.
+     * @return These day counts with those factors.
+     */
+    HostLimits under(LimitFactors other) {
+        return new HostLimits(other, certificateDays, lentTokenDays);
+    }
+
+    /**
      * Returns a limit in whole seconds, rounded up, for a program that takes no finer unit.
      *
      * @param limit The limit.
@@ -137,5 +165,27 @@ record HostLimits(LimitFactors factors, int certificateDays, int lentTokenDays) 
     private static HostRefusal refused(Path path, String what) {
         final String message = what.contains(path.toString()) ? what : path + ": " + what;
         return new HostRefusal(69, "porelo-host: cannot take the host's time factors: " + message);
+    }
+
+    /**
+     * Resolves a number only when it is written as a plain decimal: YAML 1.1 would read {@code 010}
+     * as 8, {@code 0x1E} as 30, {@code 1_0} as 10 and {@code 1:30} as 90, which then arrive as text
+     * and are refused by their key. Booleans and null resolve as YAML 1.1 has them.
+     */
+    private static final class PlainNumbers extends Resolver {
+        private static final Pattern INTEGER = Pattern.compile("^-?(0|[1-9][0-9]*)$");
+        private static final Pattern DECIMAL = Pattern.compile("^-?(0|[1-9][0-9]*)\\.[0-9]+$");
+
+        @Override
+        protected void addImplicitResolvers() {
+            addImplicitResolver(Tag.BOOL, BOOL, "yYnNtTfFoO", 10);
+            // INTEGER before DECIMAL, as the first that matches decides.
+            addImplicitResolver(Tag.INT, INTEGER, "-0123456789");
+            addImplicitResolver(Tag.FLOAT, DECIMAL, "-0123456789");
+            addImplicitResolver(Tag.MERGE, MERGE, "<", 10);
+            addImplicitResolver(Tag.NULL, NULL, "~nN\0", 10);
+            addImplicitResolver(Tag.NULL, EMPTY, null, 10);
+            addImplicitResolver(Tag.TIMESTAMP, TIMESTAMP, "0123456789", 50);
+        }
     }
 }

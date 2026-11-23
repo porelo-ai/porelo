@@ -380,6 +380,20 @@ class HostTaskAccountsTest {
     }
 
     @Test
+    void theIsolatedJudgeIsBoundByTheHostsCertificateDays() throws Exception {
+        final String certificate = host.certificate();
+        assertThat(start(certificate).code()).isZero();
+        host.limits = new HostLimits(org.fuin.porelo.wire.LimitFactors.DEFAULT, 30, 1);
+        assertThat(start(certificate).code()).as("a retry is judged again").isZero();
+        assertThat(
+                        host.calls.stream()
+                                .filter(args -> args.getFirst().equals("systemd-run"))
+                                .map(args -> args.get(args.indexOf("--most-days") + 1)))
+                .as("host.yml's certificate_days, and today's 7 without it")
+                .containsExactly("7", "30");
+    }
+
+    @Test
     void theIsolatedJudgeGetsOnlyTheCurrentPublicKeyKrlAndCertificateInput() throws Exception {
         final String certificate = host.certificate();
         assertThat(start(certificate).code()).isZero();

@@ -404,8 +404,7 @@ final class RemoteStart {
         if (!before.isAfter(Instant.now())) {
             throw new TaskCertification.Refused("the host asked for an end already past");
         }
-        if (before.isAfter(
-                Instant.now().plus(validity).plus(limits.machines(TaskCertification.SLACK)))) {
+        if (before.isAfter(Instant.now().plus(validity).plus(TaskCertification.SLACK))) {
             throw new TaskCertification.Refused(
                     "the host asked for a certificate longer than " + validity.toDays() + " days");
         }

@@ -12,11 +12,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
+import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.LoaderOptions;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
+import org.yaml.snakeyaml.nodes.Tag;
+import org.yaml.snakeyaml.representer.Representer;
+import org.yaml.snakeyaml.resolver.Resolver;
 
 /**
  * The account's own settings, from {@code $XDG_CONFIG_HOME/porelo/config.yml}: the four factors
@@ -110,7 +115,14 @@ public record AccountConfig(
         options.setAllowDuplicateKeys(false);
         final Object loaded;
         try {
-            loaded = new Yaml(new SafeConstructor(options)).load(reader);
+            loaded =
+                    new Yaml(
+                                    new SafeConstructor(options),
+                                    new Representer(new DumperOptions()),
+                                    new DumperOptions(),
+                                    options,
+                                    new PlainNumbers())
+                            .load(reader);
         } catch (RuntimeException ex) {
             throw new IllegalArgumentException(
                     "Cannot read " + origin + ": " + ex.getMessage(), ex);
@@ -208,5 +220,27 @@ public record AccountConfig(
 
     private static String names() {
         return String.join(", ", List.of("limits", "task", "identity", "messages", "records"));
+    }
+
+    /**
+     * Resolves a number only when it is written as a plain decimal: YAML 1.1 would read {@code 010}
+     * as 8, {@code 0x1E} as 30, {@code 1_0} as 10 and {@code 1:30} as 90, which then arrive as text
+     * and are refused by their key. Booleans and null resolve as YAML 1.1 has them.
+     */
+    private static final class PlainNumbers extends Resolver {
+        private static final Pattern INTEGER = Pattern.compile("^-?(0|[1-9][0-9]*)$");
+        private static final Pattern DECIMAL = Pattern.compile("^-?(0|[1-9][0-9]*)\\.[0-9]+$");
+
+        @Override
+        protected void addImplicitResolvers() {
+            addImplicitResolver(Tag.BOOL, BOOL, "yYnNtTfFoO", 10);
+            // INTEGER before DECIMAL, as the first that matches decides.
+            addImplicitResolver(Tag.INT, INTEGER, "-0123456789");
+            addImplicitResolver(Tag.FLOAT, DECIMAL, "-0123456789");
+            addImplicitResolver(Tag.MERGE, MERGE, "<", 10);
+            addImplicitResolver(Tag.NULL, NULL, "~nN\0", 10);
+            addImplicitResolver(Tag.NULL, EMPTY, null, 10);
+            addImplicitResolver(Tag.TIMESTAMP, TIMESTAMP, "0123456789", 50);
+        }
     }
 }

@@ -10,6 +10,8 @@ import java.nio.file.Path;
 import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link AccountConfig}: the account's config.yml, every default when it says nothing.
@@ -105,5 +107,39 @@ class AccountConfigTest {
         assertThatThrownBy(() -> read("records:\n  kept_days: 1.5\n"))
                 .hasMessageContaining("records.kept_days is a whole number of days");
         assertThatThrownBy(() -> read("- a list\n")).hasMessageContaining("is no YAML mapping");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"010", "0x1E", "1_0", "1:30"})
+    void aDayCountInAnotherNumberFormThanPlainDecimalIsRefusedByItsKey(String value) {
+        // YAML 1.1 reads these as 8, 30, 10 and 90 days; only a plain decimal is a day count.
+        assertThatThrownBy(() -> read("task:\n  certificate_days: " + value + "\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "task.certificate_days is a whole number of days, not " + value);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"010", "0x1E", "1_0", "1:30"})
+    void aFactorInAnotherNumberFormThanPlainDecimalIsRefusedByItsKey(String value) {
+        // YAML 1.1 reads these as 8, 30, 10 and 90, each inside 0.1 to 100.
+        assertThatThrownBy(() -> read("limits:\n  services: " + value + "\n"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(
+                        "limits.services is no decimal from 0.1 to 100, but " + value);
+    }
+
+    @Test
+    void aPlainDecimalFactorAndDayCountAreStillNumbers() {
+        assertThat(read("limits:\n  services: 2\n  machines: 0.5\n").limits())
+                .isEqualTo(LimitFactors.parse("services=2,machines=0.5"));
+    }
+
+    @Test
+    void aDayCountHoldsFromOneTo3650Days() {
+        assertThat(read("task:\n  certificate_days: 1\n").certificateDays()).isEqualTo(1);
+        assertThat(read("task:\n  certificate_days: 3650\n").certificateDays()).isEqualTo(3650);
+        assertThatThrownBy(() -> read("task:\n  certificate_days: 3651\n"))
+                .hasMessageContaining("task.certificate_days is from 1 to 3650 days, not 3651");
     }
 }

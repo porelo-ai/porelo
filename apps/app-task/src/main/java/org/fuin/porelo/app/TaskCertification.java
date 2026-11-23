@@ -26,7 +26,10 @@ final class TaskCertification {
      */
     static final Duration DEFAULT_VALIDITY = Duration.ofDays(7);
 
-    /** What a clock on the certifier's side may differ by. */
+    /**
+     * What a clock on the certifier's side may differ by. A protocol value, no time limit: the side
+     * that issues and the side that checks run under different accounts, so no factor scales it.
+     */
     static final Duration SLACK = Duration.ofMinutes(5);
 
     /** The project of a task that has none. */
@@ -89,20 +92,15 @@ final class TaskCertification {
     /**
      * Checks a task certificate's validity as a start does: valid now or within {@link #SLACK} of
      * now, for a certifier's clock a little ahead, and for no longer than the validity from now,
-     * the same slack allowed; the slack follows the account's {@code machines} factor.
+     * the same slack allowed.
      *
      * @param certificate The certificate.
      * @param now The time of the side that checks.
      * @param validity The longest a certificate may hold.
-     * @param limits The account's time factors.
      * @throws Refused If it is not valid now, or valid too long.
      */
-    static void checkValidity(
-            SshCertificate certificate,
-            Instant now,
-            Duration validity,
-            org.fuin.porelo.wire.LimitFactors limits) {
-        final Duration slack = limits.machines(SLACK);
+    static void checkValidity(SshCertificate certificate, Instant now, Duration validity) {
+        final Duration slack = SLACK;
         if (!certificate.validAt(now.plus(slack)) && !certificate.validAt(now)) {
             throw new Refused("the certificate is not valid now");
         }
@@ -123,7 +121,6 @@ final class TaskCertification {
      *     project, which its certifier's own key certifies.
      * @param validity How long the certificate holds.
      * @param clock The time.
-     * @param limits The account's time factors.
      * @return The key, its certificate and the gate's lines.
      * @throws Refused If what came back is not accepted.
      */
@@ -134,8 +131,7 @@ final class TaskCertification {
             Certifier certifier,
             List<String> certifiers,
             Duration validity,
-            Clock clock,
-            org.fuin.porelo.wire.LimitFactors limits) {
+            Clock clock) {
         return certify(
                 project,
                 task,
@@ -144,8 +140,7 @@ final class TaskCertification {
                 certifier,
                 certifiers,
                 validity,
-                clock,
-                limits);
+                clock);
     }
 
     /**
@@ -159,7 +154,6 @@ final class TaskCertification {
      * @param certifiers The keys allowed to certify the project's tasks.
      * @param validity How long the certificate holds.
      * @param clock The time.
-     * @param limits The account's time factors.
      * @return The same key, its new certificate and the gate's lines.
      * @throws Refused If what came back is not accepted.
      */
@@ -171,8 +165,7 @@ final class TaskCertification {
             Certifier certifier,
             List<String> certifiers,
             Duration validity,
-            Clock clock,
-            org.fuin.porelo.wire.LimitFactors limits) {
+            Clock clock) {
         // None named is no leave to take whichever key signed it: only a task without a project
         // is certified by its starting person alone.
         if (certifiers.isEmpty() && !NO_PROJECT.equals(project)) {
@@ -196,7 +189,7 @@ final class TaskCertification {
         if (!certificate.principals().equals(List.of(principal))) {
             throw new Refused("the certificate must name exactly " + principal);
         }
-        checkValidity(certificate, now, validity, limits);
+        checkValidity(certificate, now, validity);
         if (!certifiers.isEmpty() && !certifiers.contains(certificate.signer())) {
             throw new Refused(
                     "the certificate is signed by "

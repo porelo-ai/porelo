@@ -366,18 +366,20 @@ The helper has Porelo judge the certificate before it records anything, run as r
 vault or network; it reads only the files its flags name and writes nothing:
 
 ```
-porelo task check-certificate --task <task> --login <login> --keys <file> [--krl <file>] [--json] < certificate
+porelo task check-certificate --task <task> --login <login> --keys <file> [--krl <file>] [--most-days <days>] [--json] < certificate
 ```
 
 - **`--keys`** is the person's keys in force, one OpenSSH public key line each, as the host applied them from its
   verified organization; an empty file refuses every certificate. **`--krl`** is the revocation list in force.
+- **`--most-days`** is the longest a certificate may hold, in whole days from 1 to 3650, 7 without it; the host
+  passes its own `certificate_days` from [`host.yml`](configuration.md#the-hosts-settings), never a person's.
 - **Standard input** is one line of at most 16 KiB, ending in at most one line end; anything longer, a second line
   or no line is refused before anything parses it.
 - **Accepted** only as `porelo task start` issues it: one `ssh-ed25519-cert-v01@openssh.com` user certificate,
   signed by exactly one of `--keys`' lines, an Ed25519 key, neither that key nor the task's key revoked by the
   list; exactly one principal, `task:<project>:<task>`, of that task and a project name or `default`; the key id
-  `porelo task <task> by <login>`; valid now or within five minutes from now, and valid before at most seven days
-  and five minutes from now, both by the host's clock, as the start judges it; no critical option, and exactly
+  `porelo task <task> by <login>`; valid now or within five minutes from now, and valid before at most `--most-days`
+  days and five minutes from now, both by the host's clock, as the start judges it; no critical option, and exactly
   the extensions `ssh-keygen` grants by default, each empty: `permit-agent-forwarding`, `permit-port-forwarding`,
   `permit-pty`, `permit-user-rc` and `permit-X11-forwarding`. <!-- not-a-citation: an OpenSSH extension -->
 - **The answer** with `--json`, exit 0, alone on standard output; `fingerprint` is the task key's, `signed_by` the
@@ -390,9 +392,9 @@ porelo task check-certificate --task <task> --login <login> --keys <file> [--krl
 ```
 
 - **Refusals**, with nothing on standard output and one line on standard error naming the rule, controls replaced:
-  65 for a certificate not accepted, 64 for a task or login that is not one, 66 for a named file missing or
-  unreadable, the revocation list included, and 70 for Porelo's own fault. The host records the certificate only
-  after exit 0, and checks itself that `project` is one the person belongs to.
+  65 for a certificate not accepted, 64 for a task or login that is not one or a `--most-days` outside 1 to 3650,
+  66 for a named file missing or unreadable, the revocation list included, and 70 for Porelo's own fault. The host
+  records the certificate only after exit 0, and checks itself that `project` is one the person belongs to.
 
 ## A task started without a certificate on a host in test mode
 

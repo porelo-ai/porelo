@@ -52,14 +52,15 @@ final class HostTokens {
         }
     }
 
-    private static boolean due(String name, Instant now) {
+    /** Whether a lent token is older than the host's {@code lent_token_days}, or unreadable. */
+    private boolean due(String name, Instant now) {
         if (!name.startsWith(LEND)) {
             return false;
         }
         try {
             final String time = name.substring(LEND.length()).split("-", 2)[0];
             final Instant made = LocalDateTime.parse(time, TIME).toInstant(ZoneOffset.UTC);
-            return !made.isAfter(now.minus(Duration.ofDays(1)));
+            return !made.isAfter(now.minus(Duration.ofDays(runtime.host().lentTokenDays())));
         } catch (DateTimeParseException ex) {
             return true;
         }

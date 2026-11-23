@@ -50,6 +50,10 @@ final class HostTaskFixture {
     final Map<String, String> getent = new HashMap<>();
 
     int judgementCode;
+
+    /** What the run read from host.yml; the runs a test makes take these day counts. */
+    HostLimits limits = HostLimits.DEFAULT;
+
     String failIdentity = "";
     String generated = "";
     Runnable inspect = () -> {};
@@ -185,25 +189,27 @@ final class HostTaskFixture {
         final HostFiles files = tree.files();
         final ProjectRuntime runtime =
                 new ProjectRuntime(
-                        files,
-                        this::command,
-                        name -> {
-                            final String file = Path.of(name).getFileName().toString();
-                            if (missing.contains(file))
-                                throw new java.io.UncheckedIOException(
-                                        new org.fuin.porelo.wire.SystemProgram.Missing(
-                                                file, List.of()));
-                            return Path.of(name);
-                        },
-                        (socket, token) -> {
-                            opened++;
-                            adminBuffers.add(token);
-                            return TestForgeAdmin.create(
-                                    token,
-                                    false,
-                                    (method, path, authorization, body) -> response(method, path),
-                                    () -> closed++);
-                        });
+                                files,
+                                this::command,
+                                name -> {
+                                    final String file = Path.of(name).getFileName().toString();
+                                    if (missing.contains(file))
+                                        throw new java.io.UncheckedIOException(
+                                                new org.fuin.porelo.wire.SystemProgram.Missing(
+                                                        file, List.of()));
+                                    return Path.of(name);
+                                },
+                                (socket, token) -> {
+                                    opened++;
+                                    adminBuffers.add(token);
+                                    return TestForgeAdmin.create(
+                                            token,
+                                            false,
+                                            (method, path, authorization, body) ->
+                                                    response(method, path),
+                                            () -> closed++);
+                                })
+                        .limited(limits);
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
         final int code =

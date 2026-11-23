@@ -92,6 +92,15 @@ class HostTestModeTest {
     }
 
     @Test
+    void anUncertifiedTaskHoldsAsLongAsTheHostsCertificateDays() throws Exception {
+        host.tree.put(FILE, ON);
+        host.limits = new HostLimits(org.fuin.porelo.wire.LimitFactors.DEFAULT, 30, 1);
+        assertThat(uncertified().code()).isZero();
+        assertThat(HostJson.object(HostJson.parse(Files.readString(host.record("default", "t1")))))
+                .containsEntry("valid_before", "2026-11-29T12:00:00Z");
+    }
+
+    @Test
     void aCertificateForAnUncertifiedTaskIsAnotherOne() throws Exception {
         host.tree.put(FILE, ON);
         assertThat(uncertified().code()).isZero();

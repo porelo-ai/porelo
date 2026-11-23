@@ -236,8 +236,7 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                             certifier,
                             certifiers,
                             TaskCertification.validity(context),
-                            Clock.systemUTC(),
-                            context.limits());
+                            Clock.systemUTC());
             final String unkept =
                     secrets.keepSigning(
                             owner,

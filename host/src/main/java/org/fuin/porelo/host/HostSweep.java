@@ -16,10 +16,7 @@ final class HostSweep {
     private final Clock clock;
 
     HostSweep(HostFiles files) {
-        this(
-                files,
-                new ProjectRuntime(files, org.fuin.porelo.wire.LimitFactors.DEFAULT),
-                Clock.systemUTC());
+        this(files, new ProjectRuntime(files, HostLimits.DEFAULT), Clock.systemUTC());
     }
 
     HostSweep(HostFiles files, ProjectRuntime runtime, Clock clock) {

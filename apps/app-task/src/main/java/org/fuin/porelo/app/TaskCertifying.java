@@ -155,7 +155,7 @@ final class TaskCertifying {
         }
         if (remote != null) {
             return TaskCertification.certify(
-                    project, task, login, remote, certifiers, validity, clock, limits);
+                    project, task, login, remote, certifiers, validity, clock);
         }
         if (agent == null) {
             return null;
@@ -174,8 +174,7 @@ final class TaskCertifying {
                 new AgentCertifier(held, agent, limits),
                 certifiers,
                 validity,
-                clock,
-                limits);
+                clock);
     }
 
     /** How long the agent may take to list its keys. */

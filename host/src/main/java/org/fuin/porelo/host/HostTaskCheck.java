@@ -102,6 +102,9 @@ final class HostTaskCheck {
                             credentials + "keys",
                             "--krl",
                             credentials + "revoked.krl",
+                            // The host's own bound: nothing of a person's file reaches it.
+                            "--most-days",
+                            Integer.toString(runtime.host().certificateDays()),
                             "--json");
             final byte[] input = (line + "\n").getBytes(StandardCharsets.US_ASCII);
             final HostPrograms.Result answer;

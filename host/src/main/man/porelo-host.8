@@ -121,7 +121,8 @@ root's test switch start\-uncertified holds (see test\-switches), and refused wi
 status 65 otherwise, whatever the caller sent. While it holds, a caller in
 porelo\-people, taken from SUDO_USER and SUDO_UID, is accepted for the project
 default whatever the organization says. The record names no certificate, key or
-principal; it says uncertified, and its validity is seven days, as a certificate's.
+principal; it says uncertified, and its validity is certificate_days from host.yml,
+the longest a certificate may hold here.
 .TP
 .B task end <project> <task>
 Through sudo only: delete that project's task's gate token
@@ -142,7 +143,7 @@ v holds no switch, never all. No flag of a caller's sets or widens a switch.
 .TP
 .B forge issue\-token
 Through sudo only: replace the person's forge tokens except lends younger than
-one day, and answer the new token alone, without a line end.
+lent_token_days from host.yml, and answer the new token alone, without a line end.
 Used by porelo host forge-token and the person's gathered porelo host push and
 porelo host pull. The person comes from SUDO_USER, with SUDO_UID checked against
 the account database; there is no person argument and stdin carries no central token.
@@ -156,7 +157,7 @@ verb. Removal uses project check-central; down is not a gathered transfer.
 .TP
 .B forge lend\-token
 Through sudo only: make a token for one command, preserving the person's token
-and every lend younger than one day. Delete older or unreadable lends.
+and every lend younger than lent_token_days from host.yml. Delete older or unreadable lends.
 Answer the new token alone, without a line end.
 .PP
 These four verbs take an exclusive flock on forge.conf for authorization,
@@ -439,7 +440,9 @@ remaining domain/volume, file or dependency failure; 65 sudo invocation.
 .I /etc/porelo\-host/host.yml
 Root's host configuration, written by the role: limits, the limits line whose four factors
 porelo\-host's time limits follow, and certificate_days and lent_token_days, whole numbers
-from 1 to 3650 (7 and 1 when left out), which it reads and checks. Read once per run, never
+from 1 to 3650 written as plain decimals (7 and 1 when left out), which it reads and checks:
+the longest a task certificate may hold, which task start has porelo task check\-certificate
+judge by, and how long a lent forge token is kept. A key written twice is refused. Read once per run, never
 from a person's file; a missing file keeps all four factors at 1.0, and a file porelo\-host
 cannot take stops it
 with status 69 naming the file and what is wrong, before it does anything.

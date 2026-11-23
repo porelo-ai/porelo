@@ -26,7 +26,10 @@ final class AgentCertifier implements TaskCertification.Certifier {
 
     private final org.fuin.porelo.wire.LimitFactors limits;
 
-    /** How far back a certificate starts, for a clock a little behind on the side that checks. */
+    /**
+     * How far back a certificate starts, for a clock a little behind on the side that checks. A
+     * protocol value, no time limit: that side runs under another account, so no factor scales it.
+     */
     static final java.time.Duration BACKDATE = java.time.Duration.ofSeconds(60);
 
     /** How long the agent may take to certify. */
@@ -79,9 +82,7 @@ final class AgentCertifier implements TaskCertification.Certifier {
             // Back a while, for a clock that is a little behind on the side that checks.
             // Both in UTC by the environment: a time ending in Z is refused before OpenSSH 9.1.
             final String window =
-                    WHEN.format(Instant.now().minus(limits.machines(BACKDATE)))
-                            + ":"
-                            + WHEN.format(validBefore);
+                    WHEN.format(Instant.now().minus(BACKDATE)) + ":" + WHEN.format(validBefore);
             final ProcessBuilder builder =
                     new ProcessBuilder(
                                     program,

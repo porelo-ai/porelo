@@ -71,6 +71,50 @@ class AgentCertifierTest {
     }
 
     @Test
+    void aCertificateStartsAMinuteBackAtEveryMachinesFactor() throws Exception {
+        // The side that checks runs under another account's factors, so the backdating is fixed.
+        final Path said = dir.resolve("window");
+        final Path older = dir.resolve("window-ssh-keygen");
+        Files.writeString(
+                older,
+                """
+                #!/bin/sh
+                while [ $# -gt 1 ]; do
+                  if [ "$1" = -V ]; then time=$2; fi
+                  shift
+                done
+                echo "$time" > "%s"
+                echo cert > "${1%%.pub}-cert.pub"
+                """
+                        .formatted(said));
+        assertThat(older.toFile().setExecutable(true)).as("the stand-in can run").isTrue();
+        final java.time.format.DateTimeFormatter when =
+                java.time.format.DateTimeFormatter.ofPattern("uuuuMMddHHmmss")
+                        .withZone(java.time.ZoneOffset.UTC);
+        for (final String machines : List.of("0.1", "10")) {
+            final java.time.Instant asked = java.time.Instant.now();
+            new AgentCertifier(
+                            "ssh-ed25519 AAAA",
+                            dir.resolve("agent.sock"),
+                            older.toString(),
+                            LimitFactors.parse("machines=" + machines))
+                    .certify(
+                            "ssh-ed25519 AAAA",
+                            "task:demo:fix",
+                            "demo-fix",
+                            java.time.Instant.parse("2031-02-03T04:05:06Z"));
+            final java.time.Instant from =
+                    java.time.Instant.from(
+                            when.parse(Files.readString(said).strip().split(":")[0]));
+            assertThat(java.time.Duration.between(from, asked))
+                    .as("at machines " + machines)
+                    .isBetween(
+                            AgentCertifier.BACKDATE.minusSeconds(1),
+                            AgentCertifier.BACKDATE.plusSeconds(5));
+        }
+    }
+
+    @Test
     void thePersonsAgentCertifiesTheTaskKeyAndNoKeyFileIsRead() throws Exception {
         run(
                 "ssh-keygen",
@@ -107,8 +151,7 @@ class AgentCertifierTest {
                             new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                             List.of(person),
                             TaskCertification.DEFAULT_VALIDITY,
-                            Clock.systemUTC(),
-                            LimitFactors.DEFAULT);
+                            Clock.systemUTC());
 
             assertThat(issued.certificate().signer()).isEqualTo(person);
             assertThat(issued.certificate().principals()).containsExactly("task:demo:fix");
@@ -125,8 +168,7 @@ class AgentCertifierTest {
                                                     LimitFactors.DEFAULT),
                                             List.of(person),
                                             TaskCertification.DEFAULT_VALIDITY,
-                                            Clock.systemUTC(),
-                                            LimitFactors.DEFAULT))
+                                            Clock.systemUTC()))
                     .isInstanceOf(TaskCertification.Refused.class)
                     .hasMessageContaining("agent");
         } finally {
