@@ -47,6 +47,18 @@ public abstract class Hook {
     protected abstract void run(String stage, OciState state, Sidecar sidecar) throws Exception;
 
     /**
+     * Does what the hook can without the sidecar, once Porelo's own container's sidecar was
+     * refused: a task started by an older Porelo still has its helpers stopped when it ends.
+     * Nothing by default.
+     *
+     * @param stage Which stage fired.
+     * @param stateDirectory The task's state directory, which holds the refused sidecar.
+     */
+    protected void withoutSidecar(String stage, Path stateDirectory) {
+        // Nothing to do without the sidecar.
+    }
+
+    /**
      * Runs the hook and returns the process exit code.
      *
      * @param arguments Command line arguments; the first is the stage name.
@@ -77,7 +89,7 @@ public abstract class Hook {
             final Path stateDirectory = sidecarFile.getParent();
             final String recorded =
                     stateDirectory == null ? null : Sidecar.recordedId(stateDirectory);
-            if (recorded == null || !recorded.equals(state.id())) {
+            if (stateDirectory == null || recorded == null || !recorded.equals(state.id())) {
                 err.println(
                         "porelo-hook: container "
                                 + state.id()
@@ -87,7 +99,22 @@ public abstract class Hook {
                 // Refused before it runs; after it stopped, nothing of anybody's is touched.
                 return "poststop".equals(stage) ? 0 : 1;
             }
-            final Sidecar sidecar = Sidecar.readFrom(sidecarFile);
+            final Sidecar sidecar;
+            try {
+                sidecar = Sidecar.readFrom(sidecarFile);
+            } catch (IOException | RuntimeException ex) {
+                // Into the task's own log, where the operator looks: a sidecar an older Porelo
+                // wrote is refused at every stage, and the runtime reports only an exit code.
+                final String message =
+                        "the sidecar "
+                                + sidecarFile
+                                + " was refused: "
+                                + (ex.getMessage() == null ? ex.toString() : ex.getMessage());
+                err.println("porelo " + name + " (" + stage + "): " + message);
+                log(stateDirectory, stage, "failed: " + message);
+                withoutSidecar(stage, stateDirectory);
+                return failClosed ? 1 : 0;
+            }
             failed = sidecar;
             log(sidecar, stage, "start");
             run(stage, state, sidecar);
@@ -142,7 +169,23 @@ public abstract class Hook {
      */
     protected void log(Sidecar sidecar, String stage, String message) {
         try {
-            final Path file = Path.of(sidecar.stateDirectory()).resolve("hooks.log");
+            log(Path.of(sidecar.stateDirectory()), stage, message);
+        } catch (RuntimeException ex) {
+            // Deliberately ignored, see above.
+        }
+    }
+
+    /**
+     * Appends one line to the hook log in a state directory; never throws, as {@link #log(Sidecar,
+     * String, String)}.
+     *
+     * @param stateDirectory The task's state directory.
+     * @param stage Stage name.
+     * @param message What happened.
+     */
+    protected void log(Path stateDirectory, String stage, String message) {
+        try {
+            final Path file = stateDirectory.resolve("hooks.log");
             Directories.create(file.getParent());
             // Started by the container runtime, so whatever umask that has; this says its own.
             try (var channel =

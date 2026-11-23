@@ -470,7 +470,8 @@ class RunningEgressTest {
                         state.toString(),
                         name,
                         null,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
         Sidecar.recordId(state, ID);
         return state;

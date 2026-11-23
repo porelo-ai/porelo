@@ -446,6 +446,8 @@ public class TaskRunner {
                                         + " on port 443")
                         + ")");
 
+        // Read once: the task and its sidecar keep the factors it started under.
+        final org.fuin.porelo.wire.LimitFactors started = factors.get();
         final Path sidecarFile = state.resolve("sidecar.json");
         new Sidecar(
                         Sidecar.VERSION,
@@ -457,7 +459,8 @@ public class TaskRunner {
                         state.toString(),
                         task,
                         project.shortName(),
-                        shortName)
+                        shortName,
+                        started)
                 .writeTo(sidecarFile);
         out.println("sidecar   " + sidecarFile);
 
@@ -516,6 +519,8 @@ public class TaskRunner {
                         + limits.handIn() / (1024 * 1024)
                         + " MiB");
         environment.forEach(specification::environment);
+        // By name on the command line and by value in podman's environment, both from the spec.
+        specification.environment(org.fuin.porelo.wire.LimitFactors.ENVIRONMENT, started.line());
         if (authority != null) {
             specification
                     .volumeReadOnly(authority, TaskCertificates.MOUNT)

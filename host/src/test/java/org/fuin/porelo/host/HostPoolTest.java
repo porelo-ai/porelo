@@ -527,7 +527,7 @@ class HostPoolTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-        "'', 20, 10",
+        "DEFAULT, 20, 10",
         "retries=2.0, 40, 10",
         "machines=2.0, 20, 20",
         "polling=2.0, 20, 10"
@@ -536,7 +536,11 @@ class HostPoolTest {
             String line, int tries, int seconds) throws Exception {
         final Pool pool = new Pool();
         pool.lateAgent = true;
-        pool.limits = org.fuin.porelo.wire.LimitFactors.parse(line);
+        pool.limits =
+                org.fuin.porelo.wire.LimitFactors.parse(
+                        line.equals("DEFAULT")
+                                ? org.fuin.porelo.wire.LimitFactors.DEFAULT.line()
+                                : line);
         pool.clockBound = Duration.ofSeconds(seconds);
         pool.service();
         assertThat(pool.clockAttempts).as("the tries the retries factor allows").isEqualTo(tries);

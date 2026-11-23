@@ -451,9 +451,35 @@ class InstalledEcosystemTest {
     }
 
     @Test
-    void theCommandItStartsIsThePluginServingItsSocket() {
-        assertThat(InstalledEcosystem.command(Path.of("/opt/fake"), Path.of("/run/p.sock")))
-                .containsExactly("/opt/fake", "serve", "/run/p.sock");
+    void theCommandItStartsIsThePluginServingItsSocketUnderItsFactors() {
+        assertThat(
+                        InstalledEcosystem.command(
+                                Path.of("/opt/fake"),
+                                Path.of("/run/p.sock"),
+                                org.fuin.porelo.wire.LimitFactors.parse("polling=2")))
+                .containsExactly(
+                        "/opt/fake",
+                        "--limits",
+                        "services=1.0,machines=1.0,polling=2.0,retries=1.0",
+                        "serve",
+                        "/run/p.sock");
+    }
+
+    @Test
+    void aPluginIsStartedWithTheFactorsItsStarterHolds() throws IOException {
+        final Path executable = executable(directory.resolve("fake"), "echo \"$@\"; exit 3");
+        assertThatThrownBy(
+                        () ->
+                                new InstalledEcosystem(
+                                        executable,
+                                        run(),
+                                        org.fuin.porelo.wire.LimitFactors.parse("retries=2")))
+                .hasMessageContaining(
+                        "--limits services=1.0,machines=1.0,polling=1.0,retries=2.0 serve ");
+        assertThatThrownBy(() -> new InstalledEcosystem(executable, run()))
+                .as("at 1.0 the line is still written whole")
+                .hasMessageContaining(
+                        "--limits services=1.0,machines=1.0,polling=1.0,retries=1.0 serve ");
     }
 
     @Test
@@ -675,10 +701,12 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}, then {@code before} or {@code after}.
+         * @param given {@code --limits <line> serve <socket>}, then {@code before} or {@code
+         *     after}.
          * @throws Exception When it cannot write.
          */
-        public static void main(final String[] arguments) throws Exception {
+        public static void main(final String[] given) throws Exception {
+            final String[] arguments = served(given);
             final PrintStream out = System.out;
             if ("before".equals(arguments[2])) {
                 spew(out);
@@ -735,10 +763,11 @@ class InstalledEcosystemTest {
         /**
          * Waits.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param given {@code --limits <line> serve <socket>}.
          * @throws Exception When it cannot bind.
          */
-        public static void main(final String[] arguments) throws Exception {
+        public static void main(final String[] given) throws Exception {
+            final String[] arguments = served(given);
             final UnixDomainSocketAddress address = UnixDomainSocketAddress.of(arguments[1]);
             try (ServerSocketChannel listening =
                     ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {
@@ -771,9 +800,11 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}, then {@code name} or {@code answers}.
+         * @param given {@code --limits <line> serve <socket>}, then {@code name} or {@code
+         *     answers}.
          */
-        public static void main(final String[] arguments) {
+        public static void main(final String[] given) {
+            final String[] arguments = served(given);
             final boolean name = "name".equals(arguments[2]);
             try (VarlinkServer server =
                     new VarlinkServer(Path.of(arguments[1]), EcosystemProtocol.INTERFACE)) {
@@ -838,9 +869,10 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}, then the version from the script.
+         * @param given {@code --limits <line> serve <socket>}, then the version from the script.
          */
-        public static void main(final String[] arguments) {
+        public static void main(final String[] given) {
+            final String[] arguments = served(given);
             try (VarlinkServer server =
                     new VarlinkServer(Path.of(arguments[1]), EcosystemProtocol.INTERFACE)) {
                 final Number version =
@@ -890,9 +922,10 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param given {@code --limits <line> serve <socket>}.
          */
-        public static void main(final String[] arguments) {
+        public static void main(final String[] given) {
+            final String[] arguments = served(given);
             try (VarlinkServer server =
                     new VarlinkServer(Path.of(arguments[1]), EcosystemProtocol.INTERFACE)) {
                 System.out.println("ready " + arguments[1]);
@@ -908,9 +941,10 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param given {@code --limits <line> serve <socket>}.
          */
-        public static void main(final String[] arguments) {
+        public static void main(final String[] given) {
+            final String[] arguments = served(given);
             try (VarlinkServer server =
                     new VarlinkServer(Path.of(arguments[1]), EcosystemProtocol.INTERFACE)) {
                 server.method(
@@ -942,9 +976,10 @@ class InstalledEcosystemTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param given {@code --limits <line> serve <socket>}.
          */
-        public static void main(final String[] arguments) {
+        public static void main(final String[] given) {
+            final String[] arguments = served(given);
             try (VarlinkServer server =
                     new VarlinkServer(Path.of(arguments[1]), EcosystemProtocol.INTERFACE)) {
                 server.method(
@@ -989,6 +1024,12 @@ class InstalledEcosystemTest {
                 server.run();
             }
         }
+    }
+
+    /** What a plugin speaking the protocol by hand takes after the factors handed on first. */
+    private static String[] served(final String[] given) {
+        return Arrays.copyOfRange(
+                given, org.fuin.porelo.wire.LimitFactors.leading(given).next(), given.length);
     }
 
     private Path run() throws IOException {

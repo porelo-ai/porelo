@@ -282,13 +282,33 @@ public final class InstalledBuildReader implements AutoCloseable {
         return parameters;
     }
 
+    /**
+     * Returns the command that starts a reader: the one place it is said.
+     *
+     * @param executable The reader.
+     * @param socket Its socket.
+     * @param limits The factors its starter holds, handed on before the mode.
+     * @return The command.
+     */
+    static List<String> command(
+            final Path executable,
+            final Path socket,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        return List.of(
+                executable.toString(),
+                org.fuin.porelo.wire.LimitFactors.OPTION,
+                limits.line(),
+                "serve",
+                socket.toString());
+    }
+
     /** Starts the reader, waits for it to listen, and completes the handshake. */
     private Running start() {
         final Process process;
         try {
             Files.deleteIfExists(socket);
             process =
-                    new ProcessBuilder(executable.toString(), "serve", socket.toString())
+                    new ProcessBuilder(command(executable, socket, limits))
                             .redirectErrorStream(true)
                             .start();
         } catch (IOException ex) {

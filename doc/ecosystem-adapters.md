@@ -94,8 +94,10 @@ Build against `org.fuin.porelo:porelo-ecosystem-api` and `org.fuin.porelo:porelo
 choose its own license. Implement `Ecosystem` and pass it to `EcosystemMain.run` from the executable's main
 method. That supplies `describe` and `serve <socket>`. Build the executable with GraalVM Native Image.
 
-`serve` listens on the Unix socket Porelo names, prints `ready <socket>` after it listens, and serves
-`org.fuin.porelo.Ecosystem1`. Porelo ends the process when it closes the client. The
+Porelo starts an adapter as `--limits <line> serve <socket>`, handing it the [time factors](limits.md) it holds;
+`EcosystemMain` takes the line before the mode, so an adapter built on an `EcosystemMain` that does not take it
+fails at its start. `serve` listens on the Unix socket Porelo names, prints `ready <socket>` after it listens,
+and serves `org.fuin.porelo.Ecosystem1`. Porelo ends the process when it closes the client. The
 [published interface](https://github.com/porelo-ai/porelo/blob/main/ecosystems/api/src/main/resources/org/fuin/porelo/ecosystem/api/org.fuin.porelo.Ecosystem1.varlink)
 is the wire contract; the API's server and client implement it together.
 

@@ -41,6 +41,47 @@ class SidecarTest {
     }
 
     @Test
+    void carriesTheTasksLimitsLineWholeForItsHooks() {
+        final String json = withoutLimits().replace("{", "{\"limits\":\"machines=2\",");
+
+        assertThat(Json.parse(Sidecar.fromJson(json).toJson()))
+                .as("read as the factors, written back with all four")
+                .isInstanceOfSatisfying(
+                        java.util.Map.class,
+                        values ->
+                                assertThat(values)
+                                        .containsEntry(
+                                                "limits",
+                                                "services=1.0,machines=2.0,polling=1.0,retries=1.0"));
+    }
+
+    @Test
+    void refusesASidecarWithoutALimitsLineOrWithABadOne() {
+        final String without = withoutLimits();
+        assertThatThrownBy(() -> Sidecar.fromJson(without))
+                .as("a hook never guesses the task's factors, and says why it has none")
+                .isInstanceOf(JsonException.class)
+                .hasMessageContaining("'limits' is missing")
+                .hasMessageContaining("started by an older Porelo")
+                .hasMessageContaining("must be recreated");
+        assertThatThrownBy(() -> Sidecar.fromJson(without.replace("{", "{\"limits\":\"\",")))
+                .as("an empty line is no line, never the defaults")
+                .isInstanceOf(JsonException.class)
+                .hasMessageContaining("limits")
+                .hasMessageContaining("an empty line names no factor");
+        assertThatThrownBy(
+                        () -> Sidecar.fromJson(without.replace("{", "{\"limits\":\"machines=0\",")))
+                .isInstanceOf(JsonException.class)
+                .hasMessageContaining("limits")
+                .hasMessageContaining("machines 0 lies outside 0.1 to 100");
+    }
+
+    /** The sidecar's document with its limits line taken out, wherever it stands. */
+    private static String withoutLimits() {
+        return SIDECAR.toJson().replaceAll(",?\"limits\":\"[^\"]*\"", "").replace("{,", "{");
+    }
+
+    @Test
     void survivesARoundTrip() {
 
         assertThat(Sidecar.fromJson(SIDECAR.toJson())).isEqualTo(SIDECAR);

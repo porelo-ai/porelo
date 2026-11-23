@@ -46,6 +46,30 @@ public class ReaderHook extends Hook {
         startReader(state, sidecar);
     }
 
+    /**
+     * Returns the command that runs the reader in a container's network namespace.
+     *
+     * @param pid Host process id of the container's init process.
+     * @param porelo The {@code porelo} binary the sidecar names.
+     * @param sidecar What the launcher wrote for this container.
+     * @param nsenter The {@code nsenter} program, at a fixed path.
+     * @return Command and arguments.
+     */
+    static List<String> readerCommand(
+            final long pid, final Path porelo, final Sidecar sidecar, final Path nsenter) {
+        return List.of(
+                nsenter.toString(),
+                "--target",
+                String.valueOf(pid),
+                "--net",
+                porelo.toString(),
+                // The factors the task started with, so its reader waits as the task does.
+                org.fuin.porelo.wire.LimitFactors.OPTION,
+                sidecar.limits().line(),
+                "shield",
+                "read");
+    }
+
     private void startReader(OciState state, Sidecar sidecar) throws IOException {
 
         if (state.pid() <= 0) {
@@ -60,14 +84,7 @@ public class ReaderHook extends Hook {
         Directories.create(stateDirectory);
 
         final List<String> command =
-                List.of(
-                        SystemProgram.find("nsenter").toString(),
-                        "--target",
-                        String.valueOf(state.pid()),
-                        "--net",
-                        porelo.toString(),
-                        "shield",
-                        "read");
+                readerCommand(state.pid(), porelo, sidecar, SystemProgram.find("nsenter"));
 
         final Process reader =
                 new ProcessBuilder(command)

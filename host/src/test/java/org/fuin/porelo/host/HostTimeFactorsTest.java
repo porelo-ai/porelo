@@ -40,7 +40,7 @@ class HostTimeFactorsTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"'', 10", "services=2.0, 20", "machines=2.0, 10"})
+    @CsvSource({"DEFAULT, 10", "services=2.0, 20", "machines=2.0, 10"})
     void theSshConnectToCentralFollowsTheServicesFactor(String line, int seconds)
             throws IOException {
         final ProjectFiles files = files();
@@ -53,14 +53,14 @@ class HostTimeFactorsTest {
                                     throw new AssertionError("ssh options start no program");
                                 },
                                 Path::of)
-                        .limited(LimitFactors.parse(line));
+                        .limited(factors(line));
         final Map<String, @Nullable Object> item = Map.of("name", "alpha");
         assertThat(new ProjectReadKeys(files, runtime).ssh(root.resolve("keys"), item))
                 .contains("ConnectTimeout=" + seconds + " ");
     }
 
     @ParameterizedTest
-    @CsvSource({"'', 60", "machines=2.0, 120", "services=2.0, 60"})
+    @CsvSource({"DEFAULT, 60", "machines=2.0, 120", "services=2.0, 60"})
     void aMaintenanceCommandFollowsTheMachinesFactor(String line, int seconds) throws IOException {
         final List<Duration> timeouts = new ArrayList<>();
         final ProjectRuntime runtime =
@@ -71,7 +71,7 @@ class HostTimeFactorsTest {
                                     return new HostPrograms.Result(0, "");
                                 },
                                 Path::of)
-                        .limited(LimitFactors.parse(line));
+                        .limited(factors(line));
         runtime.command(List.of("/usr/bin/true"));
         assertThat(timeouts).containsExactly(Duration.ofSeconds(seconds));
     }
@@ -96,19 +96,24 @@ class HostTimeFactorsTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"'', 3000", "polling=2.0, 6000", "machines=2.0, 3000"})
+    @CsvSource({"DEFAULT, 3000", "polling=2.0, 6000", "machines=2.0, 3000"})
     void theLeaseWaitLooksAgainAfterThePollingFactor(String line, long millis) {
-        assertThat(PoolMachines.leasePoll(LimitFactors.parse(line)))
-                .isEqualTo(Duration.ofMillis(millis));
+        assertThat(PoolMachines.leasePoll(factors(line))).isEqualTo(Duration.ofMillis(millis));
     }
 
     @ParameterizedTest
-    @CsvSource({"'', 10", "machines=2.0, 20", "polling=2.0, 10"})
+    @CsvSource({"DEFAULT, 10", "machines=2.0, 20", "polling=2.0, 10"})
     void aHostProgramWithoutItsOwnLimitFollowsTheMachinesFactor(String line, int seconds) {
         assertThat(HostPrograms.TIMEOUT).isEqualTo(Duration.ofSeconds(10));
-        final var limits = LimitFactors.parse(line);
+        final var limits = factors(line);
         assertThat(limits.machines(HostPrograms.TIMEOUT)).isEqualTo(Duration.ofSeconds(seconds));
         final HostPrograms programs = new HostPrograms(limits);
         assertThat(programs).extracting("timeout").isEqualTo(Duration.ofSeconds(seconds));
+    }
+
+    // The defaults are written DEFAULT and handed as their line, since Porelo never hands an
+    // empty one.
+    private static LimitFactors factors(String line) {
+        return LimitFactors.parse(line.equals("DEFAULT") ? LimitFactors.DEFAULT.line() : line);
     }
 }

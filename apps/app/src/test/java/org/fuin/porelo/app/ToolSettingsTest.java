@@ -56,7 +56,8 @@ class ToolSettingsTest {
                 public List<File> configure(
                         final InstalledEcosystems.Description plugin,
                         final List<Repository> repositories,
-                        final Extension extension) {
+                        final Extension extension,
+                        final org.fuin.porelo.wire.LimitFactors limits) {
                     return List.of(new File(".config/settings", "", false));
                 }
             };
@@ -67,6 +68,51 @@ class ToolSettingsTest {
                 adapter,
                 "#!/bin/sh\nprintf '{\"protocolVersion\":1,\"ecosystem\":\"" + name + "\"}'\n");
         adapter.toFile().setExecutable(true);
+    }
+
+    @Test
+    void anAdapterStartedForItsSettingsIsHandedTheAccountsFactors() throws IOException {
+        final Path adapter = dir.resolve("maven");
+        final Path arguments = dir.resolve("arguments");
+        // Describes itself, then writes down how it was started and ends at once.
+        Files.writeString(
+                adapter,
+                "#!/bin/sh\n"
+                        + "if [ \"$1\" = describe ]; then"
+                        + " printf '{\"protocolVersion\":1,\"ecosystem\":\"maven\"}'; exit 0; fi\n"
+                        + "printf '%s\\n' \"$@\" > '"
+                        + arguments
+                        + "'\nexit 3\n");
+        adapter.toFile().setExecutable(true);
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                                project: {name: uc, security_class: guarded}
+                                image: {from: 'ubuntu:24.04'}
+                                egress: {domains: [repo.example.org]}
+                                tool_repositories:
+                                  - ecosystem: maven
+                                    name: public
+                                    url: "https://repo.example.org/maven/"
+                                """),
+                        "test.yml");
+        // A detector that only detects: the adapter is started by the interface itself.
+        final EcosystemDetector onlyDetects =
+                (plugin, checkout, home) -> {
+                    throw new AssertionError("a start detects nothing");
+                };
+
+        ToolSettings.ask(
+                project,
+                List.of(dir),
+                onlyDetects,
+                org.fuin.porelo.wire.LimitFactors.parse("machines=2.5"));
+
+        assertThat(Files.readAllLines(arguments))
+                .as("started under the account's factors, never at 1.0")
+                .containsSubsequence(
+                        "--limits", "services=1.0,machines=2.5,polling=1.0,retries=1.0", "serve");
     }
 
     @Test
@@ -145,7 +191,8 @@ class ToolSettingsTest {
                     public List<File> configure(
                             final InstalledEcosystems.Description plugin,
                             final List<Repository> repositories,
-                            final Extension extension) {
+                            final Extension extension,
+                            final org.fuin.porelo.wire.LimitFactors limits) {
                         asked.addAll(repositories);
                         return List.of();
                     }

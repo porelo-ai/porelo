@@ -68,7 +68,8 @@ class GoneContainerTest {
                             runtime.toString(),
                             "c",
                             null,
-                            null)
+                            null,
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT)
                     .writeTo(folder.resolve("sidecar.json"));
         }
         assertThat(Sidecar.recordedId(runtime)).as("the fixture records the id").isEqualTo(ID);

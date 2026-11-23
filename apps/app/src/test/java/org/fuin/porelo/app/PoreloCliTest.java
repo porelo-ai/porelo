@@ -1,11 +1,51 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link PoreloCli}. */
 class PoreloCliTest {
+
+    private static final AccountConfig OWN =
+            new AccountConfig(LimitFactors.parse("polling=3"), 7, 90, 7, 7, 30);
+
+    @Test
+    void aLeadingLimitsLineIsTheFactorsTheCommandRunsUnder() {
+        final PoreloCli.Started started =
+                PoreloCli.started(
+                        new String[] {"--limits", "machines=2", "task", "list"},
+                        NoAccount.context().withAccount(OWN));
+
+        assertThat(started.arguments()).containsExactly("task", "list");
+        assertThat(started.context().limits()).isEqualTo(LimitFactors.parse("machines=2"));
+        assertThat(started.context().account().cardDays())
+                .as("only the factors are its starter's; every other setting stays the account's")
+                .isEqualTo(90);
+    }
+
+    @Test
+    void withoutTheOptionTheAccountsOwnFactorsHold() {
+        final PoreloCli.Started started =
+                PoreloCli.started(
+                        new String[] {"task", "list"}, NoAccount.context().withAccount(OWN));
+
+        assertThat(started.arguments()).containsExactly("task", "list");
+        assertThat(started.context().limits()).isEqualTo(LimitFactors.parse("polling=3"));
+    }
+
+    @Test
+    void aBadLimitsLineIsRefusedBeforeAnyCommandRuns() {
+        assertThatThrownBy(
+                        () ->
+                                PoreloCli.started(
+                                        new String[] {"--limits", "machines=0", "task", "list"},
+                                        NoAccount.context()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("--limits: machines 0 lies outside 0.1 to 100");
+    }
 
     @Test
     void recognisesAWorkingDirectoryThatHasBeenRemoved() {

@@ -170,7 +170,8 @@ public record AccountConfig(
     }
 
     private static LimitFactors limits(@Nullable Map<?, ?> given) {
-        if (given == null) {
+        // A section that names no factor leaves each at 1.0; a factor named is read as a line.
+        if (given == null || given.isEmpty()) {
             return LimitFactors.DEFAULT;
         }
         final StringBuilder line = new StringBuilder();

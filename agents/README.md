@@ -512,7 +512,9 @@ a newer one included, since Porelo calls only methods it knows.
 `VERSION` and no agent has to release for it. A method an agent lacks answers
 `org.varlink.service.MethodNotFound`, and Porelo says of that "this agent cannot
 say", never "nothing found". Any other error is an error, not an old agent. A
-renamed, removed or reinterpreted method or field raises `LOWEST`.
+renamed, removed or reinterpreted method or field raises `LOWEST`, and so does a change
+to how Porelo starts an agent: since protocol 6 the start is `<agent> --limits <line>
+serve <socket>`, which an agent built before it refuses.
 
 **How long Porelo waits for an answer** is counted from a call's first byte
 sent: 120 s for `ContainerSetup` and for `Format`, which is asked for a batch of
@@ -522,10 +524,10 @@ declares no bound of its own.
 
 **What an agent's package depends on.** Porelo's `.deb` and `.rpm` provide
 `porelo-agent-protocol` at one version, its `LOWEST`: `Provides: porelo-agent-protocol
-(= 3)` on Debian, `porelo-agent-protocol = 3` on Fedora. An agent's package requires
+(= 6)` on Debian, `porelo-agent-protocol = 6` on Fedora. An agent's package requires
 it at least at `AgentProtocol.LOWEST` at its build and at most at its own `VERSION` -
-on Debian `Depends: porelo-agent-protocol (>= 3), porelo-agent-protocol (<= 5)`, on
-Fedora the two requires `porelo-agent-protocol >= 3` and `porelo-agent-protocol <= 5`;
+on Debian `Depends: porelo-agent-protocol (>= 6), porelo-agent-protocol (<= 6)`, on
+Fedora the two requires `porelo-agent-protocol >= 6` and `porelo-agent-protocol <= 6`;
 no rich dependency, which the rpm plugin the adapters build with refuses. The package
 manager then refuses a pairing Porelo itself would refuse, and also a Porelo whose
 `LOWEST` is older than the agent's: the agent was built after a break that Porelo

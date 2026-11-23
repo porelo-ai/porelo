@@ -74,20 +74,6 @@ public interface EcosystemDetector {
                 Files.deleteIfExists(temporary);
             }
         }
-
-        @Override
-        public List<File> configure(
-                final InstalledEcosystems.Description plugin,
-                final List<Repository> repositories,
-                final Extension extension)
-                throws IOException {
-            final Path temporary = Files.createTempDirectory("porelo-configure-");
-            try (var installed = new InstalledEcosystem(plugin.executable(), temporary, limits)) {
-                return installed.configure(repositories, extension);
-            } finally {
-                Files.deleteIfExists(temporary);
-            }
-        }
     }
 
     /**
@@ -125,11 +111,14 @@ public interface EcosystemDetector {
     }
 
     /**
-     * Asks one plugin which settings files its tool needs in a task to reach these repositories.
+     * Asks one plugin which settings files its tool needs in a task to reach these repositories,
+     * starting it itself, whatever detector asks.
      *
      * @param plugin The plugin.
      * @param repositories The repositories the project declares for it, each URL as written.
      * @param extension The block the project keeps for it, or {@link Extension#NONE}.
+     * @param limits The factors of the start that asks, which the plugin is handed: a detector that
+     *     only detects still starts it under them.
      * @return The files, each relative to the task user's home.
      * @throws IOException When it cannot be asked.
      * @throws org.fuin.porelo.ecosystem.api.EcosystemRefused When it refuses.
@@ -139,10 +128,11 @@ public interface EcosystemDetector {
     default List<File> configure(
             final InstalledEcosystems.Description plugin,
             final List<Repository> repositories,
-            final Extension extension)
+            final Extension extension,
+            final org.fuin.porelo.wire.LimitFactors limits)
             throws IOException {
         final Path temporary = Files.createTempDirectory("porelo-configure-");
-        try (var installed = new InstalledEcosystem(plugin.executable(), temporary)) {
+        try (var installed = new InstalledEcosystem(plugin.executable(), temporary, limits)) {
             return installed.configure(repositories, extension);
         } finally {
             Files.deleteIfExists(temporary);

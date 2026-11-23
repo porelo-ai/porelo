@@ -2008,7 +2008,8 @@ class FirstStartTest {
             public List<org.fuin.porelo.ecosystem.api.File> configure(
                     final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description plugin,
                     final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
-                    final org.fuin.porelo.ecosystem.api.Extension extension) {
+                    final org.fuin.porelo.ecosystem.api.Extension extension,
+                    final org.fuin.porelo.wire.LimitFactors limits) {
                 asked.addAll(repositories);
                 blocks.add(extension);
                 if ("true".equals(extension.values().get("ownSettings"))) {

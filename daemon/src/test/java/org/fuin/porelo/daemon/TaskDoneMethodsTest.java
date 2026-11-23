@@ -83,7 +83,8 @@ class TaskDoneMethodsTest {
                         context.paths().tasks().containerState(actual).toString(),
                         "work",
                         null,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
         McpTaskSockets.as(
                 actual,

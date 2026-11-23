@@ -115,6 +115,15 @@ class HostLimitsTest {
     }
 
     @Test
+    void anEmptyLineIsRefusedNeverTakenAsTheDefaults() throws IOException {
+        fixture.put(HostLimits.FILE, "limits: \"\"\n");
+        assertThatThrownBy(this::read)
+                .isInstanceOf(HostRefusal.class)
+                .hasMessageContaining(fixture.path(HostLimits.FILE) + ": limits: ")
+                .hasMessageContaining("an empty line names no factor");
+    }
+
+    @Test
     void aFileOthersCanWriteIsRefusedByName() throws IOException {
         final Path file = fixture.put(HostLimits.FILE, "limits: " + LINE + "\n");
         fixture.overrides.put(file, Map.of("mode", 0100666));

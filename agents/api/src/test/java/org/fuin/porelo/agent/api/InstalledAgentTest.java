@@ -1,12 +1,41 @@
 package org.fuin.porelo.agent.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /** Tests for {@link InstalledAgent}. */
 class InstalledAgentTest {
+
+    @TempDir Path directory;
+
+    @Test
+    void anAgentIsStartedWithTheFactorsItsStarterHolds() throws IOException {
+        final Path agent = directory.resolve("porelo-agent-fake");
+        Files.writeString(agent, "#!/bin/sh\necho \"$@\"; exit 3\n");
+        Files.setPosixFilePermissions(agent, PosixFilePermissions.fromString("rwx------"));
+        final Path sockets = directory.resolve("run");
+
+        assertThatThrownBy(
+                        () ->
+                                new InstalledAgent(
+                                        agent,
+                                        sockets,
+                                        org.fuin.porelo.wire.LimitFactors.parse("services=2")))
+                .as("the line comes before the mode, every factor written")
+                .hasMessageContaining(
+                        "--limits services=2.0,machines=1.0,polling=1.0,retries=1.0 serve ");
+        assertThatThrownBy(() -> new InstalledAgent(agent, sockets))
+                .as("at 1.0 the line is still written whole")
+                .hasMessageContaining(
+                        "--limits services=1.0,machines=1.0,polling=1.0,retries=1.0 serve ");
+    }
 
     @Test
     void twoLookupsAtOnceNeverShareASocket() {

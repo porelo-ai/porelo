@@ -192,7 +192,7 @@ public class InstalledAgent implements AutoCloseable {
             Directories.create(socketDirectory);
             Files.deleteIfExists(socket);
             this.process =
-                    new ProcessBuilder(executable.toString(), "serve", socket.toString())
+                    new ProcessBuilder(command(executable, socket, limits))
                             .redirectErrorStream(true)
                             .start();
         } catch (IOException ex) {
@@ -228,6 +228,26 @@ public class InstalledAgent implements AutoCloseable {
                     ? agent
                     : new AgentException(executable + " failed to start: " + ex.getMessage(), ex);
         }
+    }
+
+    /**
+     * Returns the command that starts an agent: the one place it is said.
+     *
+     * @param executable The agent binary.
+     * @param socket Its socket.
+     * @param limits The factors its starter holds, handed on before the mode.
+     * @return The command.
+     */
+    static List<String> command(
+            final Path executable,
+            final Path socket,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        return List.of(
+                executable.toString(),
+                org.fuin.porelo.wire.LimitFactors.OPTION,
+                limits.line(),
+                "serve",
+                socket.toString());
     }
 
     /**

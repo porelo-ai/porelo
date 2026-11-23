@@ -302,7 +302,7 @@ class CredentialCarryingTest {
         /**
          * Serves the agent.
          *
-         * @param args Definition file, serve verb and socket path.
+         * @param args Definition file, the limits option and its line, serve verb and socket path.
          * @throws java.io.IOException If a file cannot be read.
          */
         public static void main(final String[] args) throws java.io.IOException {
@@ -344,8 +344,8 @@ class CredentialCarryingTest {
                                     return extractor;
                                 }
                             },
-                            Path.of(args[2]))) {
-                System.out.println("ready " + args[2]);
+                            Path.of(args[args.length - 1]))) {
+                System.out.println("ready " + args[args.length - 1]);
                 System.out.flush();
                 server.serve();
             }

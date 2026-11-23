@@ -49,7 +49,7 @@ public record LimitFactors(
 
     private static final Set<String> NAMES = Set.of("services", "machines", "polling", "retries");
 
-    /** All four at 1.0: what a program started without the line, or an empty one, uses. */
+    /** All four at 1.0: what a program started without the line uses. */
     public static final LimitFactors DEFAULT =
             new LimitFactors(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE);
 
@@ -78,18 +78,19 @@ public record LimitFactors(
     /**
      * Reads a limits line: comma-separated {@code name=value}, each of {@code services}, {@code
      * machines}, {@code polling} and {@code retries} at most once, in any order, with no spaces; a
-     * name left out is 1.0 and an empty line all four at 1.0. A value is a decimal from 0.1 to 100
-     * with a dot and at most two digits after it.
+     * name left out is 1.0. A value is a decimal from 0.1 to 100 with a dot and at most two digits
+     * after it. An empty line names no factor and is refused: a line that is given is never taken
+     * as the defaults, which only a program given no line at all uses.
      *
      * @param line The line as handed on.
      * @return The factors it names.
-     * @throws IllegalArgumentException Naming what is wrong: an unknown or repeated name, a part
-     *     that is no {@code name=value}, or a value that is no such number or lies outside the
-     *     range.
+     * @throws IllegalArgumentException Naming what is wrong: an empty line, an unknown or repeated
+     *     name, a part that is no {@code name=value}, or a value that is no such number or lies
+     *     outside the range.
      */
     public static LimitFactors parse(String line) {
         if (line.isEmpty()) {
-            return DEFAULT;
+            throw new IllegalArgumentException("an empty line names no factor");
         }
         BigDecimal services = BigDecimal.ONE;
         BigDecimal machines = BigDecimal.ONE;

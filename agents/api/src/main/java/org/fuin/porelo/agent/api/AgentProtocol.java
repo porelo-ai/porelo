@@ -24,7 +24,7 @@ public final class AgentProtocol {
      *
      * <p>Raised with every addition, so that an agent says how much of the contract it knows.
      */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
 
     /**
      * The lowest version this Porelo needs.
@@ -32,7 +32,7 @@ public final class AgentProtocol {
      * <p>An agent at or above it is accepted, a newer one included, since Porelo calls only methods
      * it knows. Raised only when a method or field is renamed, removed or changes its meaning.
      */
-    public static final int LOWEST = 3;
+    public static final int LOWEST = 6;
 
     /** Returns the agent's definition and the protocol version it speaks. */
     public static final String DESCRIBE = INTERFACE + ".Describe";

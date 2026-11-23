@@ -142,6 +142,37 @@ public record PoreloContext(
                 () -> settings);
     }
 
+    /**
+     * Returns this context under the factors of the program that started it, every other setting
+     * still the account's and still read only when first asked.
+     *
+     * @param factors The factors its starter handed on.
+     * @return The context.
+     */
+    public PoreloContext withLimits(final org.fuin.porelo.wire.LimitFactors factors) {
+        final java.util.function.Supplier<AccountConfig> own = accountSettings;
+        return new PoreloContext(
+                runner,
+                paths,
+                exec,
+                environment,
+                recognizesTasks,
+                prompt,
+                input,
+                machineName,
+                following(hostVault, () -> factors),
+                () -> {
+                    final AccountConfig read = own.get();
+                    return new AccountConfig(
+                            factors,
+                            read.certificateDays(),
+                            read.cardDays(),
+                            read.renewNoticeDays(),
+                            read.askedAboutDays(),
+                            read.keptDays());
+                });
+    }
+
     /** The daemon's connection waiting as the account's factors say; any other owner as it is. */
     private static HostVaultAccess following(
             final HostVaultAccess owner,

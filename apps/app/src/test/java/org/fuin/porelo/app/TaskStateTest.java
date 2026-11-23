@@ -261,7 +261,8 @@ class TaskStateTest {
                         shortened.paths().tasks().containerState(name).toString(),
                         "x",
                         null,
-                        "Not_Short!")
+                        "Not_Short!",
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(record.resolve("sidecar.json"));
         assertThat(
                         ((TaskIdentities.Refused) new TaskIdentities(shortened).lookup(name, null))

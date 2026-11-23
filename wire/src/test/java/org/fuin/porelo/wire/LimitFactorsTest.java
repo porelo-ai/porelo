@@ -85,6 +85,9 @@ class LimitFactorsTest {
         assertThatThrownBy(() -> LimitFactors.leading(new String[] {"--limits", "x=1", "serve"}))
                 .as("what a program prints before it ends with 64")
                 .hasMessageStartingWith("--limits: 'x' is no limit");
+        assertThatThrownBy(() -> LimitFactors.leading(new String[] {"--limits", "", "serve"}))
+                .as("a line given empty is refused, never taken as the defaults")
+                .hasMessage("--limits: an empty line names no factor");
     }
 
     @Test

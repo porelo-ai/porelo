@@ -106,6 +106,35 @@ public class PoreloCli implements Callable<Integer> {
     }
 
     /**
+     * The context a command runs under and the arguments left for the command line.
+     *
+     * @param context The context.
+     * @param arguments The arguments after the limits line.
+     */
+    record Started(PoreloContext context, String[] arguments) {}
+
+    /**
+     * Takes the limits line Porelo hands a program it starts, {@code porelo --limits <line> <verb>
+     * ...}, before the command line sees the arguments.
+     *
+     * @param arguments The program's arguments.
+     * @param context The account's context.
+     * @return The context under the line's factors and the arguments after it; the context as given
+     *     and every argument without the option.
+     * @throws IllegalArgumentException Saying {@code --limits: <what is wrong>}.
+     */
+    static Started started(final String[] arguments, final PoreloContext context) {
+        final org.fuin.porelo.wire.LimitFactors.Leading leading =
+                org.fuin.porelo.wire.LimitFactors.leading(arguments);
+        if (leading.next() == 0) {
+            return new Started(context, arguments);
+        }
+        return new Started(
+                context.withLimits(leading.factors()),
+                java.util.Arrays.copyOfRange(arguments, leading.next(), arguments.length));
+    }
+
+    /**
      * Runs the command line.
      *
      * @param args Command line arguments.
@@ -124,8 +153,16 @@ public class PoreloCli implements Callable<Integer> {
         }
         quietLogging();
         HostForgeAddress.install();
+        final Started started;
         try {
-            System.exit(commandLine(PoreloContext.real()).execute(args));
+            started = started(args, PoreloContext.real());
+        } catch (final IllegalArgumentException ex) {
+            System.err.println("porelo: " + ex.getMessage());
+            System.exit(64);
+            return;
+        }
+        try {
+            System.exit(commandLine(started.context()).execute(started.arguments()));
         } catch (final Error ex) {
             // Anything else is rethrown untouched.
             if (!missingWorkingDirectory(ex)) {

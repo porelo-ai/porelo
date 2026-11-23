@@ -72,6 +72,9 @@ class AccountConfigTest {
     @Test
     void aSectionWrittenWithNothingUnderItIsThatSectionsDefaults() {
         assertThat(read("limits:\nrecords:\n")).isEqualTo(AccountConfig.DEFAULT);
+        assertThat(read("limits: {}\n"))
+                .as("a mapping that names no factor leaves each at 1.0")
+                .isEqualTo(AccountConfig.DEFAULT);
     }
 
     @Test

@@ -237,6 +237,12 @@ final class FollowContext {
                 (name, path) ->
                         command.addAll(List.of("-p", "LoadCredential=" + name + ":" + path)));
         command.add(runtime.checked("porelo").toString());
+        if (user == null) {
+            // Under a dynamic user it reads no account's settings: the host's factors are its own.
+            // A person's porelo follows that person's own settings, never the host's.
+            command.add(org.fuin.porelo.wire.LimitFactors.OPTION);
+            command.add(runtime.limits().line());
+        }
         command.addAll(arguments);
         final HostPrograms.Result result;
         try {

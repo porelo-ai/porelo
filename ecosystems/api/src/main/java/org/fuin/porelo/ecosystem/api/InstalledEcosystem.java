@@ -253,10 +253,19 @@ public final class InstalledEcosystem implements AutoCloseable {
      *
      * @param executable The plugin.
      * @param socket Its socket.
+     * @param limits The factors its starter holds, handed on before the mode.
      * @return The command.
      */
-    static List<String> command(final Path executable, final Path socket) {
-        return List.of(executable.toString(), "serve", socket.toString());
+    static List<String> command(
+            final Path executable,
+            final Path socket,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        return List.of(
+                executable.toString(),
+                org.fuin.porelo.wire.LimitFactors.OPTION,
+                limits.line(),
+                "serve",
+                socket.toString());
     }
 
     /**
@@ -454,7 +463,8 @@ public final class InstalledEcosystem implements AutoCloseable {
         final Process process;
         try {
             final ProcessBuilder builder =
-                    new ProcessBuilder(command(executable, socket)).redirectErrorStream(true);
+                    new ProcessBuilder(command(executable, socket, limits))
+                            .redirectErrorStream(true);
             // Nothing of Porelo's, whose environment may hold a secret. A native executable needs
             // none of it, a non-ASCII path included. A plugin for Resolve gets the proxy settings.
             builder.environment().clear();

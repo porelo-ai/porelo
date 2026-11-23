@@ -78,4 +78,60 @@ class SupervisorHookTest {
                 .as("the operator needs the unsafe path and the reason")
                 .contains("createRuntime failed: Refusing /usr/sbin/dnsmasq: not owned by root");
     }
+
+    @Test
+    void aSidecarWithoutItsLimitsLineStillReapsTheTasksHelpersAndSaysWhy(@TempDir final Path dir)
+            throws Exception {
+        // What a Porelo built before the limits line wrote: every field but that one.
+        final Path sidecar = dir.resolve("sidecar.json");
+        Files.writeString(
+                sidecar,
+                new Sidecar(
+                                Sidecar.VERSION,
+                                "uc",
+                                "guarded",
+                                dir.resolve("ruleset.nft").toString(),
+                                dir.resolve("dns.conf").toString(),
+                                "/usr/bin/porelo",
+                                dir.toString())
+                        .toJson()
+                        .replaceAll(",?\"limits\":\"[^\"]*\"", "")
+                        .replace("{,", "{"));
+        Sidecar.recordId(dir, "abc123abc123");
+        final Process helper = new ProcessBuilder("sleep", "60").start();
+        try {
+            org.fuin.porelo.wire.HelperPid.record(dir.resolve("reader.pid"), helper.toHandle());
+            final String state =
+                    "{\"id\":\"abc123abc123\",\"pid\":0,\"annotations\":{\""
+                            + Sidecar.ANNOTATION
+                            + "\":\""
+                            + sidecar
+                            + "\"}}";
+
+            final int exit =
+                    new SupervisorHook(name -> Path.of("/usr/sbin", name))
+                            .execute(
+                                    new String[] {"poststop"},
+                                    new ByteArrayInputStream(
+                                            state.getBytes(StandardCharsets.UTF_8)),
+                                    new PrintStream(
+                                            new ByteArrayOutputStream(),
+                                            true,
+                                            StandardCharsets.UTF_8));
+
+            assertThat(exit).as("soft-fail").isZero();
+            assertThat(helper.waitFor(10, java.util.concurrent.TimeUnit.SECONDS))
+                    .as("the task's helper is reaped without the sidecar's other fields")
+                    .isTrue();
+            assertThat(dir.resolve("reader.pid")).doesNotExist();
+            assertThat(Files.readString(dir.resolve("hooks.log")))
+                    .as("the operator reads why, and what to do")
+                    .contains("poststop")
+                    .contains("'limits' is missing")
+                    .contains("started by an older Porelo")
+                    .contains("must be recreated");
+        } finally {
+            helper.destroyForcibly();
+        }
+    }
 }

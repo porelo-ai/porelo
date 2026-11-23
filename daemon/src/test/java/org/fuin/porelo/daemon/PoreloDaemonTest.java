@@ -93,7 +93,8 @@ class PoreloDaemonTest {
                             state.toString(),
                             task,
                             null,
-                            null)
+                            null,
+                            org.fuin.porelo.wire.LimitFactors.DEFAULT)
                     .writeTo(where.resolve("sidecar.json"));
         }
         Files.setPosixFilePermissions(

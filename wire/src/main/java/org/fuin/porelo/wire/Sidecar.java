@@ -29,6 +29,9 @@ import java.util.Map;
  * @param projectShort Project spelling fixed when the task was created, or null.
  * @param taskShort Task spelling fixed when the task was created, or null.
  * @param stateDirectory Directory the hooks write their own state into.
+ * @param limits The factors of the Porelo that started the task, which its hooks hand on as the
+ *     limits line to whatever they start; written as {@link LimitFactors#line()} and read with
+ *     {@link LimitFactors#parse}.
  */
 public record Sidecar(
         int version,
@@ -40,9 +43,13 @@ public record Sidecar(
         String stateDirectory,
         @org.jspecify.annotations.Nullable String task,
         @org.jspecify.annotations.Nullable String projectShort,
-        @org.jspecify.annotations.Nullable String taskShort) {
+        @org.jspecify.annotations.Nullable String taskShort,
+        LimitFactors limits) {
 
-    /** Constructor for a sidecar without an explicit logical task or short spellings. */
+    /**
+     * Constructor for a sidecar without an explicit logical task or short spellings, its factors
+     * all at 1.0.
+     */
     public Sidecar(
             int version,
             String project,
@@ -61,7 +68,8 @@ public record Sidecar(
                 stateDirectory,
                 null,
                 null,
-                null);
+                null,
+                LimitFactors.DEFAULT);
     }
 
     /**
@@ -191,6 +199,10 @@ public record Sidecar(
      * @param dnsConfigFile Path to the generated dnsmasq configuration.
      * @param poreloBinary Path to the {@code porelo} binary.
      * @param stateDirectory Directory the hooks write their own state into.
+     * @param task Logical task, or null.
+     * @param projectShort Project spelling fixed when the task was created, or null.
+     * @param taskShort Task spelling fixed when the task was created, or null.
+     * @param limits The factors of the Porelo that started the task.
      */
     public Sidecar {
         if (project.isBlank()) {
@@ -218,6 +230,7 @@ public record Sidecar(
         if (task != null) map.put("task", task);
         if (projectShort != null) map.put("projectShort", projectShort);
         if (taskShort != null) map.put("taskShort", taskShort);
+        map.put("limits", limits.line());
         return Json.write(map);
     }
 
@@ -254,7 +267,24 @@ public record Sidecar(
                 string(map, "stateDirectory"),
                 optionalString(map, "task"),
                 optionalString(map, "projectShort"),
-                optionalString(map, "taskShort"));
+                optionalString(map, "taskShort"),
+                limits(map));
+    }
+
+    /** The limits line a hook hands on, refused rather than guessed when missing or bad. */
+    private static LimitFactors limits(final Map<?, ?> map) {
+        if (!map.containsKey("limits")) {
+            // Written by a Porelo built before the line was handed on; never guessed at 1.0.
+            throw new JsonException(
+                    "Sidecar field 'limits' is missing: the task was started by an older Porelo and"
+                            + " must be recreated");
+        }
+        final String line = string(map, "limits");
+        try {
+            return LimitFactors.parse(line);
+        } catch (IllegalArgumentException ex) {
+            throw new JsonException("Sidecar field 'limits': " + ex.getMessage());
+        }
     }
 
     /**

@@ -73,7 +73,7 @@ public class SupervisorHook extends Hook {
     @Override
     protected void run(String stage, OciState state, Sidecar sidecar) throws Exception {
         if ("poststop".equals(stage)) {
-            reap(sidecar);
+            reap(Path.of(sidecar.stateDirectory()));
         } else {
             startResolver(state, sidecar);
         }
@@ -124,6 +124,14 @@ public class SupervisorHook extends Hook {
         log(sidecar, "createRuntime", "resolver started, pid " + resolver.pid());
     }
 
+    /** Stops the task's helpers at poststop even when its sidecar was refused. */
+    @Override
+    protected void withoutSidecar(final String stage, final Path stateDirectory) {
+        if ("poststop".equals(stage)) {
+            reap(stateDirectory);
+        }
+    }
+
     /**
      * Stops every helper that left a pid file behind.
      *
@@ -133,19 +141,18 @@ public class SupervisorHook extends Hook {
      * rather than by a list means a helper added later is cleaned up without anyone remembering to
      * come back here.
      */
-    private void reap(Sidecar sidecar) {
-        final Path stateDirectory = Path.of(sidecar.stateDirectory());
+    private void reap(final Path stateDirectory) {
         try (var files = Files.list(stateDirectory)) {
             files.filter(path -> path.getFileName().toString().endsWith(".pid"))
-                    .forEach(path -> reapOne(sidecar, path));
+                    .forEach(path -> reapOne(stateDirectory, path));
         } catch (IOException | RuntimeException ex) {
             // The container is already gone. Anything that outlives it is tidied when the runtime
             // directory is cleared at logout, and failing here helps nobody.
-            log(sidecar, "poststop", "could not list the state directory: " + ex);
+            log(stateDirectory, "poststop", "could not list the state directory: " + ex);
         }
     }
 
-    private void reapOne(Sidecar sidecar, Path pidFile) {
+    private void reapOne(final Path stateDirectory, final Path pidFile) {
         final String name = pidFile.getFileName().toString().replace(".pid", "");
         try {
             // Verified against the recorded start time, not just parsed. An id is reused, and a
@@ -154,17 +161,20 @@ public class SupervisorHook extends Hook {
                     .ifPresentOrElse(
                             handle -> {
                                 org.fuin.porelo.wire.HelperPid.stop(handle);
-                                log(sidecar, "poststop", name + " " + handle.pid() + " stopped");
+                                log(
+                                        stateDirectory,
+                                        "poststop",
+                                        name + " " + handle.pid() + " stopped");
                             },
                             () ->
                                     log(
-                                            sidecar,
+                                            stateDirectory,
                                             "poststop",
                                             name
                                                     + " was gone, or its record no longer names it; nothing was signalled"));
             Files.deleteIfExists(pidFile);
         } catch (IOException | RuntimeException ex) {
-            log(sidecar, "poststop", "could not reap " + name + ": " + ex);
+            log(stateDirectory, "poststop", "could not reap " + name + ": " + ex);
         }
     }
 

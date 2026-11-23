@@ -69,16 +69,15 @@ final class ToolSettings {
      *
      * @param project The project, read.
      * @param directories Where adapters are installed, the account's own first.
-     * @param given Who asks an installed adapter.
-     * @param limits The factors.
+     * @param adapters Who asks an installed adapter.
+     * @param limits The factors each adapter is started under.
      * @return The files, or why the task must not start.
      */
     static Answer ask(
             final Project project,
             final List<Path> directories,
-            final EcosystemDetector given,
+            final EcosystemDetector adapters,
             final org.fuin.porelo.wire.LimitFactors limits) {
-        final EcosystemDetector adapters = given.limitedBy(limits);
         if (project.toolRepositories().isEmpty()) {
             return new Answer.Files(List.of());
         }
@@ -134,8 +133,8 @@ final class ToolSettings {
                         adapters.configure(
                                 plugin,
                                 each.getValue(),
-                                new Extension(
-                                        project.extensions().getOrDefault(adapter, Map.of())));
+                                new Extension(project.extensions().getOrDefault(adapter, Map.of())),
+                                limits);
             } catch (EcosystemRefused ex) {
                 return new Answer.Refused(
                         "the ecosystem adapter '"

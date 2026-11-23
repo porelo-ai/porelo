@@ -183,6 +183,26 @@ class InstalledBuildReaderTest {
     }
 
     @Test
+    void aReaderIsStartedWithTheFactorsItsStarterHolds() throws IOException {
+        final Path reader = script("echo \"$@\"; exit 3");
+        assertThatThrownBy(
+                        () ->
+                                new InstalledBuildReader(
+                                        reader,
+                                        "fake",
+                                        socket(),
+                                        org.fuin.porelo.wire.LimitFactors.parse("machines=2")))
+                .as("the line comes before the mode, every factor written")
+                .hasMessageContaining(
+                        "--limits services=1.0,machines=2.0,polling=1.0,retries=1.0 serve "
+                                + socket());
+        assertThatThrownBy(() -> new InstalledBuildReader(reader, "fake", socket()))
+                .as("at 1.0 the line is still written whole")
+                .hasMessageContaining(
+                        "--limits services=1.0,machines=1.0,polling=1.0,retries=1.0 serve ");
+    }
+
+    @Test
     void itsTimeLimitsFollowTheServicesAndMachinesFactors() {
         final org.fuin.porelo.wire.LimitFactors doubled =
                 org.fuin.porelo.wire.LimitFactors.parse("services=2,machines=2");
@@ -254,11 +274,11 @@ class InstalledBuildReaderTest {
         /**
          * Serves the old interface without accepting a build request.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param arguments {@code --limits <line> serve <socket>}: the socket comes last.
          * @throws IOException When the process id cannot be recorded.
          */
         public static void main(final String[] arguments) throws IOException {
-            final Path socket = Path.of(arguments[1]);
+            final Path socket = Path.of(arguments[arguments.length - 1]);
             try (VarlinkServer server = new VarlinkServer(socket, "org.fuin.porelo.Build1")) {
                 server.method(
                         "Describe",
@@ -349,11 +369,12 @@ class InstalledBuildReaderTest {
         /**
          * Serves Describe alone.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param arguments {@code --limits <line> serve <socket>}: the socket comes last.
          */
         public static void main(final String[] arguments) {
             try (VarlinkServer server =
-                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                    new VarlinkServer(
+                            Path.of(arguments[arguments.length - 1]), BuildProtocol.INTERFACE)) {
                 server.method(
                         "Describe",
                         (parameters, replies) ->
@@ -363,7 +384,7 @@ class InstalledBuildReaderTest {
                                                 BuildProtocol.VERSION,
                                                 "forge",
                                                 "fake")));
-                System.out.println("ready " + arguments[1]);
+                System.out.println("ready " + arguments[arguments.length - 1]);
                 System.out.flush();
                 server.run();
             }
@@ -376,11 +397,12 @@ class InstalledBuildReaderTest {
         /**
          * Serves a failing handshake.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param arguments {@code --limits <line> serve <socket>}: the socket comes last.
          */
         public static void main(final String[] arguments) {
             try (VarlinkServer server =
-                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                    new VarlinkServer(
+                            Path.of(arguments[arguments.length - 1]), BuildProtocol.INTERFACE)) {
                 server.method(
                         "Describe",
                         (parameters, replies) -> {
@@ -388,7 +410,7 @@ class InstalledBuildReaderTest {
                                     "org.varlink.service.InvalidParameter",
                                     Map.of("parameter", "configuration"));
                         });
-                System.out.println("ready " + arguments[1]);
+                System.out.println("ready " + arguments[arguments.length - 1]);
                 System.out.flush();
                 server.run();
             }
@@ -401,16 +423,17 @@ class InstalledBuildReaderTest {
         /**
          * Serves.
          *
-         * @param arguments {@code serve <socket>}.
+         * @param arguments {@code --limits <line> serve <socket>}: the socket comes last.
          */
         public static void main(final String[] arguments) {
             try (VarlinkServer server =
-                    new VarlinkServer(Path.of(arguments[1]), BuildProtocol.INTERFACE)) {
+                    new VarlinkServer(
+                            Path.of(arguments[arguments.length - 1]), BuildProtocol.INTERFACE)) {
                 server.method(
                         "Describe",
                         (parameters, replies) ->
                                 replies.last(Map.of("protocolVersion", 99, "forge", "fake")));
-                System.out.println("ready " + arguments[1]);
+                System.out.println("ready " + arguments[arguments.length - 1]);
                 System.out.flush();
                 server.run();
             }

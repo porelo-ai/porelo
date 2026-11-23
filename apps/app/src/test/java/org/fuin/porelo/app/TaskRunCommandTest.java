@@ -309,7 +309,8 @@ class TaskRunCommandTest {
                         context.paths().tasks().containerState(actual).toString(),
                         task,
                         projectShort,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
         new TaskHelpers(List.of()).writeTo(state);
         runner.answering(
@@ -536,7 +537,7 @@ class TaskRunCommandTest {
         /**
          * Serves a test agent's definition over the real agent protocol.
          *
-         * @param args Definition file, serve verb and socket path.
+         * @param args Definition file, the limits option and its line, serve verb and socket path.
          * @throws IOException If the definition cannot be read.
          */
         public static void main(String[] args) throws IOException {
@@ -545,7 +546,8 @@ class TaskRunCommandTest {
                             new java.io.StringReader(Files.readString(Path.of(args[0]))), args[0]);
             try (var server =
                     new org.fuin.porelo.wire.varlink.VarlinkServer(
-                            Path.of(args[2]), org.fuin.porelo.agent.api.AgentProtocol.INTERFACE)) {
+                            Path.of(args[args.length - 1]),
+                            org.fuin.porelo.agent.api.AgentProtocol.INTERFACE)) {
                 server.method(
                         "Describe",
                         (parameters, replies) ->
@@ -599,7 +601,7 @@ class TaskRunCommandTest {
                                                                             + "/.preview/settings.json"))
                                                     : List.of()));
                         });
-                System.out.println("ready " + args[2]);
+                System.out.println("ready " + args[args.length - 1]);
                 System.out.flush();
                 server.run();
             }
@@ -4743,7 +4745,8 @@ class TaskRunCommandTest {
                             final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
                                     plugin,
                             final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
-                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                            final org.fuin.porelo.ecosystem.api.Extension extension,
+                            final org.fuin.porelo.wire.LimitFactors limits) {
                         return List.of();
                     }
                 };
@@ -11118,7 +11121,8 @@ class TaskRunCommandTest {
                             final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
                                     plugin,
                             final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
-                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                            final org.fuin.porelo.ecosystem.api.Extension extension,
+                            final org.fuin.porelo.wire.LimitFactors limits) {
                         asked.add(plugin.name() + " " + repositories + " " + extension.values());
                         return List.of(
                                 new org.fuin.porelo.ecosystem.api.File(
@@ -11186,7 +11190,8 @@ class TaskRunCommandTest {
                             final org.fuin.porelo.ecosystem.api.InstalledEcosystems.Description
                                     plugin,
                             final List<org.fuin.porelo.ecosystem.api.Repository> repositories,
-                            final org.fuin.porelo.ecosystem.api.Extension extension) {
+                            final org.fuin.porelo.ecosystem.api.Extension extension,
+                            final org.fuin.porelo.wire.LimitFactors limits) {
                         throw new org.fuin.porelo.ecosystem.api.EcosystemRefused(
                                 org.fuin.porelo.ecosystem.api.EcosystemRefused.Reason.UNREADABLE,
                                 "the adapter's own words");

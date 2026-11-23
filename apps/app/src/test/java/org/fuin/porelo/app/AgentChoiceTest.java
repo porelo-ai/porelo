@@ -116,7 +116,7 @@ class AgentChoiceTest {
         /**
          * Serves the agent.
          *
-         * @param args Definition file, serve verb and socket path.
+         * @param args Definition file, the limits option and its line, serve verb and socket path.
          * @throws IOException If a file cannot be read.
          */
         public static void main(final String[] args) throws IOException {
@@ -125,7 +125,7 @@ class AgentChoiceTest {
                             new StringReader(Files.readString(Path.of(args[0]))), args[0]);
             final String said = Files.readString(Path.of(args[0] + ".finds")).strip();
             if (said.equals("older") || said.equals("errors")) {
-                older(definition, args[2], said.equals("errors"));
+                older(definition, args[args.length - 1], said.equals("errors"));
                 return;
             }
             try (AgentServer server =
@@ -141,8 +141,8 @@ class AgentChoiceTest {
                                     return directory -> findings(said);
                                 }
                             },
-                            Path.of(args[2]))) {
-                System.out.println("ready " + args[2]);
+                            Path.of(args[args.length - 1]))) {
+                System.out.println("ready " + args[args.length - 1]);
                 System.out.flush();
                 server.serve();
             }

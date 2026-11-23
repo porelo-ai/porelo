@@ -25,9 +25,12 @@ public static void main(String[] arguments) {
 ```
 
 `BuildMain` answers `describe` with the forge's name and the protocol version, and `serve <socket>` with the
-varlink interface `org.fuin.porelo.Build2`. Porelo refuses a reader whose protocol version it does not know, and one
-that reads another forge than the project names, before it asks it anything. If the reader does not serve this
-interface, the refusal names its executable, the build interfaces it serves and the interface Porelo requires.
+varlink interface `org.fuin.porelo.Build2`. Porelo starts a reader as `--limits <line> serve <socket>`, handing it
+the [time factors](limits.md) it holds; `BuildMain` takes the line before the mode, so a reader built on a
+`BuildMain` that does not take it fails at its start. Porelo refuses a reader whose protocol version it does not
+know, and one that reads another forge than the project names, before it asks it anything. If the reader does not
+serve this interface, the refusal names its executable, the build interfaces it serves and the interface Porelo
+requires.
 
 ## What it answers
 

@@ -165,7 +165,8 @@ class McpTaskSocketsTest {
                         state.toString(),
                         logical,
                         null,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
     }
 
@@ -261,7 +262,8 @@ class McpTaskSocketsTest {
                         state.toString(),
                         "work",
                         null,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
         runner.answering(
                 "podman ps",
@@ -333,7 +335,8 @@ class McpTaskSocketsTest {
                         state.toString(),
                         "work",
                         null,
-                        null)
+                        null,
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
                 .writeTo(state.resolve("sidecar.json"));
         final Path socket = sockets.open(actual, "uc").orElseThrow();
         assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(socket)))
