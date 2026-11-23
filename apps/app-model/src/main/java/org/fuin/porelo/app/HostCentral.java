@@ -53,8 +53,11 @@ final class HostCentral {
     static final Set<String> STATES =
             Set.of("up-to-date", "ahead", "moved-on", "diverged", "cannot-say");
 
-    /** A {@code commits} at or above this is no answer a forge's copy can give. */
-    static final long MOST_COMMITS = 1_000_000;
+    /**
+     * A {@code commits} above this is no answer a forge's copy can give: a repository of the Linux
+     * kernel's size holds well over a million, none holds more than an int counts.
+     */
+    static final long MOST_COMMITS = Integer.MAX_VALUE;
 
     /** Longest {@code why} taken, in code points. */
     static final int LONGEST_WHY = 200;
@@ -483,8 +486,9 @@ final class HostCentral {
         if ("ahead".equals(state)) {
             if (!(entry.get("commits") instanceof Long number
                     && number >= 0
-                    && number < MOST_COMMITS)) {
-                throw new RefusedAnswer(field + ".commits: expected a count from 0 through 999999");
+                    && number <= MOST_COMMITS)) {
+                throw new RefusedAnswer(
+                        field + ".commits: expected a count from 0 through " + MOST_COMMITS);
             }
             ahead = Math.toIntExact(number);
         } else if (entry.containsKey("commits")) {

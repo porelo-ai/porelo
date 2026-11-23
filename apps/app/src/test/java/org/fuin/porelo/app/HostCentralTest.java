@@ -49,6 +49,35 @@ class HostCentralTest {
         assertThat(answer.get("app").why()).contains("repositories[0].commits");
     }
 
+    // A repository of the Linux kernel's size holds over 1.3 million commits a copy can be ahead.
+    @Test
+    void aCopyAheadByMoreThanAMillionCommitsIsTaken() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"ahead","commits":1300000}]}
+                """)
+                        .ask("alpha", Map.of("app", "app"));
+        assertThat(answer.get("app").state())
+                .as("a count a real repository reaches")
+                .isEqualTo("ahead");
+        assertThat(answer.get("app").ahead()).isEqualTo(1_300_000);
+    }
+
+    // A count past what a forge's copy can hold is no answer.
+    @Test
+    void aCountPastAnIntIsRefusedNamingItsField() throws Exception {
+        final var answer =
+                reader(
+                                """
+                {"project":"alpha","read_at":"2026-11-09T10:00:00Z",
+                 "repositories":[{"repository":"app","state":"ahead","commits":2147483648}]}
+                """)
+                        .ask("alpha", Map.of("app", "app"));
+        assertThat(answer.get("app").why()).contains("repositories[0].commits");
+    }
+
     // A host's waiting state must survive the checked file boundary.
     @Test
     void aWaitingPublishedProjectIsReadable() throws Exception {

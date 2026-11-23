@@ -212,7 +212,7 @@ class HostCentralStateCommandTest {
                 "{\"project\":\"other\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[]}",
                 "{\"project\":\"porelo\",\"read_at\":\"not-a-timestamp\",\"repositories\":[]}",
                 "{\"project\":\"porelo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[{\"repository\":\"docs\",\"state\":\"behind\"}]}",
-                "{\"project\":\"porelo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[{\"repository\":\"docs\",\"state\":\"ahead\",\"commits\":1000000}]}",
+                "{\"project\":\"porelo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[{\"repository\":\"docs\",\"state\":\"ahead\",\"commits\":2147483648}]}",
                 "{\"project\":\"porelo\",\"read_at\":\"2026-11-09T10:00:00Z\",\"repositories\":[{\"repository\":\"docs\",\"state\":\"up-to-date\"},{\"repository\":\"DOCS\",\"state\":\"up-to-date\"}]}"
             })
     void anUnparsableOrDishonestCentralFileAnswersCannotSayWithHostAnswerRefused(

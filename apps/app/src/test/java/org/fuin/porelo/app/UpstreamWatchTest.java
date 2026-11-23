@@ -385,7 +385,7 @@ class UpstreamWatchTest {
                 "{\"repository\":\"backend\",\"state\":\"no-central\"}",
                 "{\"repository\":\"backend\",\"state\":\"ahead\"}",
                 "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":-1}",
-                "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":1000000}",
+                "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":2147483648}",
                 "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":2.5}",
                 "{\"repository\":\"backend\",\"state\":\"ahead\",\"commits\":\"3\"}",
                 "{\"repository\":\"backend\",\"state\":\"up-to-date\",\"commits\":0}",
