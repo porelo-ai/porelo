@@ -85,6 +85,19 @@ public final class TaskHistory {
                         continue;
                     }
                     identity = kept.orElse(null);
+                } else if (recorded instanceof TaskIdentities.Refused refused) {
+                    // Only a lookup of the task it belongs to: one task's record left by an
+                    // older Porelo refused every gate in the account.
+                    if (ownedBy(name, kept, project, task)) {
+                        throw new ProjectException(
+                                "the identity record of task "
+                                        + name
+                                        + " cannot be used ("
+                                        + refused.reason().said()
+                                        + "); a task started by an older Porelo is removed and"
+                                        + " started again");
+                    }
+                    continue;
                 } else {
                     throw new ProjectException(
                             "a retained task identity cannot be verified; list tasks before acting");
@@ -102,6 +115,17 @@ public final class TaskHistory {
         } catch (IOException ex) {
             throw new UncheckedIOException("Cannot read retained task ownership", ex);
         }
+    }
+
+    /** Whether a name whose record cannot be read belongs to the task asked for. */
+    private static boolean ownedBy(
+            String name, java.util.Optional<TaskIdentity> kept, String project, String task) {
+        if (kept.isPresent()) {
+            return kept.get().project().equals(project) && kept.get().task().equals(task);
+        }
+        return name.equals(org.fuin.porelo.runtime.ContainerName.contract(project, task))
+                || task.equals(org.fuin.porelo.runtime.ContainerName.taskIn(project, name))
+                || org.fuin.porelo.runtime.ContainerName.isEncoded(project, task, name);
     }
 
     private static boolean sameOwner(TaskIdentity first, TaskIdentity second) {
