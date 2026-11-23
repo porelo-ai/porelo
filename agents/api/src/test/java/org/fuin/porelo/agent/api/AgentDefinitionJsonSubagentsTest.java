@@ -46,6 +46,33 @@ class AgentDefinitionJsonSubagentsTest {
     }
 
     @Test
+    void aFractionWhereTheDefinitionWantsWholeSecondsOrLinesIsRefusedNamingTheField() {
+        final Map<String, Object> marker =
+                new LinkedHashMap<>(
+                        AgentDefinitionJson.write(
+                                definition("session:\n  ready_marker: \"ready\"\n")));
+        marker.put("readyWithinSeconds", 2.5);
+        assertThatThrownBy(() -> AgentDefinitionJson.read(marker))
+                .as("never cut to 2 seconds")
+                .hasMessageContaining("readyWithinSeconds");
+        marker.put("readyWithinSeconds", 7L);
+        assertThat(AgentDefinitionJson.read(marker).ready())
+                .as("a whole number is read as given")
+                .isNotNull()
+                .satisfies(read -> assertThat(read.withinSeconds()).isEqualTo(7));
+
+        final Map<String, Object> waiting =
+                new LinkedHashMap<>(AgentDefinitionJson.write(definition("")));
+        waiting.put(
+                "waiting",
+                Map.of(
+                        "screen",
+                        java.util.List.of(Map.of("contains", "Allow?", "inLastLines", 3.5))));
+        assertThatThrownBy(() -> AgentDefinitionJson.read(waiting))
+                .hasMessageContaining("inLastLines");
+    }
+
+    @Test
     void anOlderAdapterThatSendsNoneCanHoldOnlyNone() {
         final Map<String, Object> sent =
                 new LinkedHashMap<>(AgentDefinitionJson.write(definition("")));

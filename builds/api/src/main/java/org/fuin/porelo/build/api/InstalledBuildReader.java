@@ -327,9 +327,7 @@ public final class InstalledBuildReader implements AutoCloseable {
                     ex.getParameters() == null ? Map.of() : ex.getParameters();
             if (reason != null) {
                 throw new BuildRefused(
-                        reason,
-                        String.valueOf(said.getOrDefault("detail", "")),
-                        said.get("retryAfter") instanceof Number number ? number.longValue() : 0);
+                        reason, String.valueOf(said.getOrDefault("detail", "")), retryAfter(said));
             }
             throw new BuildReaderException(
                     executable
@@ -443,5 +441,24 @@ public final class InstalledBuildReader implements AutoCloseable {
                 // Closing a connection to a reader that is being ended.
             }
         }
+    }
+
+    /**
+     * When a refusing reader said to ask again, in whole seconds.
+     *
+     * @param said The refusal's parameters.
+     * @return The seconds, 0 when it said none.
+     * @throws BuildReaderException When it said a fraction or anything but a whole number.
+     */
+    static long retryAfter(final Map<String, ?> said) {
+        final Object given = said.get("retryAfter");
+        if (given == null) {
+            return 0;
+        }
+        return org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(given)
+                .orElseThrow(
+                        () ->
+                                new BuildReaderException(
+                                        "retryAfter is a whole number of seconds, not " + given));
     }
 }

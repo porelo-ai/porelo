@@ -77,6 +77,16 @@ class InstalledBuildReaderTest {
     }
 
     @Test
+    void aRefusalsRetryAfterIsWholeSecondsAndAFractionIsRefusedRatherThanCut() {
+        assertThat(InstalledBuildReader.retryAfter(Map.of("retryAfter", 30L))).isEqualTo(30);
+        assertThat(InstalledBuildReader.retryAfter(Map.of())).as("none said is no wait").isZero();
+        assertThatThrownBy(() -> InstalledBuildReader.retryAfter(Map.of("retryAfter", 0.5)))
+                .as("half a second is not read as asking again at once")
+                .isInstanceOf(BuildReaderException.class)
+                .hasMessageContaining("retryAfter");
+    }
+
+    @Test
     void startsAReaderAgainWhoseProcessEndedSoTheNextQuestionIsAnswered() throws IOException {
 
         // A reader that did not answer within its limit is killed, and the watch tries again later:

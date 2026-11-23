@@ -225,9 +225,7 @@ public final class AgentDefinitionJson {
                         ? null
                         : new ReadyMarker(
                                 String.valueOf(source.get("readyMarker")),
-                                source.get("readyWithinSeconds") instanceof Number within
-                                        ? within.intValue()
-                                        : null),
+                                wholeOrAbsent(source, "readyWithinSeconds")),
                 source.get("waiting") instanceof Map<?, ?> waiting ? readWaiting(waiting) : null,
                 source.get("sessionIds") instanceof Map<?, ?> ids
                         ? new SessionIds(
@@ -308,6 +306,21 @@ public final class AgentDefinitionJson {
         return out;
     }
 
+    // A fraction is refused, never cut: 2.5 seconds read as 2 would end an agent's start early.
+    private static @Nullable Integer wholeOrAbsent(Map<?, ?> source, String name) {
+        final Object given = source.get(name);
+        if (given == null) {
+            return null;
+        }
+        return org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(given).stream()
+                .boxed()
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        name + " is a whole number, not " + given));
+    }
+
     private static Waiting readWaiting(Map<?, ?> source) {
         final Waiting.LastMessage last =
                 source.get("lastMessage") instanceof Map<?, ?> found
@@ -335,9 +348,7 @@ public final class AgentDefinitionJson {
                 rules.add(
                         new Waiting.Rule(
                                 string(rule, "contains"),
-                                rule.get("inLastLines") instanceof Number lines
-                                        ? lines.intValue()
-                                        : null,
+                                wholeOrAbsent(rule, "inLastLines"),
                                 optional(rule, "for")));
             }
         }
