@@ -287,10 +287,14 @@ final class MirrorFile {
         return Optional.of(shown.standardOutput());
     }
 
-    // An empty directory is what a start can replace whole; anything in it is someone's.
+    // Only an absent place or an empty directory is what a start can replace whole; a file, a link
+    // (followed or dangling) or a directory with anything in it is someone's.
     private static boolean empty(Path mirror) {
-        if (!Files.isDirectory(mirror)) {
+        if (!Files.exists(mirror, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
             return true;
+        }
+        if (!Files.isDirectory(mirror, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return false;
         }
         try (java.util.stream.Stream<Path> inside = Files.list(mirror)) {
             return inside.findAny().isEmpty();

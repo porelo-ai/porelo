@@ -97,6 +97,23 @@ class MirrorFileTest {
     }
 
     @Test
+    void aFileOrALinkAtTheMirrorsPlaceIsKeptAndSaidNotTakenAsNoMirror(@TempDir Path root)
+            throws Exception {
+        final Path mirrors = Files.createDirectories(root.resolve("mirrors"));
+        final Path file = Files.writeString(mirrors.resolve("f.git"), "someone's\n");
+        final Path link = Files.createSymbolicLink(mirrors.resolve("l.git"), mirrors);
+        final Path dangling = Files.createSymbolicLink(mirrors.resolve("d.git"), root.resolve("x"));
+
+        assertThat(MirrorFile.defaultBranch(runner, file))
+                .isEqualTo(new MirrorFile.NotARepository(file));
+        assertThat(MirrorFile.defaultBranch(runner, link))
+                .isEqualTo(new MirrorFile.NotARepository(link));
+        assertThat(MirrorFile.defaultBranch(runner, dangling))
+                .isEqualTo(new MirrorFile.NotARepository(dangling));
+        assertThat(file).as("nothing is replaced").hasContent("someone's");
+    }
+
+    @Test
     void aRealDetachedHeadIsSaidWithTheMirrorsPathFirst(@TempDir Path root) throws Exception {
         final Path mirror = mirror(root);
         final String commit =

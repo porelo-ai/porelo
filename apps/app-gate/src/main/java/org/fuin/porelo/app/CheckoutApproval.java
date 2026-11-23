@@ -113,7 +113,7 @@ final class CheckoutApproval {
         } catch (ProjectException ex) {
             return refuse(NOTHING, String.valueOf(ex.getMessage()));
         }
-        if (gate == null || !Files.isDirectory(gate.mirror())) {
+        if (gate == null || !Files.isDirectory(gate.mirror().resolve("objects"))) {
             return refuse(
                     NOTHING,
                     "no task was started from " + top + ", so nothing waits at the gate for it");
@@ -260,7 +260,8 @@ final class CheckoutApproval {
                                         .repository(choice.repository())),
                         null,
                         null);
-        if (Files.isDirectory(gate.mirror()) && !gate.pendingDetail().isEmpty()) {
+        if (Files.isDirectory(gate.mirror().resolve("objects"))
+                && !gate.pendingDetail().isEmpty()) {
             throw new ProjectException(
                     "the work of tasks on '"
                             + choice.repository()
