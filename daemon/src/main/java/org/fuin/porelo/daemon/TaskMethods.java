@@ -50,7 +50,15 @@ final class TaskMethods {
             new org.fuin.porelo.app.TaskSession(context)
                     .open(container, java.util.Objects.requireNonNull(launch.opening()));
         } catch (java.io.IOException ex) {
-            throw new java.io.UncheckedIOException(ex);
+            throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            FileFailure.said(
+                                    "the session of task "
+                                            + ContainerName.unprefixed(container)
+                                            + " cannot be opened",
+                                    ex)));
         }
     }
 
@@ -413,7 +421,15 @@ final class TaskMethods {
                                         org.fuin.porelo.wire.varlink.VarlinkConnection
                                                 .MAX_MESSAGE));
                     } catch (java.io.IOException ex) {
-                        throw new java.io.UncheckedIOException(ex);
+                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the records of project "
+                                                        + project
+                                                        + " cannot be read",
+                                                ex)));
                     }
                 });
 
@@ -438,7 +454,13 @@ final class TaskMethods {
                                         .record(project, task, text(parameters, "startedAt"))
                                         .orElseThrow(() -> RecordPages.changed(task));
                     } catch (java.io.IOException ex) {
-                        throw new java.io.UncheckedIOException(ex);
+                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the record of task " + task + " cannot be read",
+                                                ex)));
                     }
                     replies.last(
                             RecordPages.calls(
@@ -764,7 +786,13 @@ final class TaskMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the logs of task "
+                                                        + ContainerName.unprefixed(task)
+                                                        + " cannot be archived",
+                                                ex)));
                     }
                     replies.last(Map.of("path", target.toString(), "files", files));
                 });
@@ -938,7 +966,12 @@ final class TaskMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the file cannot be handed into task "
+                                                        + ContainerName.unprefixed(task),
+                                                ex)));
                     }
                 });
 
@@ -959,7 +992,12 @@ final class TaskMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the file cannot be taken back from task "
+                                                        + ContainerName.unprefixed(task),
+                                                ex)));
                     }
                 });
 
@@ -984,7 +1022,13 @@ final class TaskMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the hand-ins of task "
+                                                        + ContainerName.unprefixed(task)
+                                                        + " cannot be read",
+                                                ex)));
                     }
                 });
 

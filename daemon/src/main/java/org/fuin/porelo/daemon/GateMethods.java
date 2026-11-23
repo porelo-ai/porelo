@@ -728,7 +728,11 @@ final class GateMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "no scratch directory for the pending work's bundle",
+                                                ex)));
                     }
                     try {
                         final long size = gate.bundle(text(parameters, "name"), branch, scratch);
@@ -748,7 +752,13 @@ final class GateMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the pending work of "
+                                                        + text(parameters, "name")
+                                                        + " cannot be bundled",
+                                                ex)));
                     } finally {
                         try {
                             java.nio.file.Files.deleteIfExists(scratch);

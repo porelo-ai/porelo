@@ -69,7 +69,7 @@ final class ProjectMethods {
                     Map.of(
                             "message",
                             org.fuin.porelo.vault.RegistryText.printable(
-                                    String.valueOf(ex.getMessage()))));
+                                    FileFailure.said("no proposal could be made", ex))));
         }
     }
 
@@ -306,7 +306,17 @@ final class ProjectMethods {
                                         "refs",
                                         known.get().refs(),
                                         "detail",
-                                        String.valueOf(ex.getMessage())));
+                                        ex instanceof java.io.IOException io
+                                                ? FileFailure.said(
+                                                        "the backup cannot be removed", io)
+                                                : ex instanceof java.io.UncheckedIOException
+                                                                && ex.getCause()
+                                                                        instanceof
+                                                                        java.io.IOException cause
+                                                        ? FileFailure.said(
+                                                                "the backup cannot be removed",
+                                                                cause)
+                                                        : String.valueOf(ex.getMessage())));
                     }
                 });
 
@@ -410,7 +420,11 @@ final class ProjectMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the host key of " + host + " cannot be recorded",
+                                                ex)));
                     }
                     if (recorded == null) {
                         replies.last(

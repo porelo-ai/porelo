@@ -598,7 +598,9 @@ final class VaultMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said("the connection cannot be recorded", ex)));
                     }
                     final org.fuin.porelo.app.CredentialDeclarations.Check check =
                             declarations.check(declared.match(), declared.purpose());
@@ -633,7 +635,10 @@ final class VaultMethods {
                     } catch (java.io.IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", String.valueOf(ex.getMessage())));
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the connection cannot be forgotten", ex)));
                     }
                     // The secret is not removed: a key in somebody's own directory is theirs, and a
                     // vault entry is removed by a person at the machine.

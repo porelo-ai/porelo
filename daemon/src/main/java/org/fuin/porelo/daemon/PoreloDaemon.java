@@ -1332,7 +1332,10 @@ public final class PoreloDaemon {
                     fingerprint == null ? "" : fingerprint);
         } catch (java.io.IOException ex) {
             throw new VarlinkException(
-                    INTERFACE + ".Failed", Map.of("message", String.valueOf(ex.getMessage())));
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            FileFailure.said("this machine's message key cannot be read", ex)));
         }
     }
 

@@ -256,7 +256,8 @@ final class McpMethods {
                                         described()));
                     } catch (IOException ex) {
                         throw new org.fuin.porelo.wire.varlink.VarlinkException(
-                                "The local list of MCP methods cannot be read: " + ex.getMessage());
+                                FileFailure.said(
+                                        "The local list of MCP methods cannot be read", ex));
                     }
                 });
     }

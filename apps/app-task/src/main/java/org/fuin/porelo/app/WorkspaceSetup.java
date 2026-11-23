@@ -197,26 +197,12 @@ final class WorkspaceSetup {
                     // Its work waits for a person, and a new task of the same name would push onto
                     // it. An approval is offered only where one can go.
                     refusal =
-                            "work of an earlier task called "
-                                    + task
-                                    + " waits at the gate ("
-                                    + earlier.commit()
-                                    + " "
-                                    + earlier.subject()
-                                    + "): review it, then "
-                                    + (gate.forwardRefusal() == null
-                                            ? "approve with 'porelo gate approve --project "
-                                                    + project.name()
-                                                    + " --repository "
-                                                    + chosen.name()
-                                                    + " --commit "
-                                                    + earlier.commit()
-                                                    + " "
-                                                    + task
-                                                    + "' or "
-                                            : "")
-                                    + "reject with 'porelo gate reject', or"
-                                    + " start under another name";
+                            earlierWorkRefusal(
+                                    task,
+                                    earlier,
+                                    gate.forwardRefusal() == null,
+                                    project.name(),
+                                    chosen.name());
                     return null;
                 }
             }
@@ -242,6 +228,48 @@ final class WorkspaceSetup {
             err.flush();
             return null;
         }
+    }
+
+    /**
+     * Returns why a start is refused while earlier work of its name waits at the gate, and how to
+     * go on.
+     *
+     * <p>The earlier work's subject is what an agent wrote; escaped, it can neither move the
+     * terminal's cursor nor reorder the line a person reads.
+     *
+     * @param task The task name the start asked for.
+     * @param earlier The work that waits.
+     * @param approvable Whether an approval can pass it on from here.
+     * @param project The project's name, for the approval command.
+     * @param repository The repository's name, for the approval command.
+     * @return The refusal, safe to print.
+     */
+    static String earlierWorkRefusal(
+            final String task,
+            final org.fuin.porelo.gate.GitGate.Waiting earlier,
+            final boolean approvable,
+            final String project,
+            final String repository) {
+        return "work of an earlier task called "
+                + task
+                + " waits at the gate ("
+                + earlier.commit()
+                + " "
+                + TerminalText.line(earlier.subject())
+                + "): review it, then "
+                + (approvable
+                        ? "approve with 'porelo gate approve --project "
+                                + project
+                                + " --repository "
+                                + repository
+                                + " --commit "
+                                + earlier.commit()
+                                + " "
+                                + task
+                                + "' or "
+                        : "")
+                + "reject with 'porelo gate reject', or"
+                + " start under another name";
     }
 
     /**

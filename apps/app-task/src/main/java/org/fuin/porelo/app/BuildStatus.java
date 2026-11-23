@@ -576,25 +576,18 @@ public record BuildStatus(
         }
     }
 
+    /**
+     * Returns forge text safe for a terminal, each line escaped as {@link TerminalText#line}.
+     *
+     * <p>A Windows line end is shown as a line end; a carriage return anywhere else is escaped, so
+     * it cannot move the cursor back over what was printed.
+     *
+     * @param text What the forge or its reader said.
+     * @return The same, safe to print.
+     */
     static String terminalText(final String text) {
-        final StringBuilder safe = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            final char ch = text.charAt(i);
-            if (ch == '\r' && i + 1 < text.length() && text.charAt(i + 1) == '\n') {
-                // Windows line ends need no cursor movement before their newline.
-                continue;
-            }
-            if (Character.isISOControl(ch) && ch != '\n' && ch != '\t') {
-                safe.append("\\x")
-                        .append(Character.forDigit(ch >> 4, 16))
-                        .append(Character.forDigit(ch & 15, 16));
-            } else if (Character.getType(ch) == Character.FORMAT) {
-                // Bidirectional overrides and invisible joiners would show a line in another order.
-                safe.append(String.format("\\u%04x", (int) ch));
-            } else {
-                safe.append(ch);
-            }
-        }
-        return safe.toString();
+        return java.util.Arrays.stream(text.replace("\r\n", "\n").split("\n", -1))
+                .map(TerminalText::line)
+                .collect(java.util.stream.Collectors.joining("\n"));
     }
 }

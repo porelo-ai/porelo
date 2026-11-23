@@ -82,6 +82,6 @@ final class EventMethods {
     private static VarlinkException failed(final IOException ex) {
         return new VarlinkException(
                 PoreloDaemon.INTERFACE + ".Failed",
-                Map.of("message", String.valueOf(ex.getMessage())));
+                Map.of("message", FileFailure.said("the event log cannot be read", ex)));
     }
 }

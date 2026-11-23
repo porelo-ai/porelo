@@ -137,7 +137,7 @@ final class MachineMethods {
                     } catch (final IOException ex) {
                         throw new VarlinkException(
                                 INTERFACE + ".Failed",
-                                Map.of("message", "cannot look through it: " + ex.getMessage()));
+                                Map.of("message", FileFailure.said("cannot look through it", ex)));
                     }
                     replies.last(
                             Map.of(
@@ -173,7 +173,11 @@ final class MachineMethods {
             return java.nio.file.Files.readSymbolicLink(java.nio.file.Path.of("/proc/self/exe"))
                     .toString();
         } catch (java.io.IOException ex) {
-            throw new java.io.UncheckedIOException("Cannot read /proc/self/exe", ex);
+            throw new org.fuin.porelo.wire.varlink.VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            FileFailure.said("this daemon's own executable cannot be read", ex)));
         }
     }
 }
