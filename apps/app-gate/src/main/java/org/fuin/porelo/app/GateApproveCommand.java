@@ -72,7 +72,8 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
 
     @Option(
             names = "--no-input",
-            description = "Ask nothing: a branch that already holds work is refused, as before.")
+            description =
+                    "Ask nothing: require --commit and refuse a branch that already holds work.")
     private boolean noInput;
 
     /**
@@ -109,7 +110,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
         final Offer offer =
-                noInput || !context.input().terminal() || asker == Offer.Asker.NOBODY
+                noInput || !context.input().canPrompt() || asker == Offer.Asker.NOBODY
                         ? Offer.NOBODY
                         : new Offer(asker, false, false, err);
         // Each branch taken is offered the next free one once, so a run of taken names ends rather
@@ -130,6 +131,46 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return 64;
         }
+        try {
+            final Project project = GateSupport.byName(context, projectName);
+            final GitGate gate = gate(project);
+            GateSupport.held(gate);
+            if (commit == null || commit.isBlank()) {
+                final GitGate.Waiting waiting = gate.waiting(name);
+                if (waiting == null) {
+                    throw new GateException("There is no pending push named '" + name + "'");
+                }
+                commit = waiting.commit();
+                final String command =
+                        new GateApprovalHint(
+                                        project.name(),
+                                        GateSupport.repository(context, project, repository, name)
+                                                .name(),
+                                        name,
+                                        waiting.commit(),
+                                        upstream,
+                                        onto,
+                                        signed)
+                                .command();
+                if (!confirm(waiting, name, onto, offer)) {
+                    err.println(
+                            "porelo: approval requires the reviewed commit; run "
+                                    + TalkReadCommand.shown(command));
+                    err.flush();
+                    return 70;
+                }
+            } else {
+                commit = commit.strip();
+            }
+        } catch (GateException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 70;
+        } catch (RuntimeException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 2;
+        }
         for (int tries = 0; tries < 10; tries++) {
             final String next = approveOnce(out, err, offer);
             if (next == null) {
@@ -138,6 +179,21 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             onto = next;
         }
         return exit;
+    }
+
+    /** Asks about exactly the captured revision, with no as the default. */
+    static boolean confirm(GitGate.Waiting waiting, String name, String branch, Offer offer) {
+        return offer != Offer.NOBODY
+                && offer.confirm(
+                        "waiting "
+                                + TalkReadCommand.shown(name)
+                                + " at "
+                                + waiting.commit()
+                                + " "
+                                + TalkReadCommand.shown(waiting.subject()),
+                        "Forward this commit to " + TalkReadCommand.shown(branch) + "?",
+                        waiting.commit(),
+                        true);
     }
 
     /** The reviewed commit, as the event log names it. */

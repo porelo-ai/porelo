@@ -38,6 +38,58 @@ import org.junit.jupiter.params.provider.ValueSource;
 class InterfaceDescriptionTest {
 
     @Test
+    void aFullPatchCommandPreservesTheAbsenceOfAComparisonBase(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                """
+                project: { name: bound, security_class: guarded }
+                image: { from: 'ubuntu:24.04' }
+                repositories:
+                  app: { upstream: 'https://forge.example.org/team/app.git' }
+                """);
+        Files.createDirectories(context.paths().projects().projectRegistry());
+        Files.writeString(
+                context.paths().projects().projectRegistry().resolve("bound"), file + "\n");
+
+        final List<String> command =
+                GateMethods.reviewCommand(
+                        Map.of("project", "bound", "repository", "app"),
+                        context,
+                        "writer",
+                        null,
+                        "a".repeat(40));
+
+        assertThat(command)
+                .as("the CLI cannot choose a newly available default base")
+                .containsSequence("--against", "")
+                .containsSequence("--commit", "a".repeat(40));
+    }
+
+    @Test
+    void reviewNamesItsCommitAndApprovalKeepsTheOptionalWireParameter() {
+        final String description = PoreloDaemon.description();
+        final String review =
+                description.substring(
+                        description.indexOf("method Review("),
+                        description.indexOf("type ReviewCut"));
+        final String approval =
+                description.substring(
+                        description.indexOf("method Approve("),
+                        description.indexOf("method PendingBundle("));
+        assertThat(review)
+                .as("clients can bind the evidence while accepting older daemons")
+                .contains("commit: ?string");
+        assertThat(approval)
+                .as("older callers receive a typed refusal rather than a schema break")
+                .contains("commit: ?string");
+        assertThat(description)
+                .as("the refusal provides the revision to review")
+                .contains("error CommitNotNamed(name: string, waiting: string)");
+    }
+
+    @Test
     void workRecordsDeclareAnOptionalUpdateTime() {
         // Clients order kept records by their own write time and still accept older records.
         final Matcher record =

@@ -4565,7 +4565,27 @@ class PoreloDaemonTest {
                 .containsEntry("message", "second.txt\n");
     }
 
+    @Test
+    void anApprovalWithoutACommitCannotForwardOverTheSocket(@TempDir Path dir) throws Exception {
+        reviewWithBase(dir, false, true);
+    }
+
+    @Test
+    void aPushDuringADaemonReviewCannotMixRevisions(@TempDir Path dir) throws Exception {
+        reviewWithBase(dir, false, false, true);
+    }
+
     private Map<String, Object> reviewWithBase(Path dir, boolean develop) throws Exception {
+        return reviewWithBase(dir, develop, false);
+    }
+
+    private Map<String, Object> reviewWithBase(Path dir, boolean develop, boolean unnamedApproval)
+            throws Exception {
+        return reviewWithBase(dir, develop, unnamedApproval, false);
+    }
+
+    private Map<String, Object> reviewWithBase(
+            Path dir, boolean develop, boolean unnamedApproval, boolean race) throws Exception {
         // The contract says "Default: the upstream's default branch"; the daemon showed the push's
         // last commit alone, and a client saw half of the work.
         final PoreloContext context = context(dir);
@@ -4630,8 +4650,57 @@ class PoreloDaemonTest {
 
         final java.util.concurrent.atomic.AtomicReference<Map<String, Object>> answered =
                 new java.util.concurrent.atomic.AtomicReference<>();
+        final String captured =
+                git.runOrFail(
+                                org.fuin.porelo.core.process.Command.of(
+                                        "git", "-C", work.toString(), "rev-parse", "HEAD"))
+                        .trimmedOutput();
+        final java.util.concurrent.atomic.AtomicBoolean pushed =
+                new java.util.concurrent.atomic.AtomicBoolean();
+        final PoreloContext reading =
+                new PoreloContext(
+                        command -> {
+                            if (race
+                                    && command.arguments().contains("--numstat")
+                                    && pushed.compareAndSet(false, true)) {
+                                try {
+                                    Files.writeString(work.resolve("unseen.txt"), "unseen\n");
+                                } catch (java.io.IOException ex) {
+                                    throw new java.io.UncheckedIOException(ex);
+                                }
+                                in.accept(work, new String[] {"add", "."});
+                                in.accept(
+                                        work,
+                                        new String[] {
+                                            "commit", "-q", "-m", "pushed during review"
+                                        });
+                                in.accept(
+                                        work,
+                                        new String[] {
+                                            "push",
+                                            "-q",
+                                            gate.mirror().toString(),
+                                            "HEAD:refs/porelo/incoming/t"
+                                        });
+                                final String moved =
+                                        git.runOrFail(
+                                                        org.fuin.porelo.core.process.Command.of(
+                                                                "git",
+                                                                "-C",
+                                                                work.toString(),
+                                                                "rev-parse",
+                                                                "HEAD"))
+                                                .trimmedOutput();
+                                in.accept(
+                                        gate.mirror(),
+                                        new String[] {"update-ref", "refs/heads/main", moved});
+                            }
+                            return context.runner().run(command);
+                        },
+                        context.paths(),
+                        args -> 0);
         servingContext(
-                context,
+                reading,
                 dir,
                 socket -> {
                     try (VarlinkClient client = new VarlinkClient(socket)) {
@@ -4647,6 +4716,17 @@ class PoreloDaemonTest {
                                                         "name",
                                                         "t")));
                         answered.set(review);
+                        assertThat(review.get("commit"))
+                                .as("the reply binds the displayed evidence")
+                                .isEqualTo(captured);
+                        assertThat(String.valueOf(review.get("diff")))
+                                .as("the patch uses the captured tree")
+                                .contains("first.txt", "second.txt")
+                                .doesNotContain("unseen.txt");
+                        assertThat(String.valueOf(review.get("commits")))
+                                .as("makers and messages belong to the same review")
+                                .contains(captured)
+                                .doesNotContain("pushed during review");
                         assertThat(
                                         ((java.util.List<?>) review.get("files"))
                                                 .stream()
@@ -4660,7 +4740,71 @@ class PoreloDaemonTest {
                                 .containsExactlyInAnyOrder("first.txt", "second.txt");
                         assertThat(String.valueOf(review.get("log")))
                                 .contains("first.txt")
-                                .contains("second.txt");
+                                .contains("second.txt")
+                                .doesNotContain("pushed during review");
+                        if (race) {
+                            assertThat(pushed).as("the concurrent push really arrived").isTrue();
+                            assertThat(gate.waiting("t").commit())
+                                    .as("the incoming ref moved")
+                                    .isNotEqualTo(captured);
+                        }
+                        if (unnamedApproval) {
+                            for (final String commit :
+                                    java.util.List.of("omitted", "null", "", "   ", "signed")) {
+                                final Map<String, Object> approval =
+                                        new java.util.LinkedHashMap<>(
+                                                Map.of(
+                                                        "project",
+                                                        "default",
+                                                        "repository",
+                                                        "app",
+                                                        "name",
+                                                        "t",
+                                                        "branch",
+                                                        "reviewed"));
+                                if ("signed".equals(commit)) approval.put("signed", true);
+                                else if (!"omitted".equals(commit))
+                                    approval.put("commit", "null".equals(commit) ? null : commit);
+                                assertThatThrownBy(
+                                                () ->
+                                                        client.call(
+                                                                PoreloDaemon.INTERFACE + ".Approve",
+                                                                approval))
+                                        .as("an approval must identify the reviewed commit")
+                                        .isInstanceOfSatisfying(
+                                                VarlinkException.class,
+                                                failure -> {
+                                                    assertThat(failure.getErrorName())
+                                                            .as(
+                                                                    "the client receives the commit requirement")
+                                                            .isEqualTo(
+                                                                    PoreloDaemon.INTERFACE
+                                                                            + ".CommitNotNamed");
+                                                    assertThat(failure.getParameters())
+                                                            .as(
+                                                                    "the refusal names the waiting revision")
+                                                            .containsEntry("name", "t")
+                                                            .containsEntry(
+                                                                    "waiting",
+                                                                    gate.waitingWork("t").commit());
+                                                });
+                                assertThat(gate.pending())
+                                        .as("the work remains at the gate")
+                                        .contains("t");
+                            }
+                            assertThat(
+                                            git.runOrFail(
+                                                            org.fuin.porelo.core.process.Command.of(
+                                                                    "git",
+                                                                    "-C",
+                                                                    checkout.toString(),
+                                                                    "for-each-ref",
+                                                                    "--format=%(objectname)",
+                                                                    "refs/heads/reviewed"))
+                                                    .standardOutput())
+                                    .as("no approval branch was forwarded")
+                                    .isEmpty();
+                        }
                         final Map<String, Object> pending =
                                 client.call(
                                         PoreloDaemon.INTERFACE + ".Pending",
@@ -4933,7 +5077,9 @@ class PoreloDaemonTest {
                                                                 "name",
                                                                 "t",
                                                                 "branch",
-                                                                "porelo/t")))
+                                                                "porelo/t",
+                                                                "commit",
+                                                                gate.waiting("t").commit())))
                                 .isInstanceOfSatisfying(
                                         VarlinkException.class,
                                         refused -> {

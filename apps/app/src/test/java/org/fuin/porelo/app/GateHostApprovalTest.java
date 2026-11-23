@@ -376,7 +376,16 @@ class GateHostApprovalTest {
         cli.setOut(new PrintWriter(out));
         cli.setErr(new PrintWriter(err));
         final List<String> args =
-                new ArrayList<>(List.of("-p", "demo", "-r", "repo", "fix", "--no-input"));
+                new ArrayList<>(
+                        List.of(
+                                "-p",
+                                "demo",
+                                "-r",
+                                "repo",
+                                "fix",
+                                "--no-input",
+                                "--commit",
+                                git(mirror, "rev-parse", GitGate.INCOMING + "fix")));
         args.addAll(List.of(extra));
         return new Run(cli.execute(args.toArray(String[]::new)), out.toString(), err.toString());
     }

@@ -179,14 +179,14 @@ final class WorkspaceSetup {
                     }
                 }
             } else {
-                final String earlier = gate.waiting(task);
+                final org.fuin.porelo.gate.GitGate.Waiting earlier = gate.waitingWork(task);
                 if (earlier != null) {
-                    earlierWork = gate.waitingWork(task);
+                    earlierWork = earlier;
                     final java.util.List<String> containers = context.podman().poreloContainers();
                     for (int n = 2; n < 100 && freeName == null; n++) {
                         final String candidate = task + "-" + n;
                         // Taken under either name: one made before, or one a new task gets.
-                        if (gate.waiting(candidate) == null
+                        if (gate.waitingWork(candidate) == null
                                 && !containers.contains(
                                         org.fuin.porelo.runtime.ContainerName.of(
                                                 project, candidate))
@@ -200,8 +200,18 @@ final class WorkspaceSetup {
                             "work of an earlier task called "
                                     + task
                                     + " waits at the gate ("
-                                    + earlier
-                                    + "): approve or reject it first, with 'porelo gate approve' or 'porelo gate reject', or"
+                                    + earlier.commit()
+                                    + " "
+                                    + earlier.subject()
+                                    + "): review it, then approve with 'porelo gate approve --project "
+                                    + project.name()
+                                    + " --repository "
+                                    + chosen.name()
+                                    + " --commit "
+                                    + earlier.commit()
+                                    + " "
+                                    + task
+                                    + "' or reject with 'porelo gate reject', or"
                                     + " start under another name";
                     return null;
                 }

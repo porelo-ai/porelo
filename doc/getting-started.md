@@ -308,14 +308,16 @@ as branch `porelo/myproject`, never touching your checked-out branch or any remo
 the question. Merge or cherry-pick `porelo/myproject` when you are ready.
 
 For a `guarded` project whose repository names a remote `central:` in `project.yml`, use
-`porelo gate approve -p <project> [-r <repo>] <task>`: it pushes the approved work to that `upstream`
+`porelo gate approve -p <project> [-r <repo>] --commit <full-id> <task>`: it pushes the approved work to that `upstream`
 (or `--upstream <url>`), onto `--branch` (the recorded starting branch by default, `main` for older tasks;
 on the host's forge, `porelo/<task>`; with a [`branch` block](project-file.md#branch), the task's recorded
 branch). On the host's forge it opens or reuses a pull request to the repository's default branch as
 the task's forge account and prints its URL for the person who reviews and merges it. An amended
 approval there replaces only this gate's last push for that task, with a lease. A failed pull request call
 leaves the push on the forge and the approval pending for a retry, and exits non-zero. With no `upstream` it refuses: "No
-upstream is configured for this project". Both approve commands refuse in an `offline` project.
+upstream is configured for this project". Both approve commands refuse in an `offline` project. Use the full ID and approval command printed by
+`gate review`. Omitting `--commit` asks at a terminal, default no; a script or `--no-input` refuses with exit 70.
+A concurrent push requires another review, and a stopped task follows the same rule.
 
 The next task starting from that repository is brought up to the upstream first, so approved
 work is its base. What waits for review is never touched.
@@ -394,7 +396,7 @@ git init ~/payments-project && cd ~/payments-project     # project.yml in it
 git add project.yml && git commit -S -m "The payments project"
 porelo task start --project payments --repository backend     # names the task after the repository: backend
 porelo gate review  -p payments -r backend backend
-porelo gate approve -p payments -r backend backend
+porelo gate approve -p payments -r backend --commit <full-id> backend
 ```
 
 - **A commit is read, never the working tree.** An edit to `project.yml` is read once it is committed and signed by the
@@ -412,7 +414,8 @@ can be the whole setup. Commit `project.yml` into it, start there, and approve o
 
 ```
 porelo task start --project myproject --repository myproject
-porelo gate approve -p myproject myproject --upstream ~/myproject --branch porelo/myproject
+porelo gate review -p myproject -r myproject myproject
+porelo gate approve -p myproject -r myproject --commit <full-id> myproject --upstream ~/myproject --branch porelo/myproject
 git -C ~/myproject merge porelo/myproject
 ```
 

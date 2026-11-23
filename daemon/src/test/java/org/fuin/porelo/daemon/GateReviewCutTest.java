@@ -89,7 +89,9 @@ class GateReviewCutTest {
                         "-r",
                         "app",
                         "--against",
-                        push.base(),
+                        push.capturedBase(),
+                        "--commit",
+                        String.valueOf(review.get("commit")),
                         "--",
                         "t");
     }
@@ -230,6 +232,13 @@ class GateReviewCutTest {
         String base() {
             return org.fuin.porelo.app.TaskBase.reviewAgainst(
                     context, org.fuin.porelo.app.GateSupport.byName(context, "default"), "t", gate);
+        }
+
+        // The review names its base as the commit it compared against, so a later move of the
+        // branch cannot change what the full view shows.
+        String capturedBase() {
+            return java.util.Objects.requireNonNull(
+                    gate.reviewBase(base()), "the base resolves in this repository");
         }
 
         String wholePatch() {

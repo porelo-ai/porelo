@@ -984,6 +984,17 @@ public class GitGate {
      */
     public Blobs blobs(String name, java.util.Collection<String> paths) {
         requirePending(name);
+        return blobs(new Waiting(reviewedCommit(name, null), ""), paths);
+    }
+
+    /**
+     * Returns file blobs from the captured revision, even if another push has arrived.
+     *
+     * @param waiting The captured commit.
+     * @param paths Paths to read.
+     * @return The ids, by path.
+     */
+    public Blobs blobs(Waiting waiting, java.util.Collection<String> paths) {
         final String format = gitIn("rev-parse", "--show-object-format").standardOutput().strip();
         final java.util.Map<String, String> byPath = new java.util.LinkedHashMap<>();
         if (paths.isEmpty()) {
@@ -994,7 +1005,7 @@ public class GitGate {
         final java.util.Set<String> wanted = new java.util.HashSet<>(paths);
         // Read with -z, as the review's counts are: a quoted path would match no delivery.
         for (final String entry :
-                gitIn("ls-tree", "-r", "-z", "--full-tree", INCOMING + name)
+                gitIn("ls-tree", "-r", "-z", "--full-tree", waiting.commit())
                         .standardOutput()
                         .split("\0")) {
             final int tab = entry.indexOf('\t');
@@ -1026,6 +1037,20 @@ public class GitGate {
     public ReviewRanking.Review rankedReview(
             String name, @Nullable String against, boolean ignoreLineEndings) {
         requirePending(name);
+        return rankedReview(
+                new Waiting(reviewedCommit(name, null), ""), against, ignoreLineEndings);
+    }
+
+    /**
+     * Returns the ranked patch for one captured revision.
+     *
+     * @param waiting The captured commit.
+     * @param against The comparison base, or {@code null} for the last commit alone.
+     * @param ignoreLineEndings Whether the patch ignores whitespace at line endings.
+     * @return The ranked files and patch from the same objects.
+     */
+    public ReviewRanking.Review rankedReview(
+            Waiting waiting, @Nullable String against, boolean ignoreLineEndings) {
         final boolean compare = against != null && !against.isBlank() && resolves(against);
         final List<String> verb =
                 compare
@@ -1034,7 +1059,7 @@ public class GitGate {
         // Pinned once: the ranking, the counts and the patch are read from the same objects, so a
         // push that moves meanwhile cannot rank one change and show another, and whatever part of
         // the patch a reply later shows, the ranking was made from the whole change.
-        final String pinned = gitIn("rev-parse", "--verify", INCOMING + name).trimmedOutput();
+        final String pinned = waiting.commit();
         final List<String> refs =
                 compare && against != null
                         ? comparedObjects(
@@ -1211,10 +1236,21 @@ public class GitGate {
      */
     public List<Made> made(String name, @Nullable String against) {
         requirePending(name);
+        return made(new Waiting(reviewedCommit(name, null), ""), against);
+    }
+
+    /**
+     * Returns the makers and messages belonging to the captured review.
+     *
+     * @param waiting The captured commit.
+     * @param against The captured base, or {@code null} for the whole history.
+     * @return Each commit, newest first.
+     */
+    public List<Made> made(Waiting waiting, @Nullable String against) {
         final String range =
                 against == null || against.isBlank() || !resolves(against)
-                        ? INCOMING + name
-                        : against + ".." + INCOMING + name;
+                        ? waiting.commit()
+                        : against + ".." + waiting.commit();
         return made(range, -1);
     }
 
@@ -1351,10 +1387,33 @@ public class GitGate {
      */
     public String log(String name, @Nullable String against) {
         requirePending(name);
+        return log(new Waiting(reviewedCommit(name, null), ""), against);
+    }
+
+    /**
+     * Captures a comparison base so every part of a review uses the same objects.
+     *
+     * @param against Ref to compare against, or {@code null}.
+     * @return Its full commit, or {@code null} when no base exists.
+     */
+    public @Nullable String reviewBase(@Nullable String against) {
+        return against == null || against.isBlank() || !resolves(against)
+                ? null
+                : gitIn("rev-parse", "--verify", against + "^{commit}").trimmedOutput();
+    }
+
+    /**
+     * Returns the log belonging to the captured review.
+     *
+     * @param waiting The captured commit.
+     * @param against The captured base, or {@code null} for the whole history.
+     * @return One full commit id and subject per line.
+     */
+    public String log(Waiting waiting, @Nullable String against) {
         final String range =
                 against == null || against.isBlank() || !resolves(against)
-                        ? INCOMING + name
-                        : against + ".." + INCOMING + name;
+                        ? waiting.commit()
+                        : against + ".." + waiting.commit();
         // Each commit in full: it is what 'gate approve --commit' takes, and seven characters are
         // not, since another commit an agent makes can be made to share them.
         return gitIn("log", "--format=%H %s", range).standardOutput();
@@ -1383,9 +1442,10 @@ public class GitGate {
      *
      * @param name Incoming ref name, without the namespace prefix.
      * @param into Directory to create. Must not exist.
+     * @return The full commit id actually checked out.
      * @throws GateException If the ref is not there, or the copy cannot be made.
      */
-    public void checkout(String name, Path into) {
+    public String checkout(String name, Path into) {
 
         requirePending(name);
         if (Files.exists(into)) {
@@ -1413,6 +1473,7 @@ public class GitGate {
         gitAt(target, "config", "core.hooksPath", noHooks.toString());
 
         gitAt(target, "checkout", "--quiet", "--detach", "FETCH_HEAD");
+        return gitAt(target, "rev-parse", "--verify", "HEAD").trimmedOutput();
     }
 
     /**
@@ -1858,35 +1919,13 @@ public class GitGate {
     }
 
     /**
-     * Returns the commit and subject of a task's work that waits at the gate, for a start that
-     * would otherwise build a new task of the same name on top of it.
+     * Captures the full commit and subject waiting under a task's name, in every gate mode.
      *
      * @param name The task's name, without the namespace prefix.
-     * @return {@code "<commit> <subject>"}, or {@code null} when nothing of that name waits.
+     * @return The work, or {@code null} when no ref of that name exists.
      */
-    public @org.jspecify.annotations.Nullable String waiting(String name) {
-        if (mode == GateMode.ONLINE || !resolves(INCOMING + name)) {
-            return null;
-        }
-        return gitIn("log", "-1", "--format=%h %s", INCOMING + name).standardOutput().strip();
-    }
-
-    /**
-     * A task's work that waits at the gate, in full.
-     *
-     * @param commit The commit it holds.
-     * @param subject Its subject line.
-     */
-    public record Waiting(String commit, String subject) {}
-
-    /**
-     * Returns the work of a task's name that waits at the gate, for a start refused by name.
-     *
-     * @param name The task's name, without the namespace prefix.
-     * @return The work, or {@code null} when nothing of that name waits.
-     */
-    public @org.jspecify.annotations.Nullable Waiting waitingWork(String name) {
-        if (mode == GateMode.ONLINE || !resolves(INCOMING + name)) {
+    public @Nullable Waiting waiting(String name) {
+        if (!resolves(INCOMING + name)) {
             return null;
         }
         final String[] parts =
@@ -1895,6 +1934,31 @@ public class GitGate {
                         .strip()
                         .split("\n", 2);
         return new Waiting(parts[0], parts.length > 1 ? parts[1] : "");
+    }
+
+    /**
+     * A task's work that waits at the gate, in full.
+     *
+     * @param commit The commit it holds.
+     * @param subject Its subject line.
+     */
+    public record Waiting(String commit, String subject) {
+        /** Refuses anything that could select a different object when used by Git. */
+        public Waiting {
+            if (!COMMIT_ID.matcher(commit).matches()) {
+                throw new GateException("name the reviewed commit in full");
+            }
+        }
+    }
+
+    /**
+     * Returns the work of a task's name that waits at the gate, for a start refused by name.
+     *
+     * @param name The task's name, without the namespace prefix.
+     * @return The work, or {@code null} when nothing of that name waits.
+     */
+    public @org.jspecify.annotations.Nullable Waiting waitingWork(String name) {
+        return mode == GateMode.ONLINE ? null : waiting(name);
     }
 
     /**

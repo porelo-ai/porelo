@@ -15,7 +15,7 @@ work takes.
 | | offline | guarded (default) | online |
 |---|---|---|---|
 | **In** | cloned from the mirror, seeded once on the host and never fetched again | cloned from the mirror, which the host fetches into from the upstream at the task's start | as guarded, and the gate fetches again before each fetch of the agent |
-| **Out** | into the mirror; off the machine only by hand | `porelo gate approve` | the gate passes the task's own branch on at once |
+| **Out** | into the mirror; off the machine only by hand | `porelo gate approve --commit FULL_ID` | the gate passes the task's own branch on at once |
 | **Credential in the container** | none | none | none |
 | **Review** | by hand, out of the mirror | at the gate, before the upstream | none, unless somebody does it on the forge afterwards |
 
@@ -81,7 +81,13 @@ pushes to it; it never reaches the upstream itself. The gate, on the host, bring
 upstream's branches when a task starts and on `porelo task refresh`, where the mirror was cloned from
 that upstream; one seeded from a checkout stays as it was seeded. The work waits under
 `refs/porelo/incoming/<task>` until somebody reads and approves it, and the approve is what forwards
-it.
+it. Approval names the full commit ID captured by the review. If the task pushes again before approval,
+the earlier review cannot authorize that new commit; this also holds for signed approval and stopped tasks.
+Omitting the ID asks at a terminal, default no, and is refused in scripts or with `--no-input`.
+
+Approval is a separate authenticated operation. SARIF verdicts, suppressions, baselines and empty findings
+grant no forwarding authority. Commit-specific review decisions use the full commit ID as their key; a
+decision for a different commit cannot authorize this approval.
 
 ![guarded: the agent clones from and pushes to the local gate, which alone fetches from the upstream; the operator reviews and approves, and only the approve reaches the upstream — while a dashed path shows work leaving past the approval](images/security-classes-guarded.svg)
 

@@ -1405,14 +1405,20 @@ class GitGateTest {
         assertThat(gate.pending())
                 .as("what went on waits for nobody")
                 .containsExactly("task-1" + GitGate.RESCUED);
-        assertThat(gate.waiting("task-1")).as("online").isNull();
+        assertThat(gate.waitingWork("task-1"))
+                .as("online starts do not block on passed work")
+                .isNull();
+        assertThat(gate.waiting("task-1").commit())
+                .as("review can capture an online ref")
+                .isEqualTo(git(work, "rev-parse", "HEAD").trimmedOutput());
         gate.forget("task-1");
 
         assertThat(gate.resolves(GitGate.INCOMING + "task-1")).isFalse();
         assertThat(gate.resolves(GitGate.INCOMING + "task-1" + GitGate.RESCUED)).isTrue();
         assertThat(
                         gate(GateMode.GATEKEEPING, upstream.toString())
-                                .waiting("task-1" + GitGate.RESCUED))
+                                .waiting("task-1" + GitGate.RESCUED)
+                                .subject())
                 .as("guarded names what waits")
                 .contains("add agent.txt");
     }
@@ -2737,6 +2743,12 @@ class GitGateTest {
         assertThatThrownBy(() -> gate.approve("task-1", "main", reviewed))
                 .isInstanceOf(GateException.MovedSinceReview.class)
                 .hasMessageContaining("moved");
+        assertThatThrownBy(
+                        () ->
+                                gate.approveSigned(
+                                        "task-1", "main", root.resolve("merge-moved"), reviewed))
+                .as("signing cannot reuse a review of another commit")
+                .isInstanceOf(GateException.MovedSinceReview.class);
         assertThat(
                         runner.runOrFail(
                                         Command.of(
@@ -3020,6 +3032,37 @@ class GitGateTest {
                 .hasMessageContaining("full");
         gate.approve("task-1", "main", full);
         assertThat(gate.pending()).isEmpty();
+    }
+
+    @Test
+    void everyPartOfACapturedReviewKeepsItsRevisionAfterAnotherPush() throws Exception {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        pushWork("writer", "reviewed.txt");
+        final GitGate.Waiting reviewed = gate.waiting("writer");
+        final String blob = git(work, "rev-parse", "HEAD:reviewed.txt").trimmedOutput();
+        makeCommit("unseen.txt", "pushed during review");
+        git(work, "push", mirror.toString(), "HEAD:" + GitGate.INCOMING + "writer");
+
+        assertThat(gate.rankedReview(reviewed, null, false).patch())
+                .as("the patch remains the captured tree")
+                .contains("reviewed.txt")
+                .doesNotContain("unseen.txt");
+        assertThat(gate.log(reviewed, null))
+                .as("the log names only the reviewed commits")
+                .startsWith(reviewed.commit())
+                .doesNotContain("unseen.txt");
+        assertThat(gate.made(reviewed, null))
+                .as("the makers belong to the displayed commits")
+                .extracting(GitGate.Made::commit)
+                .containsExactly(reviewed.commit());
+        assertThat(gate.blobs(reviewed, List.of("reviewed.txt", "unseen.txt")).byPath())
+                .as("provenance reads the reviewed tree")
+                .containsExactlyEntriesOf(Map.of("reviewed.txt", blob));
+        for (GateMode mode : GateMode.values()) {
+            assertThat(new GitGate(runner, mirror, mode, null).waiting("writer").commit())
+                    .as("every gate mode can capture a waiting ref")
+                    .isEqualTo(git(work, "rev-parse", "HEAD").trimmedOutput());
+        }
     }
 
     /** A bare mirror whose stale main and whose default, trunk, hold different files. */

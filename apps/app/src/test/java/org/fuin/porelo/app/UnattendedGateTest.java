@@ -150,6 +150,9 @@ class UnattendedGateTest {
                                 choice.repository(),
                                 "writer"));
         args.addAll(List.of(options));
+        if ("approve".equals(verb)) {
+            args.addAll(List.of("--commit", gate.waiting("writer").commit()));
+        }
         return cli.execute(args.toArray(String[]::new));
     }
 

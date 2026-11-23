@@ -1,0 +1,2 @@
+title: Gate approval requires the captured reviewed commit and refuses unseen work after a concurrent push.
+type: security

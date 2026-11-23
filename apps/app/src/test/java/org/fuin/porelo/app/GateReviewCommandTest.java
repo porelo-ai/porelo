@@ -52,7 +52,18 @@ class GateReviewCommandTest {
         review(dir, true, true);
     }
 
+    @Test
+    void aPushDuringReviewCannotChangeTheLogPatchOrApprovalCommand(@TempDir Path dir)
+            throws Exception {
+        review(dir, false, false, true);
+    }
+
     private void review(Path dir, boolean develop, boolean missing, String... options)
+            throws Exception {
+        review(dir, develop, missing, false, options);
+    }
+
+    private void review(Path dir, boolean develop, boolean missing, boolean race, String... options)
             throws Exception {
         // Without --against it compared with 'main', which a repository on 'trunk' does not have:
         // the patch was the last commit's alone, and a person approved commits the review never
@@ -68,8 +79,19 @@ class GateReviewCommandTest {
                                     default -> null;
                                 },
                         dir);
+        final java.util.concurrent.atomic.AtomicReference<Runnable> during =
+                new java.util.concurrent.atomic.AtomicReference<>();
         final PoreloContext context =
-                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new PoreloContext(
+                        command -> {
+                            if (command.arguments().contains("--numstat")) {
+                                final Runnable action = during.getAndSet(null);
+                                if (action != null) action.run();
+                            }
+                            return runner.run(command);
+                        },
+                        new PoreloPaths(xdg, dir.resolve("bin")),
+                        arguments -> 0);
         final Path origin = dir.resolve("origin.git");
         git(dir, "init", "-q", "--bare", "-b", "trunk", origin.toString());
         final Path checkout = dir.resolve("app");
@@ -107,6 +129,30 @@ class GateReviewCommandTest {
         git(work, "add", ".");
         git(work, "commit", "-q", "-m", "the second change");
         git(work, "push", "-q", gate.mirror().toString(), "HEAD:" + GitGate.INCOMING + "writer");
+        final String captured = git(work, "rev-parse", "HEAD");
+        if (race) {
+            during.set(
+                    () -> {
+                        try {
+                            Files.writeString(work.resolve("unseen.txt"), "unseen\n");
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                        git(work, "add", ".");
+                        git(work, "commit", "-q", "-m", "pushed during review");
+                        git(
+                                work,
+                                "push",
+                                "-q",
+                                gate.mirror().toString(),
+                                "HEAD:" + GitGate.INCOMING + "writer");
+                        git(
+                                gate.mirror(),
+                                "update-ref",
+                                "refs/heads/trunk",
+                                git(work, "rev-parse", "HEAD"));
+                    });
+        }
 
         if (missing) {
             git(dir, "--git-dir", gate.mirror().toString(), "branch", "-D", "develop");
@@ -139,6 +185,19 @@ class GateReviewCommandTest {
                 .as("both commits' changes are in the patch")
                 .contains("+first")
                 .contains("+second");
+        assertThat(out.toString())
+                .as("the command authorizes the displayed revision")
+                .contains(
+                        "reviewed  " + captured,
+                        "--commit " + captured,
+                        "--project " + choice.project(),
+                        "--repository " + choice.repository())
+                .doesNotContain("unseen.txt", "pushed during review");
+        if (race) {
+            assertThat(git(work, "rev-parse", "HEAD"))
+                    .as("a different push really arrived")
+                    .isNotEqualTo(captured);
+        }
         if (develop) {
             assertThat(out.toString())
                     .as("review excludes the starting branch's own changes")

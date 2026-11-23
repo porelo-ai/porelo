@@ -277,7 +277,8 @@ public class GateCheckCommand implements Callable<Integer>, PoreloFactory.Contex
         err.println("  The gate exists so somebody reads this before it leaves:");
         err.println("    porelo gate pending                 what is waiting");
         err.println("    porelo gate checkout <name>         open it where it cannot escape");
-        err.println("    porelo gate approve <name> <branch> send it up");
+        err.println(
+                "    porelo gate approve --project <project> --repository <repo> --commit <full-id> --branch <branch> <name>  send the reviewed commit up");
         err.println();
         err.println("  If you meant this, push again with --no-verify.");
         err.flush();

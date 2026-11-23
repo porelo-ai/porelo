@@ -50,6 +50,12 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
     private @Nullable String against;
 
     @Option(
+            names = "--commit",
+            paramLabel = "<id>",
+            description = "Show this full commit id instead of the current waiting revision.")
+    private @Nullable String commit;
+
+    @Option(
             names = "--ignore-line-endings",
             description =
                     "Ignore whitespace at line endings in the patch, as git's --ignore-space-at-eol."
@@ -73,27 +79,41 @@ public class GateReviewCommand implements Callable<Integer>, PoreloFactory.Conte
 
         try {
             final Project project = GateSupport.byName(context, projectName);
-            final GitGate gate =
-                    GateSupport.gate(
-                            context,
-                            project,
-                            GateSupport.repository(context, project, repository, name),
-                            upstream,
-                            null);
+            final var selected = GateSupport.repository(context, project, repository, name);
+            final GitGate gate = GateSupport.gate(context, project, selected, upstream, null);
             GateSupport.held(gate);
+            final GitGate.Waiting waiting =
+                    commit == null ? gate.waiting(name) : new GitGate.Waiting(commit.strip(), "");
+            if (waiting == null) {
+                throw new GateException("There is no pending push named '" + name + "'");
+            }
             // What matters before what is merely large: the instruction, the files dangerous by
             // kind, and the patch in that same order, reformatting and generated files last.
             final String base =
-                    against == null
-                            ? TaskBase.reviewAgainst(context, project, name, gate)
-                            : against;
-            final ReviewRanking.Review review = gate.rankedReview(name, base, ignoreLineEndings);
+                    gate.reviewBase(
+                            against == null
+                                    ? TaskBase.reviewAgainst(context, project, name, gate)
+                                    : against);
+            final ReviewRanking.Review review = gate.rankedReview(waiting, base, ignoreLineEndings);
             out.print(
                     ReviewText.render(
                             ReviewText.instruction(context.paths(), project.name(), name),
                             review.files()));
-            out.println(shown(gate.log(name, base)));
+            out.println(shown(gate.log(waiting, base)));
             out.println(shown(review.patch()));
+            out.println("reviewed  " + waiting.commit());
+            out.println(
+                    "approve   "
+                            + TalkReadCommand.shown(
+                                    new GateApprovalHint(
+                                                    project.name(),
+                                                    selected.name(),
+                                                    name,
+                                                    waiting.commit(),
+                                                    upstream,
+                                                    null,
+                                                    false)
+                                            .command()));
             out.flush();
             return 0;
         } catch (GateException ex) {

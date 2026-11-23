@@ -43,7 +43,8 @@ final class GateMethods {
             final Map<String, Object> parameters,
             final PoreloContext context,
             final String name,
-            final @org.jspecify.annotations.Nullable String against) {
+            final @org.jspecify.annotations.Nullable String against,
+            final String commit) {
         final org.fuin.porelo.core.project.Project project =
                 GateSupport.project(projectFile(parameters, context));
         final List<String> command =
@@ -60,12 +61,12 @@ final class GateMethods {
         if (!text(parameters, "upstream").isEmpty()) {
             command.addAll(List.of("--upstream", text(parameters, "upstream")));
         }
-        if (against != null && !against.isBlank()) {
-            command.addAll(List.of("--against", against));
-        }
+        // An explicit empty base keeps the CLI from selecting a newer default.
+        command.addAll(List.of("--against", against == null ? "" : against));
         if (flag(parameters, "ignoreLineEndings")) {
             command.add("--ignore-line-endings");
         }
+        command.addAll(List.of("--commit", commit));
         command.addAll(List.of("--", name));
         return List.copyOf(command);
     }
@@ -378,16 +379,23 @@ final class GateMethods {
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
                     final String name = text(parameters, "name");
+                    final GitGate.Waiting head = gate.waiting(name);
+                    if (head == null) {
+                        throw new org.fuin.porelo.gate.GateException(
+                                "There is no pending push named '" + name + "'");
+                    }
                     final String against =
-                            text(parameters, "against").isEmpty()
-                                    ? org.fuin.porelo.app.TaskBase.reviewAgainst(
-                                            context,
-                                            GateSupport.project(projectFile(parameters, context)),
-                                            name,
-                                            gate)
-                                    : text(parameters, "against");
+                            gate.reviewBase(
+                                    text(parameters, "against").isEmpty()
+                                            ? org.fuin.porelo.app.TaskBase.reviewAgainst(
+                                                    context,
+                                                    GateSupport.project(
+                                                            projectFile(parameters, context)),
+                                                    name,
+                                                    gate)
+                                            : text(parameters, "against"));
                     final org.fuin.porelo.gate.ReviewRanking.Review review =
-                            gate.rankedReview(name, against, flag(parameters, "ignoreLineEndings"));
+                            gate.rankedReview(head, against, flag(parameters, "ignoreLineEndings"));
                     // Matched by content against what was handed into the task that pushed.
                     final Map<String, org.fuin.porelo.app.DeliveredOrigins.Origin> origins =
                             org.fuin.porelo.app.DeliveredOrigins.of(
@@ -399,17 +407,18 @@ final class GateMethods {
                                                             .name(),
                                                     name),
                                     gate.blobs(
-                                            name,
+                                            head,
                                             review.files().stream()
                                                     .filter(file -> !"D".equals(file.status()))
                                                     .map(file -> file.path())
                                                     .toList()));
                     final Map<String, Object> reply = new LinkedHashMap<>();
+                    reply.put("commit", head.commit());
                     reply.put("diff", review.patch());
-                    reply.put("log", gate.log(name, against));
+                    reply.put("log", gate.log(head, against));
                     reply.put(
                             "commits",
-                            gate.made(name, against).stream()
+                            gate.made(head, against).stream()
                                     .map(
                                             made -> {
                                                 final Map<String, Object> row =
@@ -461,16 +470,12 @@ final class GateMethods {
                     if (asked.found()) {
                         reply.put("asked", asked.prompt() == null ? "" : asked.prompt());
                     }
-                    final GitGate.Waiting head = gate.waitingWork(name);
                     final String arrival =
-                            head == null
-                                    ? null
-                                    : org.fuin.porelo.app.ArrivalVerdicts.of(
-                                            context,
-                                            GateSupport.project(projectFile(parameters, context))
-                                                    .name(),
-                                            name,
-                                            head.commit());
+                            org.fuin.porelo.app.ArrivalVerdicts.of(
+                                    context,
+                                    GateSupport.project(projectFile(parameters, context)).name(),
+                                    name,
+                                    head.commit());
                     if (arrival != null) {
                         reply.put("arrival", arrival);
                     }
@@ -478,7 +483,8 @@ final class GateMethods {
                             ReviewCut.fitted(
                                     reply,
                                     name,
-                                    reviewCommand(parameters, context, name, against),
+                                    reviewCommand(
+                                            parameters, context, name, against, head.commit()),
                                     org.fuin.porelo.wire.varlink.VarlinkConnection.MAX_MESSAGE));
                 });
 
@@ -488,6 +494,18 @@ final class GateMethods {
                     // The single call that sends anything anywhere, and it makes the caller name
                     // where.
                     final GitGate gate = gate(parameters, context);
+                    final String name = text(parameters, "name");
+                    final String commit = text(parameters, "commit").strip();
+                    if (commit.isEmpty()) {
+                        final GitGate.Waiting waiting = gate.waiting(name);
+                        throw new VarlinkException(
+                                INTERFACE + ".CommitNotNamed",
+                                Map.of(
+                                        "name",
+                                        name,
+                                        "waiting",
+                                        waiting == null ? "" : waiting.commit()));
+                    }
                     final String branch = approvalBranch(parameters, context);
                     if (branch == null) {
                         throw new VarlinkException(
@@ -499,16 +517,9 @@ final class GateMethods {
                         if (flag(parameters, "signed")) {
                             pullRequest =
                                     org.fuin.porelo.app.GateSupport.approveSigned(
-                                            gate,
-                                            text(parameters, "name"),
-                                            branch,
-                                            empty(parameters, "commit"));
+                                            gate, text(parameters, "name"), branch, commit);
                         } else {
-                            pullRequest =
-                                    gate.approve(
-                                            text(parameters, "name"),
-                                            branch,
-                                            empty(parameters, "commit"));
+                            pullRequest = gate.approve(text(parameters, "name"), branch, commit);
                         }
                     } catch (org.fuin.porelo.app.PushRefused ex) {
                         throw new VarlinkException(INTERFACE + ".PushRefused", ex.details());
@@ -540,9 +551,8 @@ final class GateMethods {
                                             ? "signed and forwarded onto "
                                             : "forwarded onto ")
                                     + branch
-                                    + (empty(parameters, "commit") == null
-                                            ? ""
-                                            : ", reviewed at " + empty(parameters, "commit"))
+                                    + ", reviewed at "
+                                    + commit
                                     + ", through the daemon");
                     final Map<String, Object> reply = new java.util.LinkedHashMap<>();
                     reply.put("forwarded", text(parameters, "name"));

@@ -82,7 +82,11 @@ Feature: Work starts without a project, in the project every machine has
             # As a person types it: no repository named. The task's own record says which one it worked on.
             porelo gate pending --project default | grep -c "^$repo  *sshwork " | sed 's/^/listed as pending: /'
             porelo gate pending | grep -c "^default  *$repo  *sshwork " | sed 's/^/listed with nothing named: /'
-            porelo gate approve sshwork --project default --branch porelo/sshwork > "$base/undeclared" 2>&1
+            review=$(porelo gate review sshwork --project default)
+            printf '%s\n' "$review"
+            reviewed=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
+            test -n "$reviewed" || exit 1
+            porelo gate approve sshwork --project default --branch porelo/sshwork --commit "$reviewed" > "$base/undeclared" 2>&1
             echo "undeclared approve exit $?"
             grep -o "the push was not attempted" "$base/undeclared"
             mirror="${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/default/$repo.git"
@@ -93,7 +97,7 @@ Feature: Work starts without a project, in the project every machine has
             git --git-dir="$base/$repo.git" show-ref --verify --quiet refs/heads/porelo/sshwork
             echo "branch after trial $?"
             porelo credentials declare "$origin" --kind ssh-key --agent --key "$fingerprint"
-            porelo gate approve sshwork --project default --branch porelo/sshwork > "$base/approve" 2>&1
+            porelo gate approve sshwork --project default --branch porelo/sshwork --commit "$reviewed" > "$base/approve" 2>&1
             echo "approve exit $?"
             git --git-dir="$base/$repo.git" log --format='%s' -1 porelo/sshwork | sed 's/^/arrived: /'
             porelo task remove porelo-default_sshwork --force > /dev/null 2>&1

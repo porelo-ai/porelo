@@ -3,8 +3,8 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
 
     What an agent pushed exists in the gate's mirror and nowhere else until somebody approves it, so
     the mirror is the one copy of that work. This hands the gate a real push from a real task and then
-    does to it what a reviewer does. One scenario, because a second push to the same task's ref would
-    be refused as not a fast-forward.
+    does to it what a reviewer does. Later pushes must keep their own review and approval, including
+    after a task stops.
 
     Scenario: a push waits for review, names what is dangerous first, opens where nothing in it runs, and its mirror is backed up
         # The deploy and other scenarios' scripts write here under the account's own umask. Cleared first, so what is
@@ -79,6 +79,65 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
         And its output contains "A mirror already exists"
         And its output contains "No bundle at"
         And its output does not contain "exit 0"
+        And a script runs "porelo task remove {task} --force" about the task
+
+    Scenario: approval forwards only a named reviewed revision for running and stopped tasks
+        Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
+        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
+        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
+        And a project called "bound" of class "guarded" with a file in it
+        And a script runs:
+            """
+            set -eu
+            git init -q --bare -b main ~/bound/.git/upstream.git
+            git -C ~/bound push -q ~/bound/.git/upstream.git HEAD:main
+            sed -i "/^project:/a\  upstream: \"file://$HOME/bound/.git/upstream.git\"" ~/bound/project.yml
+            git -C ~/bound commit -qam "name the upstream"
+            """
+        Then it exits zero
+        When a task called "reviewed" is started in "bound" for the "stub" agent and left running
+        And a script runs about the task:
+            """
+            set -eu
+            mirror="${XDG_DATA_HOME:-$HOME/.local/share}/porelo/mirrors/bound.git"
+            upstream="$HOME/bound/.git/upstream.git"
+            base=$(git --git-dir "$upstream" rev-parse refs/heads/main)
+            podman exec --user agent {task} sh -ec 'cd /workspace; echo first >> README.md; git add -A; git -c user.email=agent@localhost -c user.name=agent commit -qm "first review"; timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            review=$(porelo gate review -p bound reviewed)
+            printf '%s\n' "$review"
+            first=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
+            test -n "$first"
+            test "$first" = "$(git --git-dir "$mirror" rev-parse refs/porelo/incoming/reviewed)"
+            podman exec --user agent {task} sh -ec 'cd /workspace; echo unseen >> README.md; git add -A; git -c user.email=agent@localhost -c user.name=agent commit -qm "push after review"; timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            if porelo gate approve -p bound reviewed; then exit 1; else test "$?" = 70; fi
+            if porelo gate approve -p bound --commit "$first" reviewed; then exit 1; else test "$?" = 70; fi
+            test "$base" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
+            review=$(porelo gate review -p bound reviewed)
+            printf '%s\n' "$review"
+            second=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
+            test -n "$second" && test "$first" != "$second"
+            porelo gate approve -p bound --commit "$second" reviewed
+            test "$second" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
+            if git --git-dir "$mirror" show-ref --verify --quiet refs/porelo/incoming/reviewed; then exit 1; fi
+            echo "running revision forwarded"
+            podman exec --user agent {task} sh -ec 'cd /workspace; echo stopped >> README.md; git add -A; git -c user.email=agent@localhost -c user.name=agent commit -qm "review after stop"; timeout 30 git push -q porelo HEAD:"$PORELO_TASK_REF"'
+            porelo task stop {task}
+            test "$(podman inspect --format '{{.State.Running}}' {task})" = false
+            review=$(porelo gate review -p bound reviewed)
+            printf '%s\n' "$review"
+            stopped=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
+            test -n "$stopped" && test "$second" != "$stopped"
+            if porelo gate approve -p bound --no-input reviewed; then exit 1; else test "$?" = 70; fi
+            if porelo gate approve -p bound --commit "$second" reviewed; then exit 1; else test "$?" = 70; fi
+            test "$second" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
+            porelo gate approve -p bound --commit "$stopped" reviewed
+            test "$stopped" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
+            if git --git-dir "$mirror" show-ref --verify --quiet refs/porelo/incoming/reviewed; then exit 1; fi
+            echo "stopped revision forwarded"
+            """
+        Then it exits zero
+        And its output contains "running revision forwarded"
+        And its output contains "stopped revision forwarded"
         And a script runs "porelo task remove {task} --force" about the task
 
     # Guards a reviewer throwing away, as unreviewed, work somebody already carried to the upstream by hand: past the

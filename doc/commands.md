@@ -774,9 +774,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | Command | What it does |
 |---|---|
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
-| `porelo gate review NAME [--against=REF] [--ignore-line-endings]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. The full view when a window's review says its diff was cut. |
+| `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command. `--commit` selects a captured revision, including the full view of a cut review. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
-| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` refuses if the push moved since review. `--signed` merges it as a commit signed with your own git key. |
+| `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it, a terminal shows the waiting commit and asks, default no; a script or `--no-input` refuses with exit 70 and a bound command. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
 | `porelo gate protect` | Installs a pre-push hook that catches unapproved agent work. |
 | `porelo gate check` | The check that hook runs. |
@@ -787,7 +787,16 @@ Nothing an agent pushes reaches a real upstream without passing here.
 All but `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
 
 `gate review` and `gate pending` show each waiting commit by its full id, which is what `gate approve --commit` takes;
-a shortened id is refused, since another commit could be made to share it.
+a shortened id is refused, since another commit could be made to share it. Use the command printed at the end of the review, such as
+`porelo gate approve -p PROJECT -r REPOSITORY --commit FULL_ID NAME`. The patch, log and command all use
+the same captured revision, even if another push arrives while they are read. A push during a terminal
+confirmation is refused as moved; the answer cannot approve that newer commit. Running and stopped tasks
+follow the same rules, including `--signed`.
+
+Tasks1 `Review.commit` names the revision whose evidence was returned. `Approve.commit` stays optional in
+the wire schema, but an omitted, null or blank value is refused as `CommitNotNamed(name, waiting)`. A client
+must review the waiting revision and submit a separate authenticated approval naming that full ID.
+SARIF verdicts, suppressions, baselines and empty findings never authorize forwarding.
 
 A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
 fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches
@@ -806,7 +815,7 @@ commit this gate forwarded for the same task, using `--force-with-lease` on that
 request follows the amendment. Other divergent work still refuses and offers another branch; off a host, where
 the branch may be one others build on, an amended approval always does. If the forge refuses
 the pull request call, the command exits non-zero and names its status and message: the push has
-already happened, and approval stays pending so `gate approve` can be retried after the refusal is resolved.
+already happened, and approval stays pending so `gate approve --commit FULL_ID` can be retried after the refusal is resolved, with the same reviewed ID.
 Complete host approvals before removing the task: removal retires its forge identity and forgets its
 token. A pending ref outlives the container, but does not keep that credential alive.
 

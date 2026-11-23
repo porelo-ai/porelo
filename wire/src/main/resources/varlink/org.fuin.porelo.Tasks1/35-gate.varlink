@@ -265,6 +265,8 @@ method Review(
   # Counts, file ranking and log are unchanged by this switch.
   ignoreLineEndings: ?bool
 ) -> (
+  # The full commit whose evidence is returned, for Approve.commit. Absent from older daemons.
+  commit: ?string,
   # Unified diff, in the order of files: the dangerous first, reformatting and generated files last.
   diff: string,
   # Commit log over the same range.
@@ -371,8 +373,9 @@ method Approve(
   # Failed when the merge cannot be made or comes out unsigned. From the daemon an ssh-agent is reached only
   # if its socket is in the daemon's environment; 'porelo gate approve --signed' in a terminal always is.
   signed: ?bool,
-  # The commit the person reviewed, as Pending answers it. Refused as MovedSinceReview when the push has moved since,
-  # so what goes is what was read; the task's gate stays up during a review. Empty: whatever it holds now.
+  # The full lowercase 40- or 64-digit commit the person reviewed, as Review.commit answers it.
+  # Optional on the wire for compatibility; omitted or blank is refused as CommitNotNamed.
+  # Refused as MovedSinceReview when the push has moved since, so what goes is what was read.
   # Refused as BranchExists when 'branch' holds work the commit did not grow from, unless its head
   # is, on the host's forge, the last commit this gate forwarded for this task; that head is then
   # replaced with a lease.
@@ -436,6 +439,11 @@ error AlreadyUpstream(name: string)
 # Approve was given the commit the person reviewed, and the push has moved since: nothing was
 # forwarded. Review it again (now is what it holds) and approve that.
 error MovedSinceReview(name: string, reviewed: string, now: string)
+
+# No approval was attempted. waiting is the full current commit, or empty when no work waits.
+# Review that revision before making a new authenticated Approve call with its commit.
+# SARIF verdicts, suppressions, baselines and empty findings never authorize forwarding.
+error CommitNotNamed(name: string, waiting: string)
 
 # Approve was called without a branch to push to, in a project with no branch block - or in one with
 # a block, for a task whose branch was not recorded.

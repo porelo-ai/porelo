@@ -18,9 +18,13 @@ Feature: A person alone, working locally, with no forge
         Then it exits zero
         When a script runs:
             """
-            porelo gate approve work --project solo; echo "with no upstream: exit $?"
-            porelo gate approve work --project solo --upstream ~/solo; echo "onto the checked-out main: exit $?"
-            porelo gate approve work --project solo --upstream ~/solo --branch porelo/work; echo "onto its own branch: exit $?"
+            review=$(porelo gate review work --project solo)
+            printf '%s\n' "$review"
+            reviewed=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
+            test -n "$reviewed" || exit 1
+            porelo gate approve work --project solo --commit "$reviewed"; echo "with no upstream: exit $?"
+            porelo gate approve work --project solo --commit "$reviewed" --upstream ~/solo; echo "onto the checked-out main: exit $?"
+            porelo gate approve work --project solo --commit "$reviewed" --upstream ~/solo --branch porelo/work; echo "onto its own branch: exit $?"
             git -C ~/solo log --format='%s' -1 porelo/work | sed 's/^/landed: /'
             git -C ~/solo log --format='%s' -1 main | sed 's/^/main still: /'
             """

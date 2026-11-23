@@ -85,14 +85,11 @@ public class GateCheckoutCommand implements Callable<Integer>, PoreloFactory.Con
         // agent's work left an untracked directory in a checkout Porelo promises not to touch.
         final Path target =
                 into != null ? into : context.paths().gate().reviewCheckout(project.name(), name);
+        final String commit;
+        final var selected = GateSupport.repository(context, project, repository, name);
         try {
-            GateSupport.gate(
-                            context,
-                            project,
-                            GateSupport.repository(context, project, repository, name),
-                            null,
-                            null)
-                    .checkout(name, target);
+            commit =
+                    GateSupport.gate(context, project, selected, null, null).checkout(name, target);
         } catch (GateException ex) {
             err.println("porelo: " + ex.getMessage());
             err.flush();
@@ -106,7 +103,19 @@ public class GateCheckoutCommand implements Callable<Integer>, PoreloFactory.Con
                 "remote    the gate's mirror, and nothing else - there is nowhere to push"
                         + " that reaches the upstream");
         out.println("hooks     off in this copy, so nothing in the work runs by being opened");
-        out.println("approve   'porelo gate approve " + name + " <branch>' is what sends it up");
+        out.println("reviewed  " + commit);
+        out.println(
+                "approve   "
+                        + TalkReadCommand.shown(
+                                new GateApprovalHint(
+                                                project.name(),
+                                                selected.name(),
+                                                name,
+                                                commit,
+                                                null,
+                                                null,
+                                                false)
+                                        .command()));
         out.flush();
         return 0;
     }

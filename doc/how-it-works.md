@@ -143,8 +143,13 @@ Then, on your side:
 porelo gate pending                       # what is waiting
 porelo gate review -p myproject backend   # what it would change
 porelo gate reject -p myproject backend   # discard it, and tell the task
-porelo gate approve -p myproject backend  # forward it upstream
+porelo gate approve -p myproject --commit <full-id> backend  # forward the reviewed commit
 ```
+
+A review captures one full commit ID for its patch, log and printed approval command. Use that command
+to approve exactly what was displayed. A different pending commit is refused, including a push during a
+terminal confirmation. Without `--commit`, approval asks at a terminal with no as the default; a script or
+`--no-input` refuses with exit 70 and the bound command. Signed approval uses the same commit binding.
 
 A review shows the whole diff or says where it was cut. One daemon reply holds at most 4 MiB, so a
 larger patch is cut at a file boundary, the files read first kept, and the reply names the files whose
