@@ -528,8 +528,13 @@ public final class TaskControl {
                 before == null
                         ? identities.lookup(container, null)
                         : identities.retained(container);
+        // A record an older Porelo wrote cannot be read, but the id Porelo recorded beside it names
+        // the container it made: stopped and removed by that id, never by its name.
         if (identified instanceof TaskIdentities.Refused refused
-                && refused.reason() != TaskIdentities.Reason.MISSING) {
+                && refused.reason() != TaskIdentities.Reason.MISSING
+                && !(refused.reason() == TaskIdentities.Reason.INVALID_RECORD
+                        && container.matches(ContainerName.NAME_PATTERN)
+                        && context.recordedId(container) != null)) {
             throw new TaskReservations.ContainerNameTaken(container, "", "", null, null);
         }
         final TaskIdentity identity =

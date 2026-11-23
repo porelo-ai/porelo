@@ -244,6 +244,69 @@ class TaskStopSurvivorsTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"panic", "stop", "remove"})
+    void aTaskWhoseRecordAnOlderPoreloWroteIsStoppedByItsRecordedId(String how, @TempDir Path dir)
+            throws IOException {
+        // After an upgrade a task started by an older Porelo, its record lacking a field now
+        // required, could be neither stopped nor removed, and a panic died and stopped nothing.
+        final PoreloContext context = context(dir);
+        for (final Path state :
+                List.of(
+                        context.paths().tasks().taskRecord(CONTAINER),
+                        context.paths().tasks().containerState(CONTAINER))) {
+            final Path sidecar = state.resolve("sidecar.json");
+            if (Files.exists(sidecar)) {
+                final java.util.Map<?, ?> fields =
+                        (java.util.Map<?, ?>)
+                                java.util.Objects.requireNonNull(
+                                        org.fuin.porelo.wire.Json.parse(Files.readString(sidecar)));
+                final java.util.Map<Object, Object> older = new java.util.LinkedHashMap<>(fields);
+                older.remove("limits");
+                Files.writeString(sidecar, org.fuin.porelo.wire.Json.write(older));
+            }
+        }
+        runner.initially("running");
+        final StringWriter err = new StringWriter();
+        PoreloCli.commandLine(context)
+                .setOut(new PrintWriter(new StringWriter()))
+                .setErr(new PrintWriter(err))
+                .execute(
+                        switch (how) {
+                            case "panic" -> new String[] {"panic"};
+                            case "stop" -> new String[] {"task", "stop", CONTAINER};
+                            default ->
+                                    new String[] {
+                                        "task", "remove", "--force", "--no-input", CONTAINER
+                                    };
+                        });
+
+        assertThat(runner.lines())
+                .as("the container is stopped by the id Porelo recorded beside its record: %s", err)
+                .contains("podman stop --time 5 a1b2c3d4e5f6");
+        assertThat(err.toString()).as("nothing dies on the record").doesNotContain("Exception");
+    }
+
+    @Test
+    void aNameThatIsNoContainerNameNeverReachesAnotherTasksRecordedId(@TempDir Path dir)
+            throws IOException {
+        // A path through another folder would read the recorded id of the task it ends in, and
+        // stop that task under a name its own records were never asked about.
+        final PoreloContext context = context(dir);
+        Files.createDirectories(context.paths().tasks().containerState("porelo-uc-other"));
+        final String given = "porelo-uc-other/../" + CONTAINER;
+        final TaskTarget.Found refused =
+                new TaskTarget.Found(
+                        null, "unreadable", TaskTarget.NONE, TaskIdentities.Reason.INVALID_RECORD);
+
+        assertThat(TaskTarget.stoppable(context, given, refused))
+                .as("only a container's own name is taken by its recorded id")
+                .isSameAs(refused);
+        assertThat(TaskTarget.stoppable(context, CONTAINER, refused).container())
+                .as("the container's own name is")
+                .isEqualTo(CONTAINER);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"exited", "created", "absent"})
     void panicSkipsOnlyConfirmedTerminalOrAbsentIdentities(String state, @TempDir Path dir)
             throws IOException {

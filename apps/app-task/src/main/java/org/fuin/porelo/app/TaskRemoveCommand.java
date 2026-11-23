@@ -95,11 +95,14 @@ public class TaskRemoveCommand implements Callable<Integer>, PoreloFactory.Conte
 
     private Integer removeTask() throws java.io.IOException {
         TaskTarget.Found found =
-                TaskTarget.resolve(
+                TaskTarget.stoppable(
                         context,
                         container,
-                        java.nio.file.Path.of("."),
-                        TaskTarget.console(spec.commandLine().getOut()));
+                        TaskTarget.resolve(
+                                context,
+                                container,
+                                java.nio.file.Path.of("."),
+                                TaskTarget.console(spec.commandLine().getOut())));
         if (found.container() == null
                 && container != null
                 && org.fuin.porelo.runtime.ContainerName.isTask(container.strip())

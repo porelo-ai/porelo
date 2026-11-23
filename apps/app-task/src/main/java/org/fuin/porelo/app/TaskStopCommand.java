@@ -79,11 +79,14 @@ public class TaskStopCommand implements Callable<Integer>, PoreloFactory.Context
                     .execute();
         }
         final TaskTarget.Found found =
-                TaskTarget.resolve(
+                TaskTarget.stoppable(
                         context,
                         container,
-                        java.nio.file.Path.of("."),
-                        TaskTarget.console(spec.commandLine().getOut()));
+                        TaskTarget.resolve(
+                                context,
+                                container,
+                                java.nio.file.Path.of("."),
+                                TaskTarget.console(spec.commandLine().getOut())));
         if (found.reason() == TaskIdentities.Reason.MISSING && container != null) {
             final PrintWriter out = spec.commandLine().getOut();
             final PrintWriter err = spec.commandLine().getErr();

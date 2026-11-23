@@ -783,6 +783,16 @@ public final class TaskReservations {
         return mutate(container, action, false);
     }
 
+    /**
+     * Whether a record an older Porelo wrote is what cannot be read, where the id Porelo recorded
+     * beside it still names the container its start made, so a stop reaches it by that id.
+     */
+    private boolean olderRecord(TaskIdentities.Refused refused, String container) {
+        return refused.reason() == TaskIdentities.Reason.INVALID_RECORD
+                && container.matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN)
+                && context.recordedId(container) != null;
+    }
+
     /** A bulk operation already matched the recorded id against its one runtime snapshot. */
     public <T> T mutateRecorded(String container, Operation<T> action) throws IOException {
         return mutate(container, action, true);
@@ -823,7 +833,8 @@ public final class TaskReservations {
                                         : identities.lookup(container, null);
                         if (identity instanceof TaskIdentities.Refused refused
                                 && refused.reason() != TaskIdentities.Reason.MISSING
-                                && refused.reason() != TaskIdentities.Reason.MISSING_RECORD) {
+                                && refused.reason() != TaskIdentities.Reason.MISSING_RECORD
+                                && !olderRecord(refused, container)) {
                             throw taken("", "", container, null);
                         }
                         if (identity instanceof TaskIdentities.Found found) {

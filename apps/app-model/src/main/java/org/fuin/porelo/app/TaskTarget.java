@@ -296,6 +296,28 @@ public final class TaskTarget {
                 : new Found(null, "'" + answer.strip() + "' is none of " + named, SEVERAL);
     }
 
+    /**
+     * Takes a task named by its container whose record an older Porelo wrote, which cannot be read,
+     * as that container when Porelo recorded its id: it can still be stopped and removed, by that
+     * id. Anything else stays as it was found.
+     *
+     * @param context The machine.
+     * @param given What the person typed.
+     * @param found What resolving it found.
+     * @return The container, or {@code found}.
+     */
+    public static Found stoppable(
+            final PoreloContext context, final @Nullable String given, final Found found) {
+        if (found.container() != null
+                || found.reason() != TaskIdentities.Reason.INVALID_RECORD
+                || given == null
+                || !given.strip().matches(org.fuin.porelo.runtime.ContainerName.NAME_PATTERN)
+                || context.recordedId(given.strip()) == null) {
+            return found;
+        }
+        return new Found(given.strip(), "", 0);
+    }
+
     /** Resolves a read that also accepts an absent task's actual name as its history key. */
     public static Found resolveRead(
             PoreloContext context, @Nullable String given, Path directory, @Nullable Asker asker) {

@@ -123,10 +123,23 @@ public final class TaskPanic {
             // Through the same operation 'task stop' uses, so a panic writes down what a task held
             // that never reached the gate, exactly as a deliberate stop does. A faster path that
             // skipped that would lose the one record of what was lost.
-            final TaskControl.Stopped result =
-                    control.stop(task, org.fuin.porelo.runtime.Podman.ContainerState.UNCONFIRMED);
-            stopped.add(new Stopped(task, result.helpers(), result.surviving()));
-            surviving.addAll(result.surviving());
+            try {
+                final TaskControl.Stopped result =
+                        control.stop(
+                                task, org.fuin.porelo.runtime.Podman.ContainerState.UNCONFIRMED);
+                stopped.add(new Stopped(task, result.helpers(), result.surviving()));
+                surviving.addAll(result.surviving());
+            } catch (final RuntimeException ex) {
+                // A panic stops every task whatever its records say: one it cannot stop the usual
+                // way is stopped by the id Porelo recorded, and one it cannot stop at all is named.
+                final String id = context.recordedId(task);
+                if (id != null && context.podman().stop(id)) {
+                    stopped.add(new Stopped(task, 0, List.of()));
+                } else {
+                    stopped.add(new Stopped(task, 0, List.of(task)));
+                    surviving.add(task);
+                }
+            }
         }
         return new Result(
                 List.copyOf(stopped),
