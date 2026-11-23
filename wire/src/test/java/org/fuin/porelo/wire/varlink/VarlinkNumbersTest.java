@@ -55,4 +55,22 @@ class VarlinkNumbersTest {
                 .isInstanceOf(VarlinkException.class)
                 .hasMessageContaining("InvalidParameter");
     }
+
+    @Test
+    void aFieldRecordedAsAFractionIsRefusedUnderItsNameAndOneAbsentKeepsItsDefault() {
+        assertThat(VarlinkNumbers.wholeIntOr(null, "port", 7))
+                .as("absent is the default")
+                .isEqualTo(7);
+        assertThat(VarlinkNumbers.wholeIntOr(443L, "port", 7)).isEqualTo(443);
+        assertThatThrownBy(() -> VarlinkNumbers.wholeIntOr(1.5, "port", 7))
+                .as("present and no whole number is never the default")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("port")
+                .hasMessageContaining("1.5");
+        assertThatThrownBy(() -> VarlinkNumbers.wholeIntOr("80", "port", 7))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("port");
+        assertThatThrownBy(() -> VarlinkNumbers.wholeIntOr(1L << 32, "port", 7))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

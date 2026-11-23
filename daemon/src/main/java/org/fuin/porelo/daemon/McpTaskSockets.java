@@ -424,9 +424,14 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             // Without one the container stays up with no run to end it.
             throw new VarlinkException(INTERFACE + ".PromptRequired", Map.of());
         }
-        final Integer given =
-                org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(parameters, "minutes");
-        final int minutes = given == null ? TaskLaunch.DEFAULT_MINUTES : given;
+        // Read as the daemon's own Start reads it, so both refuse the same values; a whole number
+        // below one is this endpoint's own, shorter refusal.
+        final java.util.OptionalInt whole =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(parameters.get("minutes"));
+        final int minutes =
+                whole.isPresent() && whole.getAsInt() < 1
+                        ? whole.getAsInt()
+                        : PoreloDaemon.minutes(parameters);
         if (minutes < 1) {
             // Over before it began, the run would leave its container up.
             throw new VarlinkException(INTERFACE + ".RunTooShort", Map.of("minutes", minutes));

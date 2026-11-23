@@ -469,15 +469,12 @@ public final class PoreloDaemon {
                                                                         String.valueOf(
                                                                                 event.get(
                                                                                         "destination")),
-                                                                        event.get("port")
-                                                                                        instanceof
-                                                                                        Number port
-                                                                                ? org.fuin.porelo
-                                                                                        .wire
-                                                                                        .varlink
-                                                                                        .VarlinkNumbers
-                                                                                        .intOf(port)
-                                                                                : 0));
+                                                                        org.fuin.porelo.wire.varlink
+                                                                                .VarlinkNumbers
+                                                                                .wholeInt(
+                                                                                        event.get(
+                                                                                                "port"))
+                                                                                .orElse(0)));
                                                         // Never waits: a client that stopped
                                                         // reading must not block the subscription,
                                                         // which is on the path of every dropped

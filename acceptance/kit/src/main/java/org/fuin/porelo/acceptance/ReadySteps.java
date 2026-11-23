@@ -541,10 +541,19 @@ public class ReadySteps {
         if (text == null || String.valueOf(text).isBlank()) {
             return Optional.empty();
         }
-        final Duration bound =
-                definition.get("readyWithinSeconds") instanceof Long seconds
-                        ? Duration.ofSeconds(seconds)
-                        : DEFAULT_BOUND;
+        final Object given = definition.get("readyWithinSeconds");
+        final Duration bound;
+        if (given == null) {
+            bound = DEFAULT_BOUND;
+        } else if (org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(given).isPresent()) {
+            bound =
+                    Duration.ofSeconds(
+                            org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(given).getAsLong());
+        } else {
+            throw new AssertionError(
+                    "readyWithinSeconds is no whole number of seconds in an agent's description: "
+                            + given);
+        }
         if (bound.compareTo(READY_CAP) > 0) {
             throw new AssertionError(
                     "The agent declares "

@@ -277,6 +277,19 @@ class McpWiringTest {
     }
 
     @Test
+    void aRecordedCodeThatIsNoWholeNumberIsSaidNamingItNeverTakenAsNone() throws Exception {
+        final PoreloContext context = context();
+        final Path state = context.paths().tasks().containerState(TASK);
+        Files.createDirectories(state);
+        Files.writeString(state.resolve(McpWiring.RECORD), "{\"state\":\"failed\",\"code\":1.5}\n");
+
+        assertThat(McpWiring.statusLine(context, TASK))
+                .contains("code")
+                .contains("1.5")
+                .doesNotContain("failed to start");
+    }
+
+    @Test
     void anExitOneAfterReadyShowsAsFailedWithItsCode() throws Exception {
         stand("echo ready; sleep 1; exit 1");
         final PoreloContext context = context();

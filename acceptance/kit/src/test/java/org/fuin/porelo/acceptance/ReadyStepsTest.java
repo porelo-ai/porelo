@@ -18,6 +18,19 @@ class ReadyStepsTest {
     }
 
     @Test
+    void refusesABoundThatIsNoWholeNumberNamingIt() {
+        assertThatThrownBy(
+                        () ->
+                                ReadySteps.ready(
+                                        "{\"definition\":{\"readyMarker\":\"at work\","
+                                                + "\"readyWithinSeconds\":30.5}}"))
+                .as("a fraction is never the default bound")
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("readyWithinSeconds")
+                .hasMessageContaining("30.5");
+    }
+
+    @Test
     void takesTheDefaultBoundWhenTheAgentStatesNone() {
         assertThat(ReadySteps.ready("{\"definition\":{\"readyMarker\":\"at work\"}}"))
                 .contains(new ReadySteps.Ready("at work", ReadySteps.DEFAULT_BOUND));

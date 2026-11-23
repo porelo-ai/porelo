@@ -660,8 +660,14 @@ final class McpWiring {
             return null;
         }
         final String said = String.valueOf(record.get("state"));
-        final int code =
-                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(record.get("code")).orElse(-1);
+        final int code;
+        try {
+            code =
+                    org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeIntOr(
+                            record.get("code"), "code", -1);
+        } catch (IllegalArgumentException ex) {
+            return "unreadable - its record's " + ex.getMessage();
+        }
         return switch (said) {
             case "running" ->
                     TaskLifecycle.alive(state.resolve(HELPER + ".pid"))

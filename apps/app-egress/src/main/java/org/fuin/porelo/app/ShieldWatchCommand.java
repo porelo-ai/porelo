@@ -364,9 +364,17 @@ public class ShieldWatchCommand implements Callable<Integer>, PoreloFactory.Cont
             }
             final String destination = String.valueOf(event.get("destination"));
             final String protocol = String.valueOf(event.get("protocol"));
-            final int port =
-                    org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(event.get("port"))
-                            .orElse(0);
+            final int port;
+            try {
+                port =
+                        org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeIntOr(
+                                event.get("port"), "port", 0);
+            } catch (IllegalArgumentException ex) {
+                // Said, and left unanswered: the shield denies what nobody allowed.
+                err.println("porelo: a shield event is refused: " + ex.getMessage());
+                err.flush();
+                return null;
+            }
             // A bare address is not something an operator can judge. The resolver logged what it
             // answered, which is the only place to turn the number back into the name the agent
             // asked for; the address stays visible because the decision is about it.
