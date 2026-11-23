@@ -53,7 +53,13 @@ class IdentityChangeTest {
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
-                                        "alice", "Alice", "", new Agent(own, other), MADE, null));
+                                        "alice",
+                                        "Alice",
+                                        "",
+                                        new Agent(own, other),
+                                        MADE,
+                                        IdentityChange.DEFAULT_DAYS,
+                                        null));
         assertThat(refused.code()).isEqualTo(69);
         assertThat(refused.reason()).isEqualTo("no-key");
     }
@@ -66,7 +72,13 @@ class IdentityChangeTest {
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
-                                        "alice", "Alice", "", own, MADE, new Agent(other, own)));
+                                        "alice",
+                                        "Alice",
+                                        "",
+                                        own,
+                                        MADE,
+                                        IdentityChange.DEFAULT_DAYS,
+                                        new Agent(other, own)));
         assertThat(refused.reason()).isEqualTo("no-key");
     }
 
@@ -78,14 +90,47 @@ class IdentityChangeTest {
                         IdentityChange.Refused.class,
                         () ->
                                 IdentityChange.signed(
-                                        "alice", "Alice", "", new Agent(own, null), MADE, null));
+                                        "alice",
+                                        "Alice",
+                                        "",
+                                        new Agent(own, null),
+                                        MADE,
+                                        IdentityChange.DEFAULT_DAYS,
+                                        null));
         assertThat(refused.code()).isEqualTo(69);
         assertThat(refused.answer()).containsEntry("reason", "no-key");
     }
 
+    /** A card's life is the person's choice; without one it is today's 30 days. */
+    @Test
+    void a_card_holds_as_long_as_the_account_says() throws Exception {
+        final AccountConfig ninety =
+                AccountConfig.read(new java.io.StringReader("identity:\n  card_days: 90\n"), "t");
+        final String card =
+                IdentityChange.signed(
+                        "alice",
+                        "Alice",
+                        "",
+                        own,
+                        MADE,
+                        NoAccount.context().withAccount(ninety).account().cardDays(),
+                        null);
+        assertThat(org.fuin.porelo.vault.PersonCard.read(card, "test").expires())
+                .isEqualTo(MADE.plusDays(90));
+        assertThat(NoAccount.context().account().cardDays())
+                .as("without the setting")
+                .isEqualTo(30)
+                .isEqualTo(IdentityChange.DEFAULT_DAYS);
+        assertThat(AccountConfig.DEFAULT.renewNoticeDays())
+                .as("the due notice's default and the account's are one")
+                .isEqualTo(IdentityShowCommand.DEFAULT_RENEW_NOTICE_DAYS);
+    }
+
     @Test
     void an_honest_agent_makes_a_card_that_verifies() throws Exception {
-        final String card = IdentityChange.signed("alice", "Alice", "", own, MADE, other);
+        final String card =
+                IdentityChange.signed(
+                        "alice", "Alice", "", own, MADE, IdentityChange.DEFAULT_DAYS, other);
         assertThat(org.fuin.porelo.vault.PersonCard.read(card, "test").signedAsItMustBe()).isTrue();
     }
 

@@ -116,7 +116,12 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                 return 69;
             }
             try (RemoteStart.Connection connection = RemoteStart.connection(context, host, pin)) {
-                return new RemoteStart(connection.command(), agent, pin, context.limits())
+                return new RemoteStart(
+                                connection.command(),
+                                agent,
+                                pin,
+                                TaskCertification.validity(context),
+                                context.limits())
                         .run(
                                 List.of(
                                         "task",
@@ -230,6 +235,7 @@ public class TaskCertifyCommand implements Callable<Integer>, PoreloFactory.Cont
                                     "porelo task " + name),
                             certifier,
                             certifiers,
+                            TaskCertification.validity(context),
                             Clock.systemUTC(),
                             context.limits());
             final String unkept =

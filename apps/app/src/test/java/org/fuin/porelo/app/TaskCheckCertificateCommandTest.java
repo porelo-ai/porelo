@@ -294,7 +294,7 @@ class TaskCheckCertificateCommandTest {
                 keyId,
                 WHEN.format(now.minusSeconds(60))
                         + "Z:"
-                        + WHEN.format(now.plus(TaskCertification.VALIDITY))
+                        + WHEN.format(now.plus(TaskCertification.DEFAULT_VALIDITY))
                         + "Z");
     }
 

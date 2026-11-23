@@ -58,9 +58,10 @@ final class TransportConversations {
     static final String ANSWERED = "conversation-sent-read";
 
     /**
-     * How long what a task sent is asked about: a message nobody read in a week is not waited on.
+     * How long what a task sent is asked about when the account's settings name no other time: a
+     * message nobody read in a week is not waited on.
      */
-    static final java.time.Duration ASKED_FOR = java.time.Duration.ofDays(7);
+    static final java.time.Duration DEFAULT_ASKED_FOR = java.time.Duration.ofDays(7);
 
     /**
      * A task that takes part in a conversation on this machine.
@@ -966,7 +967,9 @@ final class TransportConversations {
         if (secrets.isEmpty() || tasks.isEmpty() && people.isEmpty()) {
             return;
         }
-        final java.time.Instant since = java.time.Instant.now().minus(ASKED_FOR);
+        final java.time.Instant since =
+                java.time.Instant.now()
+                        .minus(java.time.Duration.ofDays(context.account().askedAboutDays()));
         final List<Path> receipts;
         try (Stream<Path> listed = Files.list(sent)) {
             receipts =

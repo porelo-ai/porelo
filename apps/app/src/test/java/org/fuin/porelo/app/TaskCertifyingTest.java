@@ -92,6 +92,7 @@ class TaskCertifyingTest {
                                     List.of(other, person),
                                     null,
                                     socket,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("the agent holds a certifier's key")
@@ -121,6 +122,7 @@ class TaskCertifyingTest {
                                     List.of(other),
                                     null,
                                     socket,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("it holds none of them: uncertified")
@@ -133,6 +135,7 @@ class TaskCertifyingTest {
                                     List.of(),
                                     null,
                                     socket,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("no certifiers, no machine of the person: uncertified")
@@ -145,6 +148,7 @@ class TaskCertifyingTest {
                                     List.of(person),
                                     null,
                                     null,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("no agent")
@@ -157,6 +161,7 @@ class TaskCertifyingTest {
                                     List.of(),
                                     new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                                     null,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("from the person's machine, a task with no project")
@@ -169,6 +174,7 @@ class TaskCertifyingTest {
                                     List.of(),
                                     new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                                     null,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("from the person's machine, a project naming no certifier: uncertified")
@@ -181,6 +187,7 @@ class TaskCertifyingTest {
                                     List.of(),
                                     null,
                                     socket,
+                                    TaskCertification.DEFAULT_VALIDITY,
                                     Clock.systemUTC(),
                                     LimitFactors.DEFAULT))
                     .as("a task with no project, by the key in the starter's own agent")
@@ -305,6 +312,7 @@ class TaskCertifyingTest {
                                     answering(waits, person, socket, "task:demo:fix"),
                                     List.of(person)),
                             null,
+                            TaskCertification.DEFAULT_VALIDITY,
                             Clock.systemUTC(),
                             LimitFactors.DEFAULT);
 
@@ -339,6 +347,7 @@ class TaskCertifyingTest {
                                                             "task:demo:other"),
                                                     List.of(person)),
                                             null,
+                                            TaskCertification.DEFAULT_VALIDITY,
                                             Clock.systemUTC(),
                                             LimitFactors.DEFAULT))
                     .isInstanceOf(TaskCertification.Refused.class)

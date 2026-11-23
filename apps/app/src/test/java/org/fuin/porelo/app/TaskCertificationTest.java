@@ -32,6 +32,7 @@ class TaskCertificationTest {
                         "alice",
                         certifier("person", null),
                         List.of(person),
+                        TaskCertification.DEFAULT_VALIDITY,
                         clock,
                         LimitFactors.DEFAULT);
 
@@ -42,7 +43,7 @@ class TaskCertificationTest {
         assertThat(issued.signers())
                 .isEqualTo("task:demo:* cert-authority,namespaces=\"git\" " + person + "\n");
         assertThat(issued.certificate().validBefore())
-                .isBefore(Instant.now().plus(TaskCertification.VALIDITY).plusSeconds(120));
+                .isBefore(Instant.now().plus(TaskCertification.DEFAULT_VALIDITY).plusSeconds(120));
     }
 
     @Test
@@ -56,6 +57,7 @@ class TaskCertificationTest {
                         "alice",
                         certifier("person", null),
                         List.of(),
+                        TaskCertification.DEFAULT_VALIDITY,
                         clock,
                         LimitFactors.DEFAULT);
 
@@ -82,6 +84,7 @@ class TaskCertificationTest {
                                             return certifier.certify(key, principal, keyId, before);
                                         },
                                         List.of(),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -99,6 +102,7 @@ class TaskCertificationTest {
                         "alice",
                         certifier("person", null),
                         List.of(person),
+                        TaskCertification.DEFAULT_VALIDITY,
                         clock,
                         LimitFactors.DEFAULT);
 
@@ -110,6 +114,7 @@ class TaskCertificationTest {
                         first.key(),
                         certifier("person", null),
                         List.of(person),
+                        TaskCertification.DEFAULT_VALIDITY,
                         clock,
                         LimitFactors.DEFAULT);
 
@@ -130,6 +135,7 @@ class TaskCertificationTest {
                                         "alice",
                                         certifier("stranger", null),
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -142,6 +148,7 @@ class TaskCertificationTest {
                                         "alice",
                                         certifier("person", "task:demo:other"),
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -154,6 +161,7 @@ class TaskCertificationTest {
                                         "alice",
                                         (key, principal, id, before) -> certifyOther(principal),
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -167,6 +175,7 @@ class TaskCertificationTest {
                                         (key, principal, id, before) ->
                                                 sign("person", key, principal, "+30d", id),
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class)
@@ -179,6 +188,7 @@ class TaskCertificationTest {
                                         "alice",
                                         (key, principal, id, before) -> "not a certificate",
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .isInstanceOf(TaskCertification.Refused.class);
@@ -200,6 +210,7 @@ class TaskCertificationTest {
                                         "alice",
                                         longer,
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         LimitFactors.DEFAULT))
                 .as("at 1.0")
@@ -212,6 +223,7 @@ class TaskCertificationTest {
                                         "alice",
                                         longer,
                                         List.of(person),
+                                        TaskCertification.DEFAULT_VALIDITY,
                                         clock,
                                         AccountConfig.read(
                                                         new java.io.StringReader(
@@ -222,6 +234,60 @@ class TaskCertificationTest {
                 .as("at machines 2")
                 .isEqualTo("task:demo:fix");
     }
+
+    /** How long a task's certificate holds is the person's choice, read from their settings. */
+    @Test
+    void theAccountsCertificateDaysSetHowLongATaskIsCertifiedFor() throws Exception {
+        final String person = keygen("person");
+        final PoreloContext fortnight =
+                NoAccount.context()
+                        .withAccount(
+                                AccountConfig.read(
+                                        new java.io.StringReader("task:\n  certificate_days: 14\n"),
+                                        "t"));
+        assertThat(TaskCertification.validity(NoAccount.context()))
+                .as("without the setting, today's week")
+                .isEqualTo(Duration.ofDays(7))
+                .isEqualTo(TaskCertification.DEFAULT_VALIDITY)
+                .isEqualTo(Duration.ofDays(AccountConfig.DEFAULT.certificateDays()));
+
+        final TaskCertification.Issued issued =
+                TaskCertification.certify(
+                        "demo",
+                        "fix",
+                        "alice",
+                        (key, principal, id, before) ->
+                                sign(
+                                        "person",
+                                        key,
+                                        principal,
+                                        WHEN.format(Instant.now().minusSeconds(60))
+                                                + "Z:"
+                                                + WHEN.format(before)
+                                                + "Z",
+                                        id),
+                        List.of(person),
+                        TaskCertification.validity(fortnight),
+                        clock,
+                        LimitFactors.DEFAULT);
+
+        assertThat(issued.certificate().validBefore())
+                .isAfter(Instant.now().plus(Duration.ofDays(13)))
+                .isBefore(Instant.now().plus(Duration.ofDays(14)).plusSeconds(120));
+        assertThatThrownBy(
+                        () ->
+                                TaskCertification.checkValidity(
+                                        issued.certificate(),
+                                        Instant.now(),
+                                        TaskCertification.validity(NoAccount.context()),
+                                        LimitFactors.DEFAULT))
+                .isInstanceOf(TaskCertification.Refused.class)
+                .hasMessageContaining("longer than 7 days");
+    }
+
+    private static final java.time.format.DateTimeFormatter WHEN =
+            java.time.format.DateTimeFormatter.ofPattern("uuuuMMddHHmmss")
+                    .withZone(java.time.ZoneOffset.UTC);
 
     private TaskCertification.Certifier certifier(String ca, String principalOverride) {
         return (key, principal, id, before) ->

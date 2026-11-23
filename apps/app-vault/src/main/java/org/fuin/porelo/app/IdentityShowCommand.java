@@ -37,8 +37,11 @@ import picocli.CommandLine.Spec;
                         + " listed.")
 public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    /** How many days before its end a card is said to be due. */
-    private static final long RENEW_DAYS = 7;
+    /**
+     * How many days before its end a card is said to be due, when the account's settings name no
+     * other number.
+     */
+    static final int DEFAULT_RENEW_NOTICE_DAYS = 7;
 
     @Option(names = "--json", description = "Answers the card and where it stands as JSON.")
     private boolean json;
@@ -109,7 +112,7 @@ public class IdentityShowCommand implements Callable<Integer>, PoreloFactory.Con
         final long left =
                 java.time.temporal.ChronoUnit.DAYS.between(IdentityChange.today(), card.expires());
         answer.put("days_left", left);
-        answer.put("renew_due", left <= RENEW_DAYS);
+        answer.put("renew_due", left <= machine.account().renewNoticeDays());
         answer.put(
                 "predecessor",
                 card.predecessor().isEmpty() ? null : PersonCard.fingerprint(card.predecessor()));

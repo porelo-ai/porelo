@@ -207,7 +207,13 @@ public class TaskCheckCertificateCommand implements Callable<Integer>, PoreloFac
         if (!certificate.keyId().equals(keyId)) {
             throw new TaskCertification.Refused("the certificate's key id is not '" + keyId + "'");
         }
-        TaskCertification.checkValidity(certificate, Instant.now(), context.limits());
+        // The host's own bound, in a unit of no person's account: none of their settings reach it,
+        // neither how long a certificate may hold nor the factors its clock slack follows.
+        TaskCertification.checkValidity(
+                certificate,
+                Instant.now(),
+                TaskCertification.DEFAULT_VALIDITY,
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
         if (!certificate.extensions().equals(EXTENSIONS)) {
             throw new TaskCertification.Refused(
                     "the certificate's extensions are not exactly "

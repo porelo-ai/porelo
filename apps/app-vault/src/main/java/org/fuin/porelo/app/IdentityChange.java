@@ -33,8 +33,11 @@ final class IdentityChange {
     /** The agent's variable, read from the context's environment and nowhere else. */
     static final String AGENT = OrganizationAccess.AGENT;
 
-    /** How long a card is valid from the day it is made. */
-    private static final int DAYS = 30;
+    /**
+     * How long a card is valid from the day it is made, when the account's settings name no other
+     * time.
+     */
+    static final int DEFAULT_DAYS = 30;
 
     /** The longest public key file read. */
     private static final long PUBLIC_KEY_LIMIT = 16 * 1024;
@@ -171,9 +174,15 @@ final class IdentityChange {
         return LocalDate.now(ZoneOffset.UTC);
     }
 
-    /** The day a card made today ends on. */
-    static LocalDate expires(final LocalDate today) {
-        return today.plusDays(DAYS);
+    /**
+     * The day a card made today ends on.
+     *
+     * @param today The day it is made.
+     * @param days How long it holds, the account's {@code identity.card_days}.
+     * @return The day it ends.
+     */
+    static LocalDate expires(final LocalDate today, final int days) {
+        return today.plusDays(days);
     }
 
     /**
@@ -867,6 +876,7 @@ final class IdentityChange {
      * @param email How to reach them, or "".
      * @param own The card's key.
      * @param created The day it is made.
+     * @param days How long it holds, the account's {@code identity.card_days}.
      * @param predecessor The key it replaces, which signs second, or {@code null}.
      * @return The card's text.
      * @throws Refused 69 {@code no-key} when the agent did not sign as asked.
@@ -877,13 +887,14 @@ final class IdentityChange {
             final String email,
             final AgentKey own,
             final LocalDate created,
+            final int days,
             final @Nullable AgentKey predecessor)
             throws Refused {
         final String text;
         try {
             text =
                     PersonCard.write(
-                            login, name, email, own, created, expires(created), predecessor);
+                            login, name, email, own, created, expires(created, days), predecessor);
         } catch (org.fuin.porelo.vault.VaultException ex) {
             throw new Refused(
                     69,

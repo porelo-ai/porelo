@@ -133,6 +133,7 @@ final class TaskCertifying {
      * @param certifiers The project's certifiers' keys.
      * @param remote The starting person's machine, or {@code null} for a start on this one.
      * @param agent This machine's agent socket, or {@code null}.
+     * @param validity How long the certificate holds.
      * @param clock The time.
      * @param limits The account's time factors.
      * @return The certified key, or {@code null} for an uncertified task.
@@ -145,6 +146,7 @@ final class TaskCertifying {
             List<String> certifiers,
             TaskCertification.@Nullable Certifier remote,
             @Nullable Path agent,
+            java.time.Duration validity,
             Clock clock,
             org.fuin.porelo.wire.LimitFactors limits) {
         // A project naming no certifier starts its tasks uncertified, wherever they are asked for.
@@ -153,7 +155,7 @@ final class TaskCertifying {
         }
         if (remote != null) {
             return TaskCertification.certify(
-                    project, task, login, remote, certifiers, clock, limits);
+                    project, task, login, remote, certifiers, validity, clock, limits);
         }
         if (agent == null) {
             return null;
@@ -171,6 +173,7 @@ final class TaskCertifying {
                 login,
                 new AgentCertifier(held, agent, limits),
                 certifiers,
+                validity,
                 clock,
                 limits);
     }

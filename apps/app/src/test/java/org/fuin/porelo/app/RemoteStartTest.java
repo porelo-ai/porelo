@@ -319,6 +319,7 @@ class RemoteStartTest {
                                         22,
                                         "ssh-ed25519 AAAA",
                                         List.of("ada", "bea")),
+                                TaskCertification.DEFAULT_VALIDITY,
                                 org.fuin.porelo.wire.LimitFactors.DEFAULT)
                         .run(
                                 List.of("task", "run", "fix"),

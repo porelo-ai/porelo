@@ -78,6 +78,34 @@ class IdentityRenewCommandTest {
         assertThat(shown.get("renew_due")).isEqualTo(false);
     }
 
+    /** A card's life and when it is due are the person's choice, read from their settings. */
+    @Test
+    void aRenewalAndTheDueDayFollowTheAccountsSettings() throws Exception {
+        filed();
+        registry.account =
+                AccountConfig.read(
+                        new java.io.StringReader(
+                                "identity:\n  card_days: 90\n  renew_notice_days: 120\n"),
+                        "t");
+
+        assertThat(renew("r1")).as(registry.err::toString).isZero();
+
+        assertThat(registry.answer().get("expires")).isEqualTo(today().plusDays(90).toString());
+        assertThat(kept().expires()).isEqualTo(today().plusDays(90));
+        assertThat(PersonCard.read(organization.card("alice"), "filed").expires())
+                .isEqualTo(today().plusDays(90));
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        final Map<?, ?> shown = registry.answer();
+        assertThat(((Number) shown.get("days_left")).intValue()).isEqualTo(90);
+        assertThat(shown.get("renew_due")).as("90 days left, due 120 days before").isEqualTo(true);
+
+        registry.account = AccountConfig.DEFAULT;
+        assertThat(IdentityRun.identity(organization, "show", "--json")).isZero();
+        assertThat(registry.answer().get("renew_due"))
+                .as("without the setting, due 7 days before")
+                .isEqualTo(false);
+    }
+
     @Test
     void aCardPastItsEndIsRenewedAndStandsForAReader() throws Exception {
         filed();

@@ -225,15 +225,19 @@ final class RegistryCheckout implements AutoCloseable {
     /** Whether the context's standard input is a terminal a person types into. */
     boolean terminal;
 
+    /** The account's settings, as its {@code config.yml} would give them. */
+    AccountConfig account = AccountConfig.DEFAULT;
+
     PoreloContext context() {
         return new PoreloContext(
-                runner,
-                paths,
-                args -> 0,
-                environment(),
-                false,
-                VaultPrompt.NOBODY,
-                new StandardInput(java.io.InputStream.nullInputStream(), terminal));
+                        runner,
+                        paths,
+                        args -> 0,
+                        environment(),
+                        false,
+                        VaultPrompt.NOBODY,
+                        new StandardInput(java.io.InputStream.nullInputStream(), terminal))
+                .withAccount(account);
     }
 
     /** The machine, running what it would run on the person's terminal through this instead. */

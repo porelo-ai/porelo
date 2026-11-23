@@ -171,6 +171,7 @@ public class IdentityRevokeCommand implements Callable<Integer>, PoreloFactory.C
                             card.email(),
                             successor,
                             IdentityChange.today(),
+                            machine.account().cardDays(),
                             null);
             if (organization != null && !organization.stale()) {
                 change.replaceWhatReachedNowhere(organization, login, id);

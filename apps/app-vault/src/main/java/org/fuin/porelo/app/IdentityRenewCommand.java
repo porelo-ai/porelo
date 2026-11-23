@@ -91,6 +91,7 @@ public class IdentityRenewCommand implements Callable<Integer>, PoreloFactory.Co
                             card.email(),
                             own,
                             IdentityChange.today(),
+                            machine.account().cardDays(),
                             null);
             change.replaceWhatReachedNowhere(organization, card.login(), id);
             final IdentityChange.Begun begun =

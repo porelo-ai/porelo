@@ -31,6 +31,7 @@ class TaskCertificateRecordsTest {
                         "alice",
                         new AgentlessCertifier(dir.resolve("person")),
                         List.of(person),
+                        TaskCertification.DEFAULT_VALIDITY,
                         Clock.systemUTC(),
                         LimitFactors.DEFAULT);
         final TaskCertificateRecords records = new TaskCertificateRecords(context);

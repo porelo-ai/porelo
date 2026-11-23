@@ -37,9 +37,6 @@ import picocli.CommandLine.Spec;
                 "Makes your first card for a key your ssh-agent serves, signed through the agent.")
 public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
-    /** How long a card is valid, from the day it is made. */
-    static final int DAYS = 30;
-
     /** The longest public key file read. */
     private static final long LIMIT = 64 * 1024;
 
@@ -246,6 +243,7 @@ public class IdentityCreateCommand implements Callable<Integer>, PoreloFactory.C
                                 email == null ? "" : email,
                                 own,
                                 IdentityChange.today(),
+                                machine.account().cardDays(),
                                 null);
             } catch (CardException ex) {
                 throw new IllegalArgumentException(ex.getMessage(), ex);

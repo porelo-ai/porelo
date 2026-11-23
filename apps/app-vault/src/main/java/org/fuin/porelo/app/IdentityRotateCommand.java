@@ -151,6 +151,7 @@ public class IdentityRotateCommand implements Callable<Integer>, PoreloFactory.C
                             card.email(),
                             successor,
                             IdentityChange.today(),
+                            machine.account().cardDays(),
                             old);
             change.replaceWhatReachedNowhere(organization, card.login(), id);
             final IdentityChange.Begun begun =

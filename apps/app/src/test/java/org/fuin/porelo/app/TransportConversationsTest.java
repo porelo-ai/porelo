@@ -2345,6 +2345,75 @@ class TransportConversationsTest {
         }
     }
 
+    /** How long a sent message is asked about is the person's choice, read from their settings. */
+    @ParameterizedTest(name = "asked about for 14 days: {0}")
+    @ValueSource(booleans = {false, true})
+    void aMessageSentTenDaysAgoIsAskedAboutOnlyWhenTheAccountSaysLongerThanAWeek(boolean fortnight)
+            throws Exception {
+        assertThat(TransportConversations.DEFAULT_ASKED_FOR)
+                .isEqualTo(java.time.Duration.ofDays(AccountConfig.DEFAULT.askedAboutDays()));
+        Assumptions.assumeTrue(
+                KernelKeyring.available(),
+                "no kernel keyring here: libkeyutils is missing or the kernel refuses it");
+        final PoreloContext context =
+                fortnight
+                        ? context()
+                                .withAccount(
+                                        AccountConfig.read(
+                                                new java.io.StringReader(
+                                                        "messages:\n  asked_about_days: 14\n"),
+                                                "t"))
+                        : context();
+        final KernelKeyring keyring = new KernelKeyring(context.paths().vault().vaultKeyringKey());
+        try {
+            Files.createDirectories(context.vault().path().getParent());
+            emptyVault(context);
+            keyring.store(PASSPHRASE);
+            runner.answering(
+                    "describe",
+                    "{\"scheme\":\"room\",\"poll\":true,\"confirms\":\"read\","
+                            + "\"lifecycle\":[\"setup\",\"enroll\"]}");
+            runner.answering(
+                    "setup",
+                    "{\"secrets\":{\"POLLER\":\"p-1\"},\"conversation\":\"!r\","
+                            + "\"reaches\":[\"127.0.0.1\"]}");
+            runner.answering(
+                    "--task porelo-p-write",
+                    "{\"secrets\":{\"TASK\":\"w-1\"},\"address\":\"@write\"}");
+            runner.answering(
+                    "--task porelo-p-review",
+                    "{\"secrets\":{\"TASK\":\"r-1\"},\"address\":\"@review\"}");
+            runner.answering(" receipt ", "{\"state\":\"read\",\"at\":\"2026-09-30T08:00:00Z\"}");
+            final TaskConversations tasks = new TaskConversations(context);
+            assertThat(tasks.enroll(project("guarded"), "porelo-p-write")).isNull();
+            assertThat(tasks.enroll(project("guarded"), "porelo-p-review")).isNull();
+            final Mailbox write = mailbox("porelo-p-write");
+            Files.writeString(
+                    write.sent().resolve("m-1.json"),
+                    "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"review\"}}");
+            final Path receipt =
+                    Files.writeString(
+                            write.sent().resolve("m-1.json.receipt.json"),
+                            "{\"reference\":\"$e1\"}");
+            Files.setLastModifiedTime(
+                    receipt,
+                    java.nio.file.attribute.FileTime.from(
+                            java.time.Instant.now().minus(java.time.Duration.ofDays(10))));
+
+            new TransportConversations(context, context.paths().messaging().transportDirectory())
+                    .pass(List.of(member("porelo-p-write", write, "p", "room")));
+
+            assertThat(
+                            runner.invocations().stream()
+                                    .filter(each -> each.arguments().contains("receipt"))
+                                    .count())
+                    .as("asked about with 14 days, not with the 7 of every default")
+                    .isEqualTo(fortnight ? 1 : 0);
+        } finally {
+            keyring.forget();
+        }
+    }
+
     @ParameterizedTest(name = "secrets on the input: {0}")
     @ValueSource(booleans = {false, true})
     void whatATaskSentIsAskedAboutByTheRecipientsAddressAndRecordedReadOnce(boolean onInput)

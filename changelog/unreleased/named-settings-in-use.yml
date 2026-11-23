@@ -1,0 +1,2 @@
+title: A task certificate's validity, a card's life and when it is said to be due, and how long a sent message is asked about follow the account's config.yml (task.certificate_days, identity.card_days, identity.renew_notice_days, messages.asked_about_days); without a setting they stay as before.
+type: changed

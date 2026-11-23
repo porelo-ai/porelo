@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,8 @@ import org.jspecify.annotations.Nullable;
  * on one line of its output for a certificate ({@link StdinCertifier}), and reads it from its
  * input. Here the person's own agent signs it - the agent is never forwarded - and the rest of the
  * host's output is shown as it comes. What is certified is checked first: an Ed25519 key, the one
- * principal of the task asked for, and at most {@link TaskCertification#VALIDITY}.
+ * principal of the task asked for, and at most as long as the person's {@code
+ * task.certificate_days}.
  */
 final class RemoteStart {
 
@@ -184,15 +186,21 @@ final class RemoteStart {
     private final OrganizationHostPin.@Nullable Pin pin;
 
     private final org.fuin.porelo.wire.LimitFactors limits;
+    private final Duration validity;
 
     /**
-     * Constructor.
+     * Constructor for a host no organization pins, the person's settings at their defaults.
      *
      * @param connection The command that reaches the host, the remote command left out.
      * @param agent The person's agent.
      */
     RemoteStart(List<String> connection, Path agent) {
-        this(connection, agent, null, org.fuin.porelo.wire.LimitFactors.DEFAULT);
+        this(
+                connection,
+                agent,
+                null,
+                TaskCertification.DEFAULT_VALIDITY,
+                org.fuin.porelo.wire.LimitFactors.DEFAULT);
     }
 
     /**
@@ -202,16 +210,19 @@ final class RemoteStart {
      * @param agent The person's agent.
      * @param pin The organization's pin of the host, or {@code null}: a verification failure on a
      *     pinned connection is the host showing another key.
+     * @param validity The longest the person certifies a task's key for.
      * @param limits The account's time factors.
      */
     RemoteStart(
             List<String> connection,
             Path agent,
             OrganizationHostPin.@Nullable Pin pin,
+            Duration validity,
             org.fuin.porelo.wire.LimitFactors limits) {
         this.connection = List.copyOf(connection);
         this.agent = agent;
         this.pin = pin;
+        this.validity = validity;
         this.limits = limits;
     }
 
@@ -394,13 +405,9 @@ final class RemoteStart {
             throw new TaskCertification.Refused("the host asked for an end already past");
         }
         if (before.isAfter(
-                Instant.now()
-                        .plus(TaskCertification.VALIDITY)
-                        .plus(limits.machines(TaskCertification.SLACK)))) {
+                Instant.now().plus(validity).plus(limits.machines(TaskCertification.SLACK)))) {
             throw new TaskCertification.Refused(
-                    "the host asked for a certificate longer than "
-                            + TaskCertification.VALIDITY.toDays()
-                            + " days");
+                    "the host asked for a certificate longer than " + validity.toDays() + " days");
         }
         // The host names the keys its project lets certify; none named is no leave to sign with
         // whatever key the agent holds first.

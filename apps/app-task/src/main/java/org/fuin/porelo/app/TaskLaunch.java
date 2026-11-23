@@ -4302,6 +4302,7 @@ public final class TaskLaunch {
                                     certifiers,
                                     remoteCertifier(project.name(), host.present(), certifiers),
                                     starterAgent,
+                                    TaskCertification.validity(context),
                                     java.time.Clock.systemUTC(),
                                     context.limits());
             // A host records each task's certificate and makes its forge token: it starts none

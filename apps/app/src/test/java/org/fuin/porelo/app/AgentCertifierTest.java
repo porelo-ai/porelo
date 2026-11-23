@@ -106,6 +106,7 @@ class AgentCertifierTest {
                             "alice",
                             new AgentCertifier(person, socket, LimitFactors.DEFAULT),
                             List.of(person),
+                            TaskCertification.DEFAULT_VALIDITY,
                             Clock.systemUTC(),
                             LimitFactors.DEFAULT);
 
@@ -123,6 +124,7 @@ class AgentCertifierTest {
                                                     dir.resolve("none.sock"),
                                                     LimitFactors.DEFAULT),
                                             List.of(person),
+                                            TaskCertification.DEFAULT_VALIDITY,
                                             Clock.systemUTC(),
                                             LimitFactors.DEFAULT))
                     .isInstanceOf(TaskCertification.Refused.class)

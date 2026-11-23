@@ -595,7 +595,12 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
         try (RemoteStart.Connection connection =
                 RemoteStart.connection(context, destination, pin)) {
-            return new RemoteStart(connection.command(), agent, pin, context.limits())
+            return new RemoteStart(
+                            connection.command(),
+                            agent,
+                            pin,
+                            TaskCertification.validity(context),
+                            context.limits())
                     .run(arguments, java.util.Objects.requireNonNull(projectName), task, out, err);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not reach " + host + ": " + ex.getMessage());
