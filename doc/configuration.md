@@ -31,7 +31,7 @@ records:
 | `identity.card_days` | 30 | how long a card holds from the day it is made |
 | `identity.renew_notice_days` | 7 | how many days before its end a card is said to be due |
 | `messages.asked_about_days` | 7 | how long a sent message is asked about |
-| `records.kept_days` | 30 | how long a task's run records are kept |
+| `records.kept_days` | 30 | how many days a file of a task's recorded terminal session is read back; an older one counts as gone |
 
 - **A factor is a decimal from 0.1 to 100** with at most two digits after its dot; [Time limits](limits.md) says
   what each one scales and how it travels to every program and client.
