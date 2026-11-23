@@ -13,6 +13,7 @@ import java.util.function.Function;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /** Opens reviews on the host's Forgejo with the authoring task's identity. */
@@ -21,7 +22,10 @@ final class HostPullRequests implements GitGate.PullRequests {
     private final URI repository;
     private final Function<String, Optional<String>> tokens;
 
-    HostPullRequests(String upstream, Function<String, Optional<String>> tokens) {
+    private final LimitFactors limits;
+
+    HostPullRequests(
+            String upstream, Function<String, Optional<String>> tokens, LimitFactors limits) {
         final URI address = URI.create(upstream);
         final String path = address.getPath();
         if (!path.matches("/[A-Za-z0-9_][A-Za-z0-9._-]*/[A-Za-z0-9_][A-Za-z0-9._-]*\\.git")) {
@@ -34,6 +38,7 @@ final class HostPullRequests implements GitGate.PullRequests {
                                 + "/api/v1/repos"
                                 + path.substring(0, path.length() - 4));
         this.tokens = tokens;
+        this.limits = limits;
     }
 
     @Override
@@ -49,7 +54,7 @@ final class HostPullRequests implements GitGate.PullRequests {
                 HttpClient.newBuilder()
                         .proxy(HttpClient.Builder.NO_PROXY)
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .connectTimeout(Duration.ofSeconds(10))
+                        .connectTimeout(limits.services(Duration.ofSeconds(10)))
                         .build()) {
             final Object details = request(client, token, "", null);
             if (!(details instanceof Map<?, ?> fields)
@@ -135,7 +140,7 @@ final class HostPullRequests implements GitGate.PullRequests {
             throws IOException, InterruptedException {
         final HttpRequest.Builder request =
                 HttpRequest.newBuilder(URI.create(repository + suffix))
-                        .timeout(Duration.ofSeconds(20))
+                        .timeout(limits.services(Duration.ofSeconds(20)))
                         .header("Authorization", "token " + token)
                         .header("Accept", "application/json");
         if (body != null) {

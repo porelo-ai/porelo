@@ -24,6 +24,9 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class MirrorTreeTest {
 
+    /** Each git call's bound, as the daemon has it at every factor 1.0. */
+    private static final java.time.Duration GIT = java.time.Duration.ofMinutes(2);
+
     private final ProcessCommandRunner runner = new ProcessCommandRunner();
 
     private void git(Path directory, String... arguments) {
@@ -95,7 +98,7 @@ class MirrorTreeTest {
         final Path runtime = root.resolve("run/porelo");
 
         final Path exported;
-        try (MirrorTree tree = MirrorTree.export(mirror, runtime).orElseThrow()) {
+        try (MirrorTree tree = MirrorTree.export(mirror, runtime, GIT).orElseThrow()) {
             exported = tree.directory();
             assertThat(exported).startsWith(runtime);
             assertThat(permissions(exported)).as("private to this account").isEqualTo("rwx------");
@@ -120,7 +123,7 @@ class MirrorTreeTest {
         final Path mirror = mirror(root);
         final Path runtime = root.resolve("run/porelo");
 
-        try (MirrorTree tree = MirrorTree.export(mirror, runtime).orElseThrow()) {
+        try (MirrorTree tree = MirrorTree.export(mirror, runtime, GIT).orElseThrow()) {
             assertThat(tree.directory().resolve("task-only.txt")).doesNotExist();
             try (Stream<Path> all = Files.walk(tree.directory())) {
                 for (final Path file : all.filter(Files::isRegularFile).toList()) {
@@ -130,7 +133,7 @@ class MirrorTreeTest {
         }
 
         git(mirror, "symbolic-ref", "HEAD", "refs/heads/porelo/task");
-        assertThat(MirrorTree.export(mirror, runtime))
+        assertThat(MirrorTree.export(mirror, runtime, GIT))
                 .as("a HEAD naming a task's branch is no default branch")
                 .isEmpty();
     }
@@ -145,7 +148,7 @@ class MirrorTreeTest {
         assertThatThrownBy(
                         () -> {
                             try (MirrorTree tree =
-                                    MirrorTree.export(mirror, runtime).orElseThrow()) {
+                                    MirrorTree.export(mirror, runtime, GIT).orElseThrow()) {
                                 seen.add(tree.directory());
                                 throw new IllegalStateException("an adapter failed");
                             }
@@ -159,11 +162,11 @@ class MirrorTreeTest {
     void aMissingMirrorOrEmptyOneExportsNothing(@TempDir Path root) throws Exception {
 
         final Path runtime = root.resolve("run/porelo");
-        assertThat(MirrorTree.export(root.resolve("absent.git"), runtime)).isEmpty();
+        assertThat(MirrorTree.export(root.resolve("absent.git"), runtime, GIT)).isEmpty();
 
         final Path empty = root.resolve("empty.git");
         git(root, "init", "-q", "--bare", empty.toString());
-        assertThat(MirrorTree.export(empty, runtime)).isEmpty();
+        assertThat(MirrorTree.export(empty, runtime, GIT)).isEmpty();
     }
 
     @Test

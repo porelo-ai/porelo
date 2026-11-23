@@ -482,6 +482,7 @@ public final class MessageWatch implements AutoCloseable {
         BackgroundPass.start(
                 "porelo-messages",
                 () -> {
+                    final long look = context.limits().polling(VAULT_LOOK).toMillis();
                     while (running) {
                         // The pass's wait in short steps, each looking whether the vault opened for
                         // what waits for it.
@@ -491,7 +492,7 @@ public final class MessageWatch implements AutoCloseable {
                             try {
                                 Thread.sleep(
                                         Math.min(
-                                                VAULT_LOOK.toMillis(),
+                                                look,
                                                 Math.max(
                                                         1,
                                                         (round - System.nanoTime()) / 1_000_000)));
@@ -664,11 +665,20 @@ public final class MessageWatch implements AutoCloseable {
         final Thread thread = noticing;
         if (thread != null && thread != Thread.currentThread()) {
             try {
-                thread.join(CLOSING.toMillis());
+                thread.join(closing().toMillis());
             } catch (final InterruptedException ex) {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    /**
+     * Returns how long closing waits for a running pass.
+     *
+     * @return {@link #CLOSING} times the machines factor.
+     */
+    Duration closing() {
+        return context.limits().machines(CLOSING);
     }
 
     /**
@@ -939,7 +949,7 @@ public final class MessageWatch implements AutoCloseable {
                                         pause(
                                                         got,
                                                         Duration.ofNanos(System.nanoTime() - asked),
-                                                        rest)
+                                                        rested())
                                                 .toMillis());
                             }
                         } catch (final InterruptedException ex) {
@@ -1002,6 +1012,15 @@ public final class MessageWatch implements AutoCloseable {
 
     /** How long a loop that waits on a transport rests when the transport did not wait. */
     static final Duration IDLE = Duration.ofSeconds(5);
+
+    /**
+     * Returns how long a loop on a transport rests when its transport did not wait.
+     *
+     * @return The rest it was made with times the retries factor.
+     */
+    Duration rested() {
+        return context.limits().retryPause(rest);
+    }
 
     /** Shorter than this, a wait that brought nothing did not wait. */
     static final Duration WAITED = Duration.ofSeconds(2);
@@ -1091,7 +1110,8 @@ public final class MessageWatch implements AutoCloseable {
 
     private ProjectNames.Read read() {
         final long now = System.currentTimeMillis();
-        if (now - labelsAt > LABELS_KEPT_MILLIS) {
+        if (now - labelsAt
+                > context.limits().polling(Duration.ofMillis(LABELS_KEPT_MILLIS)).toMillis()) {
             labels = ProjectNames.read(context);
             labelsAt = now;
         }

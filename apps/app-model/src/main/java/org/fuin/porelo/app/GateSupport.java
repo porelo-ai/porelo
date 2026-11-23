@@ -229,7 +229,8 @@ public final class GateSupport {
             gate.pullRequests(
                     new HostPullRequests(
                             forwardTo,
-                            task -> new TaskSecrets(context).forgeToken(project.name(), task)));
+                            task -> new TaskSecrets(context).forgeToken(project.name(), task),
+                            context.limits()));
         }
         return gate;
     }

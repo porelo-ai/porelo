@@ -13,6 +13,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +48,10 @@ final class MirrorTree implements AutoCloseable {
     /** Where a task's own work lands, and which is never read here. */
     private static final String TASK_BRANCHES = "refs/heads/porelo/";
 
-    /** The longest any one git call may take; a stuck git must not hold the daemon. */
+    /**
+     * The longest any one git call may take, before the machines factor; a stuck git must not hold
+     * the daemon.
+     */
     private static final long GIT_SECONDS = 120;
 
     private final Path directory;
@@ -67,7 +71,10 @@ final class MirrorTree implements AutoCloseable {
      */
     static boolean readable(final PoreloContext context, final String repository)
             throws IOException {
-        return readable(GateSupport.mirror(context, DefaultProject.NAME, repository));
+        return defaultCommit(
+                        GateSupport.mirror(context, DefaultProject.NAME, repository),
+                        context.limits().machines(Duration.ofSeconds(GIT_SECONDS)))
+                != null;
     }
 
     /**
@@ -78,23 +85,25 @@ final class MirrorTree implements AutoCloseable {
      * @throws IOException When the mirror cannot be read.
      */
     static boolean readable(final Path mirror) throws IOException {
-        return defaultCommit(mirror) != null;
+        return defaultCommit(mirror, Duration.ofSeconds(GIT_SECONDS)) != null;
     }
 
     /**
      * The commit of the default branch a mirror's HEAD names, or {@code null} when there is no
      * mirror, its HEAD names no branch or a task's, or the branch has no commit yet.
      */
-    private static @Nullable String defaultCommit(final Path mirror) throws IOException {
+    private static @Nullable String defaultCommit(final Path mirror, final Duration bound)
+            throws IOException {
         if (!Files.isDirectory(mirror)) {
             return null;
         }
-        final Git head = git(mirror, "symbolic-ref", "--quiet", "HEAD");
+        final Git head = git(mirror, bound, "symbolic-ref", "--quiet", "HEAD");
         final String ref = head.text().strip();
         if (head.exit() != 0 || !ref.startsWith("refs/heads/") || ref.startsWith(TASK_BRANCHES)) {
             return null;
         }
-        final Git commit = git(mirror, "rev-parse", "--verify", "--quiet", ref + "^{commit}");
+        final Git commit =
+                git(mirror, bound, "rev-parse", "--verify", "--quiet", ref + "^{commit}");
         return commit.exit() == 0 ? commit.text().strip() : null;
     }
 
@@ -110,7 +119,8 @@ final class MirrorTree implements AutoCloseable {
             throws IOException {
         return export(
                 GateSupport.mirror(context, DefaultProject.NAME, repository),
-                context.paths().xdg().runtime());
+                context.paths().xdg().runtime(),
+                context.limits().machines(Duration.ofSeconds(GIT_SECONDS)));
     }
 
     /**
@@ -118,15 +128,17 @@ final class MirrorTree implements AutoCloseable {
      *
      * @param mirror The bare mirror.
      * @param runtime The runtime directory, {@code $XDG_RUNTIME_DIR/porelo}.
+     * @param bound The longest any one git call may take.
      * @return The export, or empty when there is no mirror or no default branch to read.
      * @throws IOException When the mirror cannot be read or the export written.
      */
-    static Optional<MirrorTree> export(final Path mirror, final Path runtime) throws IOException {
-        final String commit = defaultCommit(mirror);
+    static Optional<MirrorTree> export(final Path mirror, final Path runtime, final Duration bound)
+            throws IOException {
+        final String commit = defaultCommit(mirror, bound);
         if (commit == null) {
             return Optional.empty();
         }
-        final Git listed = git(mirror, "ls-tree", "-r", "-z", "--full-tree", commit);
+        final Git listed = git(mirror, bound, "ls-tree", "-r", "-z", "--full-tree", commit);
         if (listed.exit() != 0) {
             throw new IOException("Cannot list the tree of " + commit + " in " + mirror);
         }
@@ -141,7 +153,7 @@ final class MirrorTree implements AutoCloseable {
                                 PosixFilePermissions.fromString("rwx------")));
         final MirrorTree tree = new MirrorTree(directory);
         try {
-            tree.write(mirror, blobs);
+            tree.write(mirror, blobs, bound);
         } catch (IOException | RuntimeException ex) {
             try {
                 tree.close();
@@ -229,7 +241,8 @@ final class MirrorTree implements AutoCloseable {
         }
     }
 
-    private void write(final Path mirror, final List<Blob> blobs) throws IOException {
+    private void write(final Path mirror, final List<Blob> blobs, final Duration bound)
+            throws IOException {
         if (blobs.isEmpty()) {
             return;
         }
@@ -258,7 +271,8 @@ final class MirrorTree implements AutoCloseable {
                 }
             }
             writer.join();
-            if (!process.waitFor(GIT_SECONDS, TimeUnit.SECONDS) || process.exitValue() != 0) {
+            if (!process.waitFor(bound.toMillis(), TimeUnit.MILLISECONDS)
+                    || process.exitValue() != 0) {
                 throw new IOException("Cannot read the blobs of " + mirror);
             }
         } catch (InterruptedException ex) {
@@ -316,13 +330,14 @@ final class MirrorTree implements AutoCloseable {
     /** What one git call said, and how it ended. */
     private record Git(int exit, String text) {}
 
-    private static Git git(final Path mirror, final String... arguments) throws IOException {
+    private static Git git(final Path mirror, final Duration bound, final String... arguments)
+            throws IOException {
         final Process process = start(mirror, arguments);
         try {
             process.getOutputStream().close();
             final String text =
                     new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            if (!process.waitFor(GIT_SECONDS, TimeUnit.SECONDS)) {
+            if (!process.waitFor(bound.toMillis(), TimeUnit.MILLISECONDS)) {
                 throw new IOException("git " + arguments[0] + " did not end in " + mirror);
             }
             return new Git(process.exitValue(), text);

@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import org.fuin.porelo.agent.api.ProviderDefinition;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.LimitFactors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -162,8 +163,10 @@ class ModelListsTest {
                                                 + uri.getRawPath()
                                                 + (uri.getRawQuery() == null
                                                         ? ""
-                                                        : "?" + uri.getRawQuery()))),
-                clock);
+                                                        : "?" + uri.getRawQuery())),
+                        LimitFactors.DEFAULT),
+                clock,
+                LimitFactors.DEFAULT);
     }
 
     private record Answer(int status, String body) {}
@@ -420,6 +423,34 @@ class ModelListsTest {
         lists.list(OPENROUTER, () -> stored("openrouter"), true);
 
         assertThat(asked).as("a minute after the last read it asks again").hasSize(2);
+    }
+
+    @Test
+    void theSpacingFollowsThePollingFactorAndAListingsTimeTheServicesFactor() throws Exception {
+        final List<java.time.Duration> given = new CopyOnWriteArrayList<>();
+        final ModelLists slow =
+                new ModelLists(
+                        (uri, sent, timeout) -> {
+                            given.add(timeout);
+                            return new ModelLists.Answer(200, page(null).body());
+                        },
+                        clock,
+                        LimitFactors.parse("services=2,polling=2"));
+
+        slow.list(OPENROUTER, () -> stored("openrouter"), false);
+        clock.advance(ModelLists.SPACING.plusSeconds(1));
+        slow.list(OPENROUTER, () -> stored("openrouter"), true);
+
+        assertThat(given).as("a minute on, polling 2 asks nothing").hasSize(1);
+        assertThat(given.getFirst())
+                .as("services 2: the listing has twice its 20 s")
+                .isGreaterThan(ModelLists.PATIENCE)
+                .isLessThanOrEqualTo(ModelLists.PATIENCE.multipliedBy(2));
+
+        clock.advance(ModelLists.SPACING);
+        slow.list(OPENROUTER, () -> stored("openrouter"), true);
+
+        assertThat(given).as("two minutes after the last read it asks again").hasSize(2);
     }
 
     @Test

@@ -23,6 +23,7 @@ import org.fuin.porelo.agent.api.ProviderDefinition;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.JsonException;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -36,8 +37,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>A listing is kept in memory for an hour per provider. One read per provider is in flight at a
  * time, and a provider is asked at most once a minute: within it, its last answer or failure is
- * given again, fresh or not. Nothing here writes a file, and no message carries the credential or
- * what the provider sent back.
+ * given again, fresh or not; the hour and the minute follow the polling factor, a listing's time
+ * the services factor. Nothing here writes a file, and no message carries the credential or what
+ * the provider sent back.
  */
 public final class ModelLists {
 
@@ -164,6 +166,8 @@ public final class ModelLists {
 
     private final Clock clock;
 
+    private final LimitFactors limits;
+
     /** What was last asked of each provider, by name; written under that provider's lock. */
     private final Map<String, Asked> asked = new ConcurrentHashMap<>();
 
@@ -179,9 +183,13 @@ public final class ModelLists {
      */
     private record Asked(Instant at, @Nullable Listing listing, @Nullable String failure) {}
 
-    /** Asks the providers at their own https addresses. */
-    public ModelLists() {
-        this(http(UnaryOperator.identity()), Clock.systemUTC());
+    /**
+     * Asks the providers at their own https addresses.
+     *
+     * @param limits The factors {@link #KEPT}, {@link #PATIENCE} and {@link #SPACING} follow.
+     */
+    public ModelLists(final LimitFactors limits) {
+        this(http(UnaryOperator.identity(), limits), Clock.systemUTC(), limits);
     }
 
     /**
@@ -189,22 +197,25 @@ public final class ModelLists {
      *
      * @param transport How a provider is reached.
      * @param clock What tells the time.
+     * @param limits The factors {@link #KEPT}, {@link #PATIENCE} and {@link #SPACING} follow.
      */
-    public ModelLists(final Transport transport, final Clock clock) {
+    public ModelLists(final Transport transport, final Clock clock, final LimitFactors limits) {
         this.transport = transport;
         this.clock = clock;
+        this.limits = limits;
     }
 
     /**
      * Returns the transport that sends over HTTP.
      *
      * @param address The address a provider's URL is sent to: itself, except in a test.
+     * @param limits The factors its connect timeout, {@link #PATIENCE}, follows.
      * @return The transport.
      */
-    public static Transport http(final UnaryOperator<URI> address) {
+    public static Transport http(final UnaryOperator<URI> address, final LimitFactors limits) {
         final HttpClient client =
                 HttpClient.newBuilder()
-                        .connectTimeout(PATIENCE)
+                        .connectTimeout(limits.services(PATIENCE))
                         // A redirect would carry the credential to wherever it points.
                         .followRedirects(HttpClient.Redirect.NEVER)
                         .build();
@@ -244,18 +255,19 @@ public final class ModelLists {
         // One read per provider at a time: a call that waited takes the answer the read gave.
         synchronized (locks.computeIfAbsent(provider.name(), name -> new Object())) {
             final Instant now = clock.instant();
+            final Duration spacing = limits.polling(SPACING);
             final Asked last = asked.get(provider.name());
-            if (last != null && now.isBefore(last.at().plus(SPACING))) {
+            if (last != null && now.isBefore(last.at().plus(spacing))) {
                 // A loop of asks, fresh or not, reaches the provider once a minute.
                 if (last.listing() != null) {
                     return last.listing();
                 }
-                throw new Failed(last.failure() + "; asked again from " + last.at().plus(SPACING));
+                throw new Failed(last.failure() + "; asked again from " + last.at().plus(spacing));
             }
             if (!fresh
                     && last != null
                     && last.listing() != null
-                    && now.isBefore(last.listing().readAt().plus(KEPT))) {
+                    && now.isBefore(last.listing().readAt().plus(limits.polling(KEPT)))) {
                 return last.listing();
             }
             return read(provider, listed, credentials, now);
@@ -334,7 +346,7 @@ public final class ModelLists {
             // any other way.
             throw new Failed("'" + provider.name() + "' is not reached over https");
         }
-        final long deadline = System.nanoTime() + PATIENCE.toNanos();
+        final long deadline = System.nanoTime() + limits.services(PATIENCE).toNanos();
         final List<Model> models = new ArrayList<>();
         String next = paged ? base + "?limit=1000" : base;
         for (int page = 0; next != null; page++) {
@@ -433,12 +445,12 @@ public final class ModelLists {
         return map;
     }
 
-    private static Failed late(final ProviderDefinition provider) {
+    private Failed late(final ProviderDefinition provider) {
         return new Failed(
                 "'"
                         + provider.name()
                         + "' did not answer with its list within "
-                        + PATIENCE.toSeconds()
+                        + limits.services(PATIENCE).toSeconds()
                         + " s");
     }
 

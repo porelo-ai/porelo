@@ -64,6 +64,35 @@ class UpstreamProbeTest {
     }
 
     @Test
+    void theProbesConnectBoundIsTwiceAsLongAtServices2(@TempDir Path dir) throws Exception {
+        final var commands = new java.util.ArrayList<org.fuin.porelo.core.process.Command>();
+        final PoreloContext plain =
+                new PoreloContext(
+                        command -> {
+                            commands.add(command);
+                            return new org.fuin.porelo.core.process.CommandResult(
+                                    command, 0, "", "");
+                        },
+                        context(dir).paths(),
+                        arguments -> 0);
+        final PoreloContext slow =
+                plain.withAccount(
+                        AccountConfig.read(
+                                new java.io.StringReader("limits:\n  services: 2\n"), "t"));
+        final String url = "ssh://git@forge.example.org/acme/repo.git";
+
+        UpstreamProbe.probe(plain, org.fuin.porelo.gate.GitCredentials.NONE, url);
+        UpstreamProbe.probe(slow, org.fuin.porelo.gate.GitCredentials.NONE, url);
+
+        assertThat(commands)
+                .extracting(command -> command.environment().get("GIT_HTTP_LOW_SPEED_TIME"))
+                .as("10 s at 1.0, 20 s at services 2")
+                .containsExactly("10", "20");
+        assertThat(commands.getLast().environment().get("GIT_SSH_COMMAND"))
+                .contains("ConnectTimeout=20");
+    }
+
+    @Test
     void aTaskDoesNotOfferToCopyADeclaredExternalKeyIntoTheVault(@TempDir final Path dir)
             throws Exception {
         final PoreloContext context = context(dir);

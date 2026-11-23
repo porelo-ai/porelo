@@ -59,7 +59,7 @@ public final class TaskRoomSweep implements AutoCloseable {
      * Constructor.
      *
      * @param context The account.
-     * @param every How often to sweep.
+     * @param every How often to sweep, before the polling factor.
      * @param log Where each task that left, and each that could not, is said, one line each.
      */
     public TaskRoomSweep(
@@ -97,7 +97,7 @@ public final class TaskRoomSweep implements AutoCloseable {
         final boolean opened = open && !wasOpen;
         wasOpen = open;
         if (next == null || opened || !now.isBefore(next)) {
-            next = now.plus(every);
+            next = now.plus(context.limits().polling(every));
             return true;
         }
         return false;
@@ -194,12 +194,13 @@ public final class TaskRoomSweep implements AutoCloseable {
         BackgroundPass.start(
                 "porelo-room-sweep",
                 () -> {
+                    final long look = context.limits().polling(MessageWatch.VAULT_LOOK).toMillis();
                     while (running) {
                         if (due()) {
                             sweepOnce();
                         }
                         try {
-                            Thread.sleep(MessageWatch.VAULT_LOOK.toMillis());
+                            Thread.sleep(look);
                         } catch (final InterruptedException ex) {
                             Thread.currentThread().interrupt();
                             return;

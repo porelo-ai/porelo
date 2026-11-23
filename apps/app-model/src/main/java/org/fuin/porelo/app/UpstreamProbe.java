@@ -12,6 +12,7 @@ import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GitCredentials;
+import org.fuin.porelo.wire.LimitFactors;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -38,7 +39,8 @@ public final class UpstreamProbe {
             new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
-     * How long ssh may take to connect, so an unreachable host costs a start seconds, not minutes.
+     * How long ssh may take to connect, so an unreachable host costs a start seconds, not minutes;
+     * times the services factor.
      */
     static final int CONNECT_SECONDS = 10;
 
@@ -135,7 +137,9 @@ public final class UpstreamProbe {
         // address.
         final String key = GateSupport.mirror(context, project, repository) + " " + address;
         final java.time.Instant read = READ.get(key);
-        if (read != null && read.plus(REMEMBERED).isAfter(java.time.Instant.now())) {
+        if (read != null
+                && read.plus(context.limits().polling(REMEMBERED))
+                        .isAfter(java.time.Instant.now())) {
             return null;
         }
         final Answer answer =
@@ -264,7 +268,12 @@ public final class UpstreamProbe {
             command.addAll(List.of("ls-remote", "--heads", "--end-of-options", url));
             asked =
                     UnattendedGit.runner(context)
-                            .run(Command.of(command).withEnvironment(bounded(lease.environment())));
+                            .run(
+                                    Command.of(command)
+                                            .withEnvironment(
+                                                    bounded(
+                                                            lease.environment(),
+                                                            context.limits())));
         } catch (final RuntimeException ex) {
             return new Answer(
                     Cause.UNREADABLE,
@@ -283,17 +292,20 @@ public final class UpstreamProbe {
      * Never a prompt, and never a wait without end: a start has no terminal for ssh to ask on, and
      * a host that does not answer must cost seconds.
      */
-    static Map<String, String> bounded(final Map<String, String> lent) {
+    static Map<String, String> bounded(final Map<String, String> lent, final LimitFactors limits) {
+        final long seconds =
+                Math.ceilDiv(
+                        limits.services(java.time.Duration.ofSeconds(CONNECT_SECONDS)).toMillis(),
+                        1000);
         final Map<String, String> environment = new LinkedHashMap<>(lent);
         final String ssh = environment.getOrDefault("GIT_SSH_COMMAND", "ssh");
         environment.put(
                 "GIT_SSH_COMMAND",
                 ssh.replaceFirst(
-                        "^ssh(\\s|$)",
-                        "ssh -o BatchMode=yes -o ConnectTimeout=" + CONNECT_SECONDS + "$1"));
+                        "^ssh(\\s|$)", "ssh -o BatchMode=yes -o ConnectTimeout=" + seconds + "$1"));
         environment.put("GIT_TERMINAL_PROMPT", "0");
         environment.put("GIT_HTTP_LOW_SPEED_LIMIT", "1");
-        environment.put("GIT_HTTP_LOW_SPEED_TIME", String.valueOf(CONNECT_SECONDS));
+        environment.put("GIT_HTTP_LOW_SPEED_TIME", String.valueOf(seconds));
         return environment;
     }
 

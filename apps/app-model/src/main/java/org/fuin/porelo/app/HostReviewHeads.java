@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.fuin.porelo.wire.LimitFactors;
 
 /** Fetches a review head into a store owned by the reader, never the gate's mirror. */
 final class HostReviewHeads {
@@ -24,20 +25,24 @@ final class HostReviewHeads {
     private HostReviewHeads() {}
 
     /** Runs under the store's lock, including the caller's subsequent maker read. */
-    static void fetch(Path store, URI repository, long number, String head, String token)
+    static void fetch(
+            Path store, URI repository, long number, String head, String token, LimitFactors limits)
             throws IOException {
+        // Each git call may take 20 s, times the services factor.
+        final Duration bound = limits.services(Duration.ofSeconds(20));
         final String address =
                 "http://127.0.0.1:"
                         + repository.getPort()
                         + repository.getPath().substring("/api/v1/repos".length())
                         + ".git";
         final String format = head.length() == 64 ? "sha256" : "sha1";
-        if (Files.exists(store, LinkOption.NOFOLLOW_LINKS) && !format.equals(formatOf(store))) {
+        if (Files.exists(store, LinkOption.NOFOLLOW_LINKS)
+                && !format.equals(formatOf(store, bound))) {
             // A store made for the other hash, or broken, would refuse every later fetch.
             remove(store);
         }
         org.fuin.porelo.wire.Directories.create(store);
-        run(store, Map.of(), "init", "--bare", "--template=", "--object-format=" + format);
+        run(store, bound, Map.of(), "init", "--bare", "--template=", "--object-format=" + format);
         final String header =
                 "Authorization: Basic "
                         + Base64.getEncoder()
@@ -56,6 +61,7 @@ final class HostReviewHeads {
                         "GIT_CONFIG_VALUE_1", "false");
         run(
                 store,
+                bound,
                 authorization,
                 "fetch",
                 "--quiet",
@@ -67,16 +73,16 @@ final class HostReviewHeads {
                 "--",
                 address,
                 "+refs/pull/" + number + "/head:" + REF);
-        if (!run(store, Map.of(), "rev-parse", "--verify", REF + "^{commit}")
+        if (!run(store, bound, Map.of(), "rev-parse", "--verify", REF + "^{commit}")
                 .strip()
                 .equals(head)) {
             throw new IOException("the fetched review ref differs from its row");
         }
     }
 
-    private static @org.jspecify.annotations.Nullable String formatOf(Path store) {
+    private static @org.jspecify.annotations.Nullable String formatOf(Path store, Duration bound) {
         try {
-            return run(store, Map.of(), "rev-parse", "--show-object-format").strip();
+            return run(store, bound, Map.of(), "rev-parse", "--show-object-format").strip();
         } catch (IOException ex) {
             return null;
         }
@@ -90,7 +96,8 @@ final class HostReviewHeads {
         }
     }
 
-    private static String run(Path store, Map<String, String> variables, String... arguments)
+    private static String run(
+            Path store, Duration bound, Map<String, String> variables, String... arguments)
             throws IOException {
         // Force received objects into a pack, then let the kernel bound every file the fetch can
         // write. A single shallow ref cannot unpack into an unbounded number of loose objects.
@@ -145,10 +152,10 @@ final class HostReviewHeads {
         final Process process = builder.start();
         process.getOutputStream().close();
         try (var readers = Executors.newVirtualThreadPerTaskExecutor()) {
-            final long deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos();
+            final long deadline = System.nanoTime() + bound.toNanos();
             try {
                 final var output = readers.submit(() -> process.getInputStream().readNBytes(1025));
-                final byte[] bytes = output.get(20, TimeUnit.SECONDS);
+                final byte[] bytes = output.get(bound.toNanos(), TimeUnit.NANOSECONDS);
                 if (bytes.length > 1024
                         || !process.waitFor(
                                 Math.max(1, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)

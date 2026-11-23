@@ -341,7 +341,7 @@ public final class AgentWaiting {
      * where its agent declares rest and questions, no question is open, and two reads at least
      * {@link Rest#LOOK} apart both showed rest.
      */
-    private static Turn turn(
+    private Turn turn(
             Captured screen,
             @Nullable Waiting declared,
             org.fuin.porelo.agent.api.@Nullable AtRest atRest) {
@@ -354,11 +354,16 @@ public final class AgentWaiting {
         return restHeld(screen) ? Turn.AT_REST : Turn.WORKING;
     }
 
-    /** Says whether two looks at the agent itself, {@link Rest#LOOK} apart, both showed rest. */
-    private static boolean restHeld(final Captured screen) {
+    /**
+     * Says whether two looks at the agent itself, {@link Rest#LOOK} times the polling factor apart,
+     * both showed rest.
+     */
+    private boolean restHeld(final Captured screen) {
         final Instant since = screen.restingSince();
         final Instant looked = screen.looked();
-        return since != null && looked != null && !since.plus(Rest.LOOK).isAfter(looked);
+        return since != null
+                && looked != null
+                && !since.plus(context.limits().polling(Rest.LOOK)).isAfter(looked);
     }
 
     /** How many screens {@link #readScreens} reads at once. */
@@ -440,14 +445,14 @@ public final class AgentWaiting {
                     kept == null || !java.util.Objects.equals(kept.identity(), identity)
                             ? null
                             : kept;
-            if (before != null && before.at().plus(SCREEN).isAfter(now)) {
+            if (before != null && before.at().plus(context.limits().polling(SCREEN)).isAfter(now)) {
                 return before;
             }
             Captured read = look(container, declared, atRest, before, identity, state);
             if (secondLook != null
                     && read.restingSince() != null
                     && !restHeld(read)
-                    && secondLook.waits(Rest.LOOK)) {
+                    && secondLook.waits(context.limits().polling(Rest.LOOK))) {
                 // Rest seen, with no earlier look to hold it against: look again, as the wake
                 // does, rather than say rest of what may be a gap between two tool calls.
                 read = look(container, declared, atRest, read, identity, state);
@@ -533,7 +538,10 @@ public final class AgentWaiting {
         Thread.ofPlatform().daemon().name("porelo-capture-" + container).start(capture);
         final CommandResult drawn;
         try {
-            drawn = capture.get(CAPTURE.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+            drawn =
+                    capture.get(
+                            context.limits().machines(CAPTURE).toMillis(),
+                            java.util.concurrent.TimeUnit.MILLISECONDS);
         } catch (java.util.concurrent.TimeoutException ex) {
             capture.cancel(true);
             return new Shown(null, true);
@@ -596,7 +604,8 @@ public final class AgentWaiting {
     private @Nullable AgentDefinition definition(String agent) {
         Declarations known = declarations;
         final Instant now = clock.instant();
-        if (known == null || !known.read().plus(DECLARATIONS).isAfter(now)) {
+        if (known == null
+                || !known.read().plus(context.limits().polling(DECLARATIONS)).isAfter(now)) {
             final Map<String, Optional<AgentDefinition>> byAgent = installed.get();
             known = new Declarations(now, byAgent);
             declarations = known;

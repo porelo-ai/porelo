@@ -52,7 +52,8 @@ final class AgentMethods {
                         replies.last(org.fuin.porelo.app.ProviderInventory.list(context).asMap()));
 
         // One per daemon, so a list is kept across calls for its hour.
-        final org.fuin.porelo.app.ModelLists models = new org.fuin.porelo.app.ModelLists();
+        final org.fuin.porelo.app.ModelLists models =
+                new org.fuin.porelo.app.ModelLists(context.limits());
         server.method(
                 "Models",
                 (parameters, replies) -> replies.last(models(context, models, parameters)));

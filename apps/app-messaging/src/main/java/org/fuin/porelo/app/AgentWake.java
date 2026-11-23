@@ -103,7 +103,7 @@ public final class AgentWake {
      * Constructor.
      *
      * @param context The machine.
-     * @param look How long between two looks at the screen.
+     * @param look How long between two looks at the screen, before the polling factor.
      * @param terminal What reads and types into a task's terminal.
      */
     AgentWake(final PoreloContext context, final java.time.Duration look, final Terminal terminal) {
@@ -653,7 +653,7 @@ public final class AgentWake {
             return true;
         }
         try {
-            Thread.sleep(look);
+            Thread.sleep(context.limits().polling(look));
             return true;
         } catch (final InterruptedException ex) {
             Thread.currentThread().interrupt();

@@ -20,6 +20,7 @@ import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -50,7 +51,9 @@ class ModelsMethodTest {
         assertThatThrownBy(
                         () ->
                                 AgentMethods.models(
-                                        context(), new ModelLists(), Map.of("provider", "nowhere")))
+                                        context(),
+                                        new ModelLists(LimitFactors.DEFAULT),
+                                        Map.of("provider", "nowhere")))
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
                         failure -> {
@@ -98,7 +101,8 @@ class ModelsMethodTest {
                             asked.incrementAndGet();
                             return new ModelLists.Answer(200, "{\"data\":[{\"id\":\"m\"}]}");
                         },
-                        clock);
+                        clock,
+                        LimitFactors.DEFAULT);
         final org.fuin.porelo.agent.api.ProviderDefinition provider =
                 org.fuin.porelo.agent.api.ProviderDefinitionReader.read(
                         new java.io.StringReader(
@@ -194,7 +198,8 @@ class ModelsMethodTest {
                 (uri, headers, timeout) -> {
                     throw new AssertionError("No provider request is possible here");
                 },
-                new Hands());
+                new Hands(),
+                LimitFactors.DEFAULT);
     }
 
     private static Map<String, Object> reply(
@@ -253,7 +258,8 @@ class ModelsMethodTest {
                             asked.incrementAndGet();
                             return new ModelLists.Answer(403, "refused");
                         },
-                        new Hands());
+                        new Hands(),
+                        LimitFactors.DEFAULT);
 
         isAgentList(reply(provider("listing", true), stored(), lists));
         isAgentList(reply(provider("listing", true), stored(), lists));
@@ -268,7 +274,8 @@ class ModelsMethodTest {
                                 new ModelLists.Answer(
                                         200,
                                         "{\"data\":[{\"id\":\"remote\",\"name\":\"Remote\"}]}"),
-                        new Hands());
+                        new Hands(),
+                        LimitFactors.DEFAULT);
 
         final Map<String, Object> expected = reply(provider("listing", true), stored(), lists);
         assertThat(expected)
@@ -291,7 +298,8 @@ class ModelsMethodTest {
         final ModelLists lists =
                 new ModelLists(
                         (uri, headers, timeout) -> new ModelLists.Answer(200, "{\"data\":[]}"),
-                        new Hands());
+                        new Hands(),
+                        LimitFactors.DEFAULT);
         assertThat(reply(provider("listing", true), stored(), lists))
                 .as("empty is a provider answer, not an absent listing")
                 .containsEntry("from", "provider")
@@ -400,7 +408,8 @@ class ModelsMethodTest {
                         (uri, headers, timeout) ->
                                 new ModelLists.Answer(
                                         status.get(), "{\"data\":[{\"id\":\"remote\"}]}"),
-                        clock);
+                        clock,
+                        LimitFactors.DEFAULT);
         final Map<String, ProviderDefinition> providers =
                 Map.of("listing", provider("listing", true));
         final var first =

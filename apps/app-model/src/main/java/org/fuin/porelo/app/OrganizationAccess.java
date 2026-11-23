@@ -206,7 +206,7 @@ public final class OrganizationAccess {
     public static java.net.http.HttpClient http(final PoreloContext context) {
         return org.fuin.porelo.core.net.TrustedCertificates.builder(
                         org.fuin.porelo.core.net.TrustedCertificates.file(context.paths().xdg()))
-                .connectTimeout(java.time.Duration.ofSeconds(10))
+                .connectTimeout(context.limits().services(java.time.Duration.ofSeconds(10)))
                 .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                 .build();
     }

@@ -19,6 +19,7 @@ import java.util.concurrent.TimeoutException;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.RootOwnedFile;
 
 /** Reads a person's host forge reviews and confirms the end of previously observed reviews. */
@@ -194,7 +195,7 @@ public final class HostPullRequestReader {
                 context,
                 context.paths().hostDirectory().resolve("forge.conf"),
                 HostCentral.ATTRIBUTES,
-                HostPullRequestReader::http);
+                (address, token) -> http(address, token, context.limits()));
     }
 
     HostPullRequestReader(
@@ -209,7 +210,7 @@ public final class HostPullRequestReader {
     }
 
     HostPullRequestReader(PoreloContext context, Path conf, RootOwnedFile.Attributes attributes) {
-        this(context, conf, attributes, HostPullRequestReader::http);
+        this(context, conf, attributes, (address, token) -> http(address, token, context.limits()));
     }
 
     /** Reads a named project's open reviews, including one not yet placed by a start. */
@@ -543,8 +544,9 @@ public final class HostPullRequestReader {
             long number,
             String commit,
             String token) {
+        final LimitFactors limits = context.limits();
         try {
-            return makers(GateSupport.mirror(context, project, repository), commit);
+            return makers(GateSupport.mirror(context, project, repository), commit, limits);
         } catch (Refused ex) {
             // The gate alone writes its mirror. Review reads keep missing heads in their own store.
         }
@@ -558,18 +560,19 @@ public final class HostPullRequestReader {
         try {
             return FileLocks.holdingWithin(
                             store.resolveSibling(repository + ".lock"),
-                            // Long enough to wait out another read's fetch of three bounded steps.
-                            Duration.ofSeconds(75),
+                            // Long enough to wait out another read's fetch of three bounded steps,
+                            // which follow services, so the wait does too.
+                            limits.services(Duration.ofSeconds(75)),
                             context.limits(),
                             () -> {
                                 try {
-                                    return makers(store, commit);
+                                    return makers(store, commit, limits);
                                 } catch (Refused absent) {
                                     // Not fetched yet: a head kept from an earlier round is read
                                     // again, never fetched again.
                                 }
-                                HostReviewHeads.fetch(store, source, number, commit, token);
-                                return makers(store, commit);
+                                HostReviewHeads.fetch(store, source, number, commit, token, limits);
+                                return makers(store, commit, limits);
                             })
                     .orElseThrow(HostPullRequestReader::noMakers);
         } catch (IOException ex) {
@@ -577,7 +580,7 @@ public final class HostPullRequestReader {
         }
     }
 
-    private static String[] makers(Path mirror, String commit) {
+    private static String[] makers(Path mirror, String commit, LimitFactors limits) {
         final Process process;
         try {
             final ProcessBuilder builder =
@@ -621,11 +624,12 @@ public final class HostPullRequestReader {
         // Reading and waiting share a deadline: neither a full pipe nor a stuck git may hold the
         // daemon.
         try (var readers = Executors.newVirtualThreadPerTaskExecutor()) {
-            final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            final Duration bound = limits.services(Duration.ofSeconds(10));
+            final long deadline = System.nanoTime() + bound.toNanos();
             try {
                 final var read =
                         readers.submit(() -> process.getInputStream().readNBytes(64 * 1024 + 1));
-                final byte[] bytes = read.get(10, TimeUnit.SECONDS);
+                final byte[] bytes = read.get(bound.toNanos(), TimeUnit.NANOSECONDS);
                 if (bytes.length > 64 * 1024
                         || !process.waitFor(
                                 Math.max(1, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)
@@ -649,17 +653,17 @@ public final class HostPullRequestReader {
         }
     }
 
-    private static Answer http(URI address, String token) {
+    private static Answer http(URI address, String token, LimitFactors limits) {
         try (HttpClient client =
                 HttpClient.newBuilder()
                         .proxy(HttpClient.Builder.NO_PROXY)
                         .followRedirects(HttpClient.Redirect.NEVER)
-                        .connectTimeout(Duration.ofSeconds(10))
+                        .connectTimeout(limits.services(Duration.ofSeconds(10)))
                         .build()) {
             final var response =
                     client.send(
                             HttpRequest.newBuilder(address)
-                                    .timeout(Duration.ofSeconds(20))
+                                    .timeout(limits.services(Duration.ofSeconds(20)))
                                     .header("Authorization", "token " + token)
                                     .header("Accept", "application/json")
                                     .build(),

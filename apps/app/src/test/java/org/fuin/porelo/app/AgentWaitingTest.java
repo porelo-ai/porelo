@@ -70,6 +70,11 @@ class AgentWaitingTest {
     private final AtomicInteger loaded = new AtomicInteger();
 
     private AgentWaiting waiting(Map<String, Optional<AgentDefinition>> declarations) {
+        return waiting(declarations, AccountConfig.DEFAULT);
+    }
+
+    private AgentWaiting waiting(
+            Map<String, Optional<AgentDefinition>> declarations, AccountConfig account) {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -78,7 +83,8 @@ class AgentWaitingTest {
                                         : null,
                         dir);
         final PoreloContext context =
-                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0)
+                        .withAccount(account);
         return new AgentWaiting(
                 context,
                 clock,
@@ -289,6 +295,24 @@ class AgentWaitingTest {
         assertThat(loaded).as("an agent updated under a running daemon is read again").hasValue(2);
     }
 
+    @Test
+    void theDeclarationsAreReadAgainAfterTwiceTheirIntervalAtPolling2() {
+        runner.answering("capture-pane", "stub: at work, nothing asked\n");
+        final AgentWaiting waiting =
+                waiting(
+                        Map.of("asker", Optional.of(DECLARED)),
+                        AccountConfig.read(new StringReader("limits:\n  polling: 2\n"), "t"));
+
+        attached(waiting);
+        clock.move(AgentWaiting.DECLARATIONS);
+        attached(waiting);
+        assertThat(loaded).as("a minute on, polling 2").hasValue(1);
+
+        clock.move(AgentWaiting.DECLARATIONS);
+        attached(waiting);
+        assertThat(loaded).as("two minutes on").hasValue(2);
+    }
+
     // --- rest, on two looks at the agent
 
     private static final String AT_REST = "ready for the next turn\n";
@@ -297,6 +321,12 @@ class AgentWaitingTest {
 
     /** The resting asker, its screen captured by {@code runner}. */
     private AgentWaiting resting(final org.fuin.porelo.core.process.CommandRunner captures) {
+        return resting(captures, AccountConfig.DEFAULT);
+    }
+
+    private AgentWaiting resting(
+            final org.fuin.porelo.core.process.CommandRunner captures,
+            final AccountConfig account) {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -305,9 +335,34 @@ class AgentWaitingTest {
                                         : null,
                         dir);
         return new AgentWaiting(
-                new PoreloContext(captures, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0),
+                new PoreloContext(captures, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0)
+                        .withAccount(account),
                 clock,
                 () -> Map.of("asker", Optional.of(RESTING)));
+    }
+
+    @Test
+    void aSlowCaptureIsWaitedForTwiceAsLongAtMachines2() {
+        // A capture a second longer than its 3 s: given up at 1.0, read at machines 2.
+        final AgentWaiting waiting =
+                resting(
+                        command -> {
+                            if (command.toString().contains("capture-pane")) {
+                                try {
+                                    Thread.sleep(AgentWaiting.CAPTURE.plusSeconds(1));
+                                } catch (final InterruptedException ex) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            }
+                            return drawn(command, AT_REST);
+                        },
+                        AccountConfig.read(new StringReader("limits:\n  machines: 2\n"), "t"));
+
+        waiting.readScreens(List.of(new AgentWaiting.Wanted("porelo-p-1", true, "asker", "AGENT")));
+
+        assertThat(waiting.about("porelo-p-1", true, "asker", "AGENT", dir).screen())
+                .as("the capture was read, not given up")
+                .isNotEqualTo(AgentWaiting.Screen.UNSEEN);
     }
 
     private static org.fuin.porelo.core.process.CommandResult drawn(

@@ -361,6 +361,20 @@ final class TransportConversations {
     /** How long a waiting poll holds the server's answer open, at most. */
     static final int WAIT_SECONDS = 30;
 
+    /**
+     * Returns how long a waiting poll holds the server's answer open here.
+     *
+     * @return {@link #WAIT_SECONDS} times the services factor, in whole seconds rounded up.
+     */
+    int waitSeconds() {
+        return Math.toIntExact(
+                Math.ceilDiv(
+                        context.limits()
+                                .services(java.time.Duration.ofSeconds(WAIT_SECONDS))
+                                .toMillis(),
+                        1000));
+    }
+
     static String key(final String scheme, final String name) {
         return scheme + "\n" + name;
     }
@@ -427,7 +441,7 @@ final class TransportConversations {
 
     /**
      * Fetches a conversation and its tasks' direct chats once, each poll waiting on the server up
-     * to {@link #WAIT_SECONDS} for something to arrive, and hands out what came - for a loop that
+     * to {@link #waitSeconds} for something to arrive, and hands out what came - for a loop that
      * keeps a person's word seconds from the task rather than a pass's minute.
      *
      * @param group The project's tasks on this machine that take part in it.
@@ -456,7 +470,15 @@ final class TransportConversations {
                                 .resolve("inbound")
                                 .resolve(project);
                 Directories.create(inbound);
-                poll(adapter, described, secrets, inbound, scheme, project, WAIT_SECONDS, failures);
+                poll(
+                        adapter,
+                        described,
+                        secrets,
+                        inbound,
+                        scheme,
+                        project,
+                        waitSeconds(),
+                        failures);
                 final Map<String, String> accounts = lifecycle.addresses(scheme, project);
                 final java.util.Set<String> persons = lifecycle.persons(scheme, project);
                 final TransportLifecycle.Conversation conversation =
@@ -500,7 +522,7 @@ final class TransportConversations {
         final Path adapter = transports.find(member.scheme());
         if (adapter != null) {
             try {
-                direct(adapter, member, handed, failures, WAIT_SECONDS);
+                direct(adapter, member, handed, failures, waitSeconds());
             } catch (IOException ex) {
                 failures.add(String.valueOf(ex.getMessage()));
             } catch (final CommandException ex) {
