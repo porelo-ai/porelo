@@ -178,4 +178,71 @@ class OrganizationProjectsHostTest {
                 .extracting(OrganizationProjects.Placed::builds)
                 .isEqualTo(new Builds("host-forge", "builds", api, Builds.FAILURE));
     }
+
+    @Test
+    void aHostCarriesItsOwnRepositoryAndThoseItNamesWithACentralAddress() throws IOException {
+        // What a task that reads the whole project reads on a host, and what it never tries.
+        final OrganizationProjects projects = projects();
+        hostFile(Map.of("repositories", List.of("api", "docs")));
+        final OrganizationProjects.Placed host =
+                java.util.Objects.requireNonNull(projects.host("demo"));
+        final org.fuin.porelo.core.project.Project project = project();
+
+        assertThat(
+                        project.allRepositories().stream()
+                                .filter(each -> host.carries(project, each))
+                                .map(org.fuin.porelo.core.project.Repository::name)
+                                .toList())
+                .as("its own, and of those it names only one with a copy on its forge")
+                .containsExactly("demo", "api");
+    }
+
+    @Test
+    void aHostNamingNoneCarriesEveryRepositoryWithACentralAddress() throws IOException {
+        final OrganizationProjects projects = projects();
+        hostFile(Map.of());
+        final OrganizationProjects.Placed host =
+                java.util.Objects.requireNonNull(projects.host("demo"));
+        final org.fuin.porelo.core.project.Project project = project();
+
+        assertThat(
+                        project.allRepositories().stream()
+                                .filter(each -> host.carries(project, each))
+                                .map(org.fuin.porelo.core.project.Repository::name)
+                                .toList())
+                .containsExactly("demo", "api", "web");
+    }
+
+    /** Four rows: three with a central address, one without, which no forge keeps a copy of. */
+    private static org.fuin.porelo.core.project.Project project() {
+        return org.fuin.porelo.core.project.ProjectReader.read(
+                        new java.io.StringReader(
+                                """
+                                project:
+                                  name: demo
+                                  security_class: guarded
+                                image:
+                                  from: ubuntu:24.04
+                                """),
+                        "test")
+                .withRepositories(
+                        List.of(
+                                row("api", "git@central.example:acme/api.git"),
+                                row("web", "git@central.example:acme/web.git"),
+                                row("docs", null)));
+    }
+
+    private static org.fuin.porelo.core.project.Repository row(
+            final String name, final @org.jspecify.annotations.Nullable String central) {
+        return new org.fuin.porelo.core.project.Repository(
+                name,
+                "git@upstream.example:acme/" + name + ".git",
+                "",
+                List.of(),
+                null,
+                null,
+                null,
+                org.fuin.porelo.core.project.Repository.REVIEW_REQUIRED,
+                central);
+    }
 }

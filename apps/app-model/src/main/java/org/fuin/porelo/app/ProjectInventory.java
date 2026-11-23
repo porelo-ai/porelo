@@ -976,8 +976,8 @@ public final class ProjectInventory {
     }
 
     /**
-     * Says whether this host carries a repository: the project carried, the repository named or the
-     * carry whole, and a copy its forge keeps. The project's own goes with the project.
+     * Says whether this host carries a repository, as {@link OrganizationProjects.Placed#carries}
+     * says.
      *
      * @return The answer, or {@code null} where the host's file says nothing of the project.
      */
@@ -985,14 +985,7 @@ public final class ProjectInventory {
             final org.fuin.porelo.core.project.Project project,
             final org.fuin.porelo.core.project.Repository repository,
             final OrganizationProjects.@Nullable Placed host) {
-        if (host == null) {
-            return null;
-        }
-        if (repository.name().equals(project.name())) {
-            return true;
-        }
-        return (host.repositories().isEmpty() || host.repositories().contains(repository.name()))
-                && HostForgeAddress.copyOf(project.name(), repository.central()) != null;
+        return host == null ? null : host.carries(project, repository);
     }
 
     /**

@@ -4111,21 +4111,22 @@ public final class TaskLaunch {
                 // Written by the host before the container exists, which mounts it read only: once
                 // enrolled, so a start refused here is ended as every other refused start is. A
                 // task made read only is given its one repository the same way, into a directory
-                // of its own kind.
+                // of its own kind. One that reads them all reads those this machine carries.
                 steps.started(StartStep.Step.WORKSPACE);
                 final TaskRepositories reading = new TaskRepositories(context.paths(), container);
                 final SecretCheck secrets = new SecretCheck(context, project, out, err);
+                final java.nio.file.Path into = reading.directory(request.readOnly());
                 final java.util.List<String> readable =
-                        workspace()
-                                .readAll(
-                                        project,
-                                        request.readOnly()
-                                                ? java.util.List.of(repository)
-                                                : project.allRepositories(),
-                                        reading.directory(request.readOnly()),
-                                        secrets,
-                                        out,
-                                        err);
+                        request.readOnly()
+                                ? workspace()
+                                        .readAll(
+                                                project,
+                                                java.util.List.of(repository),
+                                                into,
+                                                secrets,
+                                                out,
+                                                err)
+                                : workspace().readAll(project, into, secrets, out, err);
                 if (secrets.refused()) {
                     return cleanUp(runner, container, 65, false, out, err);
                 }

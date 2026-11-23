@@ -214,6 +214,89 @@ class WorkspaceSetupTest {
     }
 
     @Test
+    void aRepositoryTheHostDoesNotCarryIsNamedOnceAndNeverCloned() throws Exception {
+        // A host carrying two of the project's three: the third has no copy on its forge, and a
+        // clone of it would only put a git failure into the agent's output.
+        final Path host = dir.resolve("host");
+        final org.fuin.porelo.testing.FakeCommandRunner commands =
+                new org.fuin.porelo.testing.FakeCommandRunner();
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> dir.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(
+                        commands,
+                        new PoreloPaths(
+                                xdg,
+                                dir.resolve("bin"),
+                                dir.resolve("hooks"),
+                                dir.resolve("agents"),
+                                host.resolve("porelo-host"),
+                                host),
+                        args -> 0);
+        Files.createDirectories(host.resolve("organization/projects"));
+        Files.writeString(
+                host.resolve("organization/projects/shop.json"),
+                """
+                {"project":"shop","revision":"r","address":"git@central.example:acme/shop.git",
+                 "signing_keys":[],"host":"build","repositories":["front","back"]}
+                """);
+        final Project project =
+                project(dir.resolve("unused"), dir.resolve("unused"))
+                        .withRepositories(
+                                List.of(central("front"), central("back"), central("core")));
+        final Path into = dir.resolve("state").resolve("repositories").resolve("porelo-shop-all");
+        final StringWriter out = new StringWriter();
+        final StringWriter err = new StringWriter();
+
+        new WorkspaceSetup(context, "all", null)
+                .readAll(
+                        project,
+                        into,
+                        new SecretCheck(
+                                context,
+                                project,
+                                new PrintWriter(new StringWriter()),
+                                new PrintWriter(new StringWriter())),
+                        new PrintWriter(out),
+                        new PrintWriter(err));
+
+        assertThat(err.toString())
+                .as("no error line for a repository this machine does not carry")
+                .doesNotContain("'core'");
+        assertThat(out.toString())
+                .as("the one left out is named once, in one line")
+                .containsOnlyOnce("not on this machine: core" + System.lineSeparator());
+        assertThat(commands.lines())
+                .as("nothing is run for it")
+                .noneMatch(line -> line.contains("acme/core"));
+        assertThat(into.resolve("core")).doesNotExist();
+    }
+
+    /** A repository a host takes from its central address. */
+    private static Repository central(String name) {
+        final String central = "git@central.example:acme/" + name + ".git";
+        return new Repository(
+                name,
+                central,
+                "",
+                List.of(),
+                null,
+                null,
+                null,
+                Repository.REVIEW_REQUIRED,
+                central);
+    }
+
+    @Test
     void aProjectWithNothingToReadReadsNothing() throws Exception {
         final PoreloContext context = context();
         final Project project = project(dir.resolve("missing-front"), dir.resolve("missing-back"));

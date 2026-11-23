@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Builds;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
+import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.wire.Directories;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
@@ -163,6 +164,23 @@ public final class OrganizationProjects {
          */
         public List<Key> holding(final LocalDate day) {
             return keys.stream().filter(key -> key.holds(day)).toList();
+        }
+
+        /**
+         * Says whether this host carries a repository of the project: the project's own goes with
+         * the project; any other is named here, or the project is carried whole, and has a copy on
+         * the host's forge, which only a central address gives it.
+         *
+         * @param of The project.
+         * @param repository One of its repositories.
+         * @return {@code true} when the host keeps a copy of it.
+         */
+        public boolean carries(final Project of, final Repository repository) {
+            if (repository.name().equals(of.name())) {
+                return true;
+            }
+            return (repositories.isEmpty() || repositories.contains(repository.name()))
+                    && HostForgeAddress.copyOf(of.name(), repository.central()) != null;
         }
     }
 

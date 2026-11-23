@@ -1,0 +1,2 @@
+title: "A task that reads all of a project's repositories on a host reads only those the host carries and names the rest once in one line, `not on this machine: …`, instead of an error for each failed clone"
+type: fixed

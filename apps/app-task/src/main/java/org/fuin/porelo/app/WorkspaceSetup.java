@@ -276,18 +276,22 @@ final class WorkspaceSetup {
     }
 
     /**
-     * Writes every repository of the project, its own among them, into a directory each under
-     * {@code into}, as its main stands once its gate brought it up to the upstream; {@code into} is
-     * made anew.
+     * Writes every repository of the project this machine carries, its own among them, into a
+     * directory each under {@code into}, as its main stands once its gate brought it up to the
+     * upstream; {@code into} is made anew.
      *
      * <p>Each through its gate as a task's workspace is, so a repository is taken wherever this
      * machine takes it and with the credentials it has for it, and an offline project's only from
      * its mirror. A repository that cannot be read is named and left out: the others are still
      * worth reading, and the start refuses only when none could be.
      *
+     * <p>On a host, only what its record of the project says it carries: any other has no copy
+     * there to read, so it is never tried, and all of them are named in one line on {@code out}.
+     * Off a host, every repository is tried.
+     *
      * @param project The project.
      * @param into The directory to write them in; what it held is removed first.
-     * @param out Where each repository read is said.
+     * @param out Where each repository read is said, and those this machine does not carry.
      * @param err Where each one that could not be is said, with why.
      * @return The repositories written, by name, in the project's order.
      */
@@ -297,7 +301,31 @@ final class WorkspaceSetup {
             SecretCheck secrets,
             PrintWriter out,
             PrintWriter err) {
-        return readAll(project, project.allRepositories(), into, secrets, out, err);
+        OrganizationProjects.@Nullable Placed host;
+        try {
+            host = OrganizationProjects.of(context).host(project.name());
+        } catch (java.io.IOException ex) {
+            // Which ones it carries cannot be told: each is tried, and one not there says so.
+            err.println(
+                    "porelo: this host's record of "
+                            + project.name()
+                            + " does not read, so every repository is tried: "
+                            + ex.getMessage());
+            host = null;
+        }
+        final java.util.List<Repository> carried = new java.util.ArrayList<>();
+        final java.util.List<String> absent = new java.util.ArrayList<>();
+        for (final Repository each : project.allRepositories()) {
+            if (host == null || host.carries(project, each)) {
+                carried.add(each);
+            } else {
+                absent.add(each.name());
+            }
+        }
+        if (!absent.isEmpty()) {
+            out.println("not on this machine: " + String.join(", ", absent));
+        }
+        return readAll(project, carried, into, secrets, out, err);
     }
 
     /**
