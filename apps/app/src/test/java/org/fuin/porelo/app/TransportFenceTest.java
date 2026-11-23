@@ -215,6 +215,20 @@ class TransportFenceTest {
     }
 
     @Test
+    void pastasOwnNoticesStayOutOfWhatTheTransportSays() {
+        // On a host without an IPv6 route, pasta's notice reached the verb's standard error, and
+        // every poll that succeeded was journaled as if the transport had said something wrong.
+        final FakeCommandRunner runner = new FakeCommandRunner();
+
+        fence(runner, List.of("127.0.0.1:8008"), true).run(Command.of("/transport", "poll"));
+
+        final List<String> arguments = runner.invocations().getFirst().arguments();
+        assertThat(arguments.subList(0, arguments.indexOf("--")))
+                .as("pasta says only its errors, which still fail the start")
+                .contains("--quiet");
+    }
+
+    @Test
     void anOfflineVerbNeitherResolvesNamesNorReadsOrMapsDns() {
         // Harm: a stale online reach or resolver setting opens an offline project's network.
         final FakeCommandRunner runner = new FakeCommandRunner();
@@ -390,6 +404,7 @@ class TransportFenceTest {
                 .as("pasta creates the namespace and configures its network before the wrapper")
                 .startsWith(
                         "/usr/bin/pasta",
+                        "--quiet",
                         "--config-net",
                         "-t",
                         "none",

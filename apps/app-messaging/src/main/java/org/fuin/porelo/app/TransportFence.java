@@ -108,7 +108,8 @@ final class TransportFence implements CommandRunner {
         try {
             arguments.add(programs.apply("pasta").toString());
             // Automatic port forwarding could make namespace loopback reach the host's services.
-            arguments.addAll(List.of("--config-net", "-t", "none", "-u", "none"));
+            // Quiet: pasta's notices, such as no IPv6 route, are not the transport's.
+            arguments.addAll(List.of("--quiet", "--config-net", "-t", "none", "-u", "none"));
             for (final String port : ports.isEmpty() ? Set.of("none") : ports) {
                 arguments.addAll(List.of("-T", port));
             }
