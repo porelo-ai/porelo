@@ -39,6 +39,8 @@ public final class ForgeReadKey {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(20);
 
+    private static final String NAME = "[A-Za-z0-9][A-Za-z0-9._-]{0,99}";
+
     private static final Pattern REPOSITORY =
             Pattern.compile(
                     "(?:git@[^:/]+:|ssh://git@[^/]+/)([A-Za-z0-9][A-Za-z0-9._-]{0,99})"
@@ -73,6 +75,30 @@ public final class ForgeReadKey {
         this.repository = api + "/repos/" + matcher.group(1) + "/" + matcher.group(2);
         this.token = token;
         this.client = client;
+    }
+
+    /**
+     * Prepares to ask a forge about one repository named by its owner and name.
+     *
+     * @param api Where the forge's API is, without a trailing slash.
+     * @param owner The repository's owner.
+     * @param name The repository's name, without {@code .git}.
+     * @param token The token, only ever sent as a header.
+     * @param client How the forge is asked; it follows no redirect.
+     * @return The forge's view of that repository.
+     * @throws IllegalArgumentException When a name is none a forge takes, or the client follows
+     *     redirects; the message never holds the token.
+     */
+    public static ForgeReadKey of(
+            final URI api,
+            final String owner,
+            final String name,
+            final String token,
+            final HttpClient client) {
+        if (!owner.matches(NAME) || !name.matches(NAME) || name.endsWith(".git")) {
+            throw new IllegalArgumentException("no repository's owner and name");
+        }
+        return new ForgeReadKey(api, "git@forge:" + owner + "/" + name + ".git", token, client);
     }
 
     /**
@@ -180,6 +206,65 @@ public final class ForgeReadKey {
             }
             if (rows.isEmpty()) {
                 return false;
+            }
+        }
+        throw new Refused(Refused.CANNOT_SAY, "the forge lists more keys than are read", null);
+    }
+
+    /**
+     * Removes a host's key when the repository holds it as this host's: under its title and
+     * read-only. A key with the same public half under another title, or with write access, is
+     * someone's own and is left as it is.
+     *
+     * @param key The public key, its type and base64.
+     * @param title The title the host's key was added under.
+     * @return Whether it was removed: {@code false} when the repository holds it no longer.
+     * @throws Refused {@code not-allowed} when the forge refuses the token, including a repository
+     *     it does not show this token, or holds the key otherwise than as this host's; {@code
+     *     cannot-say} when it cannot be reached, does not say, or lists a page twice.
+     */
+    public boolean removeHosts(final String key, final String title) {
+        @Nullable List<?> previous = null;
+        for (int page = 1; page <= LAST_PAGE; page++) {
+            final List<?> rows = keys(page);
+            if (rows.isEmpty()) {
+                return false;
+            }
+            // A forge that ignores the page answers the first again: the rest would go unread.
+            if (rows.equals(previous)) {
+                throw new Refused(
+                        Refused.CANNOT_SAY, "the forge lists the same keys on two pages", null);
+            }
+            previous = rows;
+            for (final Object row : rows) {
+                if (!(row instanceof Map<?, ?> held) || !(held.get("key") instanceof String text)) {
+                    throw new Refused(
+                            Refused.CANNOT_SAY, "the forge did not name a listed key", null);
+                }
+                if (!same(text, key)) {
+                    continue;
+                }
+                if (!title.equals(held.get("title"))
+                        || !Boolean.TRUE.equals(held.get("read_only"))) {
+                    throw new Refused(
+                            Refused.NOT_ALLOWED,
+                            "the repository holds this key under another title or with write"
+                                    + " access; it is left as it is",
+                            null);
+                }
+                final long id = keyId(held);
+                final Answer answer =
+                        ask(
+                                HttpRequest.newBuilder(URI.create(repository + "/keys/" + id))
+                                        .DELETE());
+                if (answer.status() == 204) {
+                    return true;
+                }
+                refusedToken(answer.status());
+                throw new Refused(
+                        Refused.CANNOT_SAY,
+                        "the forge did not remove the key, answering " + answer.status(),
+                        null);
             }
         }
         throw new Refused(Refused.CANNOT_SAY, "the forge lists more keys than are read", null);

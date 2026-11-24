@@ -84,7 +84,9 @@ public class PoreloCli implements Callable<Integer> {
         // And the account a tunnel reaches asks its daemon as doctor does.
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("host"), "the host group is named above")
-                .addSubcommand(HostWhoamiCommand.class);
+                .addSubcommand(HostWhoamiCommand.class)
+                // Giving a host up reaches the central forge, which the vault's area does not.
+                .addSubcommand(HostGiveUpCommand.class);
         // A project's new verbs answer from the organization, which the project's area does not
         // read.
         java.util.Objects.requireNonNull(

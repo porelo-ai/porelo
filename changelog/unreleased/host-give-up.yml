@@ -1,0 +1,2 @@
+title: "`porelo host give-up <host>` gives a host up for good: it removes the read keys the host's kept identity carries at the central forge, only where a repository holds one under the host's title and read-only, and deletes the identity from the vault once every key is gone, naming each key it had to leave with a link to where it is removed"
+type: added

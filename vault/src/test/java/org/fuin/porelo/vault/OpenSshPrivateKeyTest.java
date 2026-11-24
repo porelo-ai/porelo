@@ -166,4 +166,47 @@ class OpenSshPrivateKeyTest {
                 .as("unencrypted Ed25519, as a store that encrypts it takes it")
                 .isEqualTo(new OpenSshPrivateKey.Described("ssh-ed25519", false));
     }
+
+    @Test
+    void namesTheAlgorithmOfOneUnencryptedKeyOfEveryKindAHostHas(@TempDir final Path dir)
+            throws Exception {
+        assertThat(
+                        OpenSshPrivateKey.singleUnencryptedType(
+                                Files.readString(
+                                        keygen(dir, "id_ed25519", "-t", "ed25519", "-N", ""))))
+                .isEqualTo("ssh-ed25519");
+        assertThat(
+                        OpenSshPrivateKey.singleUnencryptedType(
+                                Files.readString(keygen(dir, "id_ecdsa", "-t", "ecdsa", "-N", ""))))
+                .isEqualTo("ecdsa-sha2-nistp256");
+        assertThat(
+                        OpenSshPrivateKey.singleUnencryptedType(
+                                Files.readString(
+                                        keygen(
+                                                dir, "id_rsa", "-t", "rsa", "-b", "2048", "-N",
+                                                ""))))
+                .isEqualTo("ssh-rsa");
+    }
+
+    @Test
+    void namesNoAlgorithmForAnEncryptedKeyOrNoKey(@TempDir final Path dir) throws Exception {
+        assertThat(
+                        OpenSshPrivateKey.singleUnencryptedType(
+                                Files.readString(
+                                        keygen(
+                                                dir,
+                                                "id_locked",
+                                                "-t",
+                                                "ed25519",
+                                                "-N",
+                                                "a passphrase"))))
+                .as("encrypted")
+                .isNull();
+        assertThat(
+                        OpenSshPrivateKey.singleUnencryptedType(
+                                Files.readString(dir.resolve("id_locked.pub"))))
+                .as("a public half")
+                .isNull();
+        assertThat(OpenSshPrivateKey.singleUnencryptedType("")).as("nothing").isNull();
+    }
 }

@@ -1,0 +1,2 @@
+title: "The person's vault keeps each rented host's identity - its read keys and SSH host keys - checked on every write and read, through daemon methods a task never reaches"
+type: added

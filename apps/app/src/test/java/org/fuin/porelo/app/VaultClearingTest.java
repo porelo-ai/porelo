@@ -590,4 +590,76 @@ class VaultClearingTest {
         }
         return -1;
     }
+
+    @Test
+    void aHostsIdentityIsNamedWithEachOfItsKeysLeftAtTheCentralForge() throws IOException {
+        final PoreloContext context = unlockedVault();
+        final org.fuin.porelo.vault.SigningKey organization =
+                org.fuin.porelo.vault.SigningKey.generate("porelo host read key");
+        final org.fuin.porelo.vault.SigningKey site =
+                org.fuin.porelo.vault.SigningKey.generate("site");
+        final String value =
+                org.fuin.porelo.wire.Json.write(
+                        Map.of(
+                                "host",
+                                "build-1",
+                                "organization",
+                                Map.of("public", organization.authorizedKeysLine(), "private", "-"),
+                                "repositories",
+                                List.of(
+                                        Map.of(
+                                                "project",
+                                                "web",
+                                                "repository",
+                                                "site",
+                                                "address",
+                                                "https://forge.example/web/site.git",
+                                                "key_id",
+                                                7,
+                                                "title",
+                                                "porelo host build-1 project web",
+                                                "public",
+                                                site.authorizedKeysLine(),
+                                                "private",
+                                                "-")),
+                                "ssh_host_keys",
+                                List.of()));
+        context.vault()
+                .update(
+                        PASSPHRASE,
+                        entries -> {
+                            entries.put(
+                                    HostIdentity.entryName("build-1"),
+                                    new VaultEntry(value, "host-identity"));
+                            return entries;
+                        });
+
+        final Clearing.Result listed = new VaultClearing(context).clear(true, false);
+
+        assertThat(listed.keys())
+                .extracting(LeftDeployKeys.Key::entry, LeftDeployKeys.Key::title)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "host-identity/build-1",
+                                "porelo host read key "
+                                        + SignedBy.fingerprintOf(
+                                                organization.authorizedKeysLine())),
+                        org.assertj.core.groups.Tuple.tuple(
+                                "host-identity/build-1", "porelo host build-1 project web"));
+        assertThat(listed.keys().get(1).upstream()).isEqualTo("https://forge.example/web/site.git");
+        assertThat(listed.keys().get(1).fingerprint())
+                .isEqualTo(SignedBy.fingerprintOf(site.authorizedKeysLine()));
+        assertThat(names(listed, "host identity", "build-1", Clearing.Status.WOULD_REMOVE))
+                .isTrue();
+        assertThat(names(listed, "credential", "host-identity", Clearing.Status.WOULD_REMOVE))
+                .as("not named as a person's credential")
+                .isFalse();
+        assertThat(
+                        names(
+                                listed,
+                                "deploy key",
+                                "porelo host build-1 project web",
+                                Clearing.Status.FOR_A_PERSON))
+                .isTrue();
+    }
 }

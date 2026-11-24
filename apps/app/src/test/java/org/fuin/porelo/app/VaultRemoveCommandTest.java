@@ -258,4 +258,16 @@ class VaultRemoveCommandTest {
             keyring.forget();
         }
     }
+
+    @Test
+    void aHostsIdentityIsNotRemovedByHand(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        final String name = HostIdentity.entryName("build-1");
+        context.vault().write(Map.of(name, new VaultEntry("{}", "host-identity")), PASSPHRASE);
+
+        assertThat(execute(context, "vault", "remove", name)).isEqualTo(64);
+
+        assertThat(err.toString()).contains("host's identity");
+        assertThat(context.vault().read(PASSPHRASE)).containsOnlyKeys(name);
+    }
 }

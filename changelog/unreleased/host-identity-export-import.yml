@@ -1,0 +1,2 @@
+title: "`porelo-host identity export` prints a host's organization read key, repository read keys and SSH host keys as one JSON object on standard output, and `identity import` puts them back on the next rental, replacing a fresh host's first-boot host keys and refusing another host's identity, a malformed one or one that differs from a key already there, with nothing changed"
+type: added

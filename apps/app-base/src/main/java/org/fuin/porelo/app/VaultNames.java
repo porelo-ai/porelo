@@ -6,7 +6,7 @@ import org.fuin.porelo.vault.VaultEntry;
 
 /**
  * The vault's name spaces that are not a person's credentials: a task's entries, an account's
- * grants and client registrations, what a transport handed back.
+ * grants and client registrations, what a transport handed back, a host's identity.
  *
  * <p>Here, below every area, because the machine's context reads the vault and leaves them out, and
  * the task's, the vault's and the messaging areas each write one of them.
@@ -36,20 +36,29 @@ public final class VaultNames {
      */
     public static final String REGISTRATION_PREFIX = "registration/";
 
+    /**
+     * Where a host's identity is kept - its organization read key, its repositories' read keys and
+     * its SSH host keys - for each later rental of that host. Only the daemon's own methods for it
+     * write it.
+     */
+    public static final String HOST_IDENTITY_PREFIX = "host-identity/";
+
     private VaultNames() {}
 
     /**
      * Tells whether a name is in one of these name spaces, which no person puts or removes by hand.
      *
      * @param name An entry's name.
-     * @return true when it is a task's, a grant's, a client registration's or a transport's.
+     * @return true when it is a task's, a grant's, a client registration's, a transport's or a
+     *     host's identity.
      */
     public static boolean reserved(String name) {
         return name.startsWith(TASK_PREFIX)
                 || name.startsWith(GRANT_PREFIX)
                 || name.startsWith(CLIENT_SECRET_PREFIX)
                 || name.startsWith(REGISTRATION_PREFIX)
-                || name.startsWith(TRANSPORT_PREFIX);
+                || name.startsWith(TRANSPORT_PREFIX)
+                || name.startsWith(HOST_IDENTITY_PREFIX);
     }
 
     /**

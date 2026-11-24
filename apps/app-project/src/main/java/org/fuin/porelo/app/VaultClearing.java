@@ -357,6 +357,17 @@ public final class VaultClearing {
         }
         final Set<String> deployKeys = new TreeSet<>();
         keys.forEach(key -> deployKeys.add(key.entry()));
+        // A host's identity holds read keys registered at the central forge: each named for a
+        // person to remove there, as nothing else would remember them once the vault goes.
+        final String organization = organization();
+        for (final Map.Entry<String, VaultEntry> entry :
+                new java.util.TreeMap<>(entries).entrySet()) {
+            if (entry.getKey().startsWith(VaultNames.HOST_IDENTITY_PREFIX)) {
+                keys.addAll(
+                        HostIdentity.leftKeys(
+                                entry.getKey(), entry.getValue().value(), organization));
+            }
+        }
         final Set<String> tasks = new TreeSet<>();
         for (final String name : new TreeSet<>(entries.keySet())) {
             if (name.startsWith(VaultNames.GRANT_PREFIX)) {
@@ -388,6 +399,13 @@ public final class VaultClearing {
                                 name.substring(VaultNames.TRANSPORT_PREFIX.length()),
                                 Clearing.Status.WOULD_REMOVE,
                                 ""));
+            } else if (name.startsWith(VaultNames.HOST_IDENTITY_PREFIX)) {
+                held.add(
+                        new Clearing.Item(
+                                "host identity",
+                                name.substring(VaultNames.HOST_IDENTITY_PREFIX.length()),
+                                Clearing.Status.WOULD_REMOVE,
+                                ""));
             } else if (name.startsWith(VaultNames.TASK_PREFIX)) {
                 final String rest = name.substring(VaultNames.TASK_PREFIX.length());
                 tasks.add(rest.contains("/") ? rest.substring(0, rest.indexOf('/')) : rest);
@@ -409,6 +427,15 @@ public final class VaultClearing {
                             "it goes with the vault, and the forge still grants access by it; remove it there"));
         }
         return held;
+    }
+
+    /** The organization's address, or "" when this machine has none or it does not read. */
+    private String organization() {
+        try {
+            return IdentityOrganization.repository(context).orElse("");
+        } catch (final IdentityChange.Refused | IOException ex) {
+            return "";
+        }
     }
 
     /**

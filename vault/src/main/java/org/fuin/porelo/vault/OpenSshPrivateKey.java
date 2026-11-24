@@ -134,6 +134,46 @@ public final class OpenSshPrivateKey {
     }
 
     /**
+     * Says which algorithm a private key file is of, when it holds exactly one key and no
+     * passphrase protects it: read before anything else is made of it, so an encrypted file or one
+     * of several keys is never handed on.
+     *
+     * @param text The whole file.
+     * @return The algorithm, such as {@code ssh-ed25519}, or {@code null} for anything else.
+     */
+    public static @org.jspecify.annotations.Nullable String singleUnencryptedType(
+            final String text) {
+        final int begins = text.indexOf(BEGIN);
+        final int ends = text.indexOf(END);
+        if (begins < 0 || ends < begins) {
+            return null;
+        }
+        try {
+            final Reader reader =
+                    new Reader(
+                            Base64.getMimeDecoder()
+                                    .decode(text.substring(begins + BEGIN.length(), ends)));
+            reader.expect(MAGIC, "not an OpenSSH private key");
+            if (!"none".equals(reader.string()) || !"none".equals(reader.string())) {
+                return null;
+            }
+            reader.bytes();
+            if (reader.int32() != 1) {
+                return null;
+            }
+            final String named = new Reader(reader.bytes()).string();
+            final Reader secret = new Reader(reader.bytes());
+            if (secret.int32() != secret.int32()) {
+                return null;
+            }
+            final String type = secret.string();
+            return type.equals(named) ? type : null;
+        } catch (final IllegalArgumentException | VaultException ex) {
+            return null;
+        }
+    }
+
+    /**
      * The public half an OpenSSH private key file names in its clear part, so an encrypted key is
      * named without its passphrase. Nothing proves the file's secret part belongs to it: whatever
      * the key signs is checked against it, and a file that lies signs nothing that verifies.

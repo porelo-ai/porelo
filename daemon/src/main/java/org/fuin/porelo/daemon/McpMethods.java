@@ -91,14 +91,15 @@ final class McpMethods {
 
     /**
      * Methods never offered, whatever the person's list says: each stops every task, removes what
-     * cannot be had back, hands out a secret ({@code ReadHostVaultShare}, and {@code ReadHeld} with
-     * a refused message's text), changes where a credential is sent ({@code WriteDestination},
-     * {@code CredentialDeclare}), or signs an agent in on the host's own network ({@code
-     * AgentSignInStart}, and {@code AgentSignInWait}, which holds a call while one runs). {@code
-     * PullRequests}, {@code PullRequestsPage} and {@code WatchPullRequests} spend or hand out what
-     * the person's forge identity read of reviews awaiting human judgment, so a task cannot ask
-     * them even from the local list. PushToCentral releases approved work with the person's central
-     * credential and is never offered.
+     * cannot be had back, hands out a secret ({@code ReadHostVaultShare}, {@code HostIdentityRead}
+     * and the other host identity methods, and {@code ReadHeld} with a refused message's text),
+     * changes where a credential is sent ({@code WriteDestination}, {@code CredentialDeclare}), or
+     * signs an agent in on the host's own network ({@code AgentSignInStart}, and {@code
+     * AgentSignInWait}, which holds a call while one runs). {@code PullRequests}, {@code
+     * PullRequestsPage} and {@code WatchPullRequests} spend or hand out what the person's forge
+     * identity read of reviews awaiting human judgment, so a task cannot ask them even from the
+     * local list. PushToCentral releases approved work with the person's central credential and is
+     * never offered.
      */
     static final Set<String> NEVER =
             Set.of(
@@ -136,6 +137,11 @@ final class McpMethods {
                     "SealCredential",
                     "ReceiveCredential",
                     "ImportableCredentials",
+                    // A host's keys: the person's to keep, read and replace, never a task's.
+                    "HostIdentityKeep",
+                    "HostIdentityRead",
+                    "HostIdentityPublic",
+                    "HostIdentities",
                     "AgentSignInStart",
                     "AgentSignInWait",
                     // The window's offer to take a repository out of 'default', on the person's

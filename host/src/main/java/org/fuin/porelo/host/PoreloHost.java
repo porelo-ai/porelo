@@ -400,6 +400,10 @@ public final class PoreloHost implements Callable<Integer> {
         command.addSubcommand(
                 "pool", HostPoolCommands.commandLine(host.environment, host.runtime.limits()));
         command.addSubcommand("store", HostStore.commandLine(host.files, host.runtime, host.input));
+        command.addSubcommand(
+                "identity",
+                HostIdentity.commandLine(
+                        host.files, host.runtime, host.input, host.environment, host.clock));
         command.addSubcommand("judge-push", new JudgePush(host));
         command.addSubcommand("test-switches", new TestSwitches(host));
         command.setExpandAtFiles(false);

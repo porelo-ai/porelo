@@ -56,6 +56,16 @@ public class VaultRemoveCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return 69;
         }
+        if (name.startsWith(VaultNames.HOST_IDENTITY_PREFIX)) {
+            // Removed by hand, its keys would stay registered at the central forge unnamed.
+            err.println(
+                    "porelo: '"
+                            + name
+                            + "' is a host's identity, which Porelo keeps for that host; its keys"
+                            + " are still registered at the central forge");
+            err.flush();
+            return 64;
+        }
         if (TaskSecrets.reserved(name) && !name.startsWith(TaskSecrets.TRANSPORT_PREFIX)) {
             // A task's own token: removing it by hand would break that task's return after a
             // reboot.

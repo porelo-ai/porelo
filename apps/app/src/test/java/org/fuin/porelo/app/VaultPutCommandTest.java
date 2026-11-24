@@ -1043,4 +1043,26 @@ class VaultPutCommandTest {
             PoreloContext.forgetAsked();
         }
     }
+
+    @Test
+    void aHostsIdentityIsNotPutByHand(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+        final PoreloContext context =
+                new PoreloContext(
+                        new org.fuin.porelo.testing.FakeCommandRunner(),
+                        new PoreloPaths(
+                                org.fuin.porelo.core.config.XdgPaths.of(name -> null, dir),
+                                dir.resolve("bin")),
+                        arguments -> 0);
+        final java.io.StringWriter err = new java.io.StringWriter();
+        final picocli.CommandLine command = PoreloCli.commandLine(context);
+        command.setOut(new java.io.PrintWriter(new java.io.StringWriter()));
+        command.setErr(new java.io.PrintWriter(err));
+
+        assertThat(command.execute("vault", "put", HostIdentity.entryName("build-1")))
+                .isEqualTo(64);
+
+        assertThat(err.toString()).contains("host's identity");
+        assertThat(context.vault().exists()).as("nothing was written").isFalse();
+    }
 }

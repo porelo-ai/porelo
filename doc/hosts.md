@@ -70,6 +70,28 @@ machine's vault is neither opened nor written. What is carried is what an import
 kind, without a refresh token kept beside it - so a sign-in that expires is signed in again on the host. A failure
 to read it is said without the agent's own words.
 
+## A host's identity in the person's vault
+
+A rented host is given back its identity at each later rental, so it is the same host to the central forge and to
+every machine that pinned its host keys: the organization's read key, each repository's read key and its SSH host
+keys. The person's vault keeps them encrypted, one entry per host under the reserved name `host-identity/<host>`,
+written through the daemon alone:
+
+- `HostIdentityKeep` keeps the identity after the host's first setup and again before each `down`, as the host has
+  carried more repositories. An identity already kept is replaced only by one with the same organization key, the
+  same host keys and every kept repository unchanged; anything else is `HostIdentityExists` until the person asks
+  to replace it.
+- `HostIdentityRead` answers the whole identity, private halves included, for the moment it is piped into the host's
+  setup; a host's own daemon never answers it. `HostIdentityPublic` answers it without any private half, and
+  `HostIdentities` names the hosts.
+
+The value is checked whole on every write and every read: no unknown field or control character, each repository's
+title as its migration registers it, its key id above 0 and its address at the organization's own forge, one to three
+host keys of distinct types, and each private key one unencrypted OpenSSH key whose public half is the one given. A
+refusal names the field, never a key. Only the person's own socket reaches these methods, never a task's.
+`porelo vault put` and `porelo vault remove`, and the daemon's methods for an entry or a carried credential, refuse
+the name, `Credentials` never lists it, and `porelo vault clear` names each of its keys as left at the central forge.
+
 ## Root's person maintenance
 
 The host package provides `/usr/sbin/porelo-host person purge <login>` and `person restore-runtime`.
@@ -99,6 +121,40 @@ link. Unsafe directories or boot rules are refused. Each selected person's `user
 restarted; locked, pending and membership-free records are untouched. The JSON answer `{"changed":N}`
 counts people whose runtime files changed, excluding manager restarts, so a repeated file repair answers
 zero even though admitted managers restart again.
+
+## A host's identity carried to the next rental
+
+A host's identity is its organization read key, the read key of each repository it carries and its SSH host keys.
+It is taken off a host before `down` and put back on the next rental, so the keys registered at the central forge
+and the host key a person's machine pinned stay the same.
+
+- **`porelo-host identity export`**, as root, prints it on standard output as one JSON object, and nothing else:
+  `host`, `organization` (`public`, `private`), `repositories` (`project`, `repository`, `address`, `key_id`,
+  `title`, `public`, `private`) and `ssh_host_keys` (`type`, `public`, `private`). A repository is in it once its
+  read key is registered (its key id is above 0); its title is `porelo host <host> project <project>`. The SSH host
+  keys are the ed25519, ecdsa and rsa keys of `/etc/ssh` that exist. Export writes nothing.
+- **`porelo-host identity import`**, as root, reads that object on standard input, at most 256 KiB. It writes the
+  SSH host keys first, `/etc/ssh/ssh_host_<type>_key` at 0600 and its `.pub` at 0644, then
+  `/etc/porelo-host/organization/read/` as export reads it: the organization key, each repository's key pair and
+  its entry in the project's `repositories.json`, files 0600 in directories 0700. Each file is written whole
+  through a staged file beside it and an atomic move.
+  - **A fresh host**, whose read keys hold no organization key yet, has never carried an identity: its host keys
+    are the first-boot pair the image made. Import replaces them and removes a type the identity does not carry,
+    so the host's keys are then exactly the identity's.
+  - **A host that already carries an identity** gets only what is missing.
+
+  It refuses, with nothing changed:
+  - a field it does not know, or one missing;
+  - another host's identity, or a title that is not this host's;
+  - a key that is not one unencrypted OpenSSH key whose public half, derived by `ssh-keygen`, is its `public`;
+  - on a host that already carries an identity, a key or manifest entry that differs, or a host key of a type the
+    identity does not carry.
+
+  It answers one line: `imported` when it wrote or removed a file, `unchanged` when the identity was already there.
+  It does not restart sshd; the play does.
+
+Both refuse any `SUDO_*` variable and hold the `forge.conf` lock and the follow lock, as the follow does. No key
+text reaches standard error, the journal or a refusal.
 
 ## Who reads the host's status
 

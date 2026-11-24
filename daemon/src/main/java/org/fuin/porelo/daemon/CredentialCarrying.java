@@ -13,6 +13,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import org.fuin.porelo.app.CredentialImport;
 import org.fuin.porelo.app.PoreloContext;
+import org.fuin.porelo.app.VaultNames;
 import org.fuin.porelo.vault.CredentialSeal;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.vault.VaultException;
@@ -36,6 +37,11 @@ final class CredentialCarrying {
     /** What a sign-in that could not be read answers, never the words it failed with. */
     private static final String FAILED_READING =
             "the agent's sign-in could not be read; 'porelo vault import' at this machine says why";
+
+    /** Why a name Porelo keeps for itself is neither sealed nor stored. */
+    private static final String RESERVED =
+            "the name is one Porelo keeps for itself - a task's, a grant's, a transport's or a"
+                    + " host's identity - which no credential is carried under";
 
     private CredentialCarrying() {}
 
@@ -78,6 +84,9 @@ final class CredentialCarrying {
                     agent,
                     parameters.get("provider") instanceof String asked ? asked : null,
                     given(parameters, "configDirectory"));
+        }
+        if (VaultNames.reserved(name)) {
+            return sealed("RESERVED", "", name, "", RESERVED);
         }
         final Optional<VaultFile.Opener> opener = context.opener();
         if (opener.isEmpty() || !context.vault().exists()) {
@@ -239,6 +248,9 @@ final class CredentialCarrying {
             final String name = text(parameters, "name");
             final String kind = text(parameters, "kind");
             final boolean replace = Boolean.TRUE.equals(parameters.get("replace"));
+            if (VaultNames.reserved(name)) {
+                return received("RESERVED", RESERVED);
+            }
             final Optional<VaultFile.Opener> opener = context.opener();
             if (opener.isEmpty() || !context.vault().exists()) {
                 return received("VAULT_LOCKED", "the vault is not unlocked here");

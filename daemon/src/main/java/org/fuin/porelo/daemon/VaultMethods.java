@@ -150,6 +150,206 @@ final class VaultMethods {
     }
 
     /**
+     * Refuses a call that came in on a task's socket, which never reaches a host's identity
+     * whatever its list says: the person's own socket alone does.
+     *
+     * @param method The method, for the refusal.
+     */
+    private static void personOnly(final String method) {
+        if (McpTaskSockets.caller() != null) {
+            throw new VarlinkException(
+                    "org.varlink.service.MethodNotFound",
+                    Map.of("method", INTERFACE + "." + method));
+        }
+    }
+
+    /** The host a call names, as its card names it. */
+    private static String identityHost(final Map<String, Object> parameters) {
+        final String host = text(parameters, "host");
+        if (!org.fuin.porelo.app.HostIdentity.validHost(host)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "host"));
+        }
+        return host;
+    }
+
+    /** What opens the vault without asking anybody, or the vault's locked error. */
+    private static org.fuin.porelo.vault.VaultFile.Opener identityOpener(
+            final PoreloContext context) {
+        if (!context.vault().exists()) {
+            throw new VarlinkException(INTERFACE + ".VaultLocked", Map.of());
+        }
+        return context.opener()
+                .orElseThrow(() -> new VarlinkException(INTERFACE + ".VaultLocked", Map.of()));
+    }
+
+    /** Everything the vault holds, or the vault's locked error when it does not open. */
+    private static Map<String, org.fuin.porelo.vault.VaultEntry> identityEntries(
+            final PoreloContext context) {
+        final org.fuin.porelo.vault.VaultFile.Opener opener = identityOpener(context);
+        try {
+            return context.vault().read(opener);
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            throw new VarlinkException(INTERFACE + ".VaultLocked", Map.of());
+        }
+    }
+
+    /**
+     * Keeps a host's identity in the vault: {@code HostIdentityKeep}.
+     *
+     * <p>Without {@code replace}, a kept identity is replaced only by one that adds repositories to
+     * it; anything else is {@code HostIdentityExists}, and the person decides.
+     *
+     * @param context The machine.
+     * @param parameters {@code host}, {@code identity}, {@code replace}.
+     * @return Nothing.
+     */
+    static Map<String, Object> hostIdentityKeep(
+            final PoreloContext context, final Map<String, Object> parameters) {
+        personOnly("HostIdentityKeep");
+        final String host = identityHost(parameters);
+        final boolean replace = flag(parameters, "replace");
+        final org.fuin.porelo.vault.VaultFile.Opener opener = identityOpener(context);
+        final Map<String, Object> offered;
+        try {
+            offered =
+                    org.fuin.porelo.app.HostIdentity.checked(
+                            parameters.get("identity"),
+                            host,
+                            org.fuin.porelo.app.HostIdentity.centralOrigin(context),
+                            org.fuin.porelo.app.HostIdentity.derivation(context.runner()));
+        } catch (org.fuin.porelo.app.HostIdentity.Refused ex) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", ex.field()));
+        }
+        final String name = org.fuin.porelo.app.HostIdentity.entryName(host);
+        final boolean[] exists = {false};
+        try {
+            context.vault()
+                    .update(
+                            opener,
+                            entries -> {
+                                final org.fuin.porelo.vault.VaultEntry kept = entries.get(name);
+                                if (kept != null && !replace && !onlyAdds(kept, offered)) {
+                                    exists[0] = true;
+                                    return entries;
+                                }
+                                final Map<String, org.fuin.porelo.vault.VaultEntry> changed =
+                                        new LinkedHashMap<>(entries);
+                                changed.put(
+                                        name,
+                                        new org.fuin.porelo.vault.VaultEntry(
+                                                org.fuin.porelo.wire.Json.write(offered),
+                                                org.fuin.porelo.app.HostIdentity.KIND,
+                                                Map.of()));
+                                return changed;
+                            });
+        } catch (org.fuin.porelo.vault.VaultException ex) {
+            throw new VarlinkException(INTERFACE + ".VaultLocked", Map.of());
+        }
+        if (exists[0]) {
+            throw new VarlinkException(INTERFACE + ".HostIdentityExists", Map.of("host", host));
+        }
+        return Map.of();
+    }
+
+    private static boolean onlyAdds(
+            final org.fuin.porelo.vault.VaultEntry kept, final Map<String, Object> offered) {
+        final Object stored;
+        try {
+            stored = org.fuin.porelo.wire.Json.parseExact(kept.value());
+        } catch (RuntimeException ex) {
+            return false;
+        }
+        if (!(stored instanceof Map<?, ?> map)) {
+            return false;
+        }
+        final Map<String, Object> value = new LinkedHashMap<>();
+        map.forEach((field, each) -> value.put(String.valueOf(field), each));
+        return org.fuin.porelo.app.HostIdentity.onlyAdds(value, offered);
+    }
+
+    /**
+     * Reads a host's identity: {@code HostIdentityRead} whole, {@code HostIdentityPublic} without
+     * any private half. The whole set is never read from a host's vault.
+     *
+     * @param context The machine.
+     * @param parameters {@code host}.
+     * @param whole Whether the private halves are answered.
+     * @return {@code identity}.
+     */
+    static Map<String, Object> hostIdentity(
+            final PoreloContext context,
+            final Map<String, Object> parameters,
+            final boolean whole) {
+        personOnly(whole ? "HostIdentityRead" : "HostIdentityPublic");
+        final String host = identityHost(parameters);
+        if (whole && context.vault().isHostVault()) {
+            throw new VarlinkException(INTERFACE + ".HostIdentityNotReadOnAHost", Map.of());
+        }
+        final org.fuin.porelo.vault.VaultEntry entry =
+                identityEntries(context).get(org.fuin.porelo.app.HostIdentity.entryName(host));
+        if (entry == null) {
+            throw new VarlinkException(INTERFACE + ".HostIdentityUnknown", Map.of("host", host));
+        }
+        final Map<String, Object> identity;
+        try {
+            identity =
+                    org.fuin.porelo.app.HostIdentity.checked(
+                            org.fuin.porelo.wire.Json.parseExact(entry.value()),
+                            host,
+                            org.fuin.porelo.app.HostIdentity.centralOrigin(context),
+                            org.fuin.porelo.app.HostIdentity.derivation(context.runner()));
+        } catch (org.fuin.porelo.app.HostIdentity.Refused ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            "the kept identity of "
+                                    + host
+                                    + " does not hold at "
+                                    + ex.field()
+                                    + "; keep it again with replace"));
+        } catch (RuntimeException ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".Failed",
+                    Map.of(
+                            "message",
+                            "the kept identity of "
+                                    + host
+                                    + " does not read; keep it again with replace"));
+        }
+        return Map.of(
+                "identity",
+                whole ? identity : org.fuin.porelo.app.HostIdentity.publicOnly(identity));
+    }
+
+    /**
+     * Names the hosts whose identity the vault keeps: {@code HostIdentities}.
+     *
+     * @param context The machine.
+     * @return {@code hosts}, sorted.
+     */
+    static Map<String, Object> hostIdentities(final PoreloContext context) {
+        personOnly("HostIdentities");
+        return Map.of(
+                "hosts",
+                identityEntries(context).keySet().stream()
+                        .filter(
+                                name ->
+                                        name.startsWith(
+                                                org.fuin.porelo.app.VaultNames
+                                                        .HOST_IDENTITY_PREFIX))
+                        .map(
+                                name ->
+                                        name.substring(
+                                                org.fuin.porelo.app.VaultNames.HOST_IDENTITY_PREFIX
+                                                        .length()))
+                        .sorted()
+                        .toList());
+    }
+
+    /**
      * Registers this area's methods.
      *
      * @param server Where.
@@ -195,6 +395,19 @@ final class VaultMethods {
                 "ForgetHostVaultShare",
                 (parameters, replies) ->
                         replies.last(Map.of("wasHeld", forgetHostVault(context, parameters))));
+
+        // A host's identity: the person's own socket alone, never a task's.
+        server.method(
+                "HostIdentityKeep",
+                (parameters, replies) -> replies.last(hostIdentityKeep(context, parameters)));
+        server.method(
+                "HostIdentityRead",
+                (parameters, replies) -> replies.last(hostIdentity(context, parameters, true)));
+        server.method(
+                "HostIdentityPublic",
+                (parameters, replies) -> replies.last(hostIdentity(context, parameters, false)));
+        server.method(
+                "HostIdentities", (parameters, replies) -> replies.last(hostIdentities(context)));
 
         server.method(
                 "VaultClear",

@@ -38,7 +38,7 @@ public class OrgAddReadKeyCommand extends OrgReadKeyCommand {
     }
 
     /** As {@code ssh-keygen -l} prints it, of a key of any type a host may have. */
-    private static String fingerprint(final String line) {
+    static String fingerprint(final String line) {
         final byte[] bytes = Base64.getDecoder().decode(line.substring(line.indexOf(' ') + 1));
         try {
             return "SHA256:"

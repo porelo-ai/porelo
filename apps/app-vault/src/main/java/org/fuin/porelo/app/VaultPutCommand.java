@@ -507,6 +507,16 @@ public class VaultPutCommand implements Callable<Integer>, PoreloFactory.Context
         // With --json, standard output holds the answer alone, so a play can read it whole.
         final PrintWriter out = json ? err : answer;
 
+        if (name.startsWith(VaultNames.HOST_IDENTITY_PREFIX)) {
+            // Written only through the daemon's checks, which hold its keys to their host.
+            err.println(
+                    "porelo: names starting with '"
+                            + VaultNames.HOST_IDENTITY_PREFIX
+                            + "' hold a host's identity, which Porelo keeps for that host; choose"
+                            + " another");
+            err.flush();
+            return 64;
+        }
         if (TaskSecrets.reserved(name)) {
             // Refused before anything is asked for: a name here would look like a task's own token.
             err.println(
