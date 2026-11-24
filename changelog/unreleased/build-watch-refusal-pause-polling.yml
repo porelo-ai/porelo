@@ -1,0 +1,2 @@
+title: A build watch's pause after a refusal follows the polling factor, and a rate limit that resets sooner than a poll waits the whole poll, where it lost the poll's fraction of a second
+type: fixed

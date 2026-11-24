@@ -73,13 +73,7 @@ class ScreenPagingTest {
     }
 
     private static String name(final int index) {
-        final char[] letters = new char[ScreenFile.SUFFIX];
-        int rest = index;
-        for (int i = letters.length - 1; i >= 0; i--) {
-            letters[i] = (char) ('a' + rest % 26);
-            rest /= 26;
-        }
-        return new String(letters);
+        return String.format("%0" + ScreenFile.SUFFIX + "d", index);
     }
 
     private void serving(final Body body) throws Exception {

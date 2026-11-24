@@ -1,0 +1,2 @@
+title: Paging back through a task log or a session recording reads at most a page for a line without end, which comes in pieces, where every call scanned the whole line
+type: fixed

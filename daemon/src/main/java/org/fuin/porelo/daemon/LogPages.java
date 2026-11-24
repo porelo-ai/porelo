@@ -21,7 +21,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Read backwards in blocks, never whole: a client scrolling up in a log of 53 MB asks for a
  * page, and a page is what is read. A line longer than a block is still found whole, since its
- * start is looked for block by block.
+ * start is looked for block by block; one longer than a page is read back in pieces of a page from
+ * its end, so no call reads more than a page's bytes and a block, however long the line.
  */
 final class LogPages {
 
@@ -41,13 +42,28 @@ final class LogPages {
     static final int MOST_SENT = VarlinkConnection.MAX_MESSAGE - ENVELOPE;
 
     /**
-     * How many bytes of the log a page reads at most. Its lines stay whole; only one line longer
-     * than this alone is read cut to its first part, so a line without end in a log cannot fill the
-     * daemon's memory. A sixth of {@link #MOST_SENT}, since a control character, the worst case,
-     * goes on the wire as six bytes: read lines escaped as they are still fit one message, and so
-     * does the request that hands them to the agent's formatter.
+     * How many bytes of the log a page reads at most. Its lines stay whole; only a line longer than
+     * this comes in pieces of it, read back from its end, so a line without end in a log can
+     * neither fill the daemon's memory nor be scanned whole at every call. A sixth of {@link
+     * #MOST_SENT}, since a control character, the worst case, goes on the wire as six bytes: read
+     * lines escaped as they are still fit one message, and so does the request that hands them to
+     * the agent's formatter.
      */
     static final int MOST_BYTES = MOST_SENT / 6;
+
+    /**
+     * How many bytes a piece of a line longer than a page holds, from the start of a character: one
+     * byte less than a page, so a piece of control characters alone, escaped six-fold with its
+     * quotes and the comma before it, still fits one message.
+     */
+    static final int PIECE = MOST_BYTES - 1;
+
+    /**
+     * How many bytes without a line end follow a position inside a line that this daemon gave out,
+     * at least: a piece of a line longer than a page starts a piece's bytes, less a character's,
+     * before the piece after it.
+     */
+    static final int INSIDE = MOST_BYTES / 2;
 
     /** What a client is told when a log cannot be read: the path is none of its business. */
     static final String LOG_FAILED = "The task log could not be read";
@@ -148,8 +164,9 @@ final class LogPages {
      *
      * <p>A position past the end belongs to what was there before - a log replaced since, a
      * recording begun again - and is answered as gone. One that does not follow a line end is not
-     * one this daemon gave out, and is refused rather than read from as a guess. One older than the
-     * oldest kept answers that nothing older is kept.
+     * one this daemon gave out, and is refused rather than read from as a guess, unless it lies
+     * inside a line longer than a page, where this daemon gives out the starts of its pieces. One
+     * older than the oldest kept answers that nothing older is kept.
      *
      * @param bytes What is read.
      * @param before A position {@code 0} or larger.
@@ -174,11 +191,16 @@ final class LogPages {
         }
         final byte[] one = new byte[1];
         bytes.read(before - 1, one, 1);
-        if (one[0] != '\n') {
+        final long end;
+        if (one[0] == '\n') {
+            // The line end before the position ends the page's last line and starts none.
+            end = before - 1;
+        } else if (insideALongLine(bytes, before)) {
+            // A piece of a line longer than a page: the page ends where the piece after it starts.
+            end = before;
+        } else {
             throw invalid("before");
         }
-        // The line end before the position ends the page's last line and starts none.
-        final long end = before - 1;
         final long first = firstOf(bytes, start, end, lines);
         final byte[] page = new byte[(int) Math.min(end - first, MOST_BYTES)];
         bytes.read(first, page, page.length);
@@ -275,8 +297,8 @@ final class LogPages {
     /**
      * Returns where the first line of the page starts, looked for backwards from its end.
      *
-     * <p>At most {@code lines} lines, and no more than {@link #MOST_BYTES} unless one line alone is
-     * longer.
+     * <p>At most {@code lines} lines and {@link #MOST_BYTES}: a line longer than that alone gives
+     * its piece that ends the page, and nothing before it is read.
      */
     private static long firstOf(
             final Bytes bytes, final long start, final long end, final int lines)
@@ -292,8 +314,8 @@ final class LogPages {
             for (int i = length - 1; i >= 0; i--) {
                 if (block[i] == '\n') {
                     final long candidate = from + i + 1;
-                    if (found > 0 && end - candidate > MOST_BYTES) {
-                        return kept;
+                    if (end - candidate > MOST_BYTES) {
+                        return found > 0 ? kept : piece(bytes, end);
                     }
                     kept = candidate;
                     if (++found == lines) {
@@ -302,8 +324,129 @@ final class LogPages {
                 }
             }
             position = from;
+            if (end - position > MOST_BYTES) {
+                // No line end is left within a page: what lies before is the next page's.
+                return found > 0 ? kept : piece(bytes, end);
+            }
         }
-        return found > 0 && end - start > MOST_BYTES ? kept : start;
+        return start;
+    }
+
+    /**
+     * Returns where the last lines of a log start, read back from its end in blocks, no further
+     * than a page: a line end that ends the log ends its last line and starts none, and a last line
+     * longer than a page starts at its piece that ends the log, as paging back takes it.
+     *
+     * @param bytes The log.
+     * @param lines How many lines from the end.
+     * @return The position of the first of them within a page of the end; the end for none, the
+     *     start when it holds fewer, or that piece's start.
+     * @throws IOException When the bytes cannot be read.
+     */
+    static long startOfLast(final Bytes bytes, final int lines) throws IOException {
+        final long size = bytes.end();
+        if (lines <= 0 || size == 0) {
+            return size;
+        }
+        final byte[] one = new byte[1];
+        bytes.read(size - 1, one, 1);
+        final long end = one[0] == '\n' ? size - 1 : size;
+        long kept = end;
+        int found = 0;
+        final byte[] block = new byte[BLOCK];
+        long position = end;
+        while (position > 0) {
+            final int length = (int) Math.min(block.length, position);
+            final long from = position - length;
+            bytes.read(from, block, length);
+            for (int i = length - 1; i >= 0; i--) {
+                if (block[i] == '\n') {
+                    final long candidate = from + i + 1;
+                    if (end - candidate > MOST_BYTES) {
+                        return found > 0 ? kept : piece(bytes, end);
+                    }
+                    kept = candidate;
+                    if (++found == lines) {
+                        return kept;
+                    }
+                }
+            }
+            position = from;
+            if (end - position > MOST_BYTES) {
+                return found > 0 ? kept : piece(bytes, end);
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Returns where the last whole line ends, looked for backwards from the end, no further than a
+     * page: past that, the start of the piece of the line still being written that ends a page
+     * before its end.
+     *
+     * @param bytes What is read.
+     * @return The position after the last line end within a page of the end, the start when there
+     *     is none and less than a page, or a piece's start.
+     * @throws IOException When the bytes cannot be read.
+     */
+    static long lineEnd(final Bytes bytes) throws IOException {
+        final byte[] block = new byte[BLOCK];
+        final long start = bytes.start();
+        final long end = bytes.end();
+        long position = end;
+        while (position > start) {
+            final int length = (int) Math.min(block.length, position - start);
+            final long from = position - length;
+            bytes.read(from, block, length);
+            for (int i = length - 1; i >= 0; i--) {
+                if (block[i] == '\n') {
+                    final long after = from + i + 1;
+                    return end - after > MOST_BYTES ? piece(bytes, end) : after;
+                }
+            }
+            position = from;
+            if (end - position > MOST_BYTES) {
+                return piece(bytes, end);
+            }
+        }
+        return start;
+    }
+
+    /**
+     * Returns where the piece of a line longer than a page starts that ends at a position: {@link
+     * #PIECE} bytes before it, moved on to the start of a character so no character is split.
+     */
+    private static long piece(final Bytes bytes, final long end) throws IOException {
+        final long at = end - PIECE;
+        final byte[] lead = new byte[3];
+        bytes.read(at, lead, lead.length);
+        int skipped = 0;
+        while (skipped < lead.length && (lead[skipped] & 0xC0) == 0x80) {
+            skipped++;
+        }
+        return at + skipped;
+    }
+
+    /**
+     * Whether a position lies inside a line longer than a page, as the start of a piece of it:
+     * {@link #INSIDE} bytes without a line end follow it.
+     */
+    private static boolean insideALongLine(final Bytes bytes, final long position)
+            throws IOException {
+        if (bytes.end() - position < INSIDE) {
+            return false;
+        }
+        final byte[] block = new byte[BLOCK];
+        for (long at = position; at < position + INSIDE; at += BLOCK) {
+            final int length = (int) Math.min(BLOCK, position + INSIDE - at);
+            bytes.read(at, block, length);
+            for (int i = 0; i < length; i++) {
+                if (block[i] == '\n') {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /**

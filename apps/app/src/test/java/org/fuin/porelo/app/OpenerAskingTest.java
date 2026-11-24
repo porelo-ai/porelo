@@ -136,6 +136,28 @@ class OpenerAskingTest {
     }
 
     @Test
+    void aProgramUnderFactorsHandedOnReadsNoSettingForItsLimits() throws Exception {
+        final XdgPaths xdg = XdgPaths.of(name -> null, dir);
+        java.nio.file.Files.createDirectories(xdg.config());
+        java.nio.file.Files.writeString(xdg.config().resolve(AccountConfig.FILE), "nonsense: 1\n");
+        final org.fuin.porelo.wire.LimitFactors handed =
+                org.fuin.porelo.wire.LimitFactors.parse("services=2");
+        final PoreloContext context =
+                new PoreloContext(
+                                new FakeCommandRunner(),
+                                new PoreloPaths(xdg, dir.resolve("bin")),
+                                arguments -> 0)
+                        .readingAccount()
+                        .withLimits(handed);
+
+        // A child its starter handed the factors to needs only those: a bad config.yml refused it
+        // although it never read another setting. One that asks for another still is refused.
+        assertThat(context.limits()).isEqualTo(handed);
+        org.assertj.core.api.Assertions.assertThatThrownBy(context::account)
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void unlocksItAsVaultUnlockDoesWhenATaskNeedsItAfterwards() {
         Assumptions.assumeTrue(KernelKeyring.available(), "no kernel keyring here");
         final PoreloContext context = context(answering("correct horse"));

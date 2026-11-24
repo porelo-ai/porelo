@@ -1,0 +1,2 @@
+title: Closing the message watch waits for a pass under the services factor, as the long-poll it may wait out does, where it followed machines and could give up while a longer poll was held
+type: fixed

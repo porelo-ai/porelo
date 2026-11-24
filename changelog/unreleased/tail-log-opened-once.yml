@@ -1,0 +1,2 @@
+title: Tail opens a task log once and never through a link, where a link put in its place after the check was read as the log
+type: fixed

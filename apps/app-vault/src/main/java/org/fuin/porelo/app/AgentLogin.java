@@ -1364,8 +1364,8 @@ public final class AgentLogin {
         wrapped.add(
                 "\"$@\"; code=$?; printf '%s\\n' \"$code\" > "
                         + EXIT_MARKER
-                        + "; trap 'exit 0' TERM; sleep "
-                        + ShellSeconds.decimal(limits.machines(HOLDING))
+                        + "; trap 'exit 0' TERM; "
+                        + ShellSeconds.sleep(limits.machines(HOLDING))
                         + " & wait");
         wrapped.add("porelo-login");
         wrapped.addAll(command);

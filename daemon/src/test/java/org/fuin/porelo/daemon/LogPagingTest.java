@@ -344,22 +344,147 @@ class LogPagingTest {
     }
 
     @Test
-    void aLineLongerThanAPageComesCutToWhatOneMessageCarries() throws Exception {
+    void aLineLongerThanAPageComesInPiecesThatEachFitOneMessageAndJoinToIt() throws Exception {
 
-        // One line without end, all of it escaped on the wire, still arrives: cut, never refused.
+        // One line without end, all of it escaped on the wire, still arrives: in pieces read back
+        // from its end, never refused, and none of it lost.
         final String endless = "\u0001".repeat(5 * 1024 * 1024);
         log((endless + "\nlast\n").getBytes(StandardCharsets.UTF_8));
 
         serving(
                 client -> {
-                    final Map<String, Object> page =
-                            before(client, endless.length() + 1L, 1000, null);
-                    assertThat(lines(page)).hasSize(1);
-                    assertThat(lines(page).getFirst()).isNotEmpty();
-                    assertThat(endless).startsWith(lines(page).getFirst());
-                    assertThat(offset(page)).isZero();
-                    assertThat(page).containsEntry("atStart", true);
+                    final StringBuilder joined = new StringBuilder();
+                    long position = endless.length() + 1L;
+                    int pages = 0;
+                    while (true) {
+                        final Map<String, Object> page = before(client, position, 1000, null);
+                        assertThat(lines(page)).hasSize(1);
+                        assertThat(lines(page).getFirst()).isNotEmpty();
+                        joined.insert(0, lines(page).getFirst());
+                        assertThat(offset(page)).isLessThan(position);
+                        position = offset(page);
+                        assertThat(++pages).as("a page that does not move on").isLessThan(20);
+                        if (Boolean.TRUE.equals(page.get("atStart"))) {
+                            break;
+                        }
+                    }
+                    assertThat(position).isZero();
+                    assertThat(joined.toString()).isEqualTo(endless);
                 });
+    }
+
+    /** A log of one line, its end as its last byte or none, as large as asked, counting reads. */
+    private static final class OneLongLine implements LogPages.Bytes {
+
+        private final long size;
+
+        private final boolean ended;
+
+        private final java.util.concurrent.atomic.AtomicLong read =
+                new java.util.concurrent.atomic.AtomicLong();
+
+        OneLongLine(final long size, final boolean ended) {
+            this.size = size;
+            this.ended = ended;
+        }
+
+        @Override
+        public long start() {
+            return 0;
+        }
+
+        @Override
+        public long end() {
+            return size;
+        }
+
+        @Override
+        public void read(final long position, final byte[] into, final int length) {
+            read.addAndGet(length);
+            for (int i = 0; i < length; i++) {
+                into[i] = ended && position + i == size - 1 ? (byte) '\n' : (byte) 'x';
+            }
+        }
+    }
+
+    @Test
+    void aPageOfALineWithoutEndReadsAPageNotTheWholeLine() throws Exception {
+
+        // Paging scanned a log of one giant line in full at every call, back to its start, looking
+        // for where the line begins: the scan is bounded by the page.
+        final long size = 256L * 1024 * 1024;
+        final OneLongLine log = new OneLongLine(size, true);
+        final java.util.function.Supplier<VarlinkException> gone =
+                () -> new VarlinkException(PoreloDaemon.INTERFACE + ".NoSuchLog", Map.of());
+
+        final LogPages.Page page = LogPages.before(log, size, 1000, gone);
+
+        assertThat(page.lines()).singleElement().asString().hasSize(LogPages.PIECE);
+        assertThat(page.offset()).isEqualTo(size - 1 - LogPages.PIECE);
+        assertThat(page.atStart()).isFalse();
+        final long bound = 3L * LogPages.MOST_BYTES + 2L * LogPages.BLOCK;
+        assertThat(log.read.get()).as("bytes read for one page").isLessThanOrEqualTo(bound);
+
+        log.read.set(0);
+        final LogPages.Page next = LogPages.before(log, page.offset(), 1000, gone);
+        assertThat(next.offset()).isEqualTo(page.offset() - LogPages.PIECE);
+        assertThat(log.read.get()).as("bytes read for the next").isLessThanOrEqualTo(bound);
+
+        final OneLongLine unended = new OneLongLine(size, false);
+        assertThat(LogPages.lineEnd(unended))
+                .as("the recording's last line end, looked for no further back than a page")
+                .isEqualTo(size - LogPages.PIECE);
+        assertThat(unended.read.get()).isLessThanOrEqualTo(bound);
+    }
+
+    @Test
+    void tailsStartOfALogWithoutLineEndsReadsAPageNotTheWholeLog() throws Exception {
+
+        // Tail looked for the start of a log's last lines back to the log's start: a log with no
+        // line end, sparse or huge, was read whole at every Tail. Bounded as paging is.
+        final long size = 256L * 1024 * 1024;
+        final long bound = 2L * LogPages.MOST_BYTES + 2L * LogPages.BLOCK;
+
+        final OneLongLine ended = new OneLongLine(size, true);
+        assertThat(LogPages.startOfLast(ended, 20))
+                .as("the piece of the last line that ends it")
+                .isEqualTo(size - 1 - LogPages.PIECE);
+        assertThat(ended.read.get()).as("bytes read").isLessThanOrEqualTo(bound);
+
+        final OneLongLine unended = new OneLongLine(size, false);
+        assertThat(LogPages.startOfLast(unended, 20)).isEqualTo(size - LogPages.PIECE);
+        assertThat(unended.read.get()).as("bytes read").isLessThanOrEqualTo(bound);
+
+        final java.util.function.Supplier<VarlinkException> gone =
+                () -> new VarlinkException(PoreloDaemon.INTERFACE + ".NoSuchLog", Map.of());
+        assertThat(LogPages.before(ended, size - 1 - LogPages.PIECE, 1, gone).offset())
+                .as("a position paging back goes on from")
+                .isEqualTo(size - 1 - 2L * LogPages.PIECE);
+    }
+
+    @Test
+    void aLongLineOfWideCharactersComesInPiecesThatJoinToItWithNoneSplit() throws Exception {
+
+        // A piece cut at a page's bytes could start inside a character of two, three or four
+        // bytes, which then read as a replacement character on both sides of the cut.
+        final String line = "\u00e9\u20ac\ud83d\ude00".repeat(200_000);
+        final Path log = log((line + "\n").getBytes(StandardCharsets.UTF_8));
+
+        final StringBuilder joined = new StringBuilder();
+        long position = Files.size(log);
+        int pages = 0;
+        while (position > 0) {
+            final Map<String, Object> page =
+                    TaskMethods.logBefore(
+                            log, LogIdentity.of(log), position, 1000, null, TASK, "task.log");
+            assertThat(lines(page)).hasSize(1);
+            joined.insert(0, lines(page).getFirst());
+            assertThat(offset(page)).isLessThan(position);
+            position = offset(page);
+            assertThat(++pages).as("a page that does not move on").isLessThan(20);
+        }
+        assertThat(pages).as("in pieces").isGreaterThan(1);
+        assertThat(joined.toString()).doesNotContain("\ufffd").isEqualTo(line);
     }
 
     @Test

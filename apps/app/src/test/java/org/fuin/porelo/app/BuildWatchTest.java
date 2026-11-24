@@ -797,13 +797,31 @@ class BuildWatchTest {
     }
 
     @Test
-    void theWaitAfterARefusalAPersonMustFixFollowsTheServicesFactor() {
+    void theWaitAfterARefusalAPersonMustFixIsAPollingIntervalAndFollowsThePollingFactor() {
+
+        // Nothing is waited for an answer here: the watch asks again later, as its polls do.
         refusal = new BuildRefused(BuildRefused.Reason.CREDENTIAL_REFUSED, "401");
 
         assertThat(watch().round()).as("at 1.0").isEqualTo(BuildWatch.REFUSED);
-        assertThat(watch().withLimits(factors("services: 2")).round())
-                .as("at services 2")
+        assertThat(watch().withLimits(factors("polling: 2")).round())
+                .as("at polling 2")
                 .isEqualTo(BuildWatch.REFUSED.multipliedBy(2));
+        assertThat(watch().withLimits(factors("services: 2")).round())
+                .as("not at services 2")
+                .isEqualTo(BuildWatch.REFUSED);
+    }
+
+    @Test
+    void aRateLimitThatResetsAtOnceStillWaitsAWholePollNotItsWholeSeconds() {
+
+        // The pause after a rate limit was the poll in whole seconds: at polling 0.13 the poll of
+        // 2.6 s became 2 s.
+        refusal = new BuildRefused(BuildRefused.Reason.RATE_LIMITED, "used up", 0);
+
+        assertThat(watch().withLimits(factors("polling: 0.13")).round())
+                .isEqualTo(BuildWatch.POLL.multipliedBy(13).dividedBy(100));
+        assertThat(watch().withLimits(factors("polling: 0.13")).round())
+                .isEqualTo(Duration.ofMillis(2600));
     }
 
     private static org.fuin.porelo.wire.LimitFactors factors(final String line) {

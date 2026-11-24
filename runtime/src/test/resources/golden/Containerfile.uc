@@ -52,7 +52,7 @@ RUN set -eux; \
 RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives,sharing=locked set -eux; \
     if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \
         && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1 \
-        && command -v setpriv >/dev/null 2>&1; then :; \
+        && command -v setpriv >/dev/null 2>&1 && split --version >/dev/null 2>&1; then :; \
     elif command -v apt-get >/dev/null 2>&1; then \
         porelo_update() { code=0; out=$(apt-get update 2>&1) || code=$?; printf '%s\n' "$out"; \
             [ "$code" = 0 ] || return 1; \
@@ -78,7 +78,7 @@ RUN --mount=type=cache,id=porelo-apt-ubuntu-24.04,target=/var/cache/apt/archives
         rm -rf /var/tmp/porelo-apt-warned; \
         apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux util-linux \
         && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \
-    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv; \
+    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv coreutils; \
     elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux util-linux && dnf clean all; \
     else echo 'no curl/git/ssh/tmux/setpriv and no known package manager in ubuntu:24.04' >&2; exit 1; \
     fi
@@ -241,6 +241,6 @@ ENV PATH=/usr/local/bin:/usr/bin:/bin:/home/agent/.local/bin
 ENV LANG=C.UTF-8
 
 LABEL org.fuin.porelo.project="uc"
-LABEL org.fuin.porelo.recipe="e8a8f4e4ffce0008"
+LABEL org.fuin.porelo.recipe="af99cf23526796e7"
 LABEL org.fuin.porelo.security-class="guarded"
 LABEL org.fuin.porelo.settings=""

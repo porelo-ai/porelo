@@ -127,11 +127,11 @@ final class ScreenRecording implements LogPages.Bytes, AutoCloseable {
         }
         long index = 0;
         for (int i = 0; i < name.length(); i++) {
-            final char letter = name.charAt(i);
-            if (letter < 'a' || letter > 'z') {
+            final char digit = name.charAt(i);
+            if (digit < '0' || digit > '9') {
                 return -1;
             }
-            index = index * 26 + (letter - 'a');
+            index = index * 10 + (digit - '0');
         }
         return index;
     }
@@ -178,26 +178,16 @@ final class ScreenRecording implements LogPages.Bytes, AutoCloseable {
 
     /**
      * Returns where the recording's last whole line ends: the first position Screen gives for
-     * reading back. A line still being written belongs to the screen, not yet to the recording.
+     * reading back. A line still being written belongs to the screen, not yet to the recording;
+     * looked for no further back than a page, past which the piece of a long line that ends a page
+     * before the end is where reading back starts.
      *
-     * @return The position after its last line end, or its start when it holds none.
+     * @return The position after its last line end, its start when it holds none, or that piece's
+     *     start.
      * @throws IOException When it cannot be read.
      */
     long lineEnd() throws IOException {
-        final byte[] block = new byte[LogPages.BLOCK];
-        long position = end();
-        while (position > start()) {
-            final int length = (int) Math.min(block.length, position - start());
-            final long from = position - length;
-            read(from, block, length);
-            for (int i = length - 1; i >= 0; i--) {
-                if (block[i] == '\n') {
-                    return from + i + 1;
-                }
-            }
-            position = from;
-        }
-        return start();
+        return LogPages.lineEnd(this);
     }
 
     /**

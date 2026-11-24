@@ -296,8 +296,8 @@ public final class BuildWatch {
     }
 
     /**
-     * Puts the watch's waits under the account's time factors: how often it asks under {@code
-     * polling}, how long it waits for a forge under {@code services}.
+     * Puts the watch's waits under the account's time factors: how often it asks, after a refusal
+     * too, under {@code polling}, how long it waits for a forge under {@code services}.
      *
      * @param limits The factors.
      * @return This watch.
@@ -307,7 +307,7 @@ public final class BuildWatch {
         settledPoll = limits.polling(SETTLED);
         deadline = limits.services(DEADLINE);
         grace = limits.services(GRACE);
-        refusedWait = limits.services(REFUSED);
+        refusedWait = limits.polling(REFUSED);
         return this;
     }
 
@@ -578,8 +578,11 @@ public final class BuildWatch {
         troubled(why + ex.detail());
         tellAll(Build.unknown(why + ex.detail()));
         return switch (ex.reason()) {
-            case RATE_LIMITED ->
-                    Duration.ofSeconds(Math.max(poll.toSeconds(), ex.retryAfterSeconds()));
+            // Compared as durations: the poll in whole seconds lost its fraction of a second.
+            case RATE_LIMITED -> {
+                final Duration reset = Duration.ofSeconds(ex.retryAfterSeconds());
+                yield reset.compareTo(poll) > 0 ? reset : poll;
+            }
             case CREDENTIAL_REFUSED, NO_SUCH_REPOSITORY -> refusedWait;
             case UNREACHABLE -> poll;
         };

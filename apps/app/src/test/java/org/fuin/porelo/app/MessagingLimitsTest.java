@@ -78,10 +78,28 @@ class MessagingLimitsTest {
     }
 
     @Test
-    void closingWaitsTwiceAsLongForAPassAtMachines2() {
+    void closingWaitsTwiceAsLongForAPassAtServices2() {
         assertThat(new MessageWatch(slow(), Duration.ZERO).closing())
                 .isEqualTo(Duration.ofSeconds(20));
         assertThat(new MessageWatch(plain(), Duration.ZERO).closing())
+                .isEqualTo(Duration.ofSeconds(10));
+    }
+
+    @Test
+    void closingAndTheLongPollItWaitsForFollowOneFactor() {
+
+        // The long-poll's hold followed services and closing machines: at services 3 alone the
+        // poll was held 90 seconds while closing still gave up after 10.
+        final PoreloContext services = context("limits:\n  services: 3\n");
+        final TransportDirectory transports = new TransportDirectory(List.of(dir));
+
+        assertThat(new TransportConversations(services, transports).waitSeconds())
+                .isEqualTo(3 * TransportConversations.WAIT_SECONDS);
+        assertThat(new MessageWatch(services, Duration.ZERO).closing())
+                .as("closing scales with the hold it may wait out")
+                .isEqualTo(Duration.ofSeconds(30));
+        assertThat(new MessageWatch(context("limits:\n  machines: 3\n"), Duration.ZERO).closing())
+                .as("and not with the machines factor")
                 .isEqualTo(Duration.ofSeconds(10));
     }
 

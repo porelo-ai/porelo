@@ -119,6 +119,26 @@ class ContainerfileTest {
     }
 
     @Test
+    void anAlpineTaskImageGetsTheGnuSplitItsSessionRecordingNeeds() {
+
+        // The session's recording is written by GNU split, which names its files from a number
+        // and so goes on after its pipe ended. Busybox's refuses that, and an Alpine task's
+        // recording stayed empty: an image whose split is not GNU's gets coreutils.
+        final String rendered =
+                Containerfile.render(
+                        new Project("uc", "", SecurityClass.GUARDED, "alpine:3.20", null));
+        final String step = rendered.substring(rendered.indexOf("if command -v curl"));
+        final String tools = step.substring(0, step.indexOf("    fi"));
+
+        assertThat(tools)
+                .as("an image that has the other tools but busybox's split is still prepared")
+                .contains("&& split --version >/dev/null 2>&1; then :;")
+                .contains(
+                        "apk add --no-cache curl ca-certificates git openssh-client tmux setpriv"
+                                + " coreutils;");
+    }
+
+    @Test
     void leavesADebianStanzaAloneUnderTheDefaultUbuntuMirror(@TempDir Path directory)
             throws Exception {
 

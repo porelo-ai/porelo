@@ -521,12 +521,12 @@ public final class Containerfile {
                                 aptRun(project),
                                 "    if command -v curl >/dev/null 2>&1 && command -v git >/dev/null 2>&1 \\",
                                 "        && command -v ssh >/dev/null 2>&1 && command -v tmux >/dev/null 2>&1 \\",
-                                "        && command -v setpriv >/dev/null 2>&1; then :; \\",
+                                "        && command -v setpriv >/dev/null 2>&1 && split --version >/dev/null 2>&1; then :; \\",
                                 "    elif command -v apt-get >/dev/null 2>&1; then \\",
                                 UPDATE,
                                 "        apt-get install -y --no-install-recommends curl ca-certificates git openssh-client tmux util-linux \\",
                                 "        && rm -rf /var/lib/apt/lists/* /var/cache/apt/*.bin; \\",
-                                "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv; \\",
+                                "    elif command -v apk >/dev/null 2>&1; then apk add --no-cache curl ca-certificates git openssh-client tmux setpriv coreutils; \\",
                                 "    elif command -v dnf >/dev/null 2>&1; then dnf install -y curl ca-certificates git openssh-clients tmux util-linux && dnf clean all; \\",
                                 "    else echo 'no curl/git/ssh/tmux/setpriv and no known package manager in "
                                         + project.baseImage()

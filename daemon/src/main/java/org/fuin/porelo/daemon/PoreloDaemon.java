@@ -655,78 +655,89 @@ public final class PoreloDaemon {
      *     holds fewer.
      */
     static long startOfLast(Path log, int lines) {
-        try (java.io.RandomAccessFile file = new java.io.RandomAccessFile(log.toFile(), "r")) {
-            final long size = file.length();
-            if (lines <= 0 || size == 0) {
-                return size;
-            }
-            file.seek(size - 1);
-            long end = file.read() == '\n' ? size - 1 : size;
-            int found = 0;
-            final byte[] block = new byte[64 * 1024];
-            while (end > 0) {
-                final int length = (int) Math.min(block.length, end);
-                final long from = end - length;
-                file.seek(from);
-                file.readFully(block, 0, length);
-                for (int i = length - 1; i >= 0; i--) {
-                    if (block[i] == '\n' && ++found == lines) {
-                        return from + i + 1;
-                    }
-                }
-                end = from;
-            }
-            return 0;
+        try (java.nio.channels.FileChannel file = opened(log)) {
+            return LogPages.startOfLast(LogPages.of(file), lines);
         } catch (java.io.IOException ex) {
             return 0;
         }
     }
 
+    /**
+     * Opens a log once for one read, never through a link: {@link #logOf} looked at the name
+     * before, and a link put there since is refused rather than followed to a file elsewhere. The
+     * size and the bytes are then those of what was opened.
+     */
+    private static java.nio.channels.FileChannel opened(final Path log) throws java.io.IOException {
+        return java.nio.channels.FileChannel.open(
+                log,
+                java.nio.file.StandardOpenOption.READ,
+                java.nio.file.LinkOption.NOFOLLOW_LINKS);
+    }
+
     static Chunk read(Path log, long from) {
-        try {
-            final long size = Files.size(log);
+        try (java.nio.channels.FileChannel file = opened(log)) {
+            final LogPages.Bytes bytes = LogPages.of(file);
+            final long size = bytes.end();
             final long start = size < from ? 0 : from;
             if (size == start) {
                 return new Chunk(List.of(), List.of(), start, start);
             }
-            try (java.io.RandomAccessFile file = new java.io.RandomAccessFile(log.toFile(), "r")) {
-                file.seek(start);
-                final byte[] buffer = new byte[(int) Math.min(size - start, MAX_CHUNK)];
-                file.readFully(buffer);
-                // Counted in bytes, never by encoding decoded text again: a byte that is not UTF-8
-                // decodes to a character that encodes longer, and the position then lay past the
-                // end of the file.
-                int end = buffer.length - 1;
-                while (end >= 0 && buffer[end] != '\n') {
-                    end--;
-                }
-                if (end < 0) {
-                    // A partial last line is left for the next read - unless the whole read was
-                    // one, which no later read could pass either: then it goes as it is.
-                    if (buffer.length < MAX_CHUNK) {
-                        return new Chunk(List.of(), List.of(), start, start);
-                    }
-                    return new Chunk(
-                            List.of(new String(buffer, java.nio.charset.StandardCharsets.UTF_8)),
-                            List.of(start),
-                            start,
-                            start + buffer.length);
-                }
-                final List<Long> starts = new java.util.ArrayList<>();
-                starts.add(start);
-                for (int i = 0; i < end; i++) {
-                    if (buffer[i] == '\n') {
-                        starts.add(start + i + 1);
-                    }
-                }
-                final String text =
-                        new String(buffer, 0, end, java.nio.charset.StandardCharsets.UTF_8);
-                return new Chunk(
-                        List.of(text.split("\n", -1)), List.copyOf(starts), start, start + end + 1);
+            final byte[] buffer = new byte[(int) Math.min(size - start, MAX_CHUNK)];
+            bytes.read(start, buffer, buffer.length);
+            // Counted in bytes, never by encoding decoded text again: a byte that is not UTF-8
+            // decodes to a character that encodes longer, and the position then lay past the
+            // end of the file.
+            int end = buffer.length - 1;
+            while (end >= 0 && buffer[end] != '\n') {
+                end--;
             }
+            if (end < 0) {
+                // A partial last line is left for the next read - unless the whole read was
+                // one, which no later read could pass either: then it goes as it is.
+                if (buffer.length < MAX_CHUNK) {
+                    return new Chunk(List.of(), List.of(), start, start);
+                }
+                // Cut at the start of a character, never inside one: its rest is the next read's.
+                final int cut = characterStart(buffer);
+                return new Chunk(
+                        List.of(
+                                new String(
+                                        buffer, 0, cut, java.nio.charset.StandardCharsets.UTF_8)),
+                        List.of(start),
+                        start,
+                        start + cut);
+            }
+            final List<Long> starts = new java.util.ArrayList<>();
+            starts.add(start);
+            for (int i = 0; i < end; i++) {
+                if (buffer[i] == '\n') {
+                    starts.add(start + i + 1);
+                }
+            }
+            final String text = new String(buffer, 0, end, java.nio.charset.StandardCharsets.UTF_8);
+            return new Chunk(
+                    List.of(text.split("\n", -1)), List.copyOf(starts), start, start + end + 1);
         } catch (java.io.IOException ex) {
             return new Chunk(List.of(), List.of(), from, from);
         }
+    }
+
+    /**
+     * Returns where a run of bytes may be cut so that no UTF-8 character is split: its length when
+     * its last character is whole, else where that character starts. Bytes that are no UTF-8 are
+     * cut where they end.
+     */
+    static int characterStart(final byte[] bytes) {
+        int lead = bytes.length - 1;
+        while (lead > 0 && bytes.length - lead < 4 && (bytes[lead] & 0xC0) == 0x80) {
+            lead--;
+        }
+        if (lead < 0) {
+            return bytes.length;
+        }
+        final int first = bytes[lead] & 0xFF;
+        final int size = first >= 0xF0 ? 4 : first >= 0xE0 ? 3 : first >= 0xC0 ? 2 : 1;
+        return lead > 0 && lead + size > bytes.length ? lead : bytes.length;
     }
 
     static void sleep(java.time.Duration duration) {

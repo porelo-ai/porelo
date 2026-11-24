@@ -64,7 +64,9 @@ class InterfaceDescriptionTest {
         assertThat(command)
                 .as("the CLI cannot choose a newly available default base")
                 .containsSequence("--against", "")
-                .containsSequence("--commit", "a".repeat(40));
+                .containsSequence("--commit", "a".repeat(40))
+                .as("spelled as the CLI's own full view and the checkout's command spell them")
+                .containsSequence("review", "--project", "bound", "--repository", "app");
     }
 
     @Test

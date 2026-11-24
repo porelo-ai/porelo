@@ -649,8 +649,10 @@ that end just before it, the `offset` where the first of them starts, the next c
 is 0. `formatted` works as for `Tail`. The log is read back in blocks, never whole. A page reads whole lines of at most
 a sixth of the 4 MiB one message carries, since a control character goes on the wire as six bytes, and sends the
 newest of them that fit one message as they go out, escaped and formatted; only one line too long for that alone
-comes cut to its first part. Any line start is taken as `before`; a position inside a line or below 0 is refused as
-`InvalidParameter` naming `before`, and one past the log's end, as for a log shortened or gone since, is `NoSuchLog`:
+comes cut to its first part. A line longer than a page's bytes comes in pieces of that size, read back from its end,
+each piece's `offset` a position inside the line that the next call takes as `before`, so no call reads more than a
+page however long the line. Any line start is taken as `before`; a position inside a line, but a piece's start in so
+long a line, or below 0 is refused as `InvalidParameter` naming `before`, and one past the log's end, as for a log shortened or gone since, is `NoSuchLog`:
 the client starts again from `Tail`. So is an `of` that names another log than the one there now, as a new run's,
 though it has grown past the position; a call without `of` is `InvalidParameter` naming `of`. A log that is a link is no log, and one that cannot be read is `Failed` with a
 fixed text that names no path.
@@ -658,8 +660,12 @@ fixed text that names no path.
 Work in a terminal has no log, so the task's root records its session's output: tmux's own pipe writes it, from the
 first second of a session on, into the task's screen directory, which the agent cannot write, in files of 1 MiB. The
 oldest file goes once there are more than 8, so a session keeps at most its last 8 MiB, and a file older than
-`records.kept_days` is no longer read; a new session starts a new recording. `Screen` gives the recording's `end`, where its last
-whole line ends, and has none without a recording, and `of`, the recording's opaque name from the session's start,
+`records.kept_days` is no longer read; a new session starts a new recording, and a pipe that ended in the same
+session, as on a full file system, goes on in the recording it wrote, each byte where its position says. The
+recording is written by GNU `split`, which an Alpine task image gets as `coreutils`; in an image without it nothing
+is recorded, and `recording.error` beside the recording says why in one line.
+`Screen` gives the recording's `end`, where its last
+whole line ends, looked for no further back than a page, and has none without a recording, and `of`, the recording's opaque name from the session's start,
 `""` without one. A client scrolling past what `Screen` shows calls `ScreenBefore(task, of, before, lines)` with
 that `of`, that `end` and then each `offset`, as `LogBefore` works; `escapes` works as for
 `Screen`, and plain text leaves escapes and control characters out and keeps what a carriage return wrote last.

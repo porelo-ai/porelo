@@ -38,4 +38,22 @@ final class ShellSeconds {
                 .max(BigDecimal.ONE)
                 .toPlainString();
     }
+
+    /**
+     * Writes a sleep for a shell line that runs in a container, whose {@code sleep} may take no
+     * fraction: a busybox one refuses {@code 0.5} and returns at once. Whole seconds go as they
+     * are; a fraction is tried, and where it is refused the sleep is whole seconds rounded up, so
+     * it never returns early and a loop around it never spins.
+     *
+     * @param limit How long.
+     * @return A command for a shell line: one and-or list, which {@code &} puts in the background
+     *     whole.
+     */
+    static String sleep(final Duration limit) {
+        final String decimal = decimal(limit);
+        final String whole = whole(limit);
+        return decimal.equals(whole)
+                ? "sleep " + whole
+                : "sleep " + decimal + " 2>/dev/null || sleep " + whole;
+    }
 }

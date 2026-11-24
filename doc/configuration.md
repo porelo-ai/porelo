@@ -4,6 +4,10 @@ Settings that belong to the account rather than to a project live in `$XDG_CONFI
 file is every default; an unknown key or a bad value stops `porelod` at its start, and any command that reads the
 setting, naming the key.
 
+`porelod` reads the file once, at its start, so every limit it keeps holds still while it runs: a change takes effect
+for the daemon and the tasks and helpers it starts after `systemctl --user restart porelod`. A `porelo` command reads
+the file anew each time it runs.
+
 ```yaml
 limits:
   services: 1.0

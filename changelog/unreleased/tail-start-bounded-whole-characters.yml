@@ -1,0 +1,2 @@
+title: Tail looks for a log's last lines no further back than a page and cuts a line without end at the start of a character, where a log without line ends was read whole at every Tail and a cut split a character
+type: fixed

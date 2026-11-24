@@ -1537,8 +1537,9 @@ method LogBefore(
   # though the new one has grown past the position; a call without it is InvalidParameter.
   of: string,
   # A byte position Tail or this method returned as offset; the lines end just before it. Any line
-  # start is taken; one inside a line, or below 0, is InvalidParameter, never a guess, and one past
-  # the log's end is NoSuchLog.
+  # start is taken, and so is the start of a piece of a line longer than a page, which comes in
+  # pieces from its end; any other position inside a line, or below 0, is InvalidParameter, never a
+  # guess, and one past the log's end is NoSuchLog.
   before: int,
   # How many lines at most, 1 to 1000; anything else is InvalidParameter.
   lines: int,
@@ -1587,8 +1588,9 @@ method ScreenBefore(
   # InvalidParameter.
   of: string,
   # A byte position Screen gave as end or this method gave as offset; the lines end just before it.
-  # Any line start is taken; one inside a line, or below 0, is InvalidParameter, one past the
-  # recording's end is NoSuchLog, and one older than what is kept answers atStart true.
+  # Any line start is taken, and so is a piece's start in a line longer than a page; any other
+  # position inside a line, or below 0, is InvalidParameter, one past the recording's end is
+  # NoSuchLog, and one older than what is kept answers atStart true.
   before: int,
   # How many lines at most, 1 to 1000; anything else is InvalidParameter.
   lines: int,

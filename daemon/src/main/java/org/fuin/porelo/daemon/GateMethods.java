@@ -53,9 +53,9 @@ final class GateMethods {
                                 "porelo",
                                 "gate",
                                 "review",
-                                "-p",
+                                "--project",
                                 project.name(),
-                                "-r",
+                                "--repository",
                                 GateSupport.repository(project, text(parameters, "repository"))
                                         .name()));
         if (!text(parameters, "upstream").isEmpty()) {

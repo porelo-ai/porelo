@@ -57,7 +57,10 @@ public final class MessageWatch implements AutoCloseable {
     /** How long to wait after a change, so a burst of files becomes one pass rather than ten. */
     private static final Duration SETTLE = Duration.ofMillis(250);
 
-    /** How long closing waits for a notice pass that is moving: one pass, with room. */
+    /**
+     * How long closing waits for a notice pass that is moving: one pass, with room. Under the
+     * services factor, as the long-poll's hold a pass may be in is, so the two keep their ratio.
+     */
     private static final Duration CLOSING = Duration.ofSeconds(10);
 
     private volatile boolean running = true;
@@ -677,10 +680,10 @@ public final class MessageWatch implements AutoCloseable {
     /**
      * Returns how long closing waits for a running pass.
      *
-     * @return {@link #CLOSING} times the machines factor.
+     * @return {@link #CLOSING} times the services factor.
      */
     Duration closing() {
-        return context.limits().machines(CLOSING);
+        return context.limits().services(CLOSING);
     }
 
     /**
