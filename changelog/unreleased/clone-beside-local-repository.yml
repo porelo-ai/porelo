@@ -1,0 +1,2 @@
+title: "A task started in a clone that stands beside the local repository it was cloned from, such as `app` beside `app.git` added to `default` by its path, works on the clone: its approved work goes back into the clone, as the start says, never into the repository added by its path; two paths on this machine are one repository only when git opens one directory for both"
+type: fixed

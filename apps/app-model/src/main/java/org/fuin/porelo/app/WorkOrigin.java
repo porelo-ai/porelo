@@ -114,6 +114,8 @@ public final class WorkOrigin {
         final DefaultProject.Entry kept = fallback.withUpstream(path);
         try {
             final DefaultProject.Entry entry = fallback.add(path, null, path, origin);
+            // Named from the entry the task works on, whose upstream is where its gate forwards:
+            // the line and the forward have one source and cannot name two places.
             return new Choice(
                     DefaultProject.NAME,
                     entry.name(),
@@ -122,7 +124,7 @@ public final class WorkOrigin {
                             + "' as '"
                             + entry.name()
                             + "': its history comes from "
-                            + path
+                            + entry.upstream()
                             + ", and approved work goes back there as porelo/<task>; Porelo never reaches "
                             + (origin.isEmpty() ? "a remote" : origin)
                             + removed);

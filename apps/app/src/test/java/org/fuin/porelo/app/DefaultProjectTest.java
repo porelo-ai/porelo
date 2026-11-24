@@ -411,6 +411,89 @@ class DefaultProjectTest {
     }
 
     @Test
+    void aCloneBesideTheLocalRepositoryAddedByItsAddressIsItsOwnSourceAndItsWorkGoesBackToIt()
+            throws Exception {
+        // Harm: the start told the person approved work goes back to the clone, while the gate
+        // forwarded it into the repository added by address, whose path differs only by ".git".
+        final PoreloContext context = context();
+        final Path seed = Files.createDirectories(dir.resolve("seed"));
+        initWithACommit(seed);
+        final Path bare = dir.resolve("app.git");
+        git(dir, "clone", "-q", "--bare", seed.toString(), bare.toString());
+        final Path clone = dir.resolve("app");
+        git(dir, "clone", "-q", bare.toString(), clone.toString());
+        final DefaultProject project = new DefaultProject(context);
+        project.add(bare.toRealPath().toString(), null, "");
+
+        final WorkOrigin.Choice choice = WorkOrigin.fromCheckout(context, clone);
+
+        final String checkout = clone.toRealPath().toString();
+        assertThat(choice.said())
+                .as("the start names the clone as where approved work goes back")
+                .contains(checkout + ", and approved work goes back there");
+        assertThat(
+                        java.util.Objects.requireNonNull(
+                                        ProjectReader.read(project.file())
+                                                .repository(choice.repository()),
+                                        "the repository the start chose")
+                                .upstream())
+                .as("the gate of the repository the start chose forwards where the start said")
+                .isEqualTo(checkout);
+        assertThat(project.withUpstream(bare.toRealPath().toString()))
+                .as("the repository added by its address stays its own")
+                .isNotNull()
+                .satisfies(entry -> assertThat(entry.name()).isNotEqualTo(choice.repository()));
+    }
+
+    @Test
+    void twoLocalPathsAreOneRepositoryOnlyWhenTheyNameTheDirectoryGitOpens() throws Exception {
+        final Path bare = Files.createDirectories(dir.resolve("app.git"));
+        final Path beside = dir.resolve("app");
+
+        assertThat(RepositoryAddress.same(bare.toString(), beside.toString()))
+                .as("git opens app.git for app while no app stands beside it")
+                .isTrue();
+        Files.createDirectories(beside);
+        assertThat(RepositoryAddress.same(bare.toString(), beside.toString()))
+                .as("a directory app beside app.git is another repository")
+                .isFalse();
+        assertThat(RepositoryAddress.sameUpstream(bare.toString(), beside.toString()))
+                .as("and an approval for one never holds for the other")
+                .isFalse();
+        assertThat(RepositoryAddress.same("file://" + beside + "/", beside.toString()))
+                .as("one directory in two spellings")
+                .isTrue();
+    }
+
+    @Test
+    void aCheckoutAndItsGitDirectoryAreOneRepository() throws Exception {
+        final Path clone = Files.createDirectories(dir.resolve("clone"));
+        Files.createDirectories(clone.resolve(".git"));
+        assertThat(RepositoryAddress.same(clone.toString(), clone.resolve(".git").toString()))
+                .as("git opens clone/.git for both")
+                .isTrue();
+    }
+
+    // A relative path belongs to a checkout or a file, never to where the daemon was started.
+    @Test
+    void aRelativePathIsNeverResolvedAgainstTheDaemonsDirectory() throws Exception {
+        final Path here =
+                Files.createTempDirectory(
+                        Files.createDirectories(Path.of("target").toAbsolutePath()), "relative");
+        try {
+            final String relative = Path.of("").toAbsolutePath().relativize(here).toString();
+            assertThat(RepositoryAddress.sameUpstream(relative, here.toString()))
+                    .as("an approval for the directory never holds for a relative spelling of it")
+                    .isFalse();
+            assertThat(RepositoryAddress.same(relative, relative))
+                    .as("the same spelling stays the same")
+                    .isTrue();
+        } finally {
+            Files.deleteIfExists(here);
+        }
+    }
+
+    @Test
     void anEntryAddedByAddressIsItsRemotesAsEveryEntryFromBeforeIs() throws Exception {
         final DefaultProject added = new DefaultProject(context());
         added.add("git@github.com:you/lib.git", null, "");

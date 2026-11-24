@@ -22,11 +22,81 @@ final class RepositoryAddress {
      * @param one An address.
      * @param other Another.
      * @return {@code true} when host and path agree, ignoring scheme, user, a trailing {@code .git}
-     *     and the host's case.
+     *     and the host's case; for two paths on this machine, when git opens one directory for
+     *     both.
      */
     static boolean same(final @Nullable String one, final @Nullable String other) {
+        final Boolean directory = sameDirectory(one, other);
+        if (directory != null) {
+            return directory;
+        }
         final String left = key(one);
         return left != null && left.equals(key(other));
+    }
+
+    /**
+     * Says whether two paths on this machine are one repository, by the directory git opens for
+     * each: the path itself when it is a directory, else the path with {@code .git} added. So a
+     * clone {@code app} beside the bare {@code app.git} it was cloned from is another repository,
+     * and its approved work never goes into {@code app.git}; {@code app} for {@code app.git} with
+     * nothing beside it is the same, as git takes it.
+     *
+     * <p>Both missing are left to their spelling, so a record of a repository since removed still
+     * matches as it did; one present and one missing are two repositories. A symlink counts as the
+     * directory it points to when asked.
+     *
+     * @return The answer, or {@code null} when either is no absolute path on this machine or
+     *     neither names a directory, which leaves it to the spelling.
+     */
+    private static @Nullable Boolean sameDirectory(
+            final @Nullable String one, final @Nullable String other) {
+        if (one == null || other == null) {
+            return null;
+        }
+        final String left = one.strip();
+        final String right = other.strip();
+        if (left.isEmpty()
+                || right.isEmpty()
+                || GitCredentialNames.hostOf(left) != null
+                || GitCredentialNames.hostOf(right) != null) {
+            return null;
+        }
+        final java.nio.file.Path leftOpened = opened(left);
+        final java.nio.file.Path rightOpened = opened(right);
+        if (leftOpened == null && rightOpened == null) {
+            return null;
+        }
+        return leftOpened != null && leftOpened.equals(rightOpened);
+    }
+
+    /** The directory git opens for a path on this machine, resolved; {@code null} for none. */
+    private static java.nio.file.@Nullable Path opened(final String local) {
+        final String path =
+                local.startsWith("file://") ? local.substring("file://".length()) : local;
+        try {
+            final java.nio.file.Path given = java.nio.file.Path.of(path).normalize();
+            // Relative to a checkout or a file the caller knows, never to the daemon's directory.
+            if (!given.isAbsolute()) {
+                return null;
+            }
+            if (java.nio.file.Files.isDirectory(given)) {
+                // A checkout is opened through its .git directory, as that directory itself is.
+                final java.nio.file.Path inside = given.resolve(".git");
+                return java.nio.file.Files.isDirectory(inside)
+                        ? inside.toRealPath()
+                        : given.toRealPath();
+            }
+            final java.nio.file.Path name = given.getFileName();
+            if (name != null) {
+                final java.nio.file.Path suffixed = given.resolveSibling(name + ".git");
+                if (java.nio.file.Files.isDirectory(suffixed)) {
+                    return suffixed.toRealPath();
+                }
+            }
+            return null;
+        } catch (java.nio.file.InvalidPathException | java.io.IOException ex) {
+            return null;
+        }
     }
 
     /**
@@ -38,9 +108,14 @@ final class RepositoryAddress {
      * @param one An address.
      * @param other Another.
      * @return {@code true} when host, port and path agree, ignoring scheme, user, a port that is
-     *     its scheme's own, a trailing {@code .git} and the host's case.
+     *     its scheme's own, a trailing {@code .git} and the host's case; for two paths on this
+     *     machine, as {@link #same} decides.
      */
     static boolean sameUpstream(final @Nullable String one, final @Nullable String other) {
+        final Boolean directory = sameDirectory(one, other);
+        if (directory != null) {
+            return directory;
+        }
         final String left = upstreamKey(one);
         return left != null && left.equals(upstreamKey(other));
     }
@@ -121,7 +196,8 @@ final class RepositoryAddress {
 
     /**
      * Returns host and path, lowercased host, no user, no scheme, no {@code .git}; a local path as
-     * it is.
+     * it is. A label, never an identity: two local paths with one key may be two repositories, as
+     * {@link #same} decides, so nothing keys a map by it.
      *
      * @param address The address.
      * @return The key, or {@code null} for none.
