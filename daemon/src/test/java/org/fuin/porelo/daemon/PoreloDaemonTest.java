@@ -801,12 +801,14 @@ class PoreloDaemonTest {
                         return this;
                     }
                 };
+        final ReadingSweep sweep = new ReadingSweep(java.time.Duration.ofMinutes(1));
         TaskMethods.register(
                 capturing,
                 context,
                 org.fuin.porelo.app.TaskInventory.deriving(context),
                 new org.fuin.porelo.app.TaskControl(context),
-                org.fuin.porelo.app.AgentSignInRuns.of(context));
+                org.fuin.porelo.app.AgentSignInRuns.of(context),
+                sweep);
         final List<Map<String, Object>> sent = new java.util.ArrayList<>();
 
         start.get()
@@ -843,6 +845,8 @@ class PoreloDaemonTest {
                                 return true;
                             }
                         });
+
+        sweep.close();
 
         assertThat(sent.getLast())
                 .containsEntry(
