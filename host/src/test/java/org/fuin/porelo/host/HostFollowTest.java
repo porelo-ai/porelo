@@ -434,6 +434,63 @@ class HostFollowTest {
         assertThat(f.commands).noneMatch(a -> a.contains("fetch"));
     }
 
+    private static final String NOTHING_WAITS =
+            "nothing on this host waits for a token; org refresh requires empty standard input";
+
+    private void progress(String alpha) throws IOException {
+        f.write(FollowFixture.ORG + "host-projects.json", "{\"alpha\": " + alpha + "}");
+    }
+
+    // A token is taken only while something waits for one, on a host with a forge as without.
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void aRefreshRefusesATokenWhenNothingWaits(boolean forge) throws Exception {
+        if (forge) f.forge();
+        progress("{\"state\": \"carried\", \"migrated\": true}");
+        final var before = snapshot();
+        refused(() -> f.refresh("private-central-token\n"), 65, NOTHING_WAITS);
+        same(before);
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "{\"state\": \"waiting-for-token\"}",
+                "{\"state\": \"carried\", \"repositories_why\": {\"web\": \"waits for a central token\"}}",
+                "{\"state\": \"carried\", \"repositories_why\": {\"web\": \"held on this host: unpushed\"}}",
+                "{\"state\": \"carried\", \"repositories_why\": {\"web\": \"the follow ended before this repository was taken\"}}"
+            })
+    void aRefreshTakesATokenWhileSomethingWaitsOnAForgeHost(String alpha) throws Exception {
+        f.forge();
+        progress(alpha);
+        takenAndFollowed();
+    }
+
+    @Test
+    void aRefreshTakesATokenWhileAProjectWaitsOnAHostWithoutAForge() throws Exception {
+        progress("{\"state\": \"waiting-for-token\"}");
+        takenAndFollowed();
+    }
+
+    // Before a first pass has recorded anything, the host cannot say that nothing waits.
+    @Test
+    void aRefreshBeforeAnyPassTakesTheToken() throws Exception {
+        f.forge();
+        takenAndFollowed();
+    }
+
+    private void takenAndFollowed() throws Exception {
+        try {
+            f.refresh("private-central-token\n");
+        } catch (HostRefusal ex) {
+            // A later step may still refuse in the fixture; the token was taken all the same.
+            assertThat(ex.getMessage()).doesNotContain("waits for a token");
+        }
+        assertThat(f.commands)
+                .as("the follow ran with the token")
+                .anyMatch(a -> a.contains("fetch"));
+    }
+
     @Test
     void refreshAddsTheReadKeyThroughStdinAlone() throws Exception {
         Files.delete(f.path(FollowFixture.ORG + "read/organization.added"));
@@ -466,7 +523,7 @@ class HostFollowTest {
     void refreshNeverTakesAnUnneededCentralCredential() throws Exception {
         f.run();
         final var before = snapshot();
-        refused(() -> f.refresh("private-token"), 65, "no project waits");
+        refused(() -> f.refresh("private-token"), 65, "nothing on this host waits");
         same(before);
     }
 

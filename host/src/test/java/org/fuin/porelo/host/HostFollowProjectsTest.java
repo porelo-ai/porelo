@@ -72,7 +72,8 @@ class HostFollowProjectsTest {
     // A terminated refresh must be retryable with a fresh token.
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void refreshAcceptsAndClearsStaleTakingProgress(boolean installedForge) throws Exception {
+    void refreshClearsStaleTakingProgressAndRefusesAnUnneededToken(boolean installedForge)
+            throws Exception {
         f.migrated();
         final var item = new LinkedHashMap<>(f.item());
         item.put("state", "taking");
@@ -81,7 +82,9 @@ class HostFollowProjectsTest {
         item.put("taking_total", 1);
         f.write(FollowFixture.ORG + "host-projects.json", HostJson.write(Map.of("alpha", item)));
         if (!installedForge) f.write("/etc/porelo-host/forge.conf", "host=build-host\naccount=\n");
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        // Its repositories all taken, a dead run's taking leaves nothing for a token to do.
+        assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+                .hasMessageContaining("nothing on this host waits for a token");
         assertThat(f.item())
                 .as("the next run removes abandoned progress")
                 .containsEntry("state", "carried")
@@ -243,7 +246,7 @@ class HostFollowProjectsTest {
                                 "central",
                                 "https://forge.example.org/acme/extra.git")));
         f.project.replies.put("POST /repos/migrate", new ProjectFixture.Reply(503, null));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.item())
                 .containsEntry("state", "waiting-for-token")
                 .doesNotContainKeys("taking_since", "taking_total", "taking_done");
@@ -289,7 +292,7 @@ class HostFollowProjectsTest {
                             && done.intValue() == 1)
                         throw new IllegalStateException("copy interrupted");
                 };
-        assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+        assertThatThrownBy(() -> f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN))
                 .isInstanceOf(RuntimeException.class);
         assertThat(f.item())
                 .containsEntry("state", "waiting-for-token")
@@ -471,7 +474,7 @@ class HostFollowProjectsTest {
 
     // Supplying a token when all copies are present must not announce nonexistent work.
     @Test
-    void aTokenRunWithNothingToTakeNeverPublishesTaking() throws Exception {
+    void aTokenWithNothingToTakeIsRefusedAndNeverPublishesTaking() throws Exception {
         f.migrated();
         f.run();
         final var states = new ArrayList<Object>();
@@ -480,11 +483,9 @@ class HostFollowProjectsTest {
                     if (argv.getFirst().endsWith("/setfacl")) states.add(f.item().get("state"));
                 };
         f.processReads = 0;
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
-        assertThat(states)
-                .as("publications were observed throughout the run")
-                .isNotEmpty()
-                .containsOnly("carried");
+        assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+                .hasMessageContaining("nothing on this host waits for a token");
+        assertThat(states).as("what a refused token published").isEmpty();
         assertThat(f.processReads).as("no taking identity is captured for an idle token").isZero();
         assertNoTaking("alpha");
     }
@@ -942,19 +943,12 @@ class HostFollowProjectsTest {
     }
 
     @Test
-    void aCompletedMigrationIsNotRepeatedByRefresh() throws Exception {
+    void aRefreshAfterACompletedMigrationIsRefusedWithoutAMigrateCall() throws Exception {
         f.migrated();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
-        final long before =
-                f.project.calls.stream()
-                        .filter(call -> call.path().equals("/api/v1/repos/migrate"))
-                        .count();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
-        assertThat(
-                        f.project.calls.stream()
-                                .filter(call -> call.path().equals("/api/v1/repos/migrate"))
-                                .count())
-                .isEqualTo(before);
+        // Nothing waits once the migration is done, so the token is refused before any call.
+        assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+                .hasMessageContaining("nothing on this host waits for a token");
+        assertThat(f.project.calls).noneMatch(call -> call.path().equals("/api/v1/repos/migrate"));
         assertThat(f.commands.toString() + f.journal).doesNotContain(ProjectFixture.CENTRAL_TOKEN);
     }
 

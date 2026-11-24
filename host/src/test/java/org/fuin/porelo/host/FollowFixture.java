@@ -448,6 +448,12 @@ final class FollowFixture {
                                 new ByteArrayInputStream(token.getBytes(StandardCharsets.UTF_8))));
     }
 
+    /** A refresh after the timer's pass has recorded what waits, as a person runs one. */
+    Map<String, Object> passThenRefresh(String token) throws IOException {
+        run();
+        return refresh(token);
+    }
+
     void next(String revision) {
         answer.put("revision", revision.repeat(40));
     }

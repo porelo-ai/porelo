@@ -172,8 +172,17 @@ class HostFollowBudgetTest {
                         }
                     }
                 };
+        f.verified.put(
+                "repositories",
+                Map.of(
+                        "extra",
+                        Map.of(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/extra.git")));
         try {
-            f.refresh(ProjectFixture.CENTRAL_TOKEN);
+            f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
             assertThat(waiters.getFirst().get(2, TimeUnit.SECONDS)).isTrue();
         } finally {
             workers.shutdownNow();

@@ -51,7 +51,7 @@ class HostFollowSelectionTest {
                                 "required",
                                 "central",
                                 "https://forge.example.org/acme/engine.git")));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(
                         f.inputs.stream()
                                 .filter(
@@ -163,7 +163,7 @@ class HostFollowSelectionTest {
     @Test
     void newlyMigratedRepositoriesReachMembersPushConfigurationsImmediately() throws Exception {
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         final var configurations =
                 f.inputs.stream()
                         .filter(text -> text.startsWith("# Written by porelo-host org follow"))
@@ -173,15 +173,17 @@ class HostFollowSelectionTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void aRepositoryNoLongerSelectedIsTakenOffWithOrWithoutAToken(boolean token) throws Exception {
+    void aRepositoryNoLongerSelectedIsTakenOffWithoutATokenEvenWhenOneIsOffered(boolean token)
+            throws Exception {
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one"));
         if (token) {
-            f.refresh(ProjectFixture.CENTRAL_TOKEN);
-        } else {
-            f.run();
+            // A take-off alone needs no token: it is refused, and the next pass takes it off.
+            assertThatThrownBy(() -> f.refresh(ProjectFixture.CENTRAL_TOKEN))
+                    .hasMessageContaining("nothing on this host waits for a token");
         }
+        f.run();
         assertThat(f.project.repositories).containsKey("alpha/one").doesNotContainKey("alpha/two");
         assertThat(f.item().get("taken"))
                 .asList()
@@ -200,7 +202,7 @@ class HostFollowSelectionTest {
     @Test
     void unpushedWorkHoldsARepositoryAndTheNextFollowRetriesIt() throws Exception {
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one"));
         f.project.localCommits = "d".repeat(40) + "\n";
         f.run();
@@ -216,7 +218,7 @@ class HostFollowSelectionTest {
         rows();
         final var map = row(f.verified.get("repositories"));
         map.put("own", Map.of("review", "required", "central", ProjectFixture.ADDRESS));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one"));
         f.run();
         assertThat(f.project.repositories).containsKey("alpha/code");
@@ -233,7 +235,7 @@ class HostFollowSelectionTest {
                                 "required",
                                 "central",
                                 "https://forge.example.org/acme/two.git"));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one", "alias"));
         f.run();
         assertThat(f.project.repositories).containsKey("alpha/two");
@@ -243,7 +245,7 @@ class HostFollowSelectionTest {
     void theProjectRecordNamesTheRepositoriesTheCardNames() throws Exception {
         // A record naming none reads as the whole project carried, so every reader asks them all.
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one"));
         f.run();
         assertThat(f.json(FollowFixture.ORG + "projects/alpha.json").get("repositories"))
@@ -255,7 +257,7 @@ class HostFollowSelectionTest {
     void aCardNameNoRecordReaderTakesIsLeftOutOfTheRecord() throws Exception {
         // One name the record's readers refuse made every reader of that record refuse it.
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         // The card takes [a-z0-9._-]; a record's reader refuses an underscore or a leading hyphen.
         f.project().put("repositories", List.of("one", "not_a_name", "-two"));
         f.run();
@@ -272,7 +274,7 @@ class HostFollowSelectionTest {
         if (empty) {
             f.project().put("repositories", List.of());
         }
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.json(FollowFixture.ORG + "projects/alpha.json"))
                 .as("no repositories named")
                 .doesNotContainKey("repositories");
@@ -281,7 +283,7 @@ class HostFollowSelectionTest {
     @Test
     void takingOffWithoutATokenNamesTheDeployKeyLeftAtCentral() throws Exception {
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         f.project().put("repositories", List.of("one"));
         f.run();
         assertThat(f.journal.toString()).contains("read-only deploy key", "stays at", "two.git");
@@ -350,13 +352,13 @@ class HostFollowSelectionTest {
     @Test
     void recreatedForgeOrganizationsDiscardOldMigrationProgress() throws Exception {
         rows();
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         Files.delete(f.path("/etc/porelo-host/projects/alpha.conf"));
         f.project.organizations.clear();
         f.project.repositories.clear();
         f.project.teams.clear();
         f.project.users.remove("porelo-publisher-alpha");
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.project.repositories).containsKeys("alpha/code", "alpha/one", "alpha/two");
     }
 

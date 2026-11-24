@@ -392,7 +392,7 @@ class HostFollowFilesTest {
                                         "required",
                                         "central",
                                         "https://forge.example.org/acme/third.git"))));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.project.repositories).containsKeys("alpha/extra", "alpha/third");
         assertThat(f.item().get("taken")).asList().hasSize(2);
     }
@@ -422,7 +422,7 @@ class HostFollowFilesTest {
                         throw new HostRefusal(69, "fixture repository refused");
                     }
                 };
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.project.repositories).hasSize(2);
         assertThat(row(f.item().get("repositories_why"))).hasSize(1);
     }
@@ -516,7 +516,7 @@ class HostFollowFilesTest {
                                         "required",
                                         "central",
                                         "https://forge.example.org/acme/third.git"))));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.project.repositories)
                 .containsKey("alpha/extra")
                 .doesNotContainKey("alpha/third");
@@ -537,7 +537,7 @@ class HostFollowFilesTest {
                                         "optional",
                                         "central",
                                         "https://forge.example.org/acme/extra.git"))));
-        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        f.passThenRefresh(ProjectFixture.CENTRAL_TOKEN);
         assertThat(f.project.repositories).containsKey("alpha/extra");
     }
 

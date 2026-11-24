@@ -83,9 +83,8 @@ final class HostFollow {
                     context.write(followLock, "", 0600);
                 }
                 context.host.check(followLock, 69, true, false, 0600);
-                final boolean staleTaking =
-                        progress().values().stream()
-                                .anyMatch(value -> "taking".equals(object(value).get("state")));
+                // A dead run's taking becomes what its repositories show, so the check below reads
+                // it.
                 clearProgress();
                 try (var following = HostFollowLock.acquire(followLock)) {
                     final FollowContext bounded =
@@ -103,19 +102,14 @@ final class HostFollow {
                         token = value.getBytes(StandardCharsets.US_ASCII);
                         if (token.length > 0) {
                             if (added()) {
-                                if (bounded.runtime.configuration("porelo-admin") == null
-                                        && !staleTaking
-                                        && progress().values().stream()
-                                                .noneMatch(
-                                                        v ->
-                                                                "waiting-for-token"
-                                                                        .equals(
-                                                                                object(v)
-                                                                                        .get(
-                                                                                                "state")))) {
+                                // Before a first pass has recorded anything, the host cannot say.
+                                final var recorded = progress();
+                                if (!recorded.isEmpty()
+                                        && recorded.values().stream()
+                                                .noneMatch(v -> waitsForAToken(object(v)))) {
                                     throw new HostRefusal(
                                             65,
-                                            "no project waits for a token; org refresh requires empty standard input");
+                                            "nothing on this host waits for a token; org refresh requires empty standard input");
                                 }
                             } else {
                                 addReadKey(bounded, token);
@@ -135,6 +129,24 @@ final class HostFollow {
             Arrays.fill(token, (byte) 0);
             Arrays.fill(supplied, (byte) 0);
         }
+    }
+
+    /**
+     * Whether a project's progress, as the last pass recorded it, needs a central token: the
+     * project waits for one, a repository waits for one or was not reached before the pass ended,
+     * or a repository to be taken off is held on this host, which counts until its work is pushed.
+     * A change of the organization since that pass is seen only by the next one.
+     */
+    static boolean waitsForAToken(Map<String, @Nullable Object> item) {
+        if ("waiting-for-token".equals(item.get("state"))) return true;
+        return optionalObject(item.get("repositories_why")).values().stream()
+                .anyMatch(
+                        why ->
+                                "waits for a central token".equals(why)
+                                        || "the follow ended before this repository was taken"
+                                                .equals(why)
+                                        || (why instanceof String text
+                                                && text.startsWith("held on this host: ")));
     }
 
     private void clearProgress() throws IOException {
