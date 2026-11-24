@@ -102,6 +102,9 @@
              an agent compresses its requests with zstd, and the JDK has no codec for it. -->
         <aircompressor.version>3.10</aircompressor.version>
         <dbus-java.version>5.2.0</dbus-java.version>
+        <!-- Holds the review profile's written SARIF to its bundled schema, in tests only; the version
+             porelo-planner and porelo-buildtools hold their schemas with. -->
+        <json-schema-validator.version>1.5.9</json-schema-validator.version>
         <!-- musl cross-toolchain used for the statically linked hook binaries.
              Install with the build tools' 'musl' command (doc/build.md), or override on the command line. -->
         <musl.home>${user.home}/.local/opt/x86_64-linux-musl-native</musl.home>
@@ -174,6 +177,12 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>aircompressor-v3</artifactId>
                 <version>${aircompressor.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.networknt</groupId>
+                <artifactId>json-schema-validator</artifactId>
+                <version>${json-schema-validator.version}</version>
             </dependency>
 
             <dependency>

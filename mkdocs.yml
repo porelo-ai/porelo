@@ -15,6 +15,7 @@ nav:
           - Commands: commands.md
           - The project file: project-file.md
           - Messages between tasks: messages.md
+          - The review profile: review-profile.md
           - Writing a transport: transports.md
           - Writing a build reader: build-readers.md
           - Writing an ecosystem adapter: ecosystem-adapters.md

@@ -1,0 +1,69 @@
+{
+  "version": "2.1.0",
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "properties": { "porelo/profileVersion": "1" },
+  "runs": [
+    {
+      "tool": { "driver": { "name": "Porelo" } },
+      "versionControlProvenance": [
+        {
+          "repositoryUri": "urn:porelo:repository:shop:app",
+          "revisionId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "columnKind": "unicodeCodePoints",
+      "properties": {
+        "porelo/project": "shop",
+        "porelo/repository": "app",
+        "porelo/push": "fix-login",
+        "porelo/completeness": "complete"
+      },
+      "results": [
+        {
+          "guid": "0b6d1c2e-8f3a-4e5b-a6c7-d8e9f0a1b2c3",
+          "kind": "review",
+          "level": "none",
+          "message": { "text": "Why was this check removed?" },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/main/java/Login.java" },
+                "region": { "startLine": 30, "endLine": 30 }
+              }
+            }
+          ],
+          "properties": {
+            "porelo/anchorKind": "line",
+            "porelo/diffSide": "old",
+            "porelo/threadId": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+            "porelo/threadState": "resolved",
+            "porelo/sourceKind": "owner-account"
+          }
+        },
+        {
+          "guid": "c4d5e6f7-a8b9-4c0d-9e1f-2a3b4c5d6e7f",
+          "kind": "review",
+          "level": "none",
+          "message": { "text": "It moved into TokenCheck; the test covers it." },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/main/java/Login.java" },
+                "region": { "startLine": 30, "endLine": 30 }
+              }
+            }
+          ],
+          "properties": {
+            "porelo/anchorKind": "line",
+            "porelo/diffSide": "old",
+            "porelo/threadId": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+            "porelo/replyTo": "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+            "porelo/threadState": "resolved",
+            "porelo/sourceKind": "task",
+            "porelo/taskId": "shop-2"
+          }
+        }
+      ]
+    }
+  ]
+}
