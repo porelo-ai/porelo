@@ -17,6 +17,12 @@ import org.junit.jupiter.api.io.TempDir;
 /** Test for {@link MessageDispatch}. */
 class MessageDispatchTest {
 
+    /** No message here addresses the review. */
+    private static final ReviewReplies NO_REVIEW =
+            (task, thread, text) -> java.util.Optional.of("no review here");
+
+    private static final MessageDispatch.Tasks NO_TASKS = container -> null;
+
     private final Mail mail =
             new Mail(
                     List.of(
@@ -84,7 +90,7 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"question\",\"to\":\"reviewer\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox));
+                new MessageDispatch(NO_REVIEW, NO_TASKS).dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).containsEntry("m-1.json", "local");
         assertThat(mailbox.queueActive("local").resolve("m-1.json")).exists();
@@ -105,7 +111,8 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-5\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(NO_REVIEW, NO_TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
         assertThat(outcome.held())
@@ -125,7 +132,7 @@ class MessageDispatchTest {
         moderation.set("reviewer", true, null, sending(Mail.ALLOW));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, moderation);
+                new MessageDispatch(NO_REVIEW, NO_TASKS).dispatch(mailbox, mail, moderation);
 
         assertThat(outcome.queued()).isEmpty();
         assertThat(outcome.held())
@@ -146,7 +153,8 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"somebody-else\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(NO_REVIEW, NO_TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
         assertThat(outcome.held())
@@ -162,7 +170,10 @@ class MessageDispatchTest {
     void holds_a_message_that_addresses_nobody(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = accepted(dir, "m-3.json", "{\"messageId\":\"m-3\"}");
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, undecided(mailbox)).held())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, undecided(mailbox))
+                                .held())
                 .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("addresses nobody"));
     }
@@ -180,7 +191,10 @@ class MessageDispatchTest {
                         "m-4.json",
                         "{\"messageId\":\"m-4\",\"metadata\":{\"to\":[\"reviewer\",\"ops\"]}}");
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, undecided(mailbox)).held())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, undecided(mailbox))
+                                .held())
                 .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("not built"));
         assertThat(mailbox.queueActive("local")).doesNotExist();
@@ -202,7 +216,8 @@ class MessageDispatchTest {
                 mailbox.accepted().resolve("m-9.json" + MessageDispatch.RELEASED_SUFFIX), "");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(NO_REVIEW, NO_TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).containsEntry("m-9.json", "local");
         assertThat(mailbox.accepted()).as("the mark goes with the release").isEmptyDirectory();
@@ -217,7 +232,11 @@ class MessageDispatchTest {
         final Moderation denying =
                 new Moderation(
                         refusing.root().resolveSibling("moderation-p.json"), sending(Mail.DENY));
-        assertThat(new MessageDispatch().dispatch(refusing, mail, denying).queued()).isEmpty();
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(refusing, mail, denying)
+                                .queued())
+                .isEmpty();
     }
 
     /**
@@ -240,7 +259,7 @@ class MessageDispatchTest {
                         + "\"findings\":[{\"redactedExcerpt\":\"2c8a****\"}]}}]}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox));
+                new MessageDispatch(NO_REVIEW, NO_TASKS).dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
         assertThat(outcome.held())
@@ -267,7 +286,10 @@ class MessageDispatchTest {
         Files.writeString(
                 mailbox.accepted().resolve("m-8.json" + MessageDispatch.RELEASED_SUFFIX), "");
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox)).queued())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, allowing(mailbox))
+                                .queued())
                 .containsKey("m-8.json");
     }
 
@@ -283,7 +305,10 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-11\",\"metadata\":{\"to\":\"reviewer\"}}");
         Files.delete(mailbox.feedback().resolve("receipt-m-11.json"));
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox)).held())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, allowing(mailbox))
+                                .held())
                 .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("answer to it is missing"));
     }
@@ -309,7 +334,10 @@ class MessageDispatchTest {
             }
         }
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox)).held())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, allowing(mailbox))
+                                .held())
                 .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("would have refused"));
     }
@@ -318,7 +346,10 @@ class MessageDispatchTest {
     void aMessageWhoseIdCannotBeReadWaitsForAPerson(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = accepted(dir, "m-13.json", "{\"metadata\":{\"to\":\"reviewer\"}}");
 
-        assertThat(new MessageDispatch().dispatch(mailbox, mail, allowing(mailbox)).held())
+        assertThat(
+                        new MessageDispatch(NO_REVIEW, NO_TASKS)
+                                .dispatch(mailbox, mail, allowing(mailbox))
+                                .held())
                 .singleElement()
                 .satisfies(held -> assertThat(held.reason()).contains("id cannot be read"));
     }

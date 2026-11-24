@@ -142,8 +142,14 @@ either.
   `task:<project>:<task>`, for one of another project, which is also how `mail.peers` names it. A message's
   `metadata.from` may name its sender either way: by that peer name, or by the whole principal, which passes in
   every project; one that is absent or `null` names nobody. A message whose `metadata.from` names anyone else is
-  held. No task is named `people` or `person`, the names the room's people and a person's own note go by. One
+  held. No task is named `people`, `person` or `review`, the names the room's people, a person's own note and the
+  review go by. One
   from an `external` peer, or one the project does not list, is also put through the filter on the way in.
+- **A task's message to `review` is a reply to a thread of the review of its own work**, never sent anywhere:
+  after the filter has passed it (and a person has released it, when the filter only reported a finding), the host
+  hands it to the review as the task whose mailbox it came through, whatever its `metadata.from` says. It is
+  `metadata.kind` `comment`, names its thread in `metadata.thread` and has exactly one text part; one of any other
+  shape, or one the review refuses, comes back to the task with the reason. No peer is named `review`.
 - **No order is promised, and nothing is delivered twice**: a message whose id already reached a mailbox is
   dropped and logged.
 - **The mailbox lives exactly as long as the task**: a stop, a start or a reboot leave it as it was, and the
@@ -249,6 +255,26 @@ A message is one JSON object (A2A 1.0):
 - `contextId` is optional: keep the one of the message you answer, to keep a conversation
   together.
 - Nothing else is needed: no `extensions`, no `kind` at the top level.
+
+### Replying in a review
+
+A review of your work may hold threads that ask you something. Answer one with a message to
+`review`, which is not on `/run/porelo/mail/agent-card.json` and reaches no person or task directly: it is added to the
+thread as your reply.
+
+```json
+{
+  "messageId": "a-unique-id-of-yours",
+  "role": "ROLE_AGENT",
+  "parts": [ { "text": "Your reply." } ],
+  "metadata": { "to": "review", "kind": "comment", "thread": "the thread's id" }
+}
+```
+
+- `metadata.kind` is `"comment"` and `metadata.thread` names the thread you answer.
+- Exactly one text part, and no other part.
+- You can answer only the threads of your own work. A reply that is refused comes back
+  into `inbox/new/` with the reason.
 
 ### What does not travel
 

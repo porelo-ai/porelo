@@ -99,6 +99,9 @@ public final class ProjectFileCheck {
 
     private static final String PERSON = "person";
 
+    /** Where a task's reply to the review goes, which no peer may take. */
+    private static final String REVIEW = "review";
+
     /** A peer's name: one of the plain names, or a task of another project as its principal. */
     private static final Pattern PEER =
             Pattern.compile(
@@ -108,6 +111,8 @@ public final class ProjectFileCheck {
                             + PEOPLE
                             + "|"
                             + PERSON
+                            + "|"
+                            + REVIEW
                             + "|[0-9]+)\\z|porelo-)"
                             + TASK_NAME);
 
@@ -1105,6 +1110,15 @@ public final class ProjectFileCheck {
                                                 + " underscore, dot and at sign, starting with a"
                                                 + " letter or digit, or a task of another project"
                                                 + " as 'task:<project>:<task>'");
+                            } else if (REVIEW.equals(name)) {
+                                fault(
+                                        path,
+                                        "'"
+                                                + path
+                                                + "': no peer may be named '"
+                                                + REVIEW
+                                                + "', since a task's message to it is a reply to"
+                                                + " this machine's review");
                             }
                             final String address = peer.address();
                             if (address == null) {

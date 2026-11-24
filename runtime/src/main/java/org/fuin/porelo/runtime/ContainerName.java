@@ -154,15 +154,15 @@ public final class ContainerName {
             java.util.regex.Pattern.compile(Project.TASK_NAME_PATTERN);
 
     /**
-     * Tells whether a task name is one a message names somebody else by: the room's people, or a
-     * person's own note. A task of that name would have its every message held, or pass as a
-     * person's.
+     * Tells whether a task name is one a message names somebody else by: the room's people, a
+     * person's own note, or this machine's review. A task of that name would have its every message
+     * held, pass as a person's, or have the messages meant for it taken as replies to the review.
      *
      * @param task Task name.
      * @return {@code true} when no task may have it.
      */
     public static boolean reserved(String task) {
-        return Mail.PEOPLE.equals(task) || Mail.PERSON.equals(task);
+        return Mail.PEOPLE.equals(task) || Mail.PERSON.equals(task) || Mail.REVIEW.equals(task);
     }
 
     /**
@@ -202,8 +202,8 @@ public final class ContainerName {
             return java.util.Optional.of(
                     "'"
                             + task
-                            + "' is not a task name: a message names the room's people or a"
-                            + " person by it");
+                            + "' is not a task name: a message names the room's people, a"
+                            + " person or this machine's review by it");
         }
         if (task.startsWith(PREFIX)) {
             // A start takes 'porelo-<project>-<task>' for the task it names, so such a name would

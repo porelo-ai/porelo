@@ -53,6 +53,12 @@ public record Mail(
     /** Who a person's own note to a task is from, as {@code metadata.from} names it. */
     public static final String PERSON = "person";
 
+    /**
+     * Where a task's reply to a review thread goes, as {@code metadata.to} names it: taken by this
+     * machine's review, never by a transport, so no peer and no task may have the name.
+     */
+    public static final String REVIEW = "review";
+
     /** The setting under {@code mail} that holds the rules. */
     public static final String RULES = "rules";
 
@@ -250,8 +256,9 @@ public record Mail(
          * <p>The second form takes exactly the tasks a start can make, in one expression another
          * filter can copy: at most 57 characters after {@code task:}, since the container name
          * {@code porelo-<project>-<task>} has at most 64, and no task named {@value #PEOPLE},
-         * {@value #PERSON} or only digits, or beginning {@code porelo-}, as a container's name
-         * does.
+         * {@value #PERSON}, {@value #REVIEW} or only digits, or beginning {@code porelo-}, as a
+         * container's name does. The first form takes any name but {@value #REVIEW}, which this
+         * machine's review answers to.
          */
         public static final String NAME_PATTERN =
                 "[a-zA-Z0-9][a-zA-Z0-9_.@-]*|task:(?=[a-z0-9:-]{3,57}\\z)"
@@ -260,6 +267,8 @@ public record Mail(
                         + PEOPLE
                         + "|"
                         + PERSON
+                        + "|"
+                        + REVIEW
                         + "|[0-9]+)\\z|porelo-)"
                         + Project.TASK_NAME_PATTERN;
 
@@ -288,6 +297,12 @@ public record Mail(
                                 + " and at sign, starting with a letter or digit, or a task of"
                                 + " another project as 'task:<project>:<task>': "
                                 + name);
+            }
+            if (REVIEW.equals(name)) {
+                throw new ProjectException(
+                        "A peer cannot be named '"
+                                + REVIEW
+                                + "': a task's message to it is a reply to this machine's review");
             }
             if (address == null
                     || !ADDRESS.matcher(address).matches()

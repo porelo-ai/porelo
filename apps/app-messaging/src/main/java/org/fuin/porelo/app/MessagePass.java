@@ -62,6 +62,13 @@ public final class MessagePass {
 
     private TransportSend.Marks marks = container -> "";
 
+    // Until a pass is told which task a mailbox belongs to, a reply to a review is known to come
+    // from no task and is refused before anything here is asked.
+    private ReviewReplies replies =
+            (task, thread, text) -> java.util.Optional.of("this pass takes no review replies");
+
+    private MessageDispatch.Tasks tasks = container -> null;
+
     /**
      * Constructor.
      *
@@ -123,7 +130,7 @@ public final class MessagePass {
         return new Report(
                 List.of(),
                 new MessageFiltering.Outcome(false, 0, "the task was removed"),
-                new MessageDispatch.Outcome(Map.of(), List.of(), Map.of()),
+                new MessageDispatch.Outcome(Map.of(), List.of(), Map.of(), List.of()),
                 Map.of(),
                 new MessageDelivery.Outcome(List.of(), List.of(), List.of()),
                 List.of(),
@@ -180,12 +187,13 @@ public final class MessagePass {
         final String sending = marks.of(mailbox.root().getFileName().toString());
         final MessageBudget budget = new MessageBudget(record, mail);
         MessageDispatch.Outcome dispatched =
-                new MessageDispatch.Outcome(Map.of(), List.of(), Map.of());
+                new MessageDispatch.Outcome(Map.of(), List.of(), Map.of(), List.of());
         final Map<String, TransportSend.Result> sent = new LinkedHashMap<>();
         if (filtered.ran()) {
             // Even after exit 2: accepted/ holds only what the filter checked and passed; one not
             // judged stays in incoming/.
-            dispatched = new MessageDispatch().dispatch(mailbox, mail, moderation, budget);
+            dispatched =
+                    new MessageDispatch(replies, tasks).dispatch(mailbox, mail, moderation, budget);
             for (final Map.Entry<String, String> queued : dispatched.queued().entrySet()) {
                 record.append(
                         MessageRecord.QUEUED,
@@ -213,6 +221,17 @@ public final class MessagePass {
                                 mailbox.hold().resolve(stuck.message()),
                                 "it was not sent: " + stuck.reason(),
                                 false);
+            }
+            for (final MessageDelivery.Held refused : dispatched.refused()) {
+                // Answered already, where it was refused; recorded as a refusal of a transport is.
+                record.append(
+                        MessageRecord.HELD,
+                        refused.message(),
+                        "",
+                        "",
+                        refused.reason(),
+                        MessageRecord.OUT,
+                        MessageRead.joined(record.markOf(refused.message()), sending));
             }
             final TransportSend send = new TransportSend(runner, transports, acting, marks, limits);
             // A project with no peer and no conversation asks no transport anything, whatever a
@@ -380,6 +399,17 @@ public final class MessagePass {
      */
     public void marking(final TransportSend.Marks marking) {
         this.marks = marking;
+    }
+
+    /**
+     * Says where a task's reply to a review thread goes, for the passes that follow.
+     *
+     * @param review Takes the reply.
+     * @param owners Which task each mailbox belongs to, by the host's own record.
+     */
+    public void replying(final ReviewReplies review, final MessageDispatch.Tasks owners) {
+        this.replies = review;
+        this.tasks = owners;
     }
 
     /**

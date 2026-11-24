@@ -152,6 +152,26 @@ public final class MailboxGuide {
                   together.
                 - Nothing else is needed: no `extensions`, no `kind` at the top level.
 
+                ## Replying in a review
+
+                A review of your work may hold threads that ask you something. Answer one with a message to
+                `@REVIEW@`, which is not on `@CARD@` and reaches no person or task directly: it is added to the
+                thread as your reply.
+
+                ```json
+                {
+                  "messageId": "a-unique-id-of-yours",
+                  "role": "@ROLE@",
+                  "parts": [ { "text": "Your reply." } ],
+                  "metadata": { "to": "@REVIEW@", "kind": "@KIND@", "thread": "the thread's id" }
+                }
+                ```
+
+                - `metadata.kind` is `"@KIND@"` and `metadata.thread` names the thread you answer.
+                - Exactly one text part, and no other part.
+                - You can answer only the threads of your own work. A reply that is refused comes back
+                  into `inbox/new/` with the reason.
+
                 ## What does not travel
 
                 Every message you send is checked before it leaves, and only plain English prose passes.
@@ -165,6 +185,8 @@ public final class MailboxGuide {
                 .replace("@MAIL@", mail)
                 .replace("@CARD@", Mailbox.CARD)
                 .replace("@PEOPLE@", Mail.PEOPLE)
+                .replace("@REVIEW@", Mail.REVIEW)
+                .replace("@KIND@", MessageDispatch.Reply.KIND)
                 .replace("@ROLE@", MessageIntake.AGENT);
     }
 

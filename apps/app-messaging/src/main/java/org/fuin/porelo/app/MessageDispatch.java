@@ -32,17 +32,51 @@ public final class MessageDispatch {
      *
      * @param queued Message file name to the transport it was queued for.
      * @param held Messages that reached no queue, with why.
+     * @param peers Message file name to the peer it was queued for.
+     * @param refused Replies to the review it refused for good, with why; their sender was answered
+     *     already.
      */
     public record Outcome(
             Map<String, String> queued,
             List<MessageDelivery.Held> held,
-            Map<String, String> peers) {}
+            Map<String, String> peers,
+            List<MessageDelivery.Held> refused) {}
 
     /**
      * Beside a message in {@code accepted/}: a person released it, so no mode or hold keeps it
      * back.
      */
     static final String RELEASED_SUFFIX = ".released";
+
+    /** The host's record of which task a mailbox belongs to. */
+    @FunctionalInterface
+    public interface Tasks {
+
+        /**
+         * Returns the task a mailbox belongs to.
+         *
+         * @param container The mailbox's own name, the task's container.
+         * @return The task as this machine recorded it, or {@code null} when no task of this
+         *     machine owns it.
+         */
+        @org.jspecify.annotations.Nullable
+        TaskIdentity of(String container);
+    }
+
+    private final ReviewReplies replies;
+
+    private final Tasks tasks;
+
+    /**
+     * Constructor.
+     *
+     * @param replies Takes a task's reply to a review thread.
+     * @param tasks Which task each mailbox belongs to.
+     */
+    public MessageDispatch(final ReviewReplies replies, final Tasks tasks) {
+        this.replies = replies;
+        this.tasks = tasks;
+    }
 
     /**
      * Queues every accepted message whose peer a person has not held.
@@ -79,6 +113,7 @@ public final class MessageDispatch {
         final Map<String, String> addressedTo = new LinkedHashMap<>();
         final Map<String, Integer> queuedNow = new LinkedHashMap<>();
         final List<MessageDelivery.Held> held = new ArrayList<>();
+        final List<MessageDelivery.Held> refused = new ArrayList<>();
         for (final Path message : accepted(mailbox.accepted())) {
             final String name = message.getFileName().toString();
             final List<String> addressed = addressees(message);
@@ -95,6 +130,11 @@ public final class MessageDispatch {
                                         : "it addresses "
                                                 + addressed.size()
                                                 + " peers, and sending to more than one is not built"));
+                continue;
+            }
+            // Before the peer lookup: the review is no peer, and no project can make it one.
+            if (Mail.REVIEW.equals(addressed.get(0))) {
+                reply(mailbox, message, name, held, refused);
                 continue;
             }
             final Mail.Peer peer = mail.peer(addressed.get(0));
@@ -156,7 +196,104 @@ public final class MessageDispatch {
             addressedTo.put(name, peer.name());
             queuedNow.merge(peer.name(), 1, Integer::sum);
         }
-        return new Outcome(queued, held, addressedTo);
+        return new Outcome(queued, held, addressedTo, refused);
+    }
+
+    /**
+     * Hands a task's reply to the review, as the task whose mailbox it came through.
+     *
+     * <p>The message chooses the thread; nothing in it chooses the task. Its {@code metadata.from}
+     * is the task's own word and is never read here: the review is told the task as the host's own
+     * record gives the mailbox, its project and recorded container with its name, so a reply can
+     * only ever speak for the task that wrote it.
+     */
+    private void reply(
+            final Mailbox mailbox,
+            final Path message,
+            final String name,
+            final List<MessageDelivery.Held> held,
+            final List<MessageDelivery.Held> refused)
+            throws IOException {
+        final Path released = mailbox.accepted().resolve(name + RELEASED_SUFFIX);
+        // What the filter flagged waits for a person, as any message does.
+        final String flagged =
+                Files.isRegularFile(released)
+                        ? ""
+                        : MessageLookup.heldBack(mailbox, MessageFile.id(message));
+        if (!flagged.isEmpty()) {
+            hold(mailbox, message, name);
+            held.add(new MessageDelivery.Held(name, flagged));
+            return;
+        }
+        final Reply reply = Reply.of(Json.parse(Files.readString(message, StandardCharsets.UTF_8)));
+        final TaskIdentity task = tasks.of(mailbox.root().getFileName().toString());
+        String why = reply.refusal();
+        if (why.isEmpty() && task == null) {
+            why = "no task of this machine owns the mailbox it came through";
+        }
+        if (why.isEmpty() && task != null) {
+            why = replies.take(task, reply.thread(), reply.text()).orElse("");
+        }
+        Files.deleteIfExists(released);
+        if (why.isEmpty()) {
+            // Kept by the review, which holds it from now on.
+            Files.deleteIfExists(mailbox.accepted().resolve(name + ".sig"));
+            Files.delete(message);
+            return;
+        }
+        // Final, so it lies with what the filter refused rather than with what a person may
+        // release: the same reply would be refused again.
+        move(mailbox.accepted().resolve(name + ".sig"), mailbox.rejected().resolve(name + ".sig"));
+        final Path rejected = mailbox.rejected().resolve(name);
+        Files.move(message, rejected, StandardCopyOption.REPLACE_EXISTING);
+        final String reason = "it was not taken by the review: " + why;
+        new HostBounce().write(mailbox, rejected, reason, true);
+        refused.add(new MessageDelivery.Held(name, reason));
+    }
+
+    /**
+     * A reply to a review thread as its message carries it: {@code metadata.kind} {@code comment},
+     * {@code metadata.thread} and one text part.
+     *
+     * @param thread The thread it answers, or {@code ""} when refused.
+     * @param text Its text, or {@code ""} when refused.
+     * @param refusal Why the message is no reply, or {@code ""} when it is one. Never quotes it.
+     */
+    record Reply(String thread, String text, String refusal) {
+
+        /** The only kind a reply has. */
+        static final String KIND = "comment";
+
+        static Reply of(final @org.jspecify.annotations.Nullable Object parsed) {
+            if (!(parsed instanceof Map<?, ?> document)
+                    || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
+                return refused("a reply to the review is a message with metadata");
+            }
+            if (!KIND.equals(metadata.get("kind"))) {
+                return refused(
+                        "a reply to the review has metadata.kind '" + KIND + "', and nothing else");
+            }
+            if (!(metadata.get("thread") instanceof String thread) || thread.isBlank()) {
+                return refused(
+                        "a reply to the review names the thread it answers in metadata.thread");
+            }
+            // One text part and nothing else: a task never sends the review a report, only words.
+            if (!(document.get("parts") instanceof List<?> parts)
+                    || parts.size() != 1
+                    || !(parts.get(0) instanceof Map<?, ?> part)
+                    || !(part.get("text") instanceof String text)
+                    || part.containsKey("data")
+                    || part.containsKey("raw")
+                    || part.containsKey("url")
+                    || part.containsKey("file")) {
+                return refused("a reply to the review has exactly one text part and no other part");
+            }
+            return new Reply(thread, text, "");
+        }
+
+        private static Reply refused(final String why) {
+            return new Reply("", "", why);
+        }
     }
 
     private List<String> addressees(final Path message) throws IOException {

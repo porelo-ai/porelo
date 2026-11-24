@@ -237,7 +237,7 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   running first, and chosen by number. With nobody to ask (no terminal, `--no-input`, `--yes`, `--dry-run`) nothing
   starts: each task is named with `porelo task attach <task>` or `porelo task start <task>`, exit 75. A new task
   is named after its repository, or the next free name (`my-first-2`); a repository
-  named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
+  named `people`, `person` or `review` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
   long for the container name's 64 characters is cut back to its last whole word that fits. When the repository's own
   name is held, a line before the task line says which name and by what: `name my-first is held by the task my-first;
   this task is my-first-2` (the holder is "the task NAME", "a container of that name" or "a start reserving it"). The
@@ -1511,8 +1511,8 @@ that would work.
   `-p`, name it with `--repository`, even if the project has only one. The project's own repository
   (holding `project.yml`) is named after the project, and a task works there only in a project that lists no others.
 - A task name is lowercase letters, digits and hyphens, starts and ends with a letter or digit, is not
-  only digits, is neither `people` nor `person` (the names a message gives the room's people and a person's own
-  note), does not begin with `porelo-`, the beginning of a container's name, and its name in a transport's
+  only digits, is none of `people`, `person` and `review` (the names a message gives the room's people, a person's own
+  note and a review thread), does not begin with `porelo-`, the beginning of a container's name, and its name in a transport's
   contract, `porelo-<project>-<task>`, is at most 64 characters. A container name such as
   `porelo-myproject_backend` is taken as the task its recorded identity names, `backend`.
 

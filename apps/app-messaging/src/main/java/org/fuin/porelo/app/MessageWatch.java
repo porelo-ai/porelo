@@ -375,7 +375,23 @@ public final class MessageWatch implements AutoCloseable {
                         context.paths().messaging().transportDirectory(),
                         context.limits());
         pass.marking(marks());
+        // The review's assembly wires its intake here; until then every reply is refused in words
+        // the task can read.
+        pass.replying(
+                (task, thread, text) -> java.util.Optional.of("review replies are not wired yet"),
+                this::taskOf);
         return pass;
+    }
+
+    /**
+     * Returns the task a mailbox belongs to, by what this machine recorded for its container.
+     *
+     * @param container The mailbox's own name.
+     * @return The task as this machine recorded it, or {@code null} when no task of this machine
+     *     owns it.
+     */
+    private @org.jspecify.annotations.Nullable TaskIdentity taskOf(final String container) {
+        return TaskRecipients.identity(context, container, projectOf(container));
     }
 
     /**

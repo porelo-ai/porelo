@@ -122,7 +122,7 @@ public final class TaskNames {
                         .replaceFirst("^[._]+", "")
                         .replaceFirst("^(porelo-)+", "")
                         .replace('.', '-');
-        // A repository named like the room's people or a person names no task.
+        // A repository named like the room's people, a person or the review names no task.
         if (base.isEmpty() || ContainerName.reserved(base)) {
             base = "work";
         }

@@ -14,13 +14,14 @@ public interface ReviewReplies {
     /**
      * Takes one reply.
      *
-     * @param taskId The name of the task that sent it, from the mailbox it came through, never from
-     *     the message's own words; the assembly takes the push from that task's current container,
-     *     so a task started later under the same name reaches no older thread.
+     * @param task The task that sent it, as this machine recorded it for the mailbox the reply came
+     *     through, never from the message's own words; the assembly binds the reply to the push
+     *     recorded for this identity's project and recorded container id, so a later task of the
+     *     same name, or a task of another project, reaches no thread of it.
      * @param thread The thread it answers, from the message's metadata.
      * @param text The reply's text.
      * @return The refusal's words (its error name and rule, never the reply's text), which bounce
      *     to the task, or empty when the reply was kept.
      */
-    Optional<String> take(String taskId, String thread, String text);
+    Optional<String> take(TaskIdentity task, String thread, String text);
 }
