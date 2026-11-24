@@ -362,9 +362,21 @@ final class HostIdentity {
         for (ProjectReadKeys.Manifest manifest : manifests.values()) {
             checkDirectory(manifest.directory(), true);
         }
+        // A kept file an earlier import could not put back may be the only copy of what it held.
+        for (HostWrite write : hostWrites) {
+            refuseKept(write.path());
+        }
+        for (String project : grown) {
+            refuseKept(
+                    java.util.Objects.requireNonNull(
+                                    manifests.get(project), "A grown manifest was read")
+                            .directory()
+                            .resolve("repositories.json"));
+        }
         // Every precondition is checked; from here a failure puts back what was replaced.
         final List<ProjectFiles.Writing> undo = new ArrayList<>();
         final List<Path> backups = new ArrayList<>();
+        boolean putBack = true;
         try {
             // The host keys first, then the organization tree.
             for (HostWrite write : hostWrites) {
@@ -397,13 +409,18 @@ final class HostIdentity {
                 try {
                     step.run();
                 } catch (IOException | RuntimeException failed) {
+                    putBack = false;
                     ex.addSuppressed(failed);
                 }
             }
             throw ex;
         } finally {
-            for (Path backup : backups) {
-                files.delete(backup);
+            // A kept file not put back stays: it may hold the only copy of an old host key, and
+            // the next import refuses while it lies there.
+            if (putBack) {
+                for (Path backup : backups) {
+                    files.delete(backup);
+                }
             }
         }
         return !hostWrites.isEmpty() || !writes.isEmpty() || !grown.isEmpty();
@@ -414,17 +431,33 @@ final class HostIdentity {
      * puts the same file back, its owner, group and mode with it; a file that was missing is
      * removed again.
      */
+    private Path kept(Path path) {
+        return ProjectFiles.parent(path)
+                .resolve(ProjectFiles.STAGED_PREFIX + "kept." + path.getFileName());
+    }
+
+    /**
+     * Refuses, with nothing changed, while a kept file an earlier import left lies beside a path.
+     */
+    private void refuseKept(Path path) {
+        final Path kept = kept(path);
+        if (files.exists(kept)) {
+            throw new HostRefusal(
+                    69,
+                    kept
+                            + " is what an earlier import could not put back over "
+                            + path
+                            + "; move it back or remove it, then import again; nothing changed");
+        }
+    }
+
     private void keep(Path path, List<ProjectFiles.Writing> undo, List<Path> backups)
             throws IOException {
         if (!files.exists(path)) {
             undo.add(() -> files.delete(path));
             return;
         }
-        final Path backup =
-                ProjectFiles.parent(path)
-                        .resolve(ProjectFiles.STAGED_PREFIX + "kept." + path.getFileName());
-        // One an earlier run left is its own kept copy, which that run no longer needs.
-        files.delete(backup);
+        final Path backup = kept(path);
         ProjectFiles.write(path, () -> Files.createLink(backup, path));
         backups.add(backup);
         undo.add(() -> files.replace(backup, path));

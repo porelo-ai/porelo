@@ -150,7 +150,9 @@ and the host key a person's machine pinned stay the same.
   - **A host that already carries an identity**, or holds anything under its read keys, gets only what is missing.
 
   Every check, the modes of the directories it writes into included, is made before the first write. A write that
-  fails after the first one puts back what the import replaced or removed and removes what it added. Each public
+  fails after the first one puts back what the import replaced or removed and removes what it added. Before it
+  replaces a file, it keeps the old one as a second link beside it, `.porelo-host.kept.<name>`; when putting one back
+  fails too, that link stays, since it may hold the only copy of an old host key. Each public
   half is derived by `ssh-keygen` from a private file in `/run/porelo-host/identity-scratch`, root's alone and
   cleared at reboot, which the import removes when it ends, an earlier run's included.
 
@@ -160,6 +162,8 @@ and the host key a person's machine pinned stay the same.
   - a key that is not one unencrypted OpenSSH key whose public half, derived by `ssh-keygen`, is its `public`;
   - on a host that already carries an identity, a key or manifest entry that differs, or a host key of a type the
     identity does not carry.
+  - while a `.porelo-host.kept.<name>` an earlier import could not put back lies beside a file it would replace,
+    naming it, so a person moves it back or removes it first.
 
   It answers one line: `imported` when it wrote or removed a file, `unchanged` when the identity was already there.
   It does not restart sshd; the play does.

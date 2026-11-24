@@ -773,6 +773,54 @@ class HostIdentityTest {
     }
 
     @Test
+    void aHostKeyAnUndoCouldNotPutBackIsKeptAndTheNextImportRefusesWhileItLies() throws Exception {
+        // When putting back fails too, the kept link may be the only copy of the host's old key.
+        final String identity = export(source).out();
+        final HostReadFixture target = firstBoot("target");
+        final Path key = target.root.resolve("etc/ssh/ssh_host_ed25519_key");
+        final Path kept =
+                key.resolveSibling(ProjectFiles.STAGED_PREFIX + "kept." + key.getFileName());
+        final boolean[] failed = {false};
+        deleting =
+                path -> {
+                    if (!failed[0]
+                            && path.toString().contains("/projects/beta/")
+                            && path.getFileName().toString().startsWith(".repositories-")) {
+                        failed[0] = true;
+                        // The key's place is taken, so the undo cannot move the kept key back.
+                        Files.delete(key);
+                        Files.createDirectories(key.resolve("taken"));
+                        throw new IOException("fixture: the disk fails while beta is written");
+                    }
+                    Files.deleteIfExists(path);
+                };
+
+        final var failing = importing(target, identity);
+
+        assertThat(failed[0]).as("the failure came after the host keys were written").isTrue();
+        assertThat(failing.code()).as(failing.err()).isNotZero();
+        assertThat(kept).as("the old key's only copy is not deleted").isRegularFile();
+        assertThat(Files.readString(kept)).isEqualTo(firstBootEd25519.privateText);
+        assertNoKeyText(failing, true);
+
+        deleting = path -> Files.deleteIfExists(path);
+        Files.delete(key.resolve("taken"));
+        Files.delete(key);
+        final Map<String, String> before = snapshot(target.root, false);
+
+        final var again = importing(target, identity);
+
+        assertThat(again.code()).as(again.err()).isNotZero();
+        assertThat(again.err())
+                .as("the refusal names the kept file, so a person can put it back or remove it")
+                .contains(kept.getFileName().toString());
+        assertThat(snapshot(target.root, false))
+                .as("nothing changed, the kept key included")
+                .isEqualTo(before);
+        assertNoKeyText(again, true);
+    }
+
+    @Test
     void aHostWithAnythingUnderItsReadKeysIsNotFreshAndADifferingHostKeyIsRefused()
             throws Exception {
         final String identity = export(source).out();
