@@ -1,0 +1,2 @@
+title: A review comment is checked against the exact tree of its side's commit, its path, lines, text and replacement by fixed rules, and each refusal names the rule it broke
+type: added

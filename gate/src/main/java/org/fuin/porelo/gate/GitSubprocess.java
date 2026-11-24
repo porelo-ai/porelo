@@ -105,11 +105,35 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
 
         // Read from the file and written as it comes: a push or a fetch is held by neither side in
         // memory whole.
-        final Process process =
-                configured(new ProcessBuilder(command))
-                        .redirectInput(input.toFile())
-                        .redirectError(ProcessBuilder.Redirect.DISCARD)
-                        .start();
+        transfer(
+                arguments,
+                configured(new ProcessBuilder(command)).redirectInput(input.toFile()),
+                output,
+                false);
+    }
+
+    /**
+     * Runs git without input and hands its output to {@code output} as it comes, so the caller
+     * keeps only what it needs; a git that exits other than 0 fails, as {@link #runOrFail} does.
+     *
+     * @param arguments The arguments after the program.
+     * @param output Takes the output; an exception it throws ends git.
+     * @throws IOException When git cannot be run, takes too long, exits other than 0, or the output
+     *     cannot be taken.
+     */
+    public void streamOrFail(List<String> arguments, OutputStream output) throws IOException {
+        final List<String> command = new ArrayList<>(List.of(executable));
+        command.addAll(arguments);
+        transfer(arguments, configured(new ProcessBuilder(command)), output, true);
+    }
+
+    private void transfer(
+            List<String> arguments,
+            ProcessBuilder builder,
+            OutputStream output,
+            boolean mustSucceed)
+            throws IOException {
+        final Process process = builder.redirectError(ProcessBuilder.Redirect.DISCARD).start();
         // The limit runs from the start, on a thread of its own: a git that hangs is ended, and the
         // copy below with it.
         final Thread watch =
@@ -125,6 +149,10 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
                                     }
                                 });
         try (java.io.InputStream in = process.getInputStream()) {
+            if (builder.redirectInput().equals(ProcessBuilder.Redirect.PIPE)) {
+                // Given no input, git reads an end at once.
+                process.getOutputStream().close();
+            }
             in.transferTo(output);
             if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
                 throw new IOException(
@@ -133,6 +161,10 @@ public class GitSubprocess implements GitHttpServer.GitProcess {
                                 + " timed out after "
                                 + timeoutSeconds
                                 + " s");
+            }
+            if (mustSucceed && process.exitValue() != 0) {
+                throw new IOException(
+                        "git " + arguments.getFirst() + " exited " + process.exitValue());
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
