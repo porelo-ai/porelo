@@ -808,13 +808,11 @@ public final class PoreloHost implements Callable<Integer> {
             }
             final var conf = host.files.path("/etc/porelo-host/forge.conf");
             host.files.check(conf, 69, true, false, -1);
-            try (var lock = HostConfigurationLock.acquire(conf, true)) {
-                final var status = new HostOrganization(host.files).status();
-                if (json) {
-                    spec.commandLine().getOut().println(HostJson.write(status));
-                } else {
-                    spec.commandLine().getOut().println(HostStatusView.summary(status));
-                }
+            final var status = new HostOrganization(host.files).status();
+            if (json) {
+                spec.commandLine().getOut().println(HostJson.write(status));
+            } else {
+                spec.commandLine().getOut().println(HostStatusView.summary(status));
             }
             return 0;
         }

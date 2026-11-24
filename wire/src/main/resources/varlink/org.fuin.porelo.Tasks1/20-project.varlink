@@ -17,7 +17,7 @@ type Project (
   # it to say so. TakeProject brings the file, when the person acts on this row; false everywhere
   # else, and once the file is here.
   carried: bool,
-  # The host's published project progress: pending, carried, waiting-for-token, held or refused.
+  # The host's published project progress: pending, carried, taking, waiting-for-token, held or refused.
   # cannot-say when the checked publication is unavailable or refused. Absent off a host and
   # for a valid older publication without progress. A state other than carried withholds carrying.
   hostState: ?string,
@@ -25,6 +25,12 @@ type Project (
   # Absent when there is no explanation. waiting-for-token needs the person's forge token once
   # per new repository to install its read key and copy it; the host keeps no token.
   hostWhy: ?string,
+  # Completed copies in the current taking run. Absent in every other state and while counting.
+  hostTakingDone: ?int,
+  # Deduplicated repositories to copy in this taking run. Absent while counting or outside taking.
+  hostTakingTotal: ?int,
+  # UTC instant when this project's current taking run began. Absent outside taking.
+  hostTakingSince: ?string,
   # The project's host file and why it does not read. Absent when the file reads or this machine
   # is no host of the project for this person; other projects remain listed when one file fails.
   hostFileError: ?string,

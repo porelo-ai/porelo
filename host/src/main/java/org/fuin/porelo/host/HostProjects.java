@@ -27,6 +27,20 @@ final class HostProjects {
 
     List<Map<String, @Nullable Object>> status(@Nullable Map<String, @Nullable Object> applied) {
         final Map<String, @Nullable Object> entries = progress();
+        final boolean taking =
+                entries.values().stream()
+                        .anyMatch(value -> "taking".equals(object(value).get("state")));
+        if (taking && !following(files)) {
+            entries.replaceAll(
+                    (name, value) -> {
+                        final var item = object(value);
+                        if ("taking".equals(item.get("state"))) {
+                            item.put("state", waiting(item) ? "waiting-for-token" : "carried");
+                            clearTaking(item);
+                        }
+                        return item;
+                    });
+        }
         if (applied != null) {
             for (Object value : array(applied.get("projects"))) {
                 final Map<String, @Nullable Object> project = object(value);
@@ -59,7 +73,7 @@ final class HostProjects {
                 .forEach(
                         (project, value) -> {
                             final Map<String, @Nullable Object> item = object(value);
-                            result.add(
+                            final var status =
                                     fields(
                                             "project",
                                             project,
@@ -70,9 +84,26 @@ final class HostProjects {
                                             "since",
                                             item.get("since"),
                                             "repositories",
-                                            repositories(item, project)));
+                                            repositories(item, project));
+                            if ("taking".equals(item.get("state"))) {
+                                for (String field :
+                                        List.of("taking_since", "taking_done", "taking_total")) {
+                                    if (item.containsKey(field)) status.put(field, item.get(field));
+                                }
+                            }
+                            result.add(status);
                         });
         return result;
+    }
+
+    static boolean following(HostFiles files) {
+        final Path path = files.path(HostFollowLock.PATH);
+        if (!files.check(path, 69, false, false, 0600)) return false;
+        try {
+            return HostFollowLock.live(path);
+        } catch (java.io.IOException ex) {
+            throw new HostRefusal(69, "cannot probe the host follow lock");
+        }
     }
 
     private static String name(@Nullable Object value) {
@@ -104,6 +135,7 @@ final class HostProjects {
                                 || !List.of(
                                                 "pending",
                                                 "carried",
+                                                "taking",
                                                 "waiting-for-token",
                                                 "held",
                                                 "refused")
@@ -115,6 +147,32 @@ final class HostProjects {
         } catch (IllegalArgumentException ex) {
             throw new HostRefusal(65, "the host project progress is malformed");
         }
+    }
+
+    static void clearTaking(Map<String, @Nullable Object> item) {
+        for (String field : List.of("taking_since", "taking_done", "taking_total"))
+            item.remove(field);
+    }
+
+    static boolean waiting(Map<String, @Nullable Object> item) {
+        return !Boolean.TRUE.equals(item.get("migrated")) || !untaken(item).isEmpty();
+    }
+
+    static Map<String, String> untaken(Map<String, @Nullable Object> item) {
+        final var file = optionalObject(item.get("file"));
+        final var taken = array(item.getOrDefault("taken", List.of()));
+        final Object named = item.get("named");
+        final Map<String, String> result = new TreeMap<>();
+        optionalObject(file.get("repositories"))
+                .forEach(
+                        (name, value) -> {
+                            final Object central = object(value).get("central");
+                            if ((named == null || array(named).contains(name))
+                                    && central != null
+                                    && !central.equals(file.get("address"))
+                                    && !taken.contains(central)) result.put(name, string(central));
+                        });
+        return result;
     }
 
     private List<Map<String, @Nullable Object>> repositories(

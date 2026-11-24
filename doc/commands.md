@@ -1146,10 +1146,14 @@ porelo project secret-known PROJECT PATH:LINE [--repository NAME] [--from BRANCH
   absent. Before a carried project is taken, its rows are the repositories the host's file names, nothing measured.
   Projects and their repository rows also report optional `hostState` and `hostWhy` from the checked host publication.
   A project's optional `hostFileError` names its unreadable host file and reason without hiding other projects.
-  Project states are `pending`, `carried`, `waiting-for-token`, `held`, and `refused`; any state other than `carried`
+  Project states are `pending`, `carried`, `taking`, `waiting-for-token`, `held`, and `refused`; any state other than `carried`
   withholds both the project's `carried` flag and each repository's `carriedHere`. Waiting rows remain listed before
   a first take. `waiting-for-token` means the host needs the person's forge token once per new repository to add its
-  read key and copy it, since the host keeps no token. While the project waits, each repository carries that state
+  read key and copy it, since the host keeps no token. It means a token is still needed. `taking` means a live follow
+  holds a token and is copying repositories. `hostTakingSince` names its start in UTC; `hostTakingDone` and
+  `hostTakingTotal` count completed copies and deduplicated repositories to copy, absent while counting.
+  All three fields are absent outside `taking`. Root's `porelo-host org status` answers during the run.
+  An older Porelo reports `cannot-say` while `taking` is published. While the project waits, each repository carries that state
   and explanation. Otherwise published repository progress permits carrying only for `taken`, still subject to the
   placement file; `waiting`, `not-carried`, `held`, `no-central`, and an omitted repository withhold it.
   Unreadable or refused publications report `cannot-say` and withhold carrying; a refusal names its field or value

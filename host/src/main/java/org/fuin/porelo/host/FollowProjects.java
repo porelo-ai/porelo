@@ -82,6 +82,34 @@ final class FollowProjects {
                 0600);
     }
 
+    private void publishProgress(
+            Map<String, @Nullable Object> entries,
+            Map<String, @Nullable Object> applied,
+            String name,
+            Map<String, @Nullable Object> item)
+            throws IOException {
+        entries.put(name, item);
+        save(entries);
+        new ProjectMeasurements(c.files, c.runtime, c.clock)
+                .progress(
+                        new HostProjects(c.host)
+                                .status(applied).stream()
+                                        .filter(row -> name.equals(row.get("project")))
+                                        .findFirst()
+                                        .orElseThrow());
+    }
+
+    private void taking(Map<String, @Nullable Object> item) {
+        if ("taking".equals(item.get("state"))) return;
+        item.put("state", "taking");
+        item.put(
+                "taking_since",
+                c.clock.instant().truncatedTo(java.time.temporal.ChronoUnit.SECONDS).toString());
+        final var reasons = optionalObject(item.get("repositories_why"));
+        reasons.values().removeIf("waits for a central token"::equals);
+        item.put("repositories_why", reasons);
+    }
+
     Map<String, @Nullable Object> publication(
             Map<String, @Nullable Object> project, Map<String, @Nullable Object> applied) {
         Object fetch = null, builds = null;
@@ -355,7 +383,8 @@ final class FollowProjects {
             Map<String, @Nullable Object> item,
             boolean forge,
             Set<String> physical,
-            byte[] token)
+            byte[] token,
+            HostFollow.Action update)
             throws IOException {
         final String name = string(project.get("project"));
         if (!forge) {
@@ -381,13 +410,20 @@ final class FollowProjects {
             }
         }
         if (Boolean.TRUE.equals(item.get("migrated"))) {
-            item.put("state", "carried");
+            final Object named = project.get("repositories");
+            item.put("named", named instanceof List<?> list && !list.isEmpty() ? list : null);
+            if (HostProjects.waiting(item)) {
+                if (token.length > 0) taking(item);
+                else item.put("state", "waiting-for-token");
+            } else item.put("state", "carried");
             return;
         }
         item.put("state", "waiting-for-token");
         if (token.length == 0) {
             return;
         }
+        taking(item);
+        update.run();
         try {
             if (project.get("address") == null) {
                 throw new HostRefusal(65, "the project names no usable central address");
@@ -402,15 +438,16 @@ final class FollowProjects {
                             new String(token, StandardCharsets.US_ASCII)),
                     c);
         } catch (HostRefusal ex) {
+            item.put("state", "waiting-for-token");
             item.put("migrate_refused", ex.getMessage());
             throw ex;
         } catch (ProjectRefusal ex) {
+            item.put("state", "waiting-for-token");
             item.put("migrate_refused", ex.shown());
             throw ex;
         }
         item.remove("migrate_refused");
         item.put("migrated", true);
-        item.put("state", "carried");
     }
 
     void reconcile(
@@ -473,7 +510,13 @@ final class FollowProjects {
                 if (project != null) {
                     RuntimeException forgeError = null;
                     try {
-                        forgeProject(project, item, forge, physical, token);
+                        forgeProject(
+                                project,
+                                item,
+                                forge,
+                                physical,
+                                token,
+                                () -> publishProgress(entries, applied, name, item));
                     } catch (HostRefusal | ProjectRefusal ex) {
                         forgeError = ex;
                     }
@@ -515,6 +558,8 @@ final class FollowProjects {
                 item.put("why", ex.getMessage());
             } catch (ProjectRefusal ex) {
                 item.put("why", ex.shown());
+            } finally {
+                if (!"taking".equals(item.get("state"))) HostProjects.clearTaking(item);
             }
             if (Boolean.TRUE.equals(item.get("room_refused"))) {
                 item.put("why", "the gate refused the room (exit 78); left alone");
@@ -522,7 +567,9 @@ final class FollowProjects {
             if (entries.containsKey(name)) {
                 entries.put(name, item);
             }
-            save(entries);
+            if (project != null && entries.containsKey(name))
+                publishProgress(entries, applied, name, item);
+            else save(entries);
         }
     }
 
@@ -861,13 +908,19 @@ final class FollowProjects {
     }
 
     private void takeNamed(
-            Map<String, @Nullable Object> project, Map<String, @Nullable Object> item, byte[] token)
+            Map<String, @Nullable Object> project,
+            Map<String, @Nullable Object> item,
+            byte[] token,
+            Map<String, @Nullable Object> entries,
+            Map<String, @Nullable Object> applied)
             throws IOException {
         final Set<String> taken = new TreeSet<>();
         for (Object v : array(item.getOrDefault("taken", List.of()))) {
             taken.add(string(v));
         }
         final var waiting = fields();
+        item.put("repositories_why", waiting);
+        final Map<String, String> failures = new java.util.HashMap<>();
         final var file = optionalObject(item.get("file"));
         final var rows = optionalObject(file.get("repositories"));
         final Object raw = project.get("repositories");
@@ -896,6 +949,14 @@ final class FollowProjects {
                         kept.add(takenAs(name, row).toLowerCase(Locale.ROOT));
                     }
                 });
+        final Set<String> remaining = new HashSet<>(HostProjects.untaken(item).values());
+        if (token.length > 0 && !remaining.isEmpty()) {
+            taking(item);
+            item.put("taking_total", remaining.size());
+            item.put("taking_done", 0);
+            publishProgress(entries, applied, string(project.get("project")), item);
+        }
+        int done = 0;
         for (var entry : rows.entrySet()) {
             final String name = entry.getKey();
             final var row = object(entry.getValue());
@@ -938,6 +999,14 @@ final class FollowProjects {
                     waiting.put(name, "waits for a central token");
                     continue;
                 }
+                if (!remaining.remove(string(central))) {
+                    waiting.put(
+                            name,
+                            java.util.Objects.requireNonNull(
+                                    failures.get(string(central)),
+                                    "A repeated untaken address has its earlier refusal"));
+                    continue;
+                }
                 projectCommand(
                         "migrate",
                         List.of(string(project.get("project"))),
@@ -948,17 +1017,20 @@ final class FollowProjects {
                                 new String(token, StandardCharsets.US_ASCII)),
                         c);
                 taken.add(string(central));
+                item.put("taken", new ArrayList<>(taken));
+                item.put("taking_done", ++done);
+                publishProgress(entries, applied, string(project.get("project")), item);
             } catch (HostRefusal ex) {
                 waiting.put(name, ex.getMessage());
+                failures.put(string(central), String.valueOf(ex.getMessage()));
             } catch (ProjectRefusal ex) {
                 waiting.put(name, ex.shown());
+                failures.put(string(central), ex.shown());
             }
         }
         item.put("taken", new ArrayList<>(taken));
         item.put("repositories_why", waiting);
-        if (waiting.containsValue("waits for a central token")) {
-            item.put("state", "waiting-for-token");
-        }
+        item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
     }
 
     void repositories(Map<String, @Nullable Object> applied, byte[] token) throws IOException {
@@ -979,22 +1051,36 @@ final class FollowProjects {
             if (!Boolean.TRUE.equals(item.get("migrated")) || project.get("address") == null) {
                 continue;
             }
-            final String signers = fileSigners(project);
-            if (!signers.isEmpty()) {
-                readFile(project, item, signers, configuration.account(), deadline);
-            } else {
-                item.put(
-                        "file_refused",
-                        "the project file: no project admin's key stands to have signed it");
-            }
-            takeNamed(project, item, token);
-            item.put("why", why(item, project));
-            entries.put(name, item);
-            save(entries);
             try {
-                protect(project, item, HostFollow.admin(applied));
-            } catch (HttpForgeAdmin.Refusal | HostRefusal ex) {
-                errors.add(String.valueOf(ex.getMessage()));
+                final String signers = fileSigners(project);
+                if (!signers.isEmpty()) {
+                    readFile(project, item, signers, configuration.account(), deadline);
+                } else {
+                    item.put(
+                            "file_refused",
+                            "the project file: no project admin's key stands to have signed it");
+                }
+                takeNamed(project, item, token, entries, applied);
+                try {
+                    protect(project, item, HostFollow.admin(applied));
+                } catch (HttpForgeAdmin.Refusal | HostRefusal ex) {
+                    errors.add(String.valueOf(ex.getMessage()));
+                }
+            } finally {
+                final var reasons = optionalObject(item.get("repositories_why"));
+                HostProjects.untaken(item)
+                        .keySet()
+                        .forEach(
+                                repository ->
+                                        reasons.putIfAbsent(
+                                                repository,
+                                                "the follow ended before this repository was taken"));
+                item.put("repositories_why", reasons);
+                if ("taking".equals(item.get("state")))
+                    item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
+                HostProjects.clearTaking(item);
+                item.put("why", why(item, project));
+                publishProgress(entries, applied, name, item);
             }
         }
         if (!errors.isEmpty()) {

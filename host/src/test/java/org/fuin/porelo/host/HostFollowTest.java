@@ -17,6 +17,85 @@ class HostFollowTest {
     @TempDir Path directory;
     FollowFixture f;
 
+    // Readers need a stable lock inode accessible only to root for every follow and refresh.
+    @Test
+    void aFollowCreatesAndHoldsThePrivateFollowLock() throws Exception {
+        final Path path = f.path("/run/porelo-host/follow.lock");
+        assertThat(path).doesNotExist();
+        f.before =
+                argv -> {
+                    if (!argv.contains("fetch")) return;
+                    try {
+                        assertThat((int) Files.getAttribute(path, "unix:mode") & 0777)
+                                .isEqualTo(0600);
+                        assertThatThrownBy(
+                                        () ->
+                                                HostConfigurationLock.acquire(
+                                                        path,
+                                                        true,
+                                                        Duration.ZERO,
+                                                        org.fuin.porelo.wire.LimitFactors.DEFAULT))
+                                .as("the run holds the follow lock while fetching")
+                                .isInstanceOf(IOException.class);
+                    } catch (IOException ex) {
+                        throw new UncheckedIOException(ex);
+                    }
+                };
+        f.run();
+        assertThat((int) Files.getAttribute(path, "unix:mode") & 07777)
+                .as("other accounts cannot open the follow lock")
+                .isEqualTo(0600);
+        assertThat(f.host.check(path, 69, true, false, 0600))
+                .as("the lock passes the root ownership check")
+                .isTrue();
+        try (var released =
+                HostConfigurationLock.acquire(
+                        path, true, Duration.ZERO, org.fuin.porelo.wire.LimitFactors.DEFAULT)) {
+            assertThat(path).as("the file persists after release").exists();
+        }
+    }
+
+    // An existing lock readable by other accounts or owned by one can authenticate a forged run.
+    @ParameterizedTest
+    @CsvSource({"0,0644", "0,0640", "0,0660", "0,0400", "1001,0600"})
+    void anUnsafeExistingFollowLockIsRefused(int uid, String mode) throws Exception {
+        final Path lock = f.path("/run/porelo-host/follow.lock");
+        f.write("/run/porelo-host/follow.lock", "");
+        Files.setAttribute(lock, "unix:mode", Integer.parseInt(mode, 8));
+        final var files =
+                new HostFiles(
+                        directory,
+                        path -> {
+                            final var attributes =
+                                    new HashMap<>(
+                                            Files.readAttributes(
+                                                    path,
+                                                    "unix:uid,mode",
+                                                    LinkOption.NOFOLLOW_LINKS));
+                            attributes.put("uid", path.equals(lock) ? uid : 0);
+                            if (!path.startsWith(directory)) attributes.put("mode", 040755);
+                            return attributes;
+                        });
+        final var follow =
+                new HostFollow(
+                        files,
+                        f.project.files,
+                        f.runtime,
+                        f.clock,
+                        new PrintWriter(f.journal, true),
+                        (origin, token) ->
+                                org.fuin.porelo.organization.gittree.TestForgeAdmin.create(
+                                        token, true, f.project::centralExchange));
+        refused(
+                () -> follow.run("follow", Map.of(), new ByteArrayInputStream(new byte[0])),
+                69,
+                "root's alone");
+        refused(() -> HostProjects.following(files), 69, "root's alone");
+        assertThat((int) Files.getAttribute(lock, "unix:mode") & 07777)
+                .as("an unsafe existing lock is refused without repairing it")
+                .isEqualTo(Integer.parseInt(mode, 8));
+    }
+
     @BeforeEach
     void host() throws Exception {
         f = new FollowFixture(directory);
@@ -121,8 +200,8 @@ class HostFollowTest {
         final var seen = new java.util.concurrent.atomic.AtomicBoolean();
         f.before =
                 argv -> {
-                    if (Path.of(argv.getFirst()).getFileName().toString().equals("setfacl")) {
-                        seen.set(true);
+                    if (Path.of(argv.getFirst()).getFileName().toString().equals("setfacl")
+                            && seen.compareAndSet(false, true)) {
                         try {
                             assertThat(
                                             (int)

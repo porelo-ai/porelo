@@ -26,6 +26,9 @@ final class ProjectMeasurements {
     private final ProjectRuntime runtime;
     private final Clock clock;
     private final ProjectPublication publication;
+    private final org.fuin.porelo.organization.gittree.LinuxProcesses processes =
+            new org.fuin.porelo.organization.gittree.LinuxProcesses();
+    private org.fuin.porelo.organization.gittree.LinuxProcesses.@Nullable Identity takingProcess;
 
     ProjectMeasurements(ProjectFiles files, ProjectRuntime runtime, Clock clock) {
         this.files = files;
@@ -46,7 +49,19 @@ final class ProjectMeasurements {
 
     /** Revoke all former readers before resolving any replacement reader. */
     void prepare(List<String> projects) throws IOException {
+        prepare(projects, List.of());
+    }
+
+    /** Refreshes progress and ACLs while access stays closed, then admits current members. */
+    void prepare(List<String> projects, List<Map<String, @Nullable Object>> statuses)
+            throws IOException {
         prepare(projects, true);
+        for (var status : statuses) {
+            final String project = HostJson.string(status.get("project"));
+            if (projects.contains(project)
+                    && files.exists(files.etc.resolve("organization/central/" + project + ".json")))
+                progress(status);
+        }
         final Path directory = files.etc.resolve("organization/central");
         if (files.exists(directory)) {
             java.nio.file.Files.setAttribute(
@@ -64,7 +79,6 @@ final class ProjectMeasurements {
             final String name = path.getFileName().toString();
             if (name.endsWith(".json") && projects.contains(name.substring(0, name.length() - 5))) {
                 final String content = files.text(path, false);
-                files.delete(path);
                 publish(path, content, publication.readers(name.substring(0, name.length() - 5)));
                 continue;
             } else if (name.endsWith(".json") && !pruneDeparted) {
@@ -80,6 +94,88 @@ final class ProjectMeasurements {
 
     void measure(String account, String project) throws IOException {
         measure(account, List.of(project));
+    }
+
+    /** Publishes progress with the last measured distances, after membership ACL preparation. */
+    void progress(Map<String, @Nullable Object> status) throws IOException {
+        final String project = HostJson.string(status.get("project"));
+        if (!project.matches(HostRecords.PROJECT))
+            throw new HostRefusal(65, "invalid progress project");
+        final Path destination = files.etc.resolve("organization/central/" + project + ".json");
+        final Map<String, @Nullable Object> answer =
+                ProjectRecords.object(
+                        "project",
+                        project,
+                        "read_at",
+                        clock.instant()
+                                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS)
+                                .toString(),
+                        "repositories",
+                        List.of());
+        if (files.exists(destination)) {
+            final String text = files.text(destination, false);
+            try {
+                final var earlier =
+                        HostJson.object(
+                                ProjectRecords.json(
+                                        text, "the previous central answer does not read", 65));
+                final String at = HostJson.string(earlier.get("read_at"));
+                final var rows = HostJson.array(earlier.get("repositories"));
+                if (project.equals(earlier.get("project"))
+                        && at.endsWith("Z")
+                        && rows.stream()
+                                .allMatch(
+                                        value ->
+                                                value instanceof Map<?, ?> row
+                                                        && HostProjects.centralRow(row))) {
+                    java.time.Instant.parse(at);
+                    answer.put("read_at", at);
+                    answer.put("repositories", rows);
+                }
+            } catch (HostRefusal
+                    | IllegalArgumentException
+                    | java.time.format.DateTimeParseException ex) {
+                // A malformed old measurement cannot vouch for a repository in new progress.
+            }
+        }
+        progress(answer, status);
+        publish(
+                destination,
+                ProjectRecords.pythonJson(answer, false) + "\n",
+                publication.readers(project));
+    }
+
+    private void progress(
+            Map<String, @Nullable Object> answer, Map<String, @Nullable Object> status)
+            throws IOException {
+        answer.put("state", status.get("state"));
+        answer.remove("why");
+        reason(answer, status.get("why"));
+        HostProjects.clearTaking(answer);
+        for (String field : List.of("taking_pid", "taking_pid_start", "taking_boot"))
+            answer.remove(field);
+        if ("taking".equals(status.get("state"))) {
+            if (takingProcess == null) takingProcess = processes.current();
+            answer.put("taking_pid", takingProcess.pid());
+            answer.put("taking_pid_start", takingProcess.start());
+            answer.put("taking_boot", takingProcess.boot());
+            for (String field : List.of("taking_since", "taking_done", "taking_total")) {
+                if (status.containsKey(field)) answer.put(field, status.get(field));
+            }
+        }
+        final var progress = new java.util.ArrayList<Map<String, @Nullable Object>>();
+        for (Object value : HostJson.array(status.get("repositories"))) {
+            final var row = HostJson.object(value);
+            final var entry =
+                    ProjectRecords.object(
+                            "repository",
+                            HostJson.string(row.get("repository")),
+                            "state",
+                            HostJson.string(row.get("state")));
+            reason(entry, row.get("why"));
+            progress.add(entry);
+        }
+        answer.put("host_repositories", progress);
     }
 
     void measure(String account, List<String> projects) throws IOException {
@@ -119,115 +215,106 @@ final class ProjectMeasurements {
         }
         final Path directory = files.etc.resolve("organization/central");
         files.mkdir(directory, 0711);
-        revoke();
-        for (Path path : files.list(directory)) {
-            files.trusted(path, false);
-            final String name = path.getFileName().toString();
-            if (ProjectFiles.isStaged(name) || name.endsWith(".json.new")) {
-                files.delete(path);
-            } else if (!name.endsWith(".json")) {
-                throw new HostRefusal(65, "the central states directory holds an unknown file");
-            }
+        for (var status : statuses) {
+            if (projects.contains(HostJson.string(status.get("project")))) progress(status);
         }
-        for (String project : projects) {
-            final Path destination = directory.resolve(project + ".json");
-            if (files.exists(destination)) {
-                // Revoke every project's old readers before any potentially slow central question.
+        java.nio.file.Files.setAttribute(
+                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        try {
+            // Central questions share one time budget so a follow stays bounded across projects.
+            final var deadline = clock.instant().plus(runtime.limits().services(CENTRAL_QUESTIONS));
+            final var keys = new ProjectReadKeys(files, runtime.until(clock, deadline));
+            final Map<String, String> readAts = new java.util.HashMap<>();
+            final Map<String, List<?>> measuredRows = new java.util.HashMap<>();
+            // Every project's states are measured first, so a follow never costs another its
+            // answer.
+            for (String project : projects) {
+                readAts.put(
+                        project,
+                        DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")
+                                .withZone(java.time.ZoneOffset.UTC)
+                                .format(clock.instant()));
+                Object rows = List.of();
+                if (account != null
+                        && measured.contains(project)
+                        && clock.instant().isBefore(deadline)) {
+                    try {
+                        rows = keys.centralState(account, project).get("repositories");
+                    } catch (HostRefusal | IOException ex) {
+                        rows = List.of();
+                    }
+                }
+                if (!clock.instant().isBefore(deadline)
+                        || !(rows instanceof List<?> values)
+                        || values.stream()
+                                .anyMatch(
+                                        value ->
+                                                !(value instanceof Map<?, ?> row)
+                                                        || !HostProjects.centralRow(row))) {
+                    rows = List.of();
+                }
+                measuredRows.put(project, (List<?>) rows);
+            }
+            if (account != null) {
+                follow(account, projects, owns, measuredRows);
+            }
+            for (String project : projects) {
+                final String readAt =
+                        java.util.Objects.requireNonNull(
+                                readAts.get(project), "Every project was measured");
+                final List<?> rows =
+                        java.util.Objects.requireNonNull(
+                                measuredRows.get(project), "Every project was measured");
+                final var answer = ProjectRecords.object("project", project, "read_at", readAt);
+                answer.put("repositories", rows);
+                final Path previous = directory.resolve(project + ".json");
+                if (statuses.isEmpty() && files.exists(previous)) {
+                    final var earlier =
+                            HostJson.object(
+                                    ProjectRecords.json(
+                                            files.text(previous, false),
+                                            "the previous central answer does not read",
+                                            65));
+                    for (String field :
+                            List.of(
+                                    "state",
+                                    "why",
+                                    "host_repositories",
+                                    "taking_since",
+                                    "taking_done",
+                                    "taking_total",
+                                    "taking_pid",
+                                    "taking_pid_start",
+                                    "taking_boot")) {
+                        if (earlier.containsKey(field)) answer.put(field, earlier.get(field));
+                    }
+                }
+                final var status =
+                        statuses.stream()
+                                .filter(row -> project.equals(row.get("project")))
+                                .findFirst()
+                                .orElse(null);
+                if (status != null) progress(answer, status);
+                if (!"taking".equals(answer.get("state"))) {
+                    HostProjects.clearTaking(answer);
+                    for (String field : List.of("taking_pid", "taking_pid_start", "taking_boot"))
+                        answer.remove(field);
+                }
                 publish(
-                        destination,
-                        files.text(destination, false),
+                        directory.resolve(project + ".json"),
+                        ProjectRecords.pythonJson(answer, false) + "\n",
                         java.util.Objects.requireNonNull(
                                 readers.get(project),
                                 "Every measured project has resolved readers"));
             }
-        }
-        // Central questions share one time budget so a follow stays bounded across projects.
-        final var deadline = clock.instant().plus(runtime.limits().services(CENTRAL_QUESTIONS));
-        final var keys = new ProjectReadKeys(files, runtime.until(clock, deadline));
-        final Map<String, String> readAts = new java.util.HashMap<>();
-        final Map<String, List<?>> measuredRows = new java.util.HashMap<>();
-        // Every project's states are measured first, so a follow never costs another its answer.
-        for (String project : projects) {
-            readAts.put(
-                    project,
-                    DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")
-                            .withZone(java.time.ZoneOffset.UTC)
-                            .format(clock.instant()));
-            Object rows = List.of();
-            if (account != null
-                    && measured.contains(project)
-                    && clock.instant().isBefore(deadline)) {
-                try {
-                    rows = keys.centralState(account, project).get("repositories");
-                } catch (HostRefusal | IOException ex) {
-                    rows = List.of();
-                }
+        } catch (IOException | RuntimeException | Error ex) {
+            try {
+                revoke();
+            } catch (IOException closing) {
+                ex.addSuppressed(closing);
             }
-            if (!clock.instant().isBefore(deadline)
-                    || !(rows instanceof List<?> values)
-                    || values.stream()
-                            .anyMatch(
-                                    value ->
-                                            !(value instanceof Map<?, ?> row)
-                                                    || !HostProjects.centralRow(row))) {
-                rows = List.of();
-            }
-            measuredRows.put(project, (List<?>) rows);
+            throw ex;
         }
-        if (account != null) {
-            follow(account, projects, owns, measuredRows);
-        }
-        for (String project : projects) {
-            final String readAt =
-                    java.util.Objects.requireNonNull(
-                            readAts.get(project), "Every project was measured");
-            final List<?> rows =
-                    java.util.Objects.requireNonNull(
-                            measuredRows.get(project), "Every project was measured");
-            final var answer = ProjectRecords.object("project", project, "read_at", readAt);
-            answer.put("repositories", rows);
-            final Path previous = directory.resolve(project + ".json");
-            if (statuses.isEmpty() && files.exists(previous)) {
-                final var earlier =
-                        HostJson.object(
-                                ProjectRecords.json(
-                                        files.text(previous, false),
-                                        "the previous central answer does not read",
-                                        65));
-                for (String field : List.of("state", "why", "host_repositories")) {
-                    if (earlier.containsKey(field)) answer.put(field, earlier.get(field));
-                }
-            }
-            statuses.stream()
-                    .filter(row -> project.equals(row.get("project")))
-                    .findFirst()
-                    .ifPresent(
-                            status -> {
-                                answer.put("state", status.get("state"));
-                                reason(answer, status.get("why"));
-                                final var progress =
-                                        new java.util.ArrayList<Map<String, @Nullable Object>>();
-                                for (Object value : HostJson.array(status.get("repositories"))) {
-                                    final var row = HostJson.object(value);
-                                    final var entry =
-                                            ProjectRecords.object(
-                                                    "repository",
-                                                    HostJson.string(row.get("repository")),
-                                                    "state",
-                                                    HostJson.string(row.get("state")));
-                                    reason(entry, row.get("why"));
-                                    progress.add(entry);
-                                }
-                                answer.put("host_repositories", progress);
-                            });
-            publish(
-                    directory.resolve(project + ".json"),
-                    ProjectRecords.pythonJson(answer, false) + "\n",
-                    java.util.Objects.requireNonNull(
-                            readers.get(project), "Every measured project has resolved readers"));
-        }
-        java.nio.file.Files.setAttribute(
-                directory, "unix:mode", 0711, java.nio.file.LinkOption.NOFOLLOW_LINKS);
     }
 
     /**
@@ -320,7 +407,6 @@ final class ProjectMeasurements {
     private void publish(Path destination, String text, List<String> readers) throws IOException {
         if (files.exists(destination)) {
             files.trusted(destination, false);
-            files.delete(destination);
         }
         publication.publish(destination, text, readers);
     }

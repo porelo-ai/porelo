@@ -63,11 +63,74 @@ class HostProjectMeasurementsTest {
         return host.files.etc.resolve("organization/central/alpha.json");
     }
 
+    // A slow central question must not hide progress from members whose ACLs are current.
+    @Test
+    void currentMembersKeepTheirAnswerDuringSlowCentralQuestions() throws Exception {
+        measure();
+        final var before = host.program;
+        final var asked = new java.util.concurrent.atomic.AtomicBoolean();
+        host.program =
+                argv -> {
+                    if (argv.contains("ls-remote")) {
+                        asked.set(true);
+                        assertThat(answer())
+                                .as("members retain the previous complete measurement")
+                                .exists();
+                        try {
+                            assertThat(
+                                            (int)
+                                                            Files.getAttribute(
+                                                                    answer().getParent(),
+                                                                    "unix:mode")
+                                                    & 0777)
+                                    .as("current membership is readable while central is slow")
+                                    .isEqualTo(0711);
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                    return before.apply(argv);
+                };
+        measure();
+        assertThat(asked).as("the assertion ran during a central question").isTrue();
+    }
+
+    // A standalone measurement cannot claim ownership of another process's in-progress follow.
+    @ParameterizedTest
+    @ValueSource(strings = {"taking", "carried"})
+    void aStandaloneMeasurementPreservesOnlyTheTakingOwnersIdentity(String state) throws Exception {
+        measure();
+        final var previous = HostJson.object(HostJson.parse(Files.readString(answer())));
+        previous.put("state", state);
+        previous.put("taking_since", "2026-11-03T00:00:00Z");
+        previous.put("taking_done", 0);
+        previous.put("taking_total", 2);
+        previous.put("taking_pid", 123);
+        previous.put("taking_pid_start", 456);
+        previous.put("taking_boot", "12345678-1234-1234-1234-123456789abc");
+        Files.writeString(answer(), ProjectRecords.pythonJson(previous, false));
+        measure();
+        final var current = HostJson.object(HostJson.parse(Files.readString(answer())));
+        if (state.equals("taking")) {
+            assertThat(((Number) current.get("taking_pid")).longValue()).isEqualTo(123);
+            assertThat(((Number) current.get("taking_pid_start")).longValue()).isEqualTo(456);
+            assertThat(current).containsEntry("taking_boot", previous.get("taking_boot"));
+        } else
+            assertThat(current)
+                    .doesNotContainKeys(
+                            "taking_since",
+                            "taking_done",
+                            "taking_total",
+                            "taking_pid",
+                            "taking_pid_start",
+                            "taking_boot");
+    }
+
     // Failed reader replacement cannot preserve a departed member's readable central answer.
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {"prepare-getent", "prepare-acl", "measure-getent", "measure-acl"})
-    void failedReaderReplacementRemovesTheOldAnswer(String failure) throws Exception {
+    void failedReaderReplacementClosesAccessToTheOldAnswer(String failure) throws Exception {
         measure();
         final var before = host.program;
         host.program =
@@ -88,12 +151,15 @@ class HostProjectMeasurementsTest {
                             else measure();
                         })
                 .isInstanceOf(HostRefusal.class);
-        assertThat(answer()).as("failure revokes the old answer").doesNotExist();
+        assertThat(answer()).as("atomic replacement keeps the previous file").exists();
+        assertThat((int) Files.getAttribute(answer().getParent(), "unix:mode") & 0777)
+                .as("failed ACL preparation keeps former readers outside")
+                .isEqualTo(0700);
     }
 
     // A failed new measurement must not leave an old successful central answer visible.
     @Test
-    void aFailedFinalAclRemovesTheEarlierCentralAnswer() throws Exception {
+    void aFailedFinalAclKeepsTheEarlierCentralAnswerInAClosedDirectory() throws Exception {
         measure();
         final var before = host.program;
         final var asked = new java.util.concurrent.atomic.AtomicBoolean();
@@ -106,7 +172,35 @@ class HostProjectMeasurementsTest {
                 };
         assertThatThrownBy(this::measure).isInstanceOf(HostRefusal.class);
         assertThat(asked).as("failure follows the new central measurement").isTrue();
-        assertThat(answer()).as("a failed measurement leaves no stale success").doesNotExist();
+        assertThat(answer()).as("a failed replacement retains the previous complete file").exists();
+        assertThat((int) Files.getAttribute(answer().getParent(), "unix:mode") & 0777)
+                .as("a failed replacement exposes no earlier success")
+                .isEqualTo(0700);
+    }
+
+    // Concurrent members must always find a complete file while a replacement is staged.
+    @Test
+    void replacingAnAnswerNeverRemovesItsPathBeforeRename() throws Exception {
+        measure();
+        final String previous = Files.readString(answer());
+        final var before = host.program;
+        host.program =
+                argv -> {
+                    if (argv.getFirst().equals("/usr/bin/setfacl")) {
+                        assertThat(answer())
+                                .as("the old name stays present while staging its replacement")
+                                .exists();
+                        try {
+                            assertThat(Files.readString(answer()))
+                                    .as("the previous complete publication stays readable")
+                                    .isEqualTo(previous);
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                    return before.apply(argv);
+                };
+        new ProjectMeasurements(host.files, host.runtime, clock).prepare(List.of("alpha"));
     }
 
     @Test

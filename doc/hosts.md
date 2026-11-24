@@ -179,6 +179,20 @@ malformed publications withhold carrying with `cannot-say` and an explanation na
 field or value. Repository progress distinguishes a taken copy from one still waiting or not
 carried, independently of its last central distance.
 
+`taking` means the follow holds a token and is copying repositories. It publishes progress after
+each copy: `hostTakingDone`, `hostTakingTotal`, and the fixed UTC start time `hostTakingSince` in
+`Projects` and `WatchProjects`. The counts are absent while the signed repositories are being
+counted; all three fields are absent in other states. `waiting-for-token` means a token is still
+needed, including when a copy failed and its repository's reason explains why.
+Root's `porelo-host org status` answers during the run. Current unlocked project members can read
+progress and the last measured central distances during the run; membership ACLs are refreshed
+before any progress becomes readable. Root alone can open the follow lock, which is root-owned `0600`. A member's daemon checks the
+published follow PID, its start ticks and the machine boot identity through `/proc`. A missing,
+hidden, terminated or different process, a different boot, or an unreadable identity reports
+`cannot-say`. These identity fields remain inside the member publication. An older Porelo also reports `cannot-say`
+while `taking` is on disk.
+A non-root admin reading a saved `taking` row receives `cannot-say` because it cannot tell a live run from a stopped one, without opening the follow lock.
+
 A project the host carries and the person has not taken on this machine yet lists the host's room as its
 conversation when the host names a homeserver for it, not ready until it is set up. `SetUpMessages(project)` takes the project first, as its first start
 would, and then sets the room up, so a person opens the project's room before any task. A project file that does

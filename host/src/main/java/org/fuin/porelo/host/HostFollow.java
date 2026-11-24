@@ -60,46 +60,83 @@ final class HostFollow {
                 if (verb.equals("renew-pin")) {
                     return renew(supplied);
                 }
-                final FollowContext bounded =
-                        context.until(
-                                context.clock
-                                        .instant()
-                                        .plus(context.runtime.limits().machines(FOLLOW)));
-                if (verb.equals("refresh")) {
-                    FollowContext.ascii(supplied, "token");
-                    final String value = new String(supplied, StandardCharsets.US_ASCII).strip();
-                    if (!value.isEmpty() && !value.matches("[!-~]+")) {
-                        throw new HostRefusal(65, "the token is not one printable line");
-                    }
-                    token = value.getBytes(StandardCharsets.US_ASCII);
-                    if (token.length > 0) {
-                        if (added()) {
-                            if (bounded.runtime.configuration("porelo-admin") == null
-                                    && progress().values().stream()
-                                            .noneMatch(
-                                                    v ->
-                                                            "waiting-for-token"
-                                                                    .equals(
-                                                                            object(v)
-                                                                                    .get(
-                                                                                            "state")))) {
-                                throw new HostRefusal(
-                                        65,
-                                        "no project waits for a token; org refresh requires empty standard input");
-                            }
-                        } else {
-                            addReadKey(bounded, token);
-                        }
-                    }
-                } else {
-                    token = new byte[0];
+                final Path followLock = context.path(HostFollowLock.PATH);
+                if (!context.host.check(followLock, 69, false, false, 0600)) {
+                    context.write(followLock, "", 0600);
                 }
-                return follow(bounded, token);
+                context.host.check(followLock, 69, true, false, 0600);
+                new ProjectMeasurements(context.files, context.runtime, context.clock).revoke();
+                try (var following = HostFollowLock.acquire(followLock)) {
+                    final boolean staleTaking =
+                            progress().values().stream()
+                                    .anyMatch(value -> "taking".equals(object(value).get("state")));
+                    clearProgress();
+                    final FollowContext bounded =
+                            context.until(
+                                    context.clock
+                                            .instant()
+                                            .plus(context.runtime.limits().machines(FOLLOW)));
+                    if (verb.equals("refresh")) {
+                        FollowContext.ascii(supplied, "token");
+                        final String value =
+                                new String(supplied, StandardCharsets.US_ASCII).strip();
+                        if (!value.isEmpty() && !value.matches("[!-~]+")) {
+                            throw new HostRefusal(65, "the token is not one printable line");
+                        }
+                        token = value.getBytes(StandardCharsets.US_ASCII);
+                        if (token.length > 0) {
+                            if (added()) {
+                                if (bounded.runtime.configuration("porelo-admin") == null
+                                        && !staleTaking
+                                        && progress().values().stream()
+                                                .noneMatch(
+                                                        v ->
+                                                                "waiting-for-token"
+                                                                        .equals(
+                                                                                object(v)
+                                                                                        .get(
+                                                                                                "state")))) {
+                                    throw new HostRefusal(
+                                            65,
+                                            "no project waits for a token; org refresh requires empty standard input");
+                                }
+                            } else {
+                                addReadKey(bounded, token);
+                            }
+                        }
+                    } else {
+                        token = new byte[0];
+                    }
+                    try {
+                        return follow(bounded, token);
+                    } finally {
+                        clearProgress();
+                    }
+                }
             }
         } finally {
             Arrays.fill(token, (byte) 0);
             Arrays.fill(supplied, (byte) 0);
         }
+    }
+
+    private void clearProgress() throws IOException {
+        final var entries = progress();
+        boolean changed = false;
+        for (var entry : entries.entrySet()) {
+            final var item = object(entry.getValue());
+            if ("taking".equals(item.get("state"))) {
+                item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
+                changed = true;
+            }
+            if (List.of("taking_since", "taking_done", "taking_total").stream()
+                    .anyMatch(item::containsKey)) changed = true;
+            HostProjects.clearTaking(item);
+            entry.setValue(item);
+        }
+        if (changed)
+            context.write(
+                    FollowContext.ORG + "host-projects.json", pretty(entries, 0) + "\n", 0600);
     }
 
     static void root(String verb, Map<String, String> environment) {
@@ -131,6 +168,7 @@ final class HostFollow {
                                                 || !List.of(
                                                                 "pending",
                                                                 "carried",
+                                                                "taking",
                                                                 "waiting-for-token",
                                                                 "held",
                                                                 "refused")
@@ -297,6 +335,12 @@ final class HostFollow {
         final List<String> errors = new ArrayList<>();
         attempt(errors, () -> people.cards(applied, previous));
         attempt(errors, () -> people.memberships(applied));
+        new ProjectMeasurements(c.files, c.runtime, c.clock)
+                .prepare(
+                        array(applied.get("projects")).stream()
+                                .map(value -> string(object(value).get("project")))
+                                .toList(),
+                        new HostProjects(c.host).status(applied));
         attempt(errors, () -> projects.reconcile(applied, previous, token));
         attempt(errors, () -> projects.members(applied, previous, people));
         attempt(errors, () -> projects.repositories(applied, token));

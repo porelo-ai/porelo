@@ -74,7 +74,7 @@ final class HostStatusView {
             for (Object row : array(project.get("repositories"))) {
                 repositories.add(repository(object(row)));
             }
-            projects.add(
+            final var row =
                     fields(
                             "project",
                             project.get("project"),
@@ -85,7 +85,13 @@ final class HostStatusView {
                             "since",
                             project.get("since"),
                             "repositories",
-                            repositories));
+                            repositories);
+            if ("taking".equals(project.get("state"))) {
+                for (String field : List.of("taking_since", "taking_done", "taking_total")) {
+                    if (project.containsKey(field)) row.put(field, project.get(field));
+                }
+            }
+            projects.add(row);
         }
         return fields(
                 "host",
@@ -182,6 +188,23 @@ final class HostStatusView {
                                 + ") read the status without root");
             }
             final Map<String, @Nullable Object> view = view(path, files.read(path));
+            final List<?> projects = array(view.get("projects"));
+            view.put(
+                    "projects",
+                    projects.stream()
+                            .map(
+                                    value -> {
+                                        final var project = object(value);
+                                        if ("taking".equals(project.get("state"))) {
+                                            project.put("state", "cannot-say");
+                                            project.put(
+                                                    "why",
+                                                    "a non-root reader cannot tell a live run from a stopped one");
+                                            HostProjects.clearTaking(project);
+                                        }
+                                        return project;
+                                    })
+                            .toList());
             final Duration age =
                     Duration.between(Instant.parse(string(view.get("followed"))), clock.instant());
             if (json) {

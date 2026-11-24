@@ -20,6 +20,102 @@ class HostOrgStatusTest {
     @TempDir Path directory;
     private HostReadFixture fixture;
 
+    // A normal atomic person write must not make progress unreadable during a follow.
+    @Test
+    void statusIgnoresTrustedPersonStagingFiles() throws Exception {
+        fixture.person("alice", "member=alpha developer\n", "");
+        fixture.put("/etc/porelo-host/people/.porelo-host.123456", "unfinished person record");
+        assertThat(status().code()).as("a writer's private stage is not a person record").isZero();
+    }
+
+    // A person purged after the directory listing must not make the whole status fail.
+    @Test
+    void statusToleratesAPersonRemovedDuringTheRead() throws Exception {
+        fixture.person("alice", "member=alpha developer\n", "");
+        final Path person = fixture.path("/etc/porelo-host/people/alice.conf");
+        final var removed = new java.util.concurrent.atomic.AtomicBoolean();
+        fixture.afterAttributes =
+                path -> {
+                    if (path.equals(person) && removed.compareAndSet(false, true)) {
+                        try {
+                            Files.delete(person);
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                };
+        assertThat(status().code())
+                .as("a removed person is absent from the read-only snapshot")
+                .isZero();
+        assertThat(removed).as("the removal raced the record read").isTrue();
+    }
+
+    // A status command must not wait behind the refresh whose progress it is reporting.
+    @Test
+    void statusAnswersWhileAnotherWriterHoldsConfiguration() throws Exception {
+        final Path follow = fixture.put("/run/porelo-host/follow.lock", "");
+        Files.setAttribute(follow, "unix:mode", 0600);
+        fixture.put(
+                ORG + "host-projects.json",
+                """
+                {"alpha":{"state":"taking","taking_since":"2026-11-09T10:00:00Z",
+                 "taking_done":1,"taking_total":3,"migrated":true}}
+                """);
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            try (var lock =
+                            HostConfigurationLock.acquire(
+                                    fixture.path("/etc/porelo-host/forge.conf"), false);
+                    var following = HostConfigurationLock.acquire(follow, false)) {
+                final var answer =
+                        executor.submit(this::status).get(2, java.util.concurrent.TimeUnit.SECONDS);
+                assertThat(answer.code())
+                        .as("read-only status answers during an exclusive configuration run")
+                        .isZero();
+                final var project =
+                        HostJson.object(
+                                HostJson.array(
+                                                HostJson.object(HostJson.parse(answer.out()))
+                                                        .get("projects"))
+                                        .getFirst());
+                assertThat(project)
+                        .containsEntry("state", "taking")
+                        .containsEntry("taking_since", "2026-11-09T10:00:00Z");
+                assertThat(((Number) project.get("taking_done")).intValue()).isEqualTo(1);
+                assertThat(((Number) project.get("taking_total")).intValue()).isEqualTo(3);
+            }
+        }
+    }
+
+    // An abandoned copy must not keep asking readers to believe the host is busy.
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void staleTakingAnswersWhatTheRepositoriesShow(boolean taken) throws Exception {
+        final Path follow = fixture.put("/run/porelo-host/follow.lock", "");
+        Files.setAttribute(follow, "unix:mode", 0600);
+        fixture.put(
+                ORG + "host-projects.json",
+                """
+                {"alpha":{"state":"taking","taking_since":"2026-11-09T10:00:00Z",
+                 "taking_done":0,"taking_total":1,"migrated":true,"taken":%s,
+                 "file":{"address":"https://forge.example.org/acme/alpha.git","repositories":{
+                 "extra":{"central":"https://forge.example.org/acme/extra.git"}}}}}
+                """
+                        .formatted(
+                                taken ? "[\"https://forge.example.org/acme/extra.git\"]" : "[]"));
+        final var answer = status();
+        assertThat(answer.code()).as("stale progress is a readable status").isZero();
+        final var project =
+                HostJson.object(
+                        HostJson.array(
+                                        HostJson.object(HostJson.parse(answer.out()))
+                                                .get("projects"))
+                                .getFirst());
+        assertThat(project)
+                .as("a free follow lock cannot vouch for taking")
+                .containsEntry("state", taken ? "carried" : "waiting-for-token")
+                .doesNotContainKeys("taking_since", "taking_done", "taking_total");
+    }
+
     @BeforeEach
     void prepareTheHost() throws Exception {
         fixture = new HostReadFixture(directory);
@@ -193,6 +289,76 @@ class HostOrgStatusTest {
                                         + " 2026-11-14T10:00:00Z, 5 minutes ago\n",
                                 ""));
         assertThat(tree()).as("a caller without root writes nothing").isEqualTo(before);
+    }
+
+    // A non-root admin cannot open the private lock even when its saved view mentions taking.
+    @ParameterizedTest
+    @ValueSource(strings = {"none", "waiting", "taken"})
+    void anAdminViewNeverInspectsThePrivateFollowLock(String repositoryState) throws Exception {
+        final Path lock = fixture.put("/run/porelo-host/follow.lock", "");
+        final String repositories =
+                repositoryState.equals("none")
+                        ? "[]"
+                        : "[{\"repository\":\"extra\",\"state\":\"" + repositoryState + "\"}]";
+        final String project =
+                """
+                [{"project":"alpha","state":"taking","taking_since":"2026-11-09T10:00:00Z",
+                  "taking_done":0,"taking_total":1,"repositories":%s}]
+                """
+                        .formatted(repositories);
+        view(
+                VIEW.substring(0, VIEW.lastIndexOf("\"projects\":"))
+                        + "\"projects\":"
+                        + project
+                        + "}");
+        fixture.afterAttributes =
+                path -> {
+                    if (path.equals(lock))
+                        throw new AssertionError(
+                                "a non-root admin must not probe the private lock");
+                };
+        final var answer = asPerson(PERSON_LOGIN, "org", "status", "--json");
+        assertThat(answer.code())
+                .as("an inaccessible lock does not prevent reading the saved status")
+                .isZero();
+        final var row =
+                HostJson.object(
+                        HostJson.array(
+                                        HostJson.object(HostJson.parse(answer.out()))
+                                                .get("projects"))
+                                .getFirst());
+        assertThat(row)
+                .as("cached repository states cannot establish whether the follow is running")
+                .containsEntry("state", "cannot-say")
+                .doesNotContainKeys("taking_since", "taking_done", "taking_total");
+        assertThat(row.get("why")).asString().contains("non-root", "live", "stopped");
+    }
+
+    // A saved admin view cannot keep claiming that an abandoned copy is still running.
+    @Test
+    void anAdminViewDoesNotKeepStaleTakingFields() throws Exception {
+        final String project =
+                """
+                [{"project":"alpha","state":"taking","taking_since":"2026-11-09T10:00:00Z",
+                  "taking_done":0,"taking_total":1,"repositories":[{"repository":"extra","state":"waiting"}]}]
+                """;
+        view(
+                VIEW.substring(0, VIEW.lastIndexOf("\"projects\":"))
+                        + "\"projects\":"
+                        + project
+                        + "}");
+        final var answer = asPerson(PERSON_LOGIN, "org", "status", "--json");
+        assertThat(answer.code()).isZero();
+        final var row =
+                HostJson.object(
+                        HostJson.array(
+                                        HostJson.object(HostJson.parse(answer.out()))
+                                                .get("projects"))
+                                .getFirst());
+        assertThat(row)
+                .containsEntry("state", "cannot-say")
+                .doesNotContainKeys("taking_since", "taking_done", "taking_total");
+        assertThat(row.get("why")).asString().contains("non-root", "live", "stopped");
     }
 
     @Test

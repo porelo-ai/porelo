@@ -166,6 +166,42 @@ class InterfaceDescriptionTest {
                 .contains("hostFileError: ?string");
     }
 
+    // Clients must be able to receive live progress without requiring it from older hosts.
+    @Test
+    void projectProgressFieldsAreOptionalOnTheWireAndMatchTheRecord() {
+        final Matcher project =
+                Pattern.compile("(?ms)^type Project \\(\\n(.*?)^\\)")
+                        .matcher(PoreloDaemon.description());
+        assertThat(project.find()).as("the project contract exists").isTrue();
+        assertThat(project.group(1))
+                .contains(
+                        "hostTakingDone: ?int",
+                        "hostTakingTotal: ?int",
+                        "hostTakingSince: ?string");
+        assertThat(
+                        java.util.Arrays.stream(
+                                        org.fuin.porelo.app.ProjectInventory.Summary.class
+                                                .getRecordComponents())
+                                .map(java.lang.reflect.RecordComponent::getName)
+                                .toList())
+                .as("the daemon's record carries each contract field")
+                .contains("hostTakingDone", "hostTakingTotal", "hostTakingSince")
+                .doesNotContain(
+                        "taking_pid",
+                        "taking_pid_start",
+                        "taking_boot",
+                        "hostTakingPid",
+                        "hostTakingPidStart",
+                        "hostTakingBoot");
+        assertThat(project.group(1))
+                .doesNotContain(
+                        "taking_pid",
+                        "taking_pid_start",
+                        "taking_boot",
+                        "hostTakingPid",
+                        "hostTakingBoot");
+    }
+
     @Test
     void aCredentialSaysWhetherNothingEndsIt() {
         final Matcher credential =

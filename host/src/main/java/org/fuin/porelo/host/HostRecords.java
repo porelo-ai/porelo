@@ -74,18 +74,30 @@ final class HostRecords {
         final Map<String, Person> records = new TreeMap<>();
         for (Path path : files.list(files.path(PEOPLE), 69, 0700)) {
             final String name = path.getFileName().toString();
-            if (name.equals("purged")) {
+            if (ProjectFiles.isStaged(name)) {
+                files.check(path, 69, false, false, 0600);
+            } else if (name.equals("purged")) {
                 purged();
             } else if (!name.endsWith(".conf")
                     || !name.substring(0, name.length() - 5).matches(USER)) {
                 throw new HostRefusal(65, "the people directory holds an unknown record");
             } else {
                 final String login = name.substring(0, name.length() - 5);
-                files.check(path, 69, true, false, 0600);
-                records.put(login, person(login, files.read(path)));
+                final String text = current(path);
+                if (text != null) records.put(login, person(login, text));
             }
         }
         return records;
+    }
+
+    private @Nullable String current(Path path) {
+        if (!files.check(path, 69, false, false, 0600)) return null;
+        try {
+            return files.read(path);
+        } catch (HostRefusal ex) {
+            if (files.check(path, 69, false, false, 0600)) throw ex;
+            return null;
+        }
     }
 
     List<String> purged() {

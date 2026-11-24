@@ -934,6 +934,58 @@ class ProjectInventoryTest {
                         .formatted(state, extra));
     }
 
+    // A daemon row must carry progress without offering work against unfinished copies.
+    @Test
+    void takingRowsCarryCountsOnlyWhileTheFollowIsLive(@TempDir Path dir) throws Exception {
+        final ProjectInventory inventory = inventory(context(dir));
+        inventory.hostFiles = hostFiles(dir, "quad", "backend");
+        central(
+                inventory,
+                "taking",
+                ",\"taking_done\":1,\"taking_total\":3,\"taking_since\":\"2026-11-09T10:01:00Z\",\"taking_pid\":123,\"taking_pid_start\":456,\"taking_boot\":\"12345678-1234-1234-1234-123456789abc\"");
+        final var live = new java.util.concurrent.atomic.AtomicBoolean(true);
+        inventory.followProcesses =
+                new org.fuin.porelo.organization.gittree.LinuxProcesses(
+                        path -> {
+                            if (path.toString().endsWith("boot_id"))
+                                return "12345678-1234-1234-1234-123456789abc";
+                            if (!live.get())
+                                throw new java.nio.file.NoSuchFileException(path.toString());
+                            return "123 (host (follow)) S " + "0 ".repeat(18) + "456 0";
+                        });
+        {
+            final var project = row(inventory, "quad");
+            assertThat(project.asMap())
+                    .as("the serialized project carries live progress")
+                    .containsEntry("hostState", "taking")
+                    .containsEntry("hostTakingDone", 1)
+                    .containsEntry("hostTakingTotal", 3)
+                    .containsEntry("hostTakingSince", "2026-11-09T10:01:00Z")
+                    .containsEntry("carried", false)
+                    .doesNotContainKeys(
+                            "taking_pid",
+                            "taking_pid_start",
+                            "taking_boot",
+                            "hostTakingPid",
+                            "hostTakingPidStart",
+                            "hostTakingBoot");
+            assertThat(project.repositories())
+                    .allSatisfy(
+                            repository ->
+                                    assertThat(repository.asMap())
+                                            .containsEntry("hostState", "taking")
+                                            .containsEntry("carriedHere", false));
+        }
+        live.set(false);
+        assertThat(row(inventory, "quad").asMap())
+                .containsEntry("hostState", "cannot-say")
+                .doesNotContainKeys("hostTakingDone", "hostTakingTotal", "hostTakingSince");
+        central(inventory, "carried", "");
+        assertThat(row(inventory, "quad").asMap())
+                .containsEntry("hostState", "carried")
+                .doesNotContainKeys("hostTakingDone", "hostTakingTotal", "hostTakingSince");
+    }
+
     // A waiting host must not offer a task against a repository it has not copied.
     @Test
     void aPlacedWaitingProjectAndItsRepositoriesAreNotCarried(@TempDir Path dir)

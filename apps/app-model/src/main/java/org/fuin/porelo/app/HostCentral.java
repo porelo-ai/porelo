@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import org.fuin.porelo.organization.gittree.LinuxProcesses;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.RootOwnedFile;
 import org.jspecify.annotations.Nullable;
@@ -69,10 +70,22 @@ final class HostCentral {
     static final String FAILED = "host-command-failed";
 
     private static final Set<String> ANSWER_FIELDS =
-            Set.of("project", "read_at", "repositories", "state", "why", "host_repositories");
+            Set.of(
+                    "project",
+                    "read_at",
+                    "repositories",
+                    "state",
+                    "why",
+                    "host_repositories",
+                    "taking_since",
+                    "taking_done",
+                    "taking_total",
+                    "taking_pid",
+                    "taking_pid_start",
+                    "taking_boot");
 
     private static final Set<String> PROJECT_STATES =
-            Set.of("pending", "carried", "waiting-for-token", "held", "refused");
+            Set.of("pending", "carried", "taking", "waiting-for-token", "held", "refused");
 
     private static final Set<String> REPOSITORY_STATES =
             Set.of("taken", "waiting", "not-carried", "held", "no-central");
@@ -113,7 +126,19 @@ final class HostCentral {
             @Nullable String state,
             @Nullable String why,
             Map<String, Progress> repositories,
-            boolean repositoriesKnown) {
+            boolean repositoriesKnown,
+            @Nullable Integer takingDone,
+            @Nullable Integer takingTotal,
+            @Nullable String takingSince) {
+
+        Status(
+                @Nullable String state,
+                @Nullable String why,
+                Map<String, Progress> repositories,
+                boolean repositoriesKnown) {
+            this(state, why, repositories, repositoriesKnown, null, null, null);
+        }
+
         boolean permitsCarrying() {
             return state == null || state.equals("carried");
         }
@@ -138,7 +163,11 @@ final class HostCentral {
         }
     }
 
-    private record Publication(Map<String, Object> values, Status status, List<Measurement> rows) {}
+    private record Publication(
+            Map<String, Object> values,
+            Status status,
+            List<Measurement> rows,
+            LinuxProcesses.@Nullable Identity takingProcess) {}
 
     private record Measurement(String name, Answer answer) {}
 
@@ -157,6 +186,7 @@ final class HostCentral {
     private final Path directory;
 
     private final RootOwnedFile.Attributes attributes;
+    private final LinuxProcesses processes;
 
     /**
      * Constructor.
@@ -166,8 +196,16 @@ final class HostCentral {
      *     only root may write, with no symlink.
      */
     HostCentral(final Path directory, final RootOwnedFile.Attributes attributes) {
+        this(directory, attributes, new LinuxProcesses());
+    }
+
+    HostCentral(
+            final Path directory,
+            final RootOwnedFile.Attributes attributes,
+            final LinuxProcesses processes) {
         this.directory = directory;
         this.attributes = attributes;
+        this.processes = processes;
     }
 
     /**
@@ -194,7 +232,7 @@ final class HostCentral {
             return all(carried, Answer.notTaken(FAILED));
         }
         try {
-            return answers(parse(output, project), carried);
+            return answers(publication(output, project), carried);
         } catch (RefusedAnswer ex) {
             return all(carried, Answer.notTaken(ex.getMessage()));
         }
@@ -207,7 +245,7 @@ final class HostCentral {
             return new Status("cannot-say", FAILED, Map.of(), false);
         }
         try {
-            return parse(output, project).status();
+            return publication(output, project).status();
         } catch (RefusedAnswer ex) {
             return new Status("cannot-say", ex.getMessage(), Map.of(), false);
         }
@@ -226,10 +264,22 @@ final class HostCentral {
             return cannotSay(project, FAILED);
         }
         try {
-            return parse(output, project).values();
+            return publication(output, project).values();
         } catch (RefusedAnswer ex) {
             return cannotSay(project, ex.getMessage());
         }
+    }
+
+    private Publication publication(String output, String project) {
+        final var publication = parse(output, project);
+        if (publication.takingProcess() != null) {
+            try {
+                processes.verify(publication.takingProcess());
+            } catch (IOException | IllegalArgumentException | SecurityException ex) {
+                throw new RefusedAnswer("follow process: " + ex.getMessage());
+            }
+        }
+        return publication;
     }
 
     private @Nullable String readFile(final String project) {
@@ -387,6 +437,44 @@ final class HostCentral {
                         ? state(answer.get("state"), PROJECT_STATES, "state")
                         : null;
         final String why = reason(answer, "why");
+        Integer takingDone = null, takingTotal = null;
+        String takingSince = null;
+        LinuxProcesses.Identity takingProcess = null;
+        if ("taking".equals(state)) {
+            takingSince = text(answer.get("taking_since"), "taking_since", 64);
+            if (utc(takingSince) == null)
+                throw new RefusedAnswer("taking_since: expected a UTC instant");
+            values.put("taking_since", takingSince);
+            final long pid = processNumber(answer.get("taking_pid"), "taking_pid", 1, 4194304);
+            final long start =
+                    processNumber(
+                            answer.get("taking_pid_start"), "taking_pid_start", 0, Long.MAX_VALUE);
+            final String boot = text(answer.get("taking_boot"), "taking_boot", 36);
+            if (!boot.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}"))
+                throw new RefusedAnswer("taking_boot: expected a lower-case UUID");
+            takingProcess = new LinuxProcesses.Identity(pid, start, boot);
+            if (answer.containsKey("taking_done") || answer.containsKey("taking_total")) {
+                takingDone = count(answer.get("taking_done"), "taking_done");
+                takingTotal = count(answer.get("taking_total"), "taking_total");
+                if (takingTotal < 1 || takingDone > takingTotal)
+                    throw new RefusedAnswer(
+                            "taking_total: expected 1 or more and at least taking_done");
+                values.put("taking_done", takingDone);
+                values.put("taking_total", takingTotal);
+            }
+        } else {
+            for (String field :
+                    List.of(
+                            "taking_since",
+                            "taking_done",
+                            "taking_total",
+                            "taking_pid",
+                            "taking_pid_start",
+                            "taking_boot")) {
+                if (answer.containsKey(field))
+                    throw new RefusedAnswer(field + ": unavailable outside taking");
+            }
+        }
         if (state == null
                 && (answer.containsKey("why") || answer.containsKey("host_repositories"))) {
             throw new RefusedAnswer("state: required with host progress");
@@ -418,8 +506,28 @@ final class HostCentral {
         return new Publication(
                 Map.copyOf(values),
                 new Status(
-                        state, why, Map.copyOf(progress), answer.containsKey("host_repositories")),
-                List.copyOf(measurements));
+                        state,
+                        why,
+                        Map.copyOf(progress),
+                        answer.containsKey("host_repositories"),
+                        takingDone,
+                        takingTotal,
+                        takingSince),
+                List.copyOf(measurements),
+                takingProcess);
+    }
+
+    private static long processNumber(
+            @Nullable Object value, String field, long minimum, long maximum) {
+        if (value instanceof Long number && number >= minimum && number <= maximum) return number;
+        throw new RefusedAnswer(
+                field + ": expected an integer from " + minimum + " through " + maximum);
+    }
+
+    private static int count(@Nullable Object value, String field) {
+        if (value instanceof Long number && number >= 0 && number <= MOST_COMMITS)
+            return number.intValue();
+        throw new RefusedAnswer(field + ": expected a nonnegative integer through " + MOST_COMMITS);
     }
 
     private static Map<?, ?> object(@Nullable Object value, String field) {

@@ -58,6 +58,9 @@ public final class ProjectInventory {
      * @param lastUsed Latest recorded task start or message event, ISO-8601, or "".
      * @param carried Whether a host carries it for this person and it has no file here yet.
      * @param hostFileError The host file and why it does not read, or {@code null}.
+     * @param hostTakingDone Completed copies in a live taking run, or {@code null} while counting.
+     * @param hostTakingTotal Repositories to copy in that run, or {@code null} while counting.
+     * @param hostTakingSince The run's UTC start, or {@code null} outside taking.
      */
     public record Summary(
             String name,
@@ -75,6 +78,9 @@ public final class ProjectInventory {
             boolean carried,
             @Nullable String hostState,
             @Nullable String hostWhy,
+            @Nullable Integer hostTakingDone,
+            @Nullable Integer hostTakingTotal,
+            @Nullable String hostTakingSince,
             @Nullable String hostFileError) {
 
         public Summary(
@@ -105,6 +111,9 @@ public final class ProjectInventory {
                     repositories,
                     lastUsed,
                     carried,
+                    null,
+                    null,
+                    null,
                     null,
                     null,
                     null);
@@ -211,6 +220,9 @@ public final class ProjectInventory {
                             carried,
                             hostState,
                             hostWhy,
+                            hostTakingDone,
+                            hostTakingTotal,
+                            hostTakingSince,
                             hostFileError);
         }
 
@@ -231,6 +243,9 @@ public final class ProjectInventory {
                     carried,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     hostFileError);
         }
 
@@ -261,6 +276,9 @@ public final class ProjectInventory {
                     carried,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     hostFileError);
         }
 
@@ -287,6 +305,9 @@ public final class ProjectInventory {
                     carried,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     hostFileError);
         }
 
@@ -313,6 +334,9 @@ public final class ProjectInventory {
                     true,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     hostFileError);
         }
 
@@ -339,6 +363,9 @@ public final class ProjectInventory {
                     carried,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     hostFileError);
         }
 
@@ -360,6 +387,9 @@ public final class ProjectInventory {
                     carried && status.permitsCarrying(),
                     status.state(),
                     status.why(),
+                    status.takingDone(),
+                    status.takingTotal(),
+                    status.takingSince(),
                     hostFileError);
         }
 
@@ -380,6 +410,9 @@ public final class ProjectInventory {
                     carried,
                     hostState,
                     hostWhy,
+                    hostTakingDone,
+                    hostTakingTotal,
+                    hostTakingSince,
                     error);
         }
 
@@ -398,6 +431,9 @@ public final class ProjectInventory {
             map.put("carried", carried);
             if (hostState != null) map.put("hostState", hostState);
             if (hostWhy != null) map.put("hostWhy", hostWhy);
+            if (hostTakingDone != null) map.put("hostTakingDone", hostTakingDone);
+            if (hostTakingTotal != null) map.put("hostTakingTotal", hostTakingTotal);
+            if (hostTakingSince != null) map.put("hostTakingSince", hostTakingSince);
             if (hostFileError != null) map.put("hostFileError", hostFileError);
             map.put("mirror", mirror == null ? "" : mirror);
             map.put("pending", pending);
@@ -449,6 +485,10 @@ public final class ProjectInventory {
 
     /** Reads root ownership and mode; another reader only in a test. */
     org.fuin.porelo.wire.RootOwnedFile.Attributes centralAttributes = HostCentral.ATTRIBUTES;
+
+    /** Reads the follow process identity; another reader only in a test. */
+    org.fuin.porelo.organization.gittree.LinuxProcesses followProcesses =
+            new org.fuin.porelo.organization.gittree.LinuxProcesses();
 
     /**
      * Constructor with the context to read from.
@@ -585,7 +625,10 @@ public final class ProjectInventory {
                             final HostCentral.Status status =
                                     host == null
                                             ? null
-                                            : new HostCentral(centralFiles, centralAttributes)
+                                            : new HostCentral(
+                                                            centralFiles,
+                                                            centralAttributes,
+                                                            followProcesses)
                                                     .status(summary.name());
                             // The class of the file in force, which a new task starts with; a
                             // task's only where no file is read.
