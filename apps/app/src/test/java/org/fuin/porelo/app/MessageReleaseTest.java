@@ -146,11 +146,28 @@ class MessageReleaseTest {
         mailbox.create();
         TaskIdentityFixture.record(context.paths(), "porelo-p_t", "p", "t", "a".repeat(64));
 
-        assertThat(PersonNote.rejectedWork(context, project, "t", "not this way")).isTrue();
+        assertThat(
+                        PersonNote.rejectedWork(
+                                context,
+                                project,
+                                "t",
+                                "not this way",
+                                recorded -> null,
+                                UnassembledReview.STORE,
+                                UnassembledReview.WRITER))
+                .isTrue();
         assertThat(Files.readString(Files.list(mailbox.inboxNew()).toList().get(0)))
                 .contains("rejected the work you handed over as 't'")
                 .contains("They said: not this way");
-        assertThat(PersonNote.rejectedWork(context, project, "enroll-porelo-host", null))
+        assertThat(
+                        PersonNote.rejectedWork(
+                                context,
+                                project,
+                                "enroll-porelo-host",
+                                null,
+                                recorded -> null,
+                                UnassembledReview.STORE,
+                                UnassembledReview.WRITER))
                 .as("a pending push no task made - an enrolment - tells nobody")
                 .isFalse();
     }

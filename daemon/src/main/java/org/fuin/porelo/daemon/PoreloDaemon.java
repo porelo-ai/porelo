@@ -447,8 +447,19 @@ public final class PoreloDaemon {
     static java.util.Set<String> alreadyUpstream(
             Map<String, Object> parameters, PoreloContext context) {
         final Project project = GateSupport.project(projectFile(parameters, context));
-        return GateSupport.alreadyUpstream(
-                context, project, GateSupport.repository(project, text(parameters, "repository")));
+        return GateSupport.alreadyUpstream(context, project, gateRepository(parameters, project));
+    }
+
+    /**
+     * Returns the repository whose gate a call names; every gate a call opens is that one's.
+     *
+     * @param parameters The call's parameters.
+     * @param project The project the call names.
+     * @return The repository named, or the project's own.
+     */
+    static org.fuin.porelo.core.project.Repository gateRepository(
+            Map<String, Object> parameters, Project project) {
+        return GateSupport.repository(project, text(parameters, "repository"));
     }
 
     static GitGate gate(Map<String, Object> parameters, PoreloContext context) {
@@ -467,7 +478,7 @@ public final class PoreloDaemon {
                 GateSupport.gate(
                         context,
                         project,
-                        GateSupport.repository(project, text(parameters, "repository")),
+                        gateRepository(parameters, project),
                         upstream.isEmpty() ? null : upstream,
                         null);
         return gate;

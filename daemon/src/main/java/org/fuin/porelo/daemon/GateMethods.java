@@ -800,39 +800,78 @@ final class GateMethods {
 
         server.method(
                 "Reject",
-                (parameters, replies) -> {
-                    final GitGate gate = gate(parameters, context);
-                    final String name = text(parameters, "name");
-                    if (PoreloDaemon.alreadyUpstream(parameters, context).contains(name)
-                            && !flag(parameters, "force")) {
-                        // Discarding work somebody pushed upstream by hand records the opposite of
-                        // what happened.
-                        throw new VarlinkException(
-                                INTERFACE + ".AlreadyUpstream", Map.of("name", name));
-                    }
-                    gate.reject(name, false, true);
-                    org.fuin.porelo.app.EventLog.record(
-                            context,
-                            org.fuin.porelo.app.EventLog.REJECTED,
-                            text(parameters, "project"),
-                            name,
-                            "discarded, through the daemon");
-                    // The task the work came from is told, reason or not: an agent whose work
-                    // silently vanished hands it over again.
-                    boolean told;
-                    try {
-                        told =
-                                org.fuin.porelo.app.PersonNote.rejectedWork(
+                (parameters, replies) ->
+                        replies.last(
+                                // The review's real parts are wired when the review is assembled.
+                                reject(
+                                        parameters,
                                         context,
-                                        org.fuin.porelo.app.GateSupport.byName(
-                                                context, text(parameters, "project")),
-                                        text(parameters, "name"),
-                                        empty(parameters, "reason"));
-                    } catch (java.io.IOException ex) {
-                        told = false;
-                    }
-                    replies.last(Map.of("rejected", text(parameters, "name"), "told", told));
-                });
+                                        org.fuin.porelo.app.UnassembledReview.STORE,
+                                        org.fuin.porelo.app.UnassembledReview.WRITER)));
+    }
+
+    /**
+     * Discards a waiting push and tells the task it came from, with the push's open review threads.
+     *
+     * @param parameters The call's parameters.
+     * @param context This machine.
+     * @param store The review's threads.
+     * @param writer Writes the open ones as SARIF.
+     * @return The reply.
+     */
+    static Map<String, Object> reject(
+            final Map<String, Object> parameters,
+            final PoreloContext context,
+            final org.fuin.porelo.gate.review.ReviewStore store,
+            final org.fuin.porelo.gate.review.ReviewWriter writer) {
+        final GitGate gate = gate(parameters, context);
+        final String name = text(parameters, "name");
+        if (PoreloDaemon.alreadyUpstream(parameters, context).contains(name)
+                && !flag(parameters, "force")) {
+            // Discarding work somebody pushed upstream by hand records the opposite of what
+            // happened.
+            throw new VarlinkException(INTERFACE + ".AlreadyUpstream", Map.of("name", name));
+        }
+        // Read before the ref is gone, from the repository the gate was opened for: the review's
+        // threads belong to the commit that waited. A lookup that fails never stops the reject.
+        org.fuin.porelo.app.PersonNote.Rejected rejected;
+        try {
+            final org.fuin.porelo.core.project.Project project =
+                    GateSupport.project(projectFile(parameters, context));
+            rejected =
+                    org.fuin.porelo.app.PersonNote.Rejected.waitingIn(
+                            context,
+                            project,
+                            PoreloDaemon.gateRepository(parameters, project),
+                            gate,
+                            name);
+        } catch (final RuntimeException ex) {
+            rejected = org.fuin.porelo.app.PersonNote.Rejected.unreadable(ex);
+        }
+        gate.reject(name, false, true);
+        org.fuin.porelo.app.EventLog.record(
+                context,
+                org.fuin.porelo.app.EventLog.REJECTED,
+                text(parameters, "project"),
+                name,
+                "discarded, through the daemon");
+        // The task the work came from is told, reason or not: an agent whose work silently
+        // vanished hands it over again.
+        boolean told;
+        try {
+            told =
+                    org.fuin.porelo.app.PersonNote.rejectedWork(
+                            context,
+                            GateSupport.byName(context, text(parameters, "project")),
+                            name,
+                            empty(parameters, "reason"),
+                            rejected,
+                            store,
+                            writer);
+        } catch (java.io.IOException ex) {
+            told = false;
+        }
+        return Map.of("rejected", name, "told", told);
     }
 
     /**

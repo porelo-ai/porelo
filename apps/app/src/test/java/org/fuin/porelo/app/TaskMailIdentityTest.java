@@ -51,7 +51,16 @@ class TaskMailIdentityTest {
                         new java.io.StringReader(
                                 "project:\n  name: web\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n"),
                         "project.yml");
-        assertThat(PersonNote.rejectedWork(context, project, "enroll-host", null)).isFalse();
+        assertThat(
+                        PersonNote.rejectedWork(
+                                context,
+                                project,
+                                "enroll-host",
+                                null,
+                                recorded -> null,
+                                UnassembledReview.STORE,
+                                UnassembledReview.WRITER))
+                .isFalse();
     }
 
     @org.junit.jupiter.params.ParameterizedTest

@@ -105,6 +105,9 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                 err.flush();
                 return 1;
             }
+            // Read before the ref is gone: the review's threads belong to the commit that waited.
+            final PersonNote.Rejected rejected =
+                    PersonNote.Rejected.waitingIn(context, project, chosen, gate, name);
             gate.reject(name, upstreamHas, force);
             out.println("discarded " + name);
             EventLog.record(
@@ -116,7 +119,15 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             // Told whether or not a reason was given: an agent whose work silently vanished hands
             // it over again.
             out.println(
-                    PersonNote.rejectedWork(context, project, name, said)
+                    // The review's real parts are wired when the review is assembled.
+                    PersonNote.rejectedWork(
+                                    context,
+                                    project,
+                                    name,
+                                    said,
+                                    rejected,
+                                    UnassembledReview.STORE,
+                                    UnassembledReview.WRITER)
                             ? "told      the task it came from"
                             : "not told  no task named '" + name + "' has a mailbox here any more");
             out.flush();
