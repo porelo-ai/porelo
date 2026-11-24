@@ -1,0 +1,2 @@
+title: "The host keeps a waiting push's review comments, replies and thread states in an owner-only journal per task container, so a reject or a later push of the same name leaves its threads readable and a task started later under a reused name inherits none"
+type: added
