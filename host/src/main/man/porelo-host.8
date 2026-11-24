@@ -749,9 +749,12 @@ Print this host's identity on standard output as one JSON object, and nothing el
 "repository", "address", "key_id", "title", "public", "private"}], "ssh_host_keys":
 [{"type", "public", "private"}]}. It holds the organization read key, each project's
 read key whose manifest entry has a key id above 0, titled porelo host <host> project
-<project>, and the ed25519, ecdsa and rsa keys of /etc/ssh that exist. Read keys are
-root's 0600 files in its 0700 directories; an SSH host key's private half may be
-readable by its group, never by others. Writes nothing.
+<project>, and the ed25519, ecdsa and rsa keys of /etc/ssh that exist. A key whose
+manifest records another title is left out and named on standard error as
+<project>/<repository> not carried: its key is registered under another title.
+Read keys are root's 0600 files in its 0700 directories; an SSH host key's private half
+may be readable by its group, never by others. Writes nothing, not even the follow lock
+file: without one, it holds the forge.conf flock alone.
 .TP
 .B identity import
 Read an identity of that shape on standard input, at most 256 KiB, and write the SSH
@@ -759,11 +762,14 @@ host keys, /etc/ssh/ssh_host_<type>_key at 0600 and its .pub at 0644, then
 /etc/porelo-host/organization/read/ as export reads it: the organization key, each
 repository's key and public half at 0600 and its manifest entry, in 0700 directories.
 Each file is written whole through a staged file in its directory and an atomic move.
-A host whose read keys hold no organization key yet is fresh: its host keys are the
-first-boot ones, which import replaces, removing a type the identity does not carry.
+A host with nothing under /etc/porelo-host/organization/read/ is fresh: its host keys
+are the first-boot ones, which import replaces, removing a type the identity does not
+carry. Every precondition, directory modes included, is checked before the first write;
+a later write that fails puts back what was replaced or removed and removes what was added.
 Refuse an unknown or missing field, another host's identity, a title that is not this
 host's, a key id of 0, a key that is not one unencrypted OpenSSH key whose public half,
-derived by ssh-keygen from a private file in a private scratch directory, is its public.
+derived by ssh-keygen from a private file in /run/porelo-host/identity-scratch, mode
+0700, removed at the end and at the start of each run, is its public.
 Otherwise write only what is missing; a key file or entry already there that differs,
 or a host key of a type the identity does not carry, refuses the import with nothing
 changed. Print one line: imported when a file was written or removed, unchanged when the

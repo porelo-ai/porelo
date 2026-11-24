@@ -623,9 +623,10 @@ error NotAHostVault()
 # it, and 'porelo vault clear' names each of its keys as left at the central forge.
 #
 # Only the person's own socket reaches these methods: a task's socket never does, whatever its list
-# says. A shut vault answers VaultLocked. A value is checked whole on every write and every read,
-# and a refusal is org.varlink.service.InvalidParameter naming the field, such as
-# identity.repositories[0].key_id, never any part of a key.
+# says. A shut vault answers VaultLocked. A value is checked whole when it is kept and its fields
+# again on every read, and a refusal is org.varlink.service.InvalidParameter naming the field, such
+# as identity.repositories[0].key_id, never any part of a key; a field the shape does not know is
+# named by where it is, such as 'identity.repositories[0]: an unknown field', never by its name.
 
 # One key: an OpenSSH public key line, 'ssh-ed25519 AAAA... comment', and its private half.
 type HostIdentityKey (
@@ -676,7 +677,9 @@ type HostIdentity (
 )
 
 # Keeps a host's identity in this machine's vault, after the host's first setup and again before
-# each 'down', as the host has carried more repositories.
+# each 'down', as the host has carried more repositories. Refused with HostIdentityNotReadOnAHost by
+# a host's own daemon. Each public half is derived from its private key here, once; a read checks
+# the kept value's fields again and derives nothing.
 #
 # Without replace, an identity already kept is replaced only by one with the same organization key,
 # the same host keys and every kept repository unchanged, which may add repositories; anything else
@@ -706,6 +709,6 @@ error HostIdentityUnknown(host: string)
 # repository dropped or changed. Nothing changed; keep it with replace at the person's word.
 error HostIdentityExists(host: string)
 
-# This daemon's vault is a host's: the private halves of a host's identity are read only from the
-# person's own.
+# This daemon's vault is a host's: the private halves of a host's identity are kept in and read
+# from the person's own vault alone, so HostIdentityKeep and HostIdentityRead are refused here.
 error HostIdentityNotReadOnAHost()

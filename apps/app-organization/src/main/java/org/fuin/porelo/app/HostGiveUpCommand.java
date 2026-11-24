@@ -66,8 +66,17 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
             (forge, owner, name, token, client) ->
                     ForgeReadKey.of(ForgeReadKey.api(forge), owner, name, token, client);
 
-    /** A key the identity carries, public half only. */
-    record Key(@Nullable String project, ForgeAddress repository, String title, String key) {}
+    /**
+     * A key the identity carries, public half only, with why it is never sent to the forge when it
+     * is not: its address on no central repository, or its key no key.
+     */
+    record Key(
+            @Nullable String project,
+            @Nullable ForgeAddress repository,
+            String repositoryName,
+            String title,
+            String key,
+            @Nullable String unsent) {}
 
     @Override
     public void setContext(final PoreloContext context) {
@@ -110,7 +119,7 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
                         "no token for the central forge: store it with porelo vault put"
                                 + " central-forge, or give it on standard input");
             }
-            return giveUp(machine, vault, opener, keys, new String(token));
+            return giveUp(machine, vault, opener, entry.value(), keys, new String(token));
         } catch (VaultException ex) {
             return refuse(70, RegistryText.printable(String.valueOf(ex.getMessage())));
         } catch (Refused refused) {
@@ -132,6 +141,7 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
             final PoreloContext machine,
             final VaultFile vault,
             final VaultFile.Opener opener,
+            final String read,
             final List<Key> keys,
             final String token) {
         final HttpClient client = OrganizationAccess.http(machine);
@@ -139,12 +149,19 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
         final List<Map<String, @Nullable Object>> kept = new ArrayList<>();
         for (final Key key : keys) {
             final ForgeAddress at = key.repository();
-            final String link =
-                    at.forge() + "/" + at.organization() + "/" + at.repository() + "/settings/keys";
             final Map<String, @Nullable Object> row = new LinkedHashMap<>();
             row.put("project", key.project());
-            row.put("repository", at.repository());
+            row.put("repository", key.repositoryName());
             row.put("title", key.title());
+            if (at == null || key.unsent() != null) {
+                // Nothing is asked: no link either, since the address is the host's own words.
+                row.put("why", key.unsent());
+                row.put("link", null);
+                kept.add(row);
+                continue;
+            }
+            final String link =
+                    at.forge() + "/" + at.organization() + "/" + at.repository() + "/settings/keys";
             try {
                 forge.at(at.forge(), at.organization(), at.repository(), token, client)
                         .removeHosts(key.key(), key.title());
@@ -159,19 +176,31 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
                                 : why);
                 row.put("link", link);
                 kept.add(row);
+            } catch (IllegalArgumentException ex) {
+                row.put("why", "the address names no repository the forge takes");
+                row.put("link", null);
+                kept.add(row);
             }
         }
+        boolean changed = false;
         if (kept.isEmpty()) {
+            final boolean[] same = {false};
             try {
+                // Deleted only as it was read: an identity that gained a key meanwhile keeps it.
                 vault.update(
                         opener,
                         entries -> {
-                            entries.remove(ENTRY_PREFIX + host);
+                            final VaultEntry now = entries.get(ENTRY_PREFIX + host);
+                            same[0] = now != null && read.equals(now.value());
+                            if (same[0]) {
+                                entries.remove(ENTRY_PREFIX + host);
+                            }
                             return entries;
                         });
             } catch (VaultException ex) {
                 return refuse(70, RegistryText.printable(String.valueOf(ex.getMessage())));
             }
+            changed = !same[0];
         }
         if (json) {
             final Map<String, @Nullable Object> answer = new LinkedHashMap<>();
@@ -188,17 +217,27 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
                                             + named(row)
                                             + ": "
                                             + row.get("why")
-                                            + "; its owner removes it at "
-                                            + row.get("link")));
+                                            + (row.get("link") == null
+                                                    ? ""
+                                                    : "; its owner removes it at "
+                                                            + row.get("link"))));
             OrgOutput.line(
                     spec,
-                    kept.isEmpty()
+                    kept.isEmpty() && !changed
                             ? "gave up   " + host + ": its identity is deleted from the vault"
                             : "kept      "
                                     + host
                                     + "'s identity in the vault: "
                                     + kept.size()
                                     + " of its keys remain at the central forge");
+        }
+        if (changed) {
+            return refuse(
+                    65,
+                    "the identity of "
+                            + host
+                            + " changed while it was given up and is kept; run porelo host give-up"
+                            + " again");
         }
         return kept.isEmpty() ? 0 : 65;
     }
@@ -233,12 +272,20 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
             throw invalid("its organization key has no public half");
         }
         final String orgKey = canonical(orgPublic);
+        final String fingerprint;
+        try {
+            fingerprint = OrgAddReadKeyCommand.fingerprint(orgKey);
+        } catch (IllegalArgumentException ex) {
+            throw invalid("its organization key does not read");
+        }
         keys.add(
                 new Key(
                         null,
                         central,
-                        "porelo host read key " + OrgAddReadKeyCommand.fingerprint(orgKey),
-                        orgKey));
+                        central.repository(),
+                        "porelo host read key " + fingerprint,
+                        orgKey,
+                        null));
         if (!(identity.get("repositories") instanceof List<?> repositories)) {
             throw invalid("it lists no repositories");
         }
@@ -254,17 +301,32 @@ public class HostGiveUpCommand implements Callable<Integer>, PoreloFactory.Conte
                     || !title.equals("porelo host " + host + " project " + project)) {
                 throw invalid("a repository's project or title is not this host's");
             }
-            final ForgeAddress at;
+            // A row that cannot be sent is kept and named; the other rows are still given up.
+            ForgeAddress at = null;
+            String unsent = null;
             try {
                 at = ForgeAddress.of(address);
             } catch (IllegalArgumentException ex) {
-                throw invalid("a repository's address is no forge repository");
+                unsent = "its address is no forge repository";
             }
             // The token goes to the central forge alone: an address on another server is kept.
-            if (!at.forge().equals(central.forge())) {
-                throw invalid("a repository's address is not on the central forge");
+            if (at != null && !at.forge().equals(central.forge())) {
+                unsent = "its address is not on the central forge";
             }
-            keys.add(new Key(project, at, title, canonical(key)));
+            String publicKey = null;
+            try {
+                publicKey = canonical(key);
+            } catch (Refused refused) {
+                unsent = unsent != null ? unsent : "its key does not read";
+            }
+            keys.add(
+                    new Key(
+                            project,
+                            unsent == null ? at : null,
+                            unsent == null && at != null ? at.repository() : project,
+                            title,
+                            publicKey == null ? "" : publicKey,
+                            unsent));
         }
         return keys;
     }

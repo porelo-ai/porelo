@@ -1046,23 +1046,48 @@ class VaultPutCommandTest {
 
     @Test
     void aHostsIdentityIsNotPutByHand(
-            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) {
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws IOException {
+        final char[] passphrase = "fixture passphrase".toCharArray();
         final PoreloContext context =
                 new PoreloContext(
-                        new org.fuin.porelo.testing.FakeCommandRunner(),
-                        new PoreloPaths(
-                                org.fuin.porelo.core.config.XdgPaths.of(name -> null, dir),
-                                dir.resolve("bin")),
-                        arguments -> 0);
+                                new org.fuin.porelo.testing.FakeCommandRunner(),
+                                new PoreloPaths(
+                                        org.fuin.porelo.core.config.XdgPaths.of(name -> null, dir),
+                                        dir.resolve("bin")),
+                                arguments -> 0)
+                        .asking(prompt -> passphrase.clone());
+        java.nio.file.Files.createDirectories(context.vault().path().getParent());
+        context.vault()
+                .write(
+                        java.util.Map.of("forge", org.fuin.porelo.vault.VaultEntry.of("kept")),
+                        passphrase);
+        assertThat(
+                        context.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the vault is open, so a put that was not refused would write it")
+                .isPresent();
+        final java.nio.file.Path value =
+                java.nio.file.Files.writeString(dir.resolve("value"), "{\"host\":\"build-1\"}");
         final java.io.StringWriter err = new java.io.StringWriter();
         final picocli.CommandLine command = PoreloCli.commandLine(context);
         command.setOut(new java.io.PrintWriter(new java.io.StringWriter()));
         command.setErr(new java.io.PrintWriter(err));
+        try {
+            final int exit =
+                    command.execute(
+                            "vault",
+                            "put",
+                            HostIdentity.entryName("build-1"),
+                            "--from-file",
+                            value.toString());
 
-        assertThat(command.execute("vault", "put", HostIdentity.entryName("build-1")))
-                .isEqualTo(64);
-
-        assertThat(err.toString()).contains("host's identity");
-        assertThat(context.vault().exists()).as("nothing was written").isFalse();
+            assertThat(context.vault().read(passphrase))
+                    .as("the vault, which the put could have written, holds what it held")
+                    .containsOnlyKeys("forge");
+            assertThat(exit).isEqualTo(64);
+            assertThat(err.toString()).contains("host's identity");
+        } finally {
+            context.forgetTyped();
+        }
     }
 }

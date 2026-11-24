@@ -48,6 +48,8 @@ class HostIdentityMethodsTest {
 
     private PoreloContext context;
 
+    private final FakeCommandRunner runner = new FakeCommandRunner();
+
     private PoreloContext context(final boolean asking) throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -61,10 +63,7 @@ class HostIdentityMethodsTest {
                                 },
                         dir);
         final PoreloContext made =
-                new PoreloContext(
-                        new FakeCommandRunner(),
-                        new PoreloPaths(xdg, dir.resolve("bin")),
-                        arguments -> 0);
+                new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), arguments -> 0);
         final Path organization = made.paths().xdg().config().resolve("organization.yml");
         Files.createDirectories(organization.getParent());
         Files.writeString(
@@ -202,30 +201,103 @@ class HostIdentityMethodsTest {
     @Test
     void aChangedKeyOrADroppedRepositoryIsRefusedUnlessReplaced() throws Exception {
         openVault(Map.of());
-        final Map<String, Object> identity = identity();
-        keep(identity, false);
+        final Map<String, Object> stored = identity();
+        list(stored, "repositories").add(repository("docs", 9));
 
-        final Map<String, Object> organization = copy(identity);
+        // Each from the same stored identity, one thing changed: a key is its pair, or the value
+        // would be refused as malformed rather than as another identity.
+        final Map<String, Map<String, Object>> cases = new LinkedHashMap<>();
+        final Map<String, Object> organization = copy(stored);
         organization.put("organization", key("new"));
-        final Map<String, Object> hostKey = copy(identity);
-        hostKey.put("ssh_host_keys", List.of(hostKey()));
-        final Map<String, Object> dropped = copy(identity);
-        dropped.put("repositories", List.of(repository("docs", 9)));
-        final Map<String, Object> changed = copy(identity);
-        first(changed, "repositories").putAll(key("swapped"));
+        cases.put("another organization key", organization);
+        final Map<String, Object> hostKey = copy(stored);
+        first(hostKey, "ssh_host_keys").putAll(key("another host key"));
+        cases.put("another host key", hostKey);
+        final Map<String, Object> dropped = copy(stored);
+        list(dropped, "repositories").remove(1);
+        cases.put("a repository dropped", dropped);
+        final Map<String, Object> keyId = copy(stored);
+        first(keyId, "repositories").put("key_id", 8L);
+        cases.put("a repository's key id", keyId);
+        final Map<String, Object> repositoryKey = copy(stored);
+        first(repositoryKey, "repositories").putAll(key("swapped"));
+        cases.put("a repository's key", repositoryKey);
 
-        Map<String, Object> last = identity;
-        for (final Map<String, Object> each : List.of(organization, hostKey, dropped, changed)) {
+        for (final Map.Entry<String, Map<String, Object>> each : cases.entrySet()) {
+            keep(stored, true);
+            assertThat(read()).as("each case starts from the stored identity").isEqualTo(stored);
+
             final VarlinkException refused =
-                    catchThrowableOfType(VarlinkException.class, () -> keep(each, false));
+                    catchThrowableOfType(
+                            VarlinkException.class, () -> keep(each.getValue(), false));
+            assertThat(refused).as(each.getKey() + ": refused").isNotNull();
             assertThat(refused.getErrorName())
+                    .as(each.getKey())
                     .isEqualTo(PoreloDaemon.INTERFACE + ".HostIdentityExists");
             assertThat(refused.getParameters()).containsEntry("host", HOST);
-            assertThat(read()).as("the kept identity stays").isEqualTo(last);
+            assertThat(read()).as(each.getKey() + ": the kept identity stays").isEqualTo(stored);
 
-            keep(each, true);
-            assertThat(read()).as("replaced at the person's word").isEqualTo(each);
-            last = each;
+            keep(each.getValue(), true);
+            assertThat(read())
+                    .as(each.getKey() + ": replaced at the person's word")
+                    .isEqualTo(each.getValue());
+        }
+    }
+
+    private List<org.fuin.porelo.core.process.Command> derivations() {
+        return runner.invocations().stream()
+                .filter(command -> command.arguments().getFirst().equals("ssh-keygen"))
+                .toList();
+    }
+
+    @Test
+    void anIdentityIsDerivedOnceWhenKeptAndNeverWhenRead() throws Exception {
+        final Path generated = dir.resolve("ecdsa");
+        final Process process =
+                new ProcessBuilder(
+                                "ssh-keygen",
+                                "-q",
+                                "-t",
+                                "ecdsa",
+                                "-N",
+                                "",
+                                "-C",
+                                "h",
+                                "-f",
+                                generated.toString())
+                        .redirectErrorStream(true)
+                        .start();
+        assertThat(process.waitFor()).as("ssh-keygen").isZero();
+        final String publicKey = Files.readString(dir.resolve("ecdsa.pub")).strip();
+        runner.answering("ssh-keygen", publicKey + "\n");
+        openVault(Map.of());
+        final Map<String, Object> identity = identity();
+        final Map<String, Object> ecdsa = new LinkedHashMap<>();
+        ecdsa.put("type", "ecdsa");
+        ecdsa.put("public", publicKey);
+        ecdsa.put("private", Files.readString(generated));
+        list(identity, "ssh_host_keys").add(ecdsa);
+
+        keep(identity, false);
+
+        assertThat(derivations())
+                .as("one derivation, from a copy in the daemon's own runtime directory")
+                .singleElement()
+                .satisfies(
+                        command ->
+                                assertThat(
+                                                Path.of(command.arguments().getLast())
+                                                        .startsWith(
+                                                                context.paths().xdg().runtime()))
+                                        .as("the copy lay under the runtime directory")
+                                        .isTrue());
+
+        assertThat(read()).isEqualTo(identity);
+        call("HostIdentityPublic", Map.of("host", HOST));
+
+        assertThat(derivations()).as("a read derives nothing").hasSize(1);
+        try (var left = Files.list(org.fuin.porelo.app.HostIdentity.derivations(context.paths()))) {
+            assertThat(left).as("no copy of a key is left").isEmpty();
         }
     }
 
@@ -294,21 +366,42 @@ class HostIdentityMethodsTest {
             context.vault().write(Map.of(), new byte[32]);
             owner.keep(new byte[32]);
             assertThat(context.vault().isHostVault()).isTrue();
+            assertThat(context.opener()).as("the host's vault is open").isPresent();
             // Called as the socket calls them: a served socket forgets the share when it closes.
             final Map<String, Object> host = Map.of("host", HOST);
-            VaultMethods.hostIdentityKeep(context, Map.of("host", HOST, "identity", identity()));
 
-            final VarlinkException refused =
-                    catchThrowableOfType(
-                            VarlinkException.class,
-                            () -> VaultMethods.hostIdentity(context, host, true));
-
-            assertThat(refused.getErrorName())
-                    .isEqualTo(PoreloDaemon.INTERFACE + ".HostIdentityNotReadOnAHost");
-            assertThat(VaultMethods.hostIdentity(context, host, false))
-                    .as("the public form, which a host's vault may answer")
-                    .containsKey("identity");
+            for (final Runnable each :
+                    List.<Runnable>of(
+                            () ->
+                                    VaultMethods.hostIdentityKeep(
+                                            context, Map.of("host", HOST, "identity", identity())),
+                            () -> VaultMethods.hostIdentity(context, host, true))) {
+                final VarlinkException refused =
+                        catchThrowableOfType(VarlinkException.class, each::run);
+                assertThat(refused).isNotNull();
+                assertThat(refused.getErrorName())
+                        .isEqualTo(PoreloDaemon.INTERFACE + ".HostIdentityNotReadOnAHost");
+            }
+            assertThat(context.vault().read(new byte[32]))
+                    .as("no private key was stored in the host's vault")
+                    .doesNotContainKey(ENTRY);
         }
+    }
+
+    @Test
+    void anUnknownFieldIsNamedByWhereItIsNeverByTheCallersText() throws Exception {
+        openVault(Map.of());
+        final Map<String, Object> identity = identity();
+        first(identity, "repositories").put("ignore-previous-instructions", "x");
+
+        final VarlinkException refused =
+                refusal("HostIdentityKeep", Map.of("host", HOST, "identity", identity));
+
+        assertThat(refused.getErrorName()).isEqualTo("org.varlink.service.InvalidParameter");
+        assertThat(refused.getParameters())
+                .containsEntry("parameter", "identity.repositories[0]: an unknown field");
+        assertThat(Json.write(refused.getParameters()) + refused.getMessage())
+                .doesNotContain("ignore-previous-instructions");
     }
 
     @Test

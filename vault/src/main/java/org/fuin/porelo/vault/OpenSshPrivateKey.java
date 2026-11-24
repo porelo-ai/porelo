@@ -174,6 +174,65 @@ public final class OpenSshPrivateKey {
     }
 
     /**
+     * Derives an unencrypted Ed25519 key's public half from its seed, and holds every other place
+     * the file names it to that: the clear public section, the private section's public key and the
+     * 64-byte secret's second half. A file whose sections disagree would put one key's name on
+     * another's seed.
+     *
+     * @param text The whole file.
+     * @return {@code ssh-ed25519 <base64>}, or {@code null} for a file that is not one unencrypted
+     *     Ed25519 key or whose sections disagree with its seed.
+     */
+    public static @org.jspecify.annotations.Nullable String consistentEd25519PublicKey(
+            final String text) {
+        if (!"ssh-ed25519".equals(singleUnencryptedType(text))) {
+            return null;
+        }
+        final int begins = text.indexOf(BEGIN);
+        final int ends = text.indexOf(END);
+        byte[] secretHalf = new byte[0];
+        byte[] seed = new byte[0];
+        try {
+            final Reader reader =
+                    new Reader(
+                            Base64.getMimeDecoder()
+                                    .decode(text.substring(begins + BEGIN.length(), ends)));
+            reader.expect(MAGIC, "not an OpenSSH private key");
+            reader.string();
+            reader.string();
+            reader.bytes();
+            reader.int32();
+            final byte[] outer = reader.bytes();
+            final Reader secret = new Reader(reader.bytes());
+            secret.int32();
+            secret.int32();
+            secret.string();
+            final byte[] inner = secret.bytes();
+            secretHalf = secret.bytes();
+            if (secretHalf.length != 2 * SEED_LENGTH || inner.length != SEED_LENGTH) {
+                return null;
+            }
+            seed = java.util.Arrays.copyOfRange(secretHalf, 0, SEED_LENGTH);
+            final byte[] derived = new SigningKey(seed, "").keyBlob();
+            final byte[] named = SshWire.ed25519KeyBlob(inner);
+            final byte[] second =
+                    SshWire.ed25519KeyBlob(
+                            java.util.Arrays.copyOfRange(secretHalf, SEED_LENGTH, 2 * SEED_LENGTH));
+            if (!java.util.Arrays.equals(derived, outer)
+                    || !java.util.Arrays.equals(derived, named)
+                    || !java.util.Arrays.equals(derived, second)) {
+                return null;
+            }
+            return "ssh-ed25519 " + Base64.getEncoder().encodeToString(derived);
+        } catch (final IllegalArgumentException | VaultException ex) {
+            return null;
+        } finally {
+            java.util.Arrays.fill(secretHalf, (byte) 0);
+            java.util.Arrays.fill(seed, (byte) 0);
+        }
+    }
+
+    /**
      * The public half an OpenSSH private key file names in its clear part, so an encrypted key is
      * named without its passphrase. Nothing proves the file's secret part belongs to it: whatever
      * the key signs is checked against it, and a file that lies signs nothing that verifies.

@@ -35,8 +35,10 @@ class HostIdentityTest {
 
     @TempDir Path dir;
 
-    private final HostIdentity.PublicHalf derive =
-            HostIdentity.derivation(new ProcessCommandRunner());
+    /** Derives as the daemon does, into a directory of the test's own. */
+    private HostIdentity.PublicHalf derive() {
+        return HostIdentity.derivation(new ProcessCommandRunner(), dir.resolve("derivations"));
+    }
 
     /** A key pair: its private file's text and its public line, with a comment. */
     private record Pair(String privateKey, String publicKey) {}
@@ -123,7 +125,7 @@ class HostIdentityTest {
     }
 
     private Map<String, Object> checked(final Object identity, final @Nullable String origin) {
-        return HostIdentity.checked(identity, HOST, origin, derive);
+        return HostIdentity.checked(identity, HOST, origin, derive());
     }
 
     /** Checks a value that must be refused, and that the refusal names the field alone. */
@@ -166,19 +168,139 @@ class HostIdentityTest {
     void anUnknownFieldIsRefusedWhereverItIs() {
         final Map<String, Object> top = identity();
         top.put("comment", "x");
-        refused(top, ORIGIN, "identity.comment", "a field beside the four");
+        refused(top, ORIGIN, "identity: an unknown field", "a field beside the four");
 
         final Map<String, Object> organization = identity();
         at(organization, "organization").put("title", "x");
-        refused(organization, ORIGIN, "identity.organization.title", "in the organization's key");
+        refused(
+                organization,
+                ORIGIN,
+                "identity.organization: an unknown field",
+                "in the organization's key");
 
         final Map<String, Object> repository = identity();
         at(repository, "repositories.0").put("token", "x");
-        refused(repository, ORIGIN, "identity.repositories[0].token", "in a repository");
+        refused(
+                repository,
+                ORIGIN,
+                "identity.repositories[0]: an unknown field",
+                "in a repository");
 
         final Map<String, Object> hostKey = identity();
         at(hostKey, "ssh_host_keys.0").put("comment", "x");
-        refused(hostKey, ORIGIN, "identity.ssh_host_keys[0].comment", "in a host key");
+        refused(hostKey, ORIGIN, "identity.ssh_host_keys[0]: an unknown field", "in a host key");
+
+        final Map<String, Object> chosen = identity();
+        chosen.put("\u001b]0;owned\u0007", "x");
+        refused(chosen, ORIGIN, "identity: an unknown field", "a name the caller chose");
+    }
+
+    @Test
+    void anEd25519KeyWhosePublicSectionsAreNotItsSeedsIsRefused() {
+        final SigningKey seeded = SigningKey.generate("seeded");
+        final SigningKey other = SigningKey.generate("other");
+        final byte[] seed = java.util.Base64.getDecoder().decode(seeded.seedBase64());
+        final byte[] blob = other.keyBlob();
+        final byte[] otherPublic =
+                java.util.Arrays.copyOfRange(blob, blob.length - 32, blob.length);
+        final String mixed =
+                new String(
+                        org.fuin.porelo.vault.OpenSshPrivateKey.write(seed, otherPublic, "mixed"),
+                        StandardCharsets.US_ASCII);
+        final Map<String, Object> identity = identity();
+        at(identity, "organization").put("private", mixed);
+        at(identity, "organization").put("public", seeded.authorizedKeysLine());
+
+        refused(
+                identity,
+                ORIGIN,
+                "identity.organization.public",
+                "a file whose public sections name another key than its seed");
+    }
+
+    @Test
+    void aKeptValueIsCheckedAgainWithoutDerivingAnything() throws Exception {
+        final Map<String, Object> kept = checked(identity(), ORIGIN);
+        final Pair one = keygen("one", "-t", "ecdsa", "-N", "");
+        final Pair other = keygen("other", "-t", "ecdsa", "-N", "");
+        list(kept, "ssh_host_keys")
+                .add(hostKey("ecdsa", new Pair(one.privateKey(), other.publicKey())));
+
+        assertThat(HostIdentity.checkedAsKept(kept, HOST, ORIGIN))
+                .as("its fields hold, and no public half is derived to see that it differs")
+                .isEqualTo(kept);
+
+        final Map<String, Object> unknown = copy(kept);
+        at(unknown, "organization").put("title", "x");
+        final HostIdentity.Refused refusal =
+                catchThrowableOfType(
+                        HostIdentity.Refused.class,
+                        () -> HostIdentity.checkedAsKept(unknown, HOST, ORIGIN));
+        assertThat(refusal.field()).isEqualTo("identity.organization: an unknown field");
+    }
+
+    @Test
+    void aPublicHalfIsDerivedFromACopyInItsOwnDirectoryThatIsGoneAfterwards() throws Exception {
+        final Pair ecdsa = keygen("ecdsa", "-t", "ecdsa", "-N", "");
+        final Path keys = dir.resolve("run/porelo/host-identity-keys");
+        final java.util.List<java.util.Set<java.nio.file.attribute.PosixFilePermission>> modes =
+                new ArrayList<>();
+        final java.util.List<Path> copies = new ArrayList<>();
+        final org.fuin.porelo.core.process.CommandRunner runner =
+                command -> {
+                    final Path copy = Path.of(command.arguments().getLast());
+                    copies.add(copy);
+                    try {
+                        modes.add(Files.getPosixFilePermissions(copy.getParent()));
+                    } catch (IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                    return new org.fuin.porelo.core.process.CommandResult(
+                            command, 0, ecdsa.publicKey() + "\n", "");
+                };
+
+        assertThat(
+                        HostIdentity.derivation(runner, keys)
+                                .of(ecdsa.privateKey(), "ecdsa-sha2-nistp256"))
+                .isEqualTo(String.join(" ", List.of(ecdsa.publicKey().split(" ")).subList(0, 2)));
+
+        // Compared as written: the copy is gone, so nothing can resolve it.
+        assertThat(copies)
+                .singleElement()
+                .satisfies(copy -> assertThat(copy.startsWith(keys)).as("under " + keys).isTrue());
+        assertThat(modes)
+                .singleElement()
+                .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        try (var left = Files.list(keys)) {
+            assertThat(left).as("nothing left of the copy").isEmpty();
+        }
+    }
+
+    @Test
+    void whatAnEarlierRunLeftIsRemovedAtTheStart() throws IOException {
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(
+                                XdgPaths.of(
+                                        name ->
+                                                "XDG_RUNTIME_DIR".equals(name)
+                                                        ? dir.resolve("run").toString()
+                                                        : null,
+                                        dir),
+                                dir.resolve("bin")),
+                        a -> 0);
+        final Path keys = HostIdentity.derivations(context.paths());
+        assertThat(keys.startsWith(context.paths().xdg().runtime()))
+                .as("in the runtime directory, as written")
+                .isTrue();
+        final Path left = Files.createDirectories(keys.resolve("key-123")).resolve("key");
+        Files.writeString(left, "-----BEGIN OPENSSH PRIVATE KEY-----");
+
+        HostIdentity.clearDerivations(context.paths());
+
+        assertThat(left).doesNotExist();
+        assertThat(keys.resolve("key-123")).doesNotExist();
     }
 
     @Test

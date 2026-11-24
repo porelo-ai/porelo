@@ -57,6 +57,8 @@ class HostIdentityTest {
     @TempDir Path directory;
     private HostReadFixture source;
     private final List<List<String>> commands = new ArrayList<>();
+    private final List<Integer> scratchModes = new ArrayList<>();
+    private ProjectFiles.Deleting deleting = path -> Files.deleteIfExists(path);
 
     private record Key(String privateText, String publicLine) {
         /** The base64 body of the private half, which must never leave by any other way. */
@@ -175,7 +177,9 @@ class HostIdentityTest {
         final HostFiles files = tree.files();
         final ProjectRuntime runtime =
                 new ProjectRuntime(
-                        new ProjectFiles(tree.root, owner(tree.root)), this::command, Path::of);
+                        new ProjectFiles(tree.root, owner(tree.root), deleting),
+                        this::command,
+                        Path::of);
         final StringWriter out = new StringWriter();
         final StringWriter err = new StringWriter();
         final int exit =
@@ -216,6 +220,14 @@ class HostIdentityTest {
             List<String> argv, byte[] input, Map<String, String> environment, Duration timeout)
             throws IOException {
         commands.add(List.copyOf(argv));
+        if (argv.contains("-y")) {
+            scratchModes.add(
+                    (int)
+                            Files.getAttribute(
+                                    Path.of(argv.getLast()).getParent(),
+                                    "unix:mode",
+                                    LinkOption.NOFOLLOW_LINKS));
+        }
         assertThat(argv.getFirst())
                 .as("the identity starts only ssh-keygen, to derive a public half")
                 .isEqualTo("/usr/bin/ssh-keygen");
@@ -696,5 +708,149 @@ class HostIdentityTest {
         }
         final var answer = call.get(30, TimeUnit.SECONDS);
         assertThat(answer.code()).as(answer.err()).isZero();
+    }
+
+    /** A host as its image boots: first-boot SSH host keys, nothing carried yet. */
+    private HostReadFixture firstBoot(String name) throws IOException {
+        final HostReadFixture tree = host(name);
+        put(tree, "/etc/ssh/ssh_host_ed25519_key", firstBootEd25519.privateText);
+        put(tree, "/etc/ssh/ssh_host_ed25519_key.pub", firstBootEd25519.publicLine + "\n", 0644);
+        put(tree, "/etc/ssh/ssh_host_ecdsa_key", firstBootEcdsa.privateText);
+        put(tree, "/etc/ssh/ssh_host_ecdsa_key.pub", firstBootEcdsa.publicLine + "\n", 0644);
+        return tree;
+    }
+
+    @Test
+    void importOnAFreshHostWhoseReadDirectoryIsUnsafeIsRefusedWithItsHostKeysUnchanged()
+            throws Exception {
+        final String identity = export(source).out();
+        final HostReadFixture target = firstBoot("target");
+        final Path read = target.path("/etc/porelo-host/organization/read");
+        Files.createDirectories(read);
+        Files.setPosixFilePermissions(
+                read.getParent(), PosixFilePermissions.fromString("rwx------"));
+        Files.setPosixFilePermissions(read, PosixFilePermissions.fromString("rwxr-x---"));
+        final Map<String, String> before = snapshot(target.root, true);
+
+        final var answer = importing(target, identity);
+
+        assertThat(answer.code()).as(answer.err()).isNotZero();
+        assertThat(answer.out()).isEmpty();
+        assertThat(snapshot(target.root, true))
+                .as("every precondition is checked before the first write")
+                .isEqualTo(before);
+        assertNoKeyText(answer, true);
+    }
+
+    @Test
+    void importThatFailsAfterItsFirstWritePutsBackWhatItReplaced() throws Exception {
+        final String identity = export(source).out();
+        final HostReadFixture target = firstBoot("target");
+        final Map<String, String> before = snapshot(target.root, false);
+        final boolean[] failed = {false};
+        deleting =
+                path -> {
+                    if (!failed[0]
+                            && path.toString().contains("/projects/beta/")
+                            && path.getFileName().toString().startsWith(".repositories-")) {
+                        failed[0] = true;
+                        throw new IOException("fixture: the disk fails while beta is written");
+                    }
+                    Files.deleteIfExists(path);
+                };
+
+        final var answer = importing(target, identity);
+
+        assertThat(failed[0]).as("the failure came after the host keys were written").isTrue();
+        assertThat(answer.code()).as(answer.err()).isNotZero();
+        assertThat(answer.out()).isEmpty();
+        assertThat(snapshot(target.root, false))
+                .as(
+                        "the first-boot host keys are back with their modes, and nothing of the"
+                                + " organization tree or a staged file is left")
+                .isEqualTo(before);
+        assertNoKeyText(answer, true);
+    }
+
+    @Test
+    void aHostWithAnythingUnderItsReadKeysIsNotFreshAndADifferingHostKeyIsRefused()
+            throws Exception {
+        final String identity = export(source).out();
+        final HostReadFixture target = firstBoot("target");
+        manifest(target, "alpha", List.of(entry("code", CODE, 7L, TITLE_ALPHA)));
+        repositoryKey(target, "alpha", "code", code);
+        final Map<String, String> before = snapshot(target.root, true);
+
+        final var answer = importing(target, identity);
+
+        assertThat(answer.code()).as(answer.err()).isEqualTo(65);
+        assertThat(answer.err()).contains("differs");
+        assertThat(answer.out()).isEmpty();
+        assertThat(snapshot(target.root, true))
+                .as("a host that holds a manifest but no organization key keeps its host keys")
+                .isEqualTo(before);
+    }
+
+    @Test
+    void exportWithoutAFollowLockFileCreatesNone() throws Exception {
+        Files.delete(source.path(HostFollowLock.PATH));
+        final Map<String, String> before = snapshot(source.root, true);
+
+        final var answer = export(source);
+
+        assertThat(answer.code()).as(answer.err()).isZero();
+        assertThat(answer.out()).isEqualTo(expectedIdentity());
+        assertThat(source.path(HostFollowLock.PATH)).doesNotExist();
+        assertThat(snapshot(source.root, true)).as("export writes nothing").isEqualTo(before);
+    }
+
+    @Test
+    void importDerivesPublicHalvesInARootOnlyScratchUnderRunAndRemovesALeftOne() throws Exception {
+        final String identity = export(source).out();
+        final HostReadFixture target = firstBoot("target");
+        final Path scratch = target.path("/run/porelo-host/identity-scratch");
+        put(target, "/run/porelo-host/identity-scratch/key", "left by an earlier run\n");
+        Files.setPosixFilePermissions(
+                target.path("/run/porelo-host"), PosixFilePermissions.fromString("rwxr-xr-x"));
+
+        final var answer = importing(target, identity);
+
+        assertThat(answer.code()).as(answer.err()).isZero();
+        assertThat(commands)
+                .as("each key is derived from a file in the scratch under /run/porelo-host")
+                .isNotEmpty()
+                .allSatisfy(
+                        argv -> assertThat(Path.of(argv.getLast()).startsWith(scratch)).isTrue());
+        assertThat(scratchModes).as("the scratch is root's alone").containsOnly(040700);
+        assertThat(scratch).as("the scratch is gone, the earlier run's with it").doesNotExist();
+        try (var entries = Files.list(target.path("/tmp"))) {
+            assertThat(entries).as("the shared /tmp is never used").isEmpty();
+        }
+    }
+
+    @Test
+    void exportLeavesOutAKeyRegisteredUnderAnotherTitleAndSaysWhich() throws Exception {
+        manifest(
+                source,
+                "beta",
+                List.of(entry("Site", SITE, 9L, "porelo host old-name project beta")));
+
+        final var answer = export(source);
+
+        assertThat(answer.code()).as(answer.err()).isZero();
+        final Map<String, Object> exported = HostJson.object(Json.parseExact(answer.out()));
+        final List<Object> names =
+                ((List<?>) exported.get("repositories"))
+                        .stream()
+                                .map(item -> (Object) ((Map<?, ?>) item).get("repository"))
+                                .toList();
+        assertThat(names)
+                .as("give-up could never remove it, and the vault refuses its title")
+                .containsExactly("code");
+        assertThat(answer.err())
+                .isEqualTo(
+                        "porelo-host: beta/Site not carried: its key is registered under another"
+                                + " title\n");
+        assertNoKeyText(answer, false);
     }
 }

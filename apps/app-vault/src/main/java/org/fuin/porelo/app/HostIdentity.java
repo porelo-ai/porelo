@@ -24,8 +24,6 @@ import org.fuin.porelo.organization.gittree.ForgeAddress;
 import org.fuin.porelo.vault.CardException;
 import org.fuin.porelo.vault.HostCard;
 import org.fuin.porelo.vault.OpenSshPrivateKey;
-import org.fuin.porelo.vault.SigningKey;
-import org.fuin.porelo.vault.VaultException;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.varlink.VarlinkNumbers;
 import org.jspecify.annotations.Nullable;
@@ -35,9 +33,10 @@ import org.jspecify.annotations.Nullable;
  * read key and the host's SSH host keys, one JSON object in one entry per host, so a rental's
  * preparation writes and reads the whole set at once.
  *
- * <p>The value is checked field by field on every write and every read. A refusal names the field
- * alone, never a key's text: a key in an error would reach a log or a screen. Each private key is
- * one unencrypted OpenSSH key whose public half, derived from it, is the {@code public} given.
+ * <p>The value is checked whole when it is kept, and its fields again on every read, which derives
+ * no key. A refusal names the field alone, never a key's text or a name the caller chose: either
+ * would reach a log or a screen. Each private key is one unencrypted OpenSSH key whose public half,
+ * derived from it when it is kept, is the {@code public} given.
  */
 public final class HostIdentity {
 
@@ -149,6 +148,29 @@ public final class HostIdentity {
             final String host,
             final @Nullable String origin,
             final PublicHalf derive) {
+        return checking(value, host, origin, derive);
+    }
+
+    /**
+     * Checks a value the vault keeps, which was checked whole when it was kept: its shape and
+     * fields again, and no public half derived, so a read writes no key anywhere.
+     *
+     * @param value The value, as the vault's JSON carries it.
+     * @param host The host it is for.
+     * @param origin As {@link #checked} takes it.
+     * @return The value, every field in its place.
+     * @throws Refused Naming the first field that does not hold.
+     */
+    public static Map<String, Object> checkedAsKept(
+            final @Nullable Object value, final String host, final @Nullable String origin) {
+        return checking(value, host, origin, null);
+    }
+
+    private static Map<String, Object> checking(
+            final @Nullable Object value,
+            final String host,
+            final @Nullable String origin,
+            final @Nullable PublicHalf derive) {
         if (!(value instanceof Map<?, ?>)
                 || Json.write(value).getBytes(StandardCharsets.UTF_8).length > MOST_BYTES) {
             throw new Refused("identity");
@@ -408,27 +430,68 @@ public final class HostIdentity {
     }
 
     /**
-     * Returns how this machine derives a private key's public half: in Java for Ed25519, and by
-     * {@code ssh-keygen -y} from a copy only the account can read for the others, removed at once.
+     * Returns where the daemon derives a key's public half: a directory of its own in its runtime
+     * directory, which only the account reads and which does not outlive a reboot.
+     *
+     * @param paths The machine's paths.
+     * @return The directory.
+     */
+    public static Path derivations(final PoreloPaths paths) {
+        return paths.xdg().runtime().resolve("host-identity-keys");
+    }
+
+    /**
+     * Removes whatever an earlier run left where keys are derived, as a daemon that ended in the
+     * middle of a derivation leaves a key's copy behind. Run when the daemon starts.
+     *
+     * @param paths The machine's paths.
+     */
+    public static void clearDerivations(final PoreloPaths paths) {
+        final Path directory = derivations(paths);
+        if (!Files.isDirectory(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try (var left = Files.list(directory)) {
+            for (final Path each : left.toList()) {
+                if (Files.isDirectory(each, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                    VaultPutCommand.shred(each);
+                } else {
+                    Files.deleteIfExists(each);
+                }
+            }
+        } catch (IOException ex) {
+            // Nothing to report to: the next derivation makes a directory of its own anyway.
+        }
+    }
+
+    /**
+     * Returns how this machine derives a private key's public half: in Java for Ed25519, holding
+     * every section of the file to its seed, and by {@code ssh-keygen -y} for the others, from a
+     * copy in a directory only the account can read, under {@code directory}, removed at once.
      *
      * @param runner Where {@code ssh-keygen} runs.
+     * @param directory Where the copies are made, as {@link #derivations} names it.
      * @return The derivation.
      */
-    public static PublicHalf derivation(final CommandRunner runner) {
+    public static PublicHalf derivation(final CommandRunner runner, final Path directory) {
         return (privateKey, algorithm) -> {
             if ("ssh-ed25519".equals(algorithm)) {
-                return ed25519(privateKey);
+                return OpenSshPrivateKey.consistentEd25519PublicKey(privateKey);
             }
-            Path directory = null;
+            Path copies = null;
             try {
-                directory =
+                Files.createDirectories(directory);
+                Files.setPosixFilePermissions(
+                        directory, PosixFilePermissions.fromString("rwx------"));
+                copies =
                         Files.createTempDirectory(
-                                "porelo-key-",
+                                directory,
+                                "key-",
                                 PosixFilePermissions.asFileAttribute(
                                         PosixFilePermissions.fromString("rwx------")));
                 final Path copy =
                         Files.createFile(
-                                directory.resolve("key"),
+                                copies.resolve("key"),
                                 PosixFilePermissions.asFileAttribute(
                                         PosixFilePermissions.fromString("rw-------")));
                 Files.writeString(copy, privateKey, StandardCharsets.US_ASCII);
@@ -440,25 +503,11 @@ public final class HostIdentity {
             } catch (IOException | CommandException ex) {
                 return null;
             } finally {
-                if (directory != null) {
-                    VaultPutCommand.shred(directory);
+                if (copies != null) {
+                    VaultPutCommand.shred(copies);
                 }
             }
         };
-    }
-
-    private static @Nullable String ed25519(final String privateKey) {
-        try {
-            final byte[] seed =
-                    java.util.Base64.getDecoder().decode(OpenSshPrivateKey.seedBase64(privateKey));
-            try {
-                return canonical(new SigningKey(seed, "").authorizedKeysLine());
-            } finally {
-                java.util.Arrays.fill(seed, (byte) 0);
-            }
-        } catch (VaultException | IllegalArgumentException ex) {
-            return null;
-        }
     }
 
     /** A key as {@code <algorithm> <base64>}, its comment left out. */
@@ -483,7 +532,7 @@ public final class HostIdentity {
             final Map<String, Object> key,
             final String field,
             final @Nullable String type,
-            final PublicHalf derive) {
+            final @Nullable PublicHalf derive) {
         final String line = text(key, "public", field, false);
         final String canonical = canonical(line);
         try {
@@ -499,7 +548,7 @@ public final class HostIdentity {
         if (!algorithm.equals(OpenSshPrivateKey.singleUnencryptedType(privateKey))) {
             throw new Refused(field + ".private");
         }
-        if (!canonical.equals(derive.of(privateKey, algorithm))) {
+        if (derive != null && !canonical.equals(derive.of(privateKey, algorithm))) {
             throw new Refused(field + ".public");
         }
     }
@@ -512,7 +561,8 @@ public final class HostIdentity {
         }
         for (final Object name : given.keySet()) {
             if (!(name instanceof String known) || !fields.contains(known)) {
-                throw new Refused(field + "." + name);
+                // Named by where it is: its name is the caller's text, never answered back.
+                throw new Refused(field + ": an unknown field");
             }
         }
         final Map<String, Object> ordered = new LinkedHashMap<>();

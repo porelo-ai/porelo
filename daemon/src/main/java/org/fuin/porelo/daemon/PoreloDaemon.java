@@ -1629,6 +1629,9 @@ public final class PoreloDaemon {
             System.err.flush();
             System.exit(78);
         }
+        // A daemon that ended in the middle of deriving a host key's public half left a copy of
+        // that key behind: gone before anything else runs.
+        org.fuin.porelo.app.HostIdentity.clearDerivations(context.paths());
         try (Watches watches = watches(context, every, messages)) {
             final PoreloContext owned = watches.context();
             final Path socket = owned.paths().daemonSocket();

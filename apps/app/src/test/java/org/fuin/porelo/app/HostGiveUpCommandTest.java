@@ -24,6 +24,7 @@ import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.organization.gittree.ForgeReadKey;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +56,8 @@ class HostGiveUpCommandTest {
     private final Map<String, Integer> listStatus = new HashMap<>();
     private final List<String> deleted = new ArrayList<>();
     private final List<String> tokens = new ArrayList<>();
+    private final List<String> asked = new ArrayList<>();
+    private @Nullable Runnable onDelete;
     private boolean samePageAlways;
     private final StringWriter out = new StringWriter();
     private final StringWriter err = new StringWriter();
@@ -179,8 +182,12 @@ class HostGiveUpCommandTest {
     private void forge(final HttpExchange exchange) throws IOException {
         tokens.add(String.valueOf(exchange.getRequestHeaders().getFirst("Authorization")));
         final String path = exchange.getRequestURI().getPath();
+        asked.add(path);
         if ("DELETE".equals(exchange.getRequestMethod())) {
             deleted.add(path);
+            if (onDelete != null) {
+                onDelete.run();
+            }
             send(exchange, 204, "");
             return;
         }
@@ -287,10 +294,13 @@ class HostGiveUpCommandTest {
         assertThat(run("")).isEqualTo(65);
         assertThat(deleted).doesNotContain("/repos/acme/app/keys/8");
         assertThat(kept()).isTrue();
+        assertThat(out.toString()).contains("another title or with write access");
 
+        out.getBuffer().setLength(0);
         listed.put("/repos/acme/app/keys", List.of(row(8, APP_KEY, TITLE, false)));
         assertThat(run("")).isEqualTo(65);
         assertThat(deleted).doesNotContain("/repos/acme/app/keys/8");
+        assertThat(kept()).isTrue();
         assertThat(out.toString()).contains("another title or with write access");
     }
 
@@ -306,14 +316,63 @@ class HostGiveUpCommandTest {
     }
 
     @Test
-    void anAddressOnAnotherServerIsRefusedBeforeAnyRequest() {
+    void anAddressOnAnotherServerIsKeptWithoutARequestWhileTheOthersAreGivenUp() {
         keep(identity("https://elsewhere.example.net/acme/app.git"), true);
+        listed.put(
+                "/repos/acme/organization/keys",
+                List.of(row(3, ORG_KEY, "porelo host read key " + fingerprint(ORG_KEY), true)));
+
+        assertThat(run("", "--json")).isEqualTo(65);
+
+        assertThat(asked)
+                .as("the token goes to the central forge, and for its own repositories alone")
+                .noneMatch(path -> path.contains("/acme/app/"));
+        assertThat(deleted).containsExactly("/repos/acme/organization/keys/3");
+        assertThat(kept()).isTrue();
+        final Map<?, ?> answer = (Map<?, ?>) Json.parse(out.toString());
+        assertThat((List<?>) answer.get("kept"))
+                .singleElement()
+                .satisfies(
+                        row -> {
+                            assertThat(((Map<?, ?>) row).get("why"))
+                                    .isEqualTo("its address is not on the central forge");
+                            assertThat(((Map<?, ?>) row).get("link")).isNull();
+                        });
+    }
+
+    @Test
+    void anAddressTheForgeCannotNameIsKeptAndNamedWhileTheOthersAreGivenUp() {
+        keep(identity("https://forge.example.org/acme/app.git.git"), true);
+        listed.put(
+                "/repos/acme/organization/keys",
+                List.of(row(3, ORG_KEY, "porelo host read key " + fingerprint(ORG_KEY), true)));
 
         assertThat(run("")).isEqualTo(65);
 
-        assertThat(tokens).as("the token goes to the central forge alone").isEmpty();
+        assertThat(deleted).containsExactly("/repos/acme/organization/keys/3");
         assertThat(kept()).isTrue();
-        assertThat(err.toString()).contains("not on the central forge");
+        assertThat(out.toString()).contains("removed   ").contains("kept      ");
+        assertThat(err.toString()).doesNotContain("organization.yml");
+    }
+
+    @Test
+    void anIdentityThatGainsAKeyWhileItIsGivenUpIsKept() {
+        listed.put(
+                "/repos/acme/organization/keys",
+                List.of(row(3, ORG_KEY, "porelo host read key " + fingerprint(ORG_KEY), true)));
+        listed.put("/repos/acme/app/keys", List.of(row(8, APP_KEY, TITLE, true)));
+        final String grown =
+                identity("https://forge.example.org/acme/app.git")
+                        .replace("\"ssh_host_keys\":[]", "\"ssh_host_keys\":[],\"grown\":true");
+        assertThat(grown).as("the stand-in for a gained key changes the value").contains("grown");
+        onDelete = () -> keep(grown, true);
+
+        assertThat(run("")).isEqualTo(65);
+
+        assertThat(kept()).as("a key added meanwhile is never forgotten").isTrue();
+        assertThat(context.vault().read(share).get(HostGiveUpCommand.ENTRY_PREFIX + HOST).value())
+                .isEqualTo(grown);
+        assertThat(err.toString()).contains("changed while it was given up");
     }
 
     @Test

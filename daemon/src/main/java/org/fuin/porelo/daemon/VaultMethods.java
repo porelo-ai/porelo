@@ -209,6 +209,10 @@ final class VaultMethods {
         personOnly("HostIdentityKeep");
         final String host = identityHost(parameters);
         final boolean replace = flag(parameters, "replace");
+        if (context.vault().isHostVault()) {
+            // A host's vault is not the person's: a host's private keys are kept in neither.
+            throw new VarlinkException(INTERFACE + ".HostIdentityNotReadOnAHost", Map.of());
+        }
         final org.fuin.porelo.vault.VaultFile.Opener opener = identityOpener(context);
         final Map<String, Object> offered;
         try {
@@ -217,7 +221,9 @@ final class VaultMethods {
                             parameters.get("identity"),
                             host,
                             org.fuin.porelo.app.HostIdentity.centralOrigin(context),
-                            org.fuin.porelo.app.HostIdentity.derivation(context.runner()));
+                            org.fuin.porelo.app.HostIdentity.derivation(
+                                    context.runner(),
+                                    org.fuin.porelo.app.HostIdentity.derivations(context.paths())));
         } catch (org.fuin.porelo.app.HostIdentity.Refused ex) {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", ex.field()));
@@ -295,11 +301,11 @@ final class VaultMethods {
         final Map<String, Object> identity;
         try {
             identity =
-                    org.fuin.porelo.app.HostIdentity.checked(
+                    // Checked whole when it was kept: its fields again, and no key derived.
+                    org.fuin.porelo.app.HostIdentity.checkedAsKept(
                             org.fuin.porelo.wire.Json.parseExact(entry.value()),
                             host,
-                            org.fuin.porelo.app.HostIdentity.centralOrigin(context),
-                            org.fuin.porelo.app.HostIdentity.derivation(context.runner()));
+                            org.fuin.porelo.app.HostIdentity.centralOrigin(context));
         } catch (org.fuin.porelo.app.HostIdentity.Refused ex) {
             throw new VarlinkException(
                     INTERFACE + ".Failed",

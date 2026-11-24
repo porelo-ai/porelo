@@ -43,6 +43,9 @@ final class HostIdentity {
     /** The SSH host key types a host has, in the order export answers them. */
     private static final List<String> HOST_KEY_TYPES = List.of("ed25519", "ecdsa", "rsa");
 
+    /** Where import derives public halves, the private key file in it, while it runs. */
+    private static final String SCRATCH = "/run/porelo-host/identity-scratch";
+
     /** ssh-keygen deriving one public half. */
     private static final Duration KEYGEN = Duration.ofSeconds(30);
 
@@ -161,13 +164,24 @@ final class HostIdentity {
         }
     }
 
-    /** Holds the configuration lock and then the follow lock, as the follow takes them. */
-    private <T> T locked(PrintWriter err, Locked<T> work) throws IOException {
+    /**
+     * Holds the configuration lock and then the follow lock, as the follow takes them.
+     *
+     * @param writes Whether the work writes; work that writes nothing makes no lock file.
+     */
+    private <T> T locked(PrintWriter err, boolean writes, Locked<T> work) throws IOException {
         final Path conf = host.path("/etc/porelo-host/forge.conf");
         host.check(conf, 69, true, false, -1);
         try (var lock = HostConfigurationLock.acquire(conf, false)) {
             final Path followLock = host.path(HostFollowLock.PATH);
             if (!host.check(followLock, 69, false, false, 0600)) {
+                if (!writes) {
+                    // No follow has made its lock file since boot, since /run is cleared then, and
+                    // a
+                    // follow takes the configuration lock held here before it makes or takes its
+                    // own: no follow runs now or starts before this work ends.
+                    return work.run();
+                }
                 new FollowContext(host, files, runtime, clock, err)
                         .write(HostFollowLock.PATH, "", 0600);
             }
@@ -198,7 +212,7 @@ final class HostIdentity {
 
     // Export.
 
-    private Identity export() throws IOException {
+    private Identity export(PrintWriter err) throws IOException {
         final String name = hostName();
         final Path read = read();
         files.directory(read, true, false);
@@ -219,6 +233,18 @@ final class HostIdentity {
                 for (Map<String, @Nullable Object> item : manifest.entries()) {
                     if (ProjectReadKeys.id(item) <= 0) continue;
                     final String repository = ProjectReadKeys.name(item);
+                    if (item.get("title") instanceof String recorded
+                            && !recorded.equals(title(name, project))) {
+                        // A key the migration reused under its earlier title: give-up could never
+                        // remove it by this host's title, and the vault refuses that title.
+                        err.println(
+                                "porelo-host: "
+                                        + project
+                                        + "/"
+                                        + repository
+                                        + " not carried: its key is registered under another title");
+                        continue;
+                    }
                     final Path key =
                             manifest.directory().resolve(ProjectReadKeys.lower(repository));
                     final String what = "the read key of " + project + "/" + repository;
@@ -299,9 +325,11 @@ final class HostIdentity {
         final Path read = read();
         final Path projects = read.resolve("projects");
         final Path organization = read.resolve("organization");
-        // A host whose read keys hold no organization key has never carried an identity: its host
-        // keys are the first-boot pair the image made.
-        final boolean fresh = !files.exists(organization);
+        // A host with nothing at all under its read keys has never carried an identity: its host
+        // keys are the first-boot pair the image made. Anything there makes it a carrying host.
+        checkDirectory(files.etc.resolve("organization"), false);
+        checkDirectory(read, true);
+        final boolean fresh = !files.exists(read) || files.list(read).isEmpty();
         final List<HostWrite> hostWrites = hostKeys(identity, fresh);
         final Map<Path, String> writes = new LinkedHashMap<>();
         final Map<String, ProjectReadKeys.Manifest> manifests = new LinkedHashMap<>();
@@ -330,28 +358,76 @@ final class HostIdentity {
                 throw differs();
             }
         }
-        // The host keys first, then the organization tree.
-        for (HostWrite write : hostWrites) {
-            write.apply(files);
+        checkDirectory(projects, true);
+        for (ProjectReadKeys.Manifest manifest : manifests.values()) {
+            checkDirectory(manifest.directory(), true);
         }
-        if (!writes.isEmpty() || !grown.isEmpty()) {
-            directory(files.etc.resolve("organization"), false);
-            directory(read, true);
-            if (!manifests.isEmpty()) directory(projects, true);
-            for (ProjectReadKeys.Manifest manifest : manifests.values()) {
-                directory(manifest.directory(), true);
+        // Every precondition is checked; from here a failure puts back what was replaced.
+        final List<ProjectFiles.Writing> undo = new ArrayList<>();
+        final List<Path> backups = new ArrayList<>();
+        try {
+            // The host keys first, then the organization tree.
+            for (HostWrite write : hostWrites) {
+                keep(write.path(), undo, backups);
+                write.apply(files);
             }
-            for (Map.Entry<Path, String> write : writes.entrySet()) {
-                files.publish(write.getKey(), ".repositories-", write.getValue());
+            if (!writes.isEmpty() || !grown.isEmpty()) {
+                directory(files.etc.resolve("organization"), false, undo);
+                directory(read, true, undo);
+                directory(projects, true, undo);
+                for (ProjectReadKeys.Manifest manifest : manifests.values()) {
+                    directory(manifest.directory(), true, undo);
+                }
+                for (Map.Entry<Path, String> write : writes.entrySet()) {
+                    final Path path = write.getKey();
+                    undo.add(() -> files.delete(path));
+                    files.publish(path, ".repositories-", write.getValue());
+                }
+                // The keys are in place before the manifest names them.
+                for (String project : grown) {
+                    final ProjectReadKeys.Manifest manifest =
+                            java.util.Objects.requireNonNull(
+                                    manifests.get(project), "A grown manifest was read");
+                    keep(manifest.directory().resolve("repositories.json"), undo, backups);
+                    keys.writeManifest(manifest);
+                }
             }
-            // The keys are in place before the manifest names them.
-            for (String project : grown) {
-                keys.writeManifest(
-                        java.util.Objects.requireNonNull(
-                                manifests.get(project), "A grown manifest was read"));
+        } catch (IOException | RuntimeException ex) {
+            for (ProjectFiles.Writing step : undo.reversed()) {
+                try {
+                    step.run();
+                } catch (IOException | RuntimeException failed) {
+                    ex.addSuppressed(failed);
+                }
+            }
+            throw ex;
+        } finally {
+            for (Path backup : backups) {
+                files.delete(backup);
             }
         }
         return !hostWrites.isEmpty() || !writes.isEmpty() || !grown.isEmpty();
+    }
+
+    /**
+     * Keeps a file about to be replaced or removed as a second link beside it, so a later failure
+     * puts the same file back, its owner, group and mode with it; a file that was missing is
+     * removed again.
+     */
+    private void keep(Path path, List<ProjectFiles.Writing> undo, List<Path> backups)
+            throws IOException {
+        if (!files.exists(path)) {
+            undo.add(() -> files.delete(path));
+            return;
+        }
+        final Path backup =
+                ProjectFiles.parent(path)
+                        .resolve(ProjectFiles.STAGED_PREFIX + "kept." + path.getFileName());
+        // One an earlier run left is its own kept copy, which that run no longer needs.
+        files.delete(backup);
+        ProjectFiles.write(path, () -> Files.createLink(backup, path));
+        backups.add(backup);
+        undo.add(() -> files.replace(backup, path));
     }
 
     /** One SSH host key file to write whole by an atomic move, or, without content, to remove. */
@@ -447,10 +523,19 @@ final class HostIdentity {
         return false;
     }
 
-    private void directory(Path path, boolean privateDirectory) throws IOException {
+    /** Checks a directory that is there; one that is missing is made later. */
+    private void checkDirectory(Path path, boolean privateDirectory) throws IOException {
+        if (files.exists(path)) {
+            files.directory(path, privateDirectory, false);
+        }
+    }
+
+    private void directory(Path path, boolean privateDirectory, List<ProjectFiles.Writing> undo)
+            throws IOException {
         if (files.exists(path)) {
             files.directory(path, privateDirectory, false);
         } else {
+            undo.add(() -> files.delete(path));
             files.mkdir(path, 0700);
         }
     }
@@ -566,9 +651,7 @@ final class HostIdentity {
             }
             hostKeys.add(new HostKey(type, key));
         }
-        final Identity identity = new Identity(name, organization, repositories, hostKeys);
-        derive(identity);
-        return identity;
+        return new Identity(name, organization, repositories, hostKeys);
     }
 
     private static Map<?, ?> object(@Nullable Object value, Set<String> names, String where) {
@@ -661,7 +744,7 @@ final class HostIdentity {
      * Derives each key's public half from its private one with ssh-keygen, through a private file
      * in a private scratch directory, and refuses a key whose public half differs.
      */
-    private void derive(Identity identity) throws IOException {
+    private void derive(Identity identity, PrintWriter err) throws IOException {
         final Map<String, Key> named = new LinkedHashMap<>();
         named.put("organization", identity.organization());
         for (int index = 0; index < identity.repositories().size(); index++) {
@@ -670,14 +753,16 @@ final class HostIdentity {
         for (int index = 0; index < identity.hostKeys().size(); index++) {
             named.put("ssh_host_keys[" + index + "]", identity.hostKeys().get(index).key());
         }
-        final Path scratch =
-                Files.createTempDirectory(
-                        files.at("/tmp"),
-                        "porelo-host-identity-",
-                        PosixFilePermissions.asFileAttribute(
-                                PosixFilePermissions.fromString("rwx------")));
+        // Under /run, which a reboot clears, in a directory root's alone; never the shared /tmp.
+        final Path scratch = files.at(SCRATCH);
+        new FollowContext(host, files, runtime, clock, err)
+                .directories(ProjectFiles.parent(scratch), 0700);
+        if (files.exists(scratch)) {
+            // An earlier run that ended before its own cleanup.
+            files.removeTree(scratch);
+        }
+        files.mkdir(scratch, 0700);
         try {
-            Files.setPosixFilePermissions(scratch, PosixFilePermissions.fromString("rwx------"));
             final Path file = scratch.resolve("key");
             for (Map.Entry<String, Key> entry : named.entrySet()) {
                 Files.createFile(
@@ -747,7 +832,7 @@ final class HostIdentity {
         public Integer call() throws IOException {
             refuseSudo("export", identity.environment);
             final PrintWriter err = spec.commandLine().getErr();
-            final Identity exported = identity.locked(err, identity::export);
+            final Identity exported = identity.locked(err, false, () -> identity.export(err));
             final PrintWriter out = spec.commandLine().getOut();
             out.println(HostJson.write(exported.json()));
             out.flush();
@@ -774,9 +859,15 @@ final class HostIdentity {
             final byte[] supplied = identity.supplied();
             try {
                 final Identity parsed = identity.parse(supplied);
+                final PrintWriter err = spec.commandLine().getErr();
                 final boolean changed =
                         identity.locked(
-                                spec.commandLine().getErr(), () -> identity.importIdentity(parsed));
+                                err,
+                                true,
+                                () -> {
+                                    identity.derive(parsed, err);
+                                    return identity.importIdentity(parsed);
+                                });
                 spec.commandLine().getOut().println(changed ? "imported" : "unchanged");
                 return 0;
             } finally {
