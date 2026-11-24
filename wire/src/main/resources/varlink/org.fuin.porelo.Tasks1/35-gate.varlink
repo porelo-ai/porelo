@@ -489,7 +489,8 @@ error AlreadyUpstream(name: string)
 
 # Approve was given the commit the person reviewed, and the push has moved since - before the call, or
 # while a signed approval fetched the upstream: nothing was forwarded. Review it again (now is what it
-# holds) and approve that. Comment and Reply are refused the same way, and keep nothing.
+# holds) and approve that. Comment and Reply are refused the same way, and keep nothing; ReviewSummary
+# too, and counts nothing.
 error MovedSinceReview(name: string, reviewed: string, now: string)
 
 # No approval was attempted. waiting is the full commit that waits now and could be forwarded; a name
@@ -589,8 +590,36 @@ method ResolveThread(
   state: string
 )
 
-# Comment, Reply, Comments or ResolveThread named no push that waits, or one whose task container is not
-# recorded; nothing was kept.
+# How much of a waiting push's review is still open, as the daemon counts it, for whoever decides the push.
+# Never offered through MCP. Refused only as NoSuchPush or MovedSinceReview.
+method ReviewSummary(
+  project: string,
+  repository: string,
+  # Ref name, from PendingPush.name.
+  name: string,
+  # The full commit the caller reviewed; refused as MovedSinceReview when the push moved past it, so the
+  # counts are of the commit that was read.
+  commit: string
+) -> (
+  # Findings not yet answered.
+  openFindings: int,
+  # Threads still open; a resolved thread is not counted.
+  openThreads: int,
+  # Each run that reviewed the push; empty when none did, never a run made up.
+  runs: []ReviewRun
+)
+
+# One run that reviewed a push.
+type ReviewRun (
+  name: string,
+  # How completely it reviewed: complete, partial, failed or unknown.
+  completeness: string,
+  # How many findings it gave.
+  findings: int
+)
+
+# Comment, Reply, Comments, ResolveThread or ReviewSummary named no push that waits, or one whose task
+# container is not recorded; nothing was kept.
 error NoSuchPush()
 
 # The comment's lines are not in that side's file, or are none: a side other than old or new, a startLine

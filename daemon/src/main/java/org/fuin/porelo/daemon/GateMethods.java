@@ -17,6 +17,7 @@ import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
@@ -835,11 +836,11 @@ final class GateMethods {
     }
 
     /**
-     * Registers the methods that write, page and resolve a waiting push's comments, for the owner
-     * account: the daemon's socket is the owner's alone, and a task never reaches these.
+     * Registers the methods that write, page, resolve and count a waiting push's comments, for the
+     * owner account: the daemon's socket is the owner's alone, and a task never reaches these.
      *
      * @param server Where.
-     * @param parts The waiting pushes, the check, the store and the writer.
+     * @param parts The waiting pushes, the check, the store, the writer and the counts.
      */
     static void registerComments(
             final VarlinkServer server, final org.fuin.porelo.app.CommentIntake.Parts parts) {
@@ -943,6 +944,33 @@ final class GateMethods {
                                     thread.id(),
                                     "state",
                                     thread.state().name().toLowerCase(java.util.Locale.ROOT)));
+                });
+        server.method(
+                "ReviewSummary",
+                (parameters, replies) -> {
+                    // Counts of the commit the caller read, never of one the push moved to since.
+                    final ReviewCounts.Counts counts =
+                            parts.counts().of(reviewed(parameters, parts));
+                    final List<Map<String, Object>> runs =
+                            counts.runs().stream()
+                                    .map(
+                                            run ->
+                                                    Map.<String, Object>of(
+                                                            "name",
+                                                            run.name(),
+                                                            "completeness",
+                                                            run.completeness().word(),
+                                                            "findings",
+                                                            run.findings()))
+                                    .toList();
+                    replies.last(
+                            Map.of(
+                                    "openFindings",
+                                    counts.openFindings(),
+                                    "openThreads",
+                                    counts.openThreads(),
+                                    "runs",
+                                    runs));
                 });
     }
 

@@ -146,11 +146,13 @@ class McpMethodsTest {
     @Test
     void aTasksSocketIsNeverOfferedTheReviewsCommentMethods() {
         // A task answers a thread through its mailbox; through these it would write as the owner
-        // account, in any push's review, and resolve its own threads.
-        final List<String> methods = List.of("Comment", "Reply", "Comments", "ResolveThread");
+        // account, in any push's review, resolve its own threads, or read what is still open in
+        // whoever decides it.
+        final List<String> methods =
+                List.of("Comment", "Reply", "Comments", "ResolveThread", "ReviewSummary");
         assertThat(McpMethods.NEVER).containsAll(methods);
         assertThat(McpTaskSockets.refusals(methods))
-                .hasSize(4)
+                .hasSize(5)
                 .allSatisfy(refusal -> assertThat(refusal).contains("is never offered to MCP"));
     }
 

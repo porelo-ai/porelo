@@ -11,6 +11,7 @@ import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
@@ -162,6 +163,7 @@ final class ReviewStandIns {
                 },
                 check,
                 store,
-                writer);
+                writer,
+                push -> new ReviewCounts.Counts(0, 0, List.of()));
     }
 }

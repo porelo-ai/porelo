@@ -444,6 +444,20 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void theReviewSummaryAnswersItsCountsAndEachRunsWord() {
+        // The interface and the plugin show these fields as the daemon names them, never their own.
+        assertThat(PoreloDaemon.description())
+                .containsPattern(
+                        "method ReviewSummary\\(\\s*project: string,\\s*repository: string,"
+                                + "(?s:.*?)name: string,(?s:.*?)commit: string\\s*\\) -> \\("
+                                + "(?s:.*?)openFindings: int,(?s:.*?)openThreads: int,"
+                                + "(?s:.*?)runs: \\[\\]ReviewRun\\s*\\)")
+                .containsPattern(
+                        "type ReviewRun \\(\\s*name: string,(?s:.*?)completeness: string,"
+                                + "(?s:.*?)findings: int\\s*\\)");
+    }
+
+    @Test
     void describesEveryErrorItCanRaise(@TempDir Path dir) {
         // The names the daemon throws, gathered from its own source rather than from a list kept
         // beside it: a list would be the third place to forget.

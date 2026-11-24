@@ -877,6 +877,12 @@ error: `NoSuchPush`, `MovedSinceReview`, `AnchorOutsideBlob`, `NotARegularFile`,
 comment or reply is kept with the push and bound to the container of the task that pushed it, so a later
 task of the same name inherits no thread.
 
+Tasks1 `ReviewSummary`, for the owner account alone too, answers how much of the reviewed `commit` is
+still open, as the daemon counts it: `openFindings`, `openThreads` (a resolved thread is not counted) and
+one `ReviewRun` per run that reviewed the push, with its `name`, its `findings` and its `completeness`
+(`complete`, `partial`, `failed` or `unknown`); a push no run reviewed answers no run, never a made-up one.
+It is refused only as `NoSuchPush` or `MovedSinceReview`.
+
 A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
 fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches
 are shown and omitted, the omitted paths, and the `porelo gate review` command that prints the whole review

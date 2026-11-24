@@ -14,6 +14,7 @@ import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
@@ -129,15 +130,22 @@ public final class CommentIntake {
     }
 
     /**
-     * What a channel's edge needs to take, read and resolve comments: the waiting pushes, the
-     * check, the store and the writer. The daemon and the command line each get one.
+     * What a channel's edge needs to take, read, resolve and count comments: the waiting pushes,
+     * the check, the store, the writer and the counts. The daemon and the command line each get
+     * one.
      *
      * @param pushes Finds the push a call names.
      * @param check The check of an item against its push.
      * @param store Where items and thread states are kept.
      * @param writer What writes a push's threads as SARIF pages.
+     * @param counts What counts a push's open findings, open threads and runs.
      */
-    public record Parts(Pushes pushes, CommentCheck check, ReviewStore store, ReviewWriter writer) {
+    public record Parts(
+            Pushes pushes,
+            CommentCheck check,
+            ReviewStore store,
+            ReviewWriter writer,
+            ReviewCounts counts) {
 
         /** Refuses a missing part. */
         public Parts {
@@ -145,6 +153,7 @@ public final class CommentIntake {
             Objects.requireNonNull(check, "check");
             Objects.requireNonNull(store, "store");
             Objects.requireNonNull(writer, "writer");
+            Objects.requireNonNull(counts, "counts");
         }
 
         /**
@@ -157,9 +166,12 @@ public final class CommentIntake {
         }
 
         /**
-         * Returns the parts of a machine whose review checks, store and writer are not wired yet:
-         * the waiting pushes as the gate holds them, and every check, keep, state change and page
-         * refused as {@code NoSuchPush}, so nothing is taken that nothing could keep.
+         * Returns the parts of a machine whose review checks, store, writer and counts are not
+         * wired yet: the waiting pushes as the gate holds them, and every check, keep, state change
+         * and page refused as {@code NoSuchPush}, so nothing is taken that nothing could keep. What
+         * is only read answers as the store's threads do: nothing, so a push that waits counts no
+         * open finding, no open thread and no run, and one that does not wait is still refused by
+         * the pushes.
          *
          * @param context The machine.
          * @return The parts.
@@ -194,7 +206,8 @@ public final class CommentIntake {
                     },
                     (push, threads, cursor) -> {
                         throw new ReviewRefused(none);
-                    });
+                    },
+                    push -> new ReviewCounts.Counts(0, 0, List.of()));
         }
     }
 

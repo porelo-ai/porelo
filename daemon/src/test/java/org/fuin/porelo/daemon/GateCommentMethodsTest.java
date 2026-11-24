@@ -16,12 +16,14 @@ import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.gate.review.CommentCheck;
+import org.fuin.porelo.gate.review.Completeness;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
@@ -43,7 +45,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
-/** Comment, Reply, Comments and ResolveThread over the daemon's socket, against stand-ins. */
+/**
+ * Comment, Reply, Comments, ResolveThread and ReviewSummary over the daemon's socket, against
+ * stand-ins.
+ */
 class GateCommentMethodsTest {
 
     private static final Push SHOP =
@@ -57,6 +62,7 @@ class GateCommentMethodsTest {
     private final Check check = new Check();
     private final Store store = new Store();
     private final Writer writer = new Writer();
+    private final Counts counts = new Counts(store);
     private @Nullable VarlinkServer server;
     private @Nullable VarlinkClient client;
 
@@ -166,6 +172,32 @@ class GateCommentMethodsTest {
         }
     }
 
+    /**
+     * Counts the store's open threads of a push, with fixed findings and runs, and records what it
+     * was asked.
+     */
+    static final class Counts implements ReviewCounts {
+        private final Store store;
+        final List<Push> asked = new ArrayList<>();
+        int openFindings;
+        List<ReviewCounts.Run> runs = List.of();
+
+        Counts(final Store store) {
+            this.store = store;
+        }
+
+        @Override
+        public synchronized ReviewCounts.Counts of(final Push push) {
+            asked.add(push);
+            final int open =
+                    (int)
+                            store.threads(push).stream()
+                                    .filter(thread -> thread.state() == ThreadState.OPEN)
+                                    .count();
+            return new ReviewCounts.Counts(openFindings, open, runs);
+        }
+    }
+
     private static CommentIntake.Pushes pushes() {
         return (project, repository, name) -> {
             for (final Push push : List.of(SHOP, OTHER)) {
@@ -188,7 +220,7 @@ class GateCommentMethodsTest {
     }
 
     private VarlinkClient serving() throws Exception {
-        return serving(new CommentIntake.Parts(pushes(), check, store, writer));
+        return serving(new CommentIntake.Parts(pushes(), check, store, writer, counts));
     }
 
     @AfterEach
@@ -494,7 +526,11 @@ class GateCommentMethodsTest {
         final VarlinkClient client =
                 serving(
                         new CommentIntake.Parts(
-                                pushes(), unwired.check(), unwired.store(), unwired.writer()));
+                                pushes(),
+                                unwired.check(),
+                                unwired.store(),
+                                unwired.writer(),
+                                unwired.counts()));
 
         refusedAs(() -> client.call(method("Comment"), comment(SHOP)), "NoSuchPush");
         refusedAs(
@@ -584,5 +620,129 @@ class GateCommentMethodsTest {
                                     .isEqualTo("org.varlink.service.InvalidParameter");
                             assertThat(ex.getParameters()).containsEntry("parameter", parameter);
                         });
+    }
+
+    private static int count(final Map<String, Object> answer, final String field) {
+        return ((Number) answer.get(field)).intValue();
+    }
+
+    @Test
+    void aSummaryCountsOnlyTheThreadsStillOpenAndPassesEachRunsWordOn() throws Exception {
+        // Whoever decides the push reads these numbers; an answered thread counted as open would
+        // hold a push back, an open one left out would let it pass unread.
+        final VarlinkClient client = serving();
+        client.call(method("Comment"), comment(SHOP));
+        final String answered =
+                (String) client.call(method("Comment"), comment(SHOP)).get("thread");
+        client.call(method("ResolveThread"), named(SHOP, "thread", answered));
+        counts.openFindings = 2;
+        counts.runs =
+                List.of(
+                        new ReviewCounts.Run("lint", Completeness.PARTIAL, 2),
+                        new ReviewCounts.Run("tests", Completeness.COMPLETE, 0));
+
+        final Map<String, Object> answer =
+                client.call(method("ReviewSummary"), named(SHOP, "commit", SHOP.head()));
+
+        assertThat(count(answer, "openThreads")).isEqualTo(1);
+        assertThat(count(answer, "openFindings")).isEqualTo(2);
+        assertThat(answer.get("runs"))
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .hasSize(2)
+                .satisfiesExactly(
+                        run ->
+                                assertThat(run)
+                                        .asInstanceOf(
+                                                org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                                        .containsEntry("name", "lint")
+                                        .containsEntry("completeness", "partial")
+                                        .hasEntrySatisfying(
+                                                "findings",
+                                                f ->
+                                                        assertThat(((Number) f).intValue())
+                                                                .isEqualTo(2)),
+                        run ->
+                                assertThat(run)
+                                        .asInstanceOf(
+                                                org.assertj.core.api.InstanceOfAssertFactories.MAP)
+                                        .containsEntry("name", "tests")
+                                        .containsEntry("completeness", "complete"));
+        assertThat(counts.asked).containsExactly(SHOP);
+    }
+
+    @Test
+    void aSummaryOfAPushNobodyCommentedOnAnswersNoRunAndNothingOpen() throws Exception {
+        // No run reviewed it: a made-up one would read as a review that happened.
+        final VarlinkClient client = serving();
+
+        final Map<String, Object> answer =
+                client.call(method("ReviewSummary"), named(SHOP, "commit", SHOP.head()));
+
+        assertThat(count(answer, "openThreads")).isZero();
+        assertThat(count(answer, "openFindings")).isZero();
+        assertThat(answer.get("runs"))
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .isEmpty();
+    }
+
+    @Test
+    void aSummaryOfACommitThePushMovedPastIsMovedSinceReviewAndCountsNothing() throws Exception {
+        // Counts of another commit would be read as the reviewed one's.
+        final VarlinkClient client = serving();
+
+        assertThatThrownBy(
+                        () ->
+                                client.call(
+                                        method("ReviewSummary"),
+                                        named(SHOP, "commit", "f".repeat(40))))
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex -> {
+                            assertThat(ex.getErrorName()).isEqualTo(method("MovedSinceReview"));
+                            assertThat(ex.getParameters())
+                                    .containsEntry("reviewed", "f".repeat(40))
+                                    .containsEntry("now", SHOP.head());
+                        });
+        assertThat(counts.asked).isEmpty();
+    }
+
+    @Test
+    void aSummaryOfAPushThatDoesNotWaitIsNoSuchPush() throws Exception {
+        final VarlinkClient client = serving();
+        final Push gone = new Push("uc", "shop", "gone", "a".repeat(40), null, "c".repeat(64));
+
+        refusedAs(
+                () -> client.call(method("ReviewSummary"), named(gone, "commit", gone.head())),
+                "NoSuchPush");
+        assertThat(counts.asked).isEmpty();
+    }
+
+    @Test
+    void untilTheReviewIsWiredASummaryOfAWaitingPushCountsNothing() throws Exception {
+        // The unwired store reads no thread, so its counts read none either; a refusal here would
+        // say the push does not wait when it does.
+        final PoreloContext context =
+                new PoreloContext(
+                        new FakeCommandRunner(),
+                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
+                        arguments -> 0);
+        final CommentIntake.Parts unwired = CommentIntake.Parts.unwired(context);
+        final VarlinkClient client =
+                serving(
+                        new CommentIntake.Parts(
+                                pushes(),
+                                unwired.check(),
+                                unwired.store(),
+                                unwired.writer(),
+                                unwired.counts()));
+
+        final Map<String, Object> answer =
+                client.call(method("ReviewSummary"), named(SHOP, "commit", SHOP.head()));
+
+        assertThat(count(answer, "openThreads")).isZero();
+        assertThat(count(answer, "openFindings")).isZero();
+        assertThat(answer.get("runs"))
+                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
+                .isEmpty();
     }
 }
