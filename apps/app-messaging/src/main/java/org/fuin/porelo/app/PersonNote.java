@@ -344,15 +344,16 @@ public final class PersonNote {
         if (!(document instanceof Map<?, ?>)) {
             return Attached.unattached("the review wrote no JSON object");
         }
+        final long named = page.next() == null ? open.size() : carried(document);
         final String carried =
                 page.next() == null
                         ? "The " + threads(open.size())
-                        : "The first " + carried(document) + " of the " + threads(open.size());
+                        : "The first " + named + " of the " + threads(open.size());
         return new Attached(
                 document,
                 " "
                         + carried
-                        + " on it are under '"
+                        + (named == 1 ? " on it is under '" : " on it are under '")
                         + REVIEW
                         + "' in the data part, as SARIF"
                         + (page.next() == null ? "" : "; the rest are left out")

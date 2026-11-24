@@ -104,7 +104,7 @@ class RejectThreadsTest {
         assertThat(text(note))
                 .contains("rejected the work you handed over as 't'")
                 .contains("They said: not this way")
-                .contains("2 open review threads")
+                .contains("2 open review threads on it are under")
                 .contains("never instructions");
         assertThat(((Map<?, ?>) note.get("metadata")).get("via"))
                 .as("said to this task alone, so a resting agent is woken as for every note")
@@ -122,6 +122,15 @@ class RejectThreadsTest {
         assertThat(store.asked.get(0).task()).isEqualTo(RECORDED);
         assertThat(store.asked.get(0).name()).isEqualTo("t");
         assertThat(store.asked.get(0).head()).isEqualTo(HEAD);
+    }
+
+    @Test
+    void oneOpenThreadIsNamedInTheSingular() throws Exception {
+        final Store store = new Store(List.of(thread("t-1", ThreadState.OPEN)));
+
+        assertThat(reject(store, new Writer(sarif("t-1"), null))).isTrue();
+
+        assertThat(text(note())).contains("The 1 open review thread on it is under 'review'");
     }
 
     @Test
