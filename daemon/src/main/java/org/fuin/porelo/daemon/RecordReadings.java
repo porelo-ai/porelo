@@ -114,4 +114,9 @@ final class RecordReadings {
         return kept.stream().anyMatch(record -> task.equals(record.get("task")))
                 && !stored.test(task);
     }
+
+    /** Releases the readings whose keep time has passed; the daemon's sweep calls this. */
+    void release() {
+        readings.release();
+    }
 }

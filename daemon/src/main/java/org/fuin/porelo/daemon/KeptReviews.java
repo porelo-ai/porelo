@@ -106,6 +106,24 @@ final class KeptReviews {
         return reviews.size();
     }
 
+    /**
+     * Releases every review whose keep time has passed, as a later call would; the daemon's {@link
+     * ReadingSweep} calls this, so a review no later page asks for is not held on.
+     */
+    synchronized void release() {
+        expire();
+    }
+
+    /**
+     * Returns how many characters of patch the kept reviews hold now, as they lie: asking releases
+     * none.
+     *
+     * @return The characters.
+     */
+    synchronized long characters() {
+        return held();
+    }
+
     private synchronized ReviewRanking.@Nullable Review kept(final Key key) {
         expire();
         final Kept kept = reviews.get(key);

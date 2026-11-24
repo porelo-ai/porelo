@@ -32,6 +32,17 @@ class KeptReviewsTest {
     }
 
     @Test
+    void aReviewPastItsKeepTimeIsReleasedByTheSweep() {
+        // Up to 128 MiB of patch stayed held after a burst that no later page followed.
+        kept.keep(key("t"), read());
+        now.set(Instant.EPOCH.plus(KeptReviews.KEPT));
+
+        kept.release();
+
+        assertThat(kept.characters()).as("nothing held after the sweep").isZero();
+    }
+
+    @Test
     void aPageOfAReviewJustReadIsAnsweredWithoutReadingItAgain() {
         final ReviewRanking.Review review = read();
         kept.keep(key("t"), review);

@@ -188,6 +188,11 @@ final class PullRequestPages {
         return readings.kept();
     }
 
+    /** Releases the readings whose keep time has passed; the daemon's sweep calls this. */
+    void release() {
+        readings.release();
+    }
+
     /** Puts the rows of a page into the two lists, the open ones first. */
     private static void split(
             final Map<String, Object> reply,

@@ -377,6 +377,7 @@ final class TaskMethods {
      * @param inventory The daemon's one task inventory.
      * @param control The daemon's one task control.
      * @param signIns The daemon's one sign-in registry.
+     * @param sweep What releases this server's kept readings once their keep time has passed.
      */
     @SuppressWarnings("unused")
     static void register(
@@ -384,7 +385,8 @@ final class TaskMethods {
             PoreloContext context,
             TaskInventory inventory,
             TaskControl control,
-            org.fuin.porelo.app.AgentSignInRuns signIns) {
+            org.fuin.porelo.app.AgentSignInRuns signIns,
+            ReadingSweep sweep) {
         // The same question 'porelo task list' asks, answered by the same code. A second
         // implementation is how the two come to disagree about what is running.
         server.method(
@@ -411,6 +413,7 @@ final class TaskMethods {
                                 java.nio.file.Files.exists(
                                         context.paths().tasks().workRecord(task),
                                         java.nio.file.LinkOption.NOFOLLOW_LINKS));
+        sweep.add(recordReadings::release);
         server.method(
                 "Records",
                 (parameters, replies) -> {

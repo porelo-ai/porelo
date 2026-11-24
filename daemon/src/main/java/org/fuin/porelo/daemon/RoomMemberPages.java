@@ -131,4 +131,9 @@ final class RoomMemberPages {
     int kept() {
         return readings.kept();
     }
+
+    /** Releases the readings whose keep time has passed; the daemon's sweep calls this. */
+    void release() {
+        readings.release();
+    }
 }

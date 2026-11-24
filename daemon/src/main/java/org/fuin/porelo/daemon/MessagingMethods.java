@@ -81,17 +81,20 @@ final class MessagingMethods {
      * @param context The machine.
      * @param inventory The daemon's one task inventory.
      * @param control The daemon's one task control.
+     * @param sweep What releases this server's kept readings once their keep time has passed.
      */
     @SuppressWarnings("unused")
     static void register(
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
-            TaskControl control) {
+            TaskControl control,
+            ReadingSweep sweep) {
         server.method("MessageKey", (parameters, replies) -> replies.last(messageKey(context)));
 
         // One daemon's readings: a page is of the membership its first reply read.
         final RoomMemberPages roomMemberPages = new RoomMemberPages(java.time.Instant::now);
+        sweep.add(roomMemberPages::release);
         server.method(
                 "RoomMembers",
                 (parameters, replies) ->

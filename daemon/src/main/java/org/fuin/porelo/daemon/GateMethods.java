@@ -343,11 +343,14 @@ final class GateMethods {
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
-            TaskControl control) {
+            TaskControl control,
+            ReadingSweep sweep) {
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
+        sweep.add(pullRequestPages::release);
         // Reviews just read, kept for their pages: this daemon's alone.
         final KeptReviews keptReviews = new KeptReviews(java.time.Instant::now);
+        sweep.add(keptReviews::release);
         server.method(
                 "PushToCentral",
                 (parameters, replies) ->

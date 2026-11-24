@@ -1,0 +1,2 @@
+title: "The daemon releases a kept reading (task records, room members, a project's pull requests, a pending push's review) once its keep time has passed, on a sweep every minute, even when no later call of that kind comes; after a burst, up to 64 MiB of records, as much of room members and 128 MiB of review patches stayed held until one did"
+type: fixed

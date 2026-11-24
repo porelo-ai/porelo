@@ -932,9 +932,19 @@ class InterfaceDescriptionTest {
             signature.add(org.fuin.porelo.app.AgentSignInRuns.class);
             arguments.add(org.fuin.porelo.app.AgentSignInRuns.of(context));
         }
-        final java.lang.reflect.Method register =
-                registrar.getDeclaredMethod("register", signature.toArray(Class<?>[]::new));
-        register.invoke(null, arguments.toArray());
+        // The areas that keep readings release them on the server's sweep.
+        final ReadingSweep sweep = new ReadingSweep(java.time.Duration.ofMinutes(1));
+        try {
+            if (Set.of("Task", "Gate", "Messaging").contains(area)) {
+                signature.add(ReadingSweep.class);
+                arguments.add(sweep);
+            }
+            registrar
+                    .getDeclaredMethod("register", signature.toArray(Class<?>[]::new))
+                    .invoke(null, arguments.toArray());
+        } finally {
+            sweep.close();
+        }
         final Set<String> registered =
                 new TreeSet<>(
                         server.methodNames().stream()

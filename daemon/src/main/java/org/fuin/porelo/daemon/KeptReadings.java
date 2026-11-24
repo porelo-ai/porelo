@@ -99,6 +99,23 @@ final class KeptReadings<K, V> {
         return readings.size();
     }
 
+    /**
+     * Releases every reading whose keep time has passed, as a later call would; the daemon's {@link
+     * ReadingSweep} calls this, so a reading no later call asks for is not held on.
+     */
+    synchronized void release() {
+        expire();
+    }
+
+    /**
+     * Returns how many bytes the kept readings hold now, as they lie: asking releases none.
+     *
+     * @return The bytes.
+     */
+    synchronized long bytes() {
+        return held();
+    }
+
     private long held() {
         long held = 0;
         for (final Kept<V> each : readings.values()) {

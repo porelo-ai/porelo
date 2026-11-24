@@ -167,6 +167,51 @@ public final class PoreloDaemon {
             Path socket,
             VarlinkServer.PeerReader peers,
             org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns) {
+        return serving(
+                supplied,
+                socket,
+                peers,
+                suppliedSignIns,
+                new ReadingSweep(supplied.limits().polling(ReadingSweep.EVERY)));
+    }
+
+    /**
+     * Serves the methods, their kept readings released by the sweep given, which the server's close
+     * stops, and which is stopped at once when the server cannot be made.
+     *
+     * @param supplied Where podman and the paths come from.
+     * @param socket Where to bind.
+     * @param peers The kernel peer check.
+     * @param suppliedSignIns The sign-in registry, or {@code null} for the context's own.
+     * @param sweep What releases the kept readings once their keep time has passed.
+     * @return The server, not yet running.
+     */
+    static VarlinkServer serving(
+            PoreloContext supplied,
+            Path socket,
+            VarlinkServer.PeerReader peers,
+            org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns,
+            ReadingSweep sweep) {
+        // A server that cannot be made, its socket taken or a method that fails to register,
+        // leaves no sweep on the shared timer for the life of the process; an Error neither.
+        boolean served = false;
+        try {
+            final VarlinkServer server = made(supplied, socket, peers, suppliedSignIns, sweep);
+            served = true;
+            return server;
+        } finally {
+            if (!served) {
+                sweep.close();
+            }
+        }
+    }
+
+    private static VarlinkServer made(
+            PoreloContext supplied,
+            Path socket,
+            VarlinkServer.PeerReader peers,
+            org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns,
+            ReadingSweep sweep) {
         final PoreloContext context =
                 supplied.hostVault() instanceof org.fuin.porelo.app.HostVaultOwner
                         ? supplied
@@ -185,7 +230,11 @@ public final class PoreloDaemon {
                         try {
                             super.close();
                         } finally {
-                            owner.close();
+                            try {
+                                sweep.close();
+                            } finally {
+                                owner.close();
+                            }
                         }
                     }
                 }.describedBy(description()).reporting(org.fuin.porelo.app.PoreloVersion.version());
@@ -210,7 +259,8 @@ public final class PoreloDaemon {
                 control,
                 suppliedSignIns == null
                         ? org.fuin.porelo.app.AgentSignInRuns.of(context)
-                        : suppliedSignIns);
+                        : suppliedSignIns,
+                sweep);
         return server;
     }
 
@@ -223,21 +273,23 @@ public final class PoreloDaemon {
      * @param inventory The one task inventory.
      * @param control The one task control.
      * @param signIns The daemon's one sign-in registry.
+     * @param sweep What releases this server's kept readings once their keep time has passed.
      */
     static void register(
             VarlinkServer server,
             PoreloContext context,
             TaskInventory inventory,
             TaskControl control,
-            org.fuin.porelo.app.AgentSignInRuns signIns) {
+            org.fuin.porelo.app.AgentSignInRuns signIns,
+            ReadingSweep sweep) {
         // Each area registers its own methods, from its own file.
-        TaskMethods.register(server, context, inventory, control, signIns);
+        TaskMethods.register(server, context, inventory, control, signIns, sweep);
         ProjectMethods.register(server, context, inventory, control);
         EgressMethods.register(server, context, inventory, control);
         VaultMethods.register(server, context, inventory, control);
-        GateMethods.register(server, context, inventory, control);
+        GateMethods.register(server, context, inventory, control, sweep);
         AgentMethods.register(server, context, inventory, control, signIns);
-        MessagingMethods.register(server, context, inventory, control);
+        MessagingMethods.register(server, context, inventory, control, sweep);
         MachineMethods.register(server, context, inventory, control);
         EventMethods.register(server, context, inventory, control);
     }

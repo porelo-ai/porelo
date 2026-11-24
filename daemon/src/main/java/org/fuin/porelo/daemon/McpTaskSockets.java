@@ -110,8 +110,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     /** The methods a task's endpoint may carry beside the reading ones. */
     private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "ProposeIdea");
 
-    /** One socket, and the thread serving it. */
-    private record Served(TaskSocket server, Thread thread) {}
+    /** One socket, the thread serving it, and what releases its kept readings. */
+    private record Served(TaskSocket server, Thread thread, ReadingSweep sweep) {}
 
     /**
      * Constructor.
@@ -254,17 +254,27 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             throw new IOException(ex.getMessage(), ex);
         }
         final Thread thread;
+        final ReadingSweep sweep = new ReadingSweep(context.limits().polling(ReadingSweep.EVERY));
+        // Whatever ends this early, an Error too, leaves no sweep on the shared timer.
+        boolean opened = false;
         try {
-            server.allow(endpoint);
-            server.reporting(org.fuin.porelo.app.PoreloVersion.version());
-            PoreloDaemon.register(server, context, inventory, control, signIns);
-            thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
-        } catch (RuntimeException ex) {
-            // Bound and not served: the socket goes, as a stale one would.
-            server.close();
-            throw new IOException("the socket of " + task + " cannot be served", ex);
+            try {
+                server.allow(endpoint);
+                server.reporting(org.fuin.porelo.app.PoreloVersion.version());
+                PoreloDaemon.register(server, context, inventory, control, signIns, sweep);
+                thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
+            } catch (RuntimeException ex) {
+                // Bound and not served: the socket goes, as a stale one would.
+                server.close();
+                throw new IOException("the socket of " + task + " cannot be served", ex);
+            }
+            open.put(task, new Served(server, thread, sweep));
+            opened = true;
+        } finally {
+            if (!opened) {
+                sweep.close();
+            }
         }
-        open.put(task, new Served(server, thread));
         return Optional.of(socket);
     }
 
@@ -287,7 +297,11 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         if (served == null) {
             return;
         }
-        served.server().close();
+        try {
+            served.server().close();
+        } finally {
+            served.sweep().close();
+        }
         try {
             served.thread().join(threadEnd(context.limits()));
         } catch (InterruptedException ex) {
