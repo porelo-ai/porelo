@@ -489,7 +489,7 @@ error AlreadyUpstream(name: string)
 
 # Approve was given the commit the person reviewed, and the push has moved since - before the call, or
 # while a signed approval fetched the upstream: nothing was forwarded. Review it again (now is what it
-# holds) and approve that.
+# holds) and approve that. Comment and Reply are refused the same way, and keep nothing.
 error MovedSinceReview(name: string, reviewed: string, now: string)
 
 # No approval was attempted. waiting is the full commit that waits now and could be forwarded; a name
@@ -510,6 +510,117 @@ error BranchRefused(branch: string, pattern: string)
 # nothing was pushed. 'at' is the commit the branch holds. Approve onto another branch, such as the next free
 # '<branch>-2'; never a force over it, since it can be somebody's reviewed work.
 error BranchExists(branch: string, at: string)
+
+# Opens a comment thread on lines of a waiting push, as the owner account. Kept with the push and bound to
+# the task container that pushed it, so a later task of the same name inherits no thread. Never offered
+# through MCP: a task answers in a thread through its mailbox.
+method Comment(
+  project: string,
+  # Which repository of the project.
+  repository: string,
+  # Ref name, from PendingPush.name.
+  name: string,
+  # The full commit the caller reviewed, from Review.commit; a push that moved past it is refused as
+  # MovedSinceReview, since the lines would point into another change.
+  commit: string,
+  # The file's path in the repository, as Review.files names it.
+  path: string,
+  # old (the review's base) or new (the reviewed commit).
+  side: string,
+  # The lines on that side, counted from 1, both ends included; endLine is never before startLine.
+  startLine: int,
+  endLine: int,
+  # What the comment says, as plain text.
+  text: string,
+  # Lines proposed in place of startLine to endLine, on the new side only; "" proposes taking them out.
+  replacement: ?string,
+  # A retry id: the same id with the same comment answers the comment kept first, never a second one.
+  id: ?string
+) -> (
+  # The comment's own id, and the thread it opened.
+  guid: string,
+  thread: string
+)
+
+# Answers a thread of a waiting push, as the owner account; open or resolved, the thread keeps its state.
+method Reply(
+  project: string,
+  repository: string,
+  name: string,
+  # The full commit the caller reviewed; refused as MovedSinceReview when the push moved past it.
+  commit: string,
+  # The thread's id, as Comment or Comments gave it.
+  thread: string,
+  text: string,
+  # A retry id, as for Comment.
+  id: ?string
+) -> (
+  guid: string,
+  thread: string
+)
+
+# Every comment and reply of a waiting push, as SARIF in Porelo's profile, one page at a time, the oldest
+# thread first. Each item names its producer by channel: the owner account, or a task.
+method Comments(
+  project: string,
+  repository: string,
+  name: string,
+  # Where the page starts, from the last page's cursor; absent for the first.
+  cursor: ?string
+) -> (
+  # The SARIF document of this page.
+  sarif: string,
+  # Where the next page starts; absent after the last.
+  cursor: ?string
+)
+
+# Sets a thread of a waiting push resolved, or open again with reopen. Only the thread's state changes: it
+# clears no finding, changes no approval and approves nothing.
+method ResolveThread(
+  project: string,
+  repository: string,
+  name: string,
+  thread: string,
+  # Opens the thread again instead. Default: false.
+  reopen: ?bool
+) -> (
+  thread: string,
+  # open or resolved.
+  state: string
+)
+
+# Comment, Reply, Comments or ResolveThread named no push that waits, or one whose task container is not
+# recorded; nothing was kept.
+error NoSuchPush()
+
+# The comment's lines are not in that side's file, or are none: a side other than old or new, a startLine
+# before 1, an endLine before startLine.
+error AnchorOutsideBlob()
+
+# The comment's path is no regular file on that side; a link or a submodule is never followed.
+error NotARegularFile()
+
+# The replacement reaches past the comment's lines.
+error FixOutsideAnchor()
+
+# A replacement on the old side, which no commit could take.
+error OldSideFix()
+
+# A text broke a rule; rule names it, never the text itself: "empty" for a blank text, and a rule of the
+# path begins with "path: ", such as "path: empty".
+error TextRefused(rule: string)
+
+# A text or a range is over a limit; limit names it.
+error TooLarge(limit: string)
+
+# No thread of that id in this push, or none the caller may write in.
+error NoSuchThread()
+
+# A cursor no page of this push gave.
+error CursorRefused()
+
+# A retry id given before with another comment or reply; nothing was kept.
+error IdReused()
 
 # Tries one SSH identity without saving a credential or publishing work. Uses the existing mirror;
 # it never initializes or fetches one. source is AGENT (fingerprint or public key id) or FILE (path).

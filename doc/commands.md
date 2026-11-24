@@ -842,6 +842,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 |---|---|
 | `porelo gate pending` | Lists waiting pushes and how long each has waited. |
 | `porelo gate review NAME [--against=REF] [--ignore-line-endings] [--commit=ID]` | Shows what a pending push would change: the instruction, every file ranked, the log and the whole patch. Ends with the captured full commit ID and its approval command, or why none is offered: a project that forwards nothing, or a `--commit` the push has moved past. `--commit` shows that captured revision, including the full view of a cut review, even after a newer push; when it no longer waits, it offers no approval and exits 70. An `--against` that names nothing in the gate's mirror is refused, exit 70; without a base the patch and the log cover the whole history to the commit. A mistyped NAME is answered with the names that wait. |
+| `porelo gate comment NAME --commit=ID --path=PATH --side=old\|new --lines=START[-END] --text=TEXT [--replacement-file=FILE]` | Opens a comment thread on lines of a pending push, as the owner account. `--commit` is the full commit you reviewed; a push that moved past it is refused as `MovedSinceReview`, exit 70, and nothing is kept. Lines count from 1, both ends included, on the review's base (`old`) or the reviewed commit (`new`). `--replacement-file` proposes its lines in place of those lines, on the `new` side only. With `--reply-to=THREAD` instead of the path, side and lines, it answers that thread. A refusal is named as the daemon names it, such as `TextRefused` or `NoSuchThread`, exit 70; a malformed option exits 64. |
+| `porelo gate comments NAME [--json] [--cursor=CURSOR]` | Shows every comment thread of a pending push: each thread's id and state, who wrote each item ("owner account" or "task NAME"), the file, side and lines, and the text, every line escaped and indented below its header. `--json` prints one page of the threads as SARIF instead and the next page's cursor on standard error; `--cursor` asks for that page. |
+| `porelo gate resolve NAME THREAD [--reopen]` | Marks a thread resolved, or open again with `--reopen`. It changes only the thread's state: it clears no finding, changes no approval and approves nothing. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
 | `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it nothing is forwarded, at a terminal or in a script, with `--signed` too: it names the waiting commit and the bound command with `--commit` to run after reviewing it, and exits 70. A mistyped NAME, an offline project or one without an upstream is refused before any command is offered. A push that arrives while a signed approval fetches the upstream is refused as moved, naming both commits. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
@@ -864,6 +867,15 @@ Tasks1 `Review.commit` names the revision whose evidence was returned. `Approve.
 the wire schema, but an omitted, null or blank value is refused as `CommitNotNamed(name, waiting)`. A client
 must review the waiting revision and submit a separate authenticated approval naming that full ID.
 SARIF verdicts, suppressions, baselines and empty findings never authorize forwarding.
+
+Tasks1 `Comment`, `Reply`, `Comments` and `ResolveThread` are the same three commands over the daemon's
+socket, through the same intake, for the owner account alone: a task's MCP socket is never offered them,
+and a task answers a thread through its mailbox. `Comment` and `Reply` take the reviewed `commit` and an
+optional retry `id`, which answers the item kept first instead of keeping a second. Each refusal has its own
+error: `NoSuchPush`, `MovedSinceReview`, `AnchorOutsideBlob`, `NotARegularFile`, `FixOutsideAnchor`,
+`OldSideFix`, `TextRefused(rule)`, `TooLarge(limit)`, `NoSuchThread`, `CursorRefused` and `IdReused`. A
+comment or reply is kept with the push and bound to the container of the task that pushed it, so a later
+task of the same name inherits no thread.
 
 A review the daemon sends (Tasks1 `Review`) is one message of at most 4 MiB. When the whole patch does not
 fit, its `diff` ends at a file boundary, never inside a file, and its `cut` says so: how many files' patches

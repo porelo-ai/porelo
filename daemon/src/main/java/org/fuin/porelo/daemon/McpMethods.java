@@ -99,7 +99,8 @@ final class McpMethods {
      * PullRequestsPage} and {@code WatchPullRequests} spend or hand out what the person's forge
      * identity read of reviews awaiting human judgment, so a task cannot ask them even from the
      * local list. PushToCentral releases approved work with the person's central credential and is
-     * never offered.
+     * never offered. {@code Comment}, {@code Reply}, {@code Comments} and {@code ResolveThread}
+     * write and read a review as the owner account, so a task never reaches them.
      */
     static final Set<String> NEVER =
             Set.of(
@@ -147,7 +148,13 @@ final class McpMethods {
                     // The window's offer to take a repository out of 'default', on the person's
                     // word.
                     "NamedDefaultRepositories",
-                    "LeaveDefault");
+                    "LeaveDefault",
+                    // A review's comments, written, read and resolved as the owner account: a task
+                    // answers a thread only through its mailbox.
+                    "Comment",
+                    "Reply",
+                    "Comments",
+                    "ResolveThread");
 
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =

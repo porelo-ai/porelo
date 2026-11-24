@@ -1,0 +1,2 @@
+title: "Line comments on a waiting push are written, replied to, read as SARIF pages and resolved through the daemon and the CLI alike"
+type: added

@@ -11,6 +11,22 @@ import org.fuin.porelo.app.ReviewText;
 import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskInventory;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.Body;
+import org.fuin.porelo.gate.review.Kept;
+import org.fuin.porelo.gate.review.LineAnchor;
+import org.fuin.porelo.gate.review.OwnerAccount;
+import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewError;
+import org.fuin.porelo.gate.review.ReviewItem;
+import org.fuin.porelo.gate.review.ReviewRefusal;
+import org.fuin.porelo.gate.review.ReviewRefused;
+import org.fuin.porelo.gate.review.ReviewReply;
+import org.fuin.porelo.gate.review.ReviewThread;
+import org.fuin.porelo.gate.review.ReviewWriter;
+import org.fuin.porelo.gate.review.Side;
+import org.fuin.porelo.gate.review.Suggestion;
+import org.fuin.porelo.gate.review.ThreadState;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 
@@ -344,7 +360,9 @@ final class GateMethods {
             PoreloContext context,
             TaskInventory inventory,
             TaskControl control,
-            ReadingSweep sweep) {
+            ReadingSweep sweep,
+            org.fuin.porelo.app.CommentIntake.Parts comments) {
+        registerComments(server, comments);
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
         sweep.add(pullRequestPages::release);
@@ -566,15 +584,7 @@ final class GateMethods {
                     final String commit = text(parameters, "commit").strip();
                     if (!reading.head().commit().equals(commit)) {
                         // Every page is of the commit Review answered, as Approve forwards only it.
-                        throw new VarlinkException(
-                                INTERFACE + ".MovedSinceReview",
-                                Map.of(
-                                        "name",
-                                        reading.name(),
-                                        "reviewed",
-                                        commit,
-                                        "now",
-                                        reading.head().commit()));
+                        throw moved(reading.name(), commit, reading.head().commit());
                     }
                     final Object whole =
                             switch (part) {
@@ -678,15 +688,7 @@ final class GateMethods {
                     } catch (org.fuin.porelo.gate.GateException.MovedSinceReview ex) {
                         // Typed, so an interface says it in its own words and offers the review
                         // again.
-                        throw new VarlinkException(
-                                INTERFACE + ".MovedSinceReview",
-                                Map.of(
-                                        "name",
-                                        text(parameters, "name"),
-                                        "reviewed",
-                                        ex.reviewed(),
-                                        "now",
-                                        ex.now()));
+                        throw moved(text(parameters, "name"), ex.reviewed(), ex.now());
                     } catch (org.fuin.porelo.gate.GateException.BranchExists ex) {
                         // Typed, so an interface offers another branch in the same dialog instead
                         // of showing git's text.
@@ -830,6 +832,243 @@ final class GateMethods {
                     }
                     replies.last(Map.of("rejected", text(parameters, "name"), "told", told));
                 });
+    }
+
+    /**
+     * Registers the methods that write, page and resolve a waiting push's comments, for the owner
+     * account: the daemon's socket is the owner's alone, and a task never reaches these.
+     *
+     * @param server Where.
+     * @param parts The waiting pushes, the check, the store and the writer.
+     */
+    static void registerComments(
+            final VarlinkServer server, final org.fuin.porelo.app.CommentIntake.Parts parts) {
+        server.method(
+                "Comment",
+                (parameters, replies) -> {
+                    // An empty replacement is one: it proposes taking the lines out.
+                    final String replacement = optionalText(parameters, "replacement");
+                    final String id = optionalName(parameters, "id");
+                    final Push push = reviewed(parameters, parts);
+                    // The records refuse these shapes themselves; each is answered by the
+                    // contract's name before any check runs, never as an internal error.
+                    final Side side;
+                    try {
+                        side = Side.named(text(parameters, "side"));
+                    } catch (IllegalArgumentException ex) {
+                        throw refused(
+                                new ReviewRefusal(ReviewError.ANCHOR_OUTSIDE_BLOB, null), push);
+                    }
+                    final int start = line(parameters, "startLine", push);
+                    final int end = line(parameters, "endLine", push);
+                    if (start < 1 || end < start) {
+                        throw refused(
+                                new ReviewRefusal(ReviewError.ANCHOR_OUTSIDE_BLOB, null), push);
+                    }
+                    if (text(parameters, "path").isBlank()) {
+                        throw refused(
+                                new ReviewRefusal(ReviewError.TEXT_REFUSED, "path: empty"), push);
+                    }
+                    if (text(parameters, "text").isBlank()) {
+                        throw refused(new ReviewRefusal(ReviewError.TEXT_REFUSED, "empty"), push);
+                    }
+                    if (replacement != null && side == Side.OLD) {
+                        throw refused(new ReviewRefusal(ReviewError.OLD_SIDE_FIX, null), push);
+                    }
+                    kept(
+                            replies,
+                            parts,
+                            push,
+                            new ReviewComment(
+                                    new LineAnchor(text(parameters, "path"), side, start, end),
+                                    new Body(text(parameters, "text")),
+                                    replacement == null ? null : new Suggestion(replacement)),
+                            id);
+                });
+        server.method(
+                "Reply",
+                (parameters, replies) -> {
+                    final String id = optionalName(parameters, "id");
+                    final Push push = reviewed(parameters, parts);
+                    if (text(parameters, "thread").isBlank()) {
+                        throw refused(new ReviewRefusal(ReviewError.NO_SUCH_THREAD, null), push);
+                    }
+                    kept(
+                            replies,
+                            parts,
+                            push,
+                            new ReviewReply(
+                                    text(parameters, "thread"), new Body(text(parameters, "text"))),
+                            id);
+                });
+        server.method(
+                "Comments",
+                (parameters, replies) -> {
+                    final String cursor = optionalName(parameters, "cursor");
+                    final Push push = waiting(parameters, parts);
+                    final ReviewWriter.Page page;
+                    try {
+                        page = parts.writer().page(push, parts.store().threads(push), cursor);
+                    } catch (ReviewRefused ex) {
+                        throw refused(ex.refusal(), push);
+                    }
+                    final Map<String, Object> reply = new LinkedHashMap<>();
+                    reply.put("sarif", page.sarif());
+                    if (page.next() != null) {
+                        reply.put("cursor", page.next());
+                    }
+                    replies.last(reply);
+                });
+        server.method(
+                "ResolveThread",
+                (parameters, replies) -> {
+                    final Push push = waiting(parameters, parts);
+                    final ReviewThread thread;
+                    try {
+                        // Only the thread's state: no finding is cleared, no approval changed.
+                        thread =
+                                parts.store()
+                                        .state(
+                                                push,
+                                                text(parameters, "thread"),
+                                                flag(parameters, "reopen")
+                                                        ? ThreadState.OPEN
+                                                        : ThreadState.RESOLVED);
+                    } catch (ReviewRefused ex) {
+                        throw refused(ex.refusal(), push);
+                    }
+                    replies.last(
+                            Map.of(
+                                    "thread",
+                                    thread.id(),
+                                    "state",
+                                    thread.state().name().toLowerCase(java.util.Locale.ROOT)));
+                });
+    }
+
+    /** Keeps an item from the owner account and answers its id and thread. */
+    private static void kept(
+            final VarlinkServer.Replies replies,
+            final org.fuin.porelo.app.CommentIntake.Parts parts,
+            final Push push,
+            final ReviewItem item,
+            final @org.jspecify.annotations.Nullable String id)
+            throws java.io.IOException {
+        final Kept kept;
+        try {
+            kept = parts.intake().take(new OwnerAccount(), push, item, id);
+        } catch (ReviewRefused ex) {
+            throw refused(ex.refusal(), push);
+        }
+        replies.last(Map.of("guid", kept.guid(), "thread", kept.thread()));
+    }
+
+    /** The push a call names, as it waits now. */
+    private static Push waiting(
+            final Map<String, Object> parameters,
+            final org.fuin.porelo.app.CommentIntake.Parts parts) {
+        try {
+            return parts.pushes()
+                    .waiting(
+                            text(parameters, "project"),
+                            empty(parameters, "repository"),
+                            text(parameters, "name"));
+        } catch (ReviewRefused ex) {
+            throw refused(ex.refusal(), null);
+        }
+    }
+
+    /** The push a call names, refused when it moved past the commit the caller reviewed. */
+    private static Push reviewed(
+            final Map<String, Object> parameters,
+            final org.fuin.porelo.app.CommentIntake.Parts parts) {
+        final Push push = waiting(parameters, parts);
+        final String commit = text(parameters, "commit").strip();
+        if (!push.head().equals(commit)) {
+            // A comment's lines are of the commit the caller read; on another they point elsewhere.
+            throw moved(push.name(), commit, push.head());
+        }
+        return push;
+    }
+
+    /**
+     * Returns the contract's MovedSinceReview, the one spelling of it in the daemon.
+     *
+     * @param name The push.
+     * @param reviewed The commit the caller reviewed, or "" when unknown.
+     * @param now The commit the push waits at now, or "" when unknown.
+     * @return The error.
+     */
+    static VarlinkException moved(final String name, final String reviewed, final String now) {
+        return new VarlinkException(
+                INTERFACE + "." + ReviewError.MOVED_SINCE_REVIEW.wireName(),
+                Map.of("name", name, "reviewed", reviewed, "now", now));
+    }
+
+    /**
+     * Reads an optional text parameter as given, "" included: null when absent, InvalidParameter
+     * when it is there but no string, never read as absent.
+     */
+    private static @org.jspecify.annotations.Nullable String optionalText(
+            final Map<String, Object> parameters, final String name) {
+        final Object value = parameters.get(name);
+        if (value == null) {
+            return null;
+        }
+        if (!(value instanceof String text)) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", name));
+        }
+        return text;
+    }
+
+    /** Reads an optional id or cursor: "" names none, as absent does. */
+    private static @org.jspecify.annotations.Nullable String optionalName(
+            final Map<String, Object> parameters, final String name) {
+        final String value = optionalText(parameters, name);
+        return value == null || value.isEmpty() ? null : value;
+    }
+
+    /** A comment's line: a whole number, or AnchorOutsideBlob when it is none or missing. */
+    private static int line(
+            final Map<String, Object> parameters, final String name, final Push push) {
+        final java.util.OptionalInt line =
+                org.fuin.porelo.wire.varlink.VarlinkNumbers.wholeInt(parameters.get(name));
+        if (line.isEmpty()) {
+            throw refused(new ReviewRefusal(ReviewError.ANCHOR_OUTSIDE_BLOB, null), push);
+        }
+        return line.getAsInt();
+    }
+
+    /**
+     * Returns a review refusal as the contract's error of the same name, with the rule or limit it
+     * names; never a producer's text.
+     *
+     * @param refusal The refusal.
+     * @param push The push it is about, or null when none was found.
+     * @return The error.
+     */
+    static VarlinkException refused(
+            final ReviewRefusal refusal, final @org.jspecify.annotations.Nullable Push push) {
+        final String detail = refusal.detail() == null ? "" : refusal.detail();
+        final String error = INTERFACE + "." + refusal.error().wireName();
+        return switch (refusal.error()) {
+            case TEXT_REFUSED -> new VarlinkException(error, Map.of("rule", detail));
+            case TOO_LARGE -> new VarlinkException(error, Map.of("limit", detail));
+            // The push as the call found it is the commit the call was checked against, the one
+            // reviewed; a refusal carries no commit, so where the push moved is unknown here.
+            case MOVED_SINCE_REVIEW ->
+                    moved(push == null ? "" : push.name(), push == null ? "" : push.head(), "");
+            case NO_SUCH_PUSH,
+                    ANCHOR_OUTSIDE_BLOB,
+                    NOT_A_REGULAR_FILE,
+                    FIX_OUTSIDE_ANCHOR,
+                    OLD_SIDE_FIX,
+                    NO_SUCH_THREAD,
+                    CURSOR_REFUSED,
+                    ID_REUSED ->
+                    new VarlinkException(error, Map.of());
+        };
     }
 
     /**

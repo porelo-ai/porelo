@@ -411,6 +411,39 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void describesEveryReviewRefusalAsAnErrorOfItsOwnName() {
+        // The comment methods answer a review's refusals by these names, built from the enum and
+        // never written in the daemon's source, so the source reading below cannot see them.
+        final Set<String> described = names(ERROR, PoreloDaemon.description());
+        final List<String> missing =
+                java.util.Arrays.stream(org.fuin.porelo.gate.review.ReviewError.values())
+                        .map(org.fuin.porelo.gate.review.ReviewError::wireName)
+                        .filter(name -> !described.contains(name))
+                        .toList();
+        assertThat(org.fuin.porelo.gate.review.ReviewError.values()).hasSize(11);
+        assertThat(missing).as("review refusals not described as errors").isEmpty();
+        assertThat(PoreloDaemon.description())
+                .contains("error TextRefused(rule: string)")
+                .contains("error TooLarge(limit: string)");
+    }
+
+    @Test
+    void theCommentMethodsTakeAndAnswerTheAgreedFields() {
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .containsPattern(
+                        "method Comment\\((?s:.*?)side: string,(?s:.*?)startLine: int,(?s:.*?)endLine:"
+                                + " int,(?s:.*?)replacement: \\?string,(?s:.*?)id: \\?string\\s*\\)"
+                                + " -> \\((?s:.*?)guid: string,\\s*thread: string\\s*\\)")
+                .containsPattern(
+                        "method Comments\\((?s:.*?)cursor: \\?string\\s*\\) -> \\((?s:.*?)sarif:"
+                                + " string,(?s:.*?)cursor: \\?string\\s*\\)")
+                .containsPattern(
+                        "method ResolveThread\\((?s:.*?)reopen: \\?bool\\s*\\) -> \\((?s:.*?)thread:"
+                                + " string,(?s:.*?)state: string\\s*\\)");
+    }
+
+    @Test
     void describesEveryErrorItCanRaise(@TempDir Path dir) {
         // The names the daemon throws, gathered from its own source rather than from a list kept
         // beside it: a list would be the third place to forget.
@@ -940,6 +973,10 @@ class InterfaceDescriptionTest {
             if (Set.of("Task", "Gate", "Messaging").contains(area)) {
                 signature.add(ReadingSweep.class);
                 arguments.add(sweep);
+            }
+            if ("Gate".equals(area)) {
+                signature.add(org.fuin.porelo.app.CommentIntake.Parts.class);
+                arguments.add(org.fuin.porelo.app.CommentIntake.Parts.unwired(context));
             }
             registrar
                     .getDeclaredMethod("register", signature.toArray(Class<?>[]::new))

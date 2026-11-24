@@ -287,7 +287,15 @@ public final class PoreloDaemon {
         ProjectMethods.register(server, context, inventory, control);
         EgressMethods.register(server, context, inventory, control);
         VaultMethods.register(server, context, inventory, control);
-        GateMethods.register(server, context, inventory, control, sweep);
+        // The review's checks, store and writer are not wired yet: every comment call is refused
+        // as NoSuchPush until they are.
+        GateMethods.register(
+                server,
+                context,
+                inventory,
+                control,
+                sweep,
+                org.fuin.porelo.app.CommentIntake.Parts.unwired(context));
         AgentMethods.register(server, context, inventory, control, signIns);
         MessagingMethods.register(server, context, inventory, control, sweep);
         MachineMethods.register(server, context, inventory, control);
