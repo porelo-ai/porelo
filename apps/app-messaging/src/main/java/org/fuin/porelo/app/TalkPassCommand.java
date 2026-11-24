@@ -37,6 +37,19 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
 
     private PoreloContext context = PoreloContext.real();
 
+    private final java.util.function.Function<PoreloContext, ReviewReplies> replies;
+
+    /**
+     * Constructor with what takes a task's reply in a review thread. The command line's assembly
+     * adds this command, since only it knows the review's parts.
+     *
+     * @param replies Makes the reply path for the machine the command is given.
+     */
+    public TalkPassCommand(
+            final java.util.function.Function<PoreloContext, ReviewReplies> replies) {
+        this.replies = java.util.Objects.requireNonNull(replies, "replies");
+    }
+
     @Override
     public void setContext(final PoreloContext context) {
         this.context = context;
@@ -88,7 +101,8 @@ public class TalkPassCommand implements Callable<Integer>, PoreloFactory.Context
         // The project given, never one derived again from the container's name, which may name
         // none: a removed task of a project whose name begins another's, say.
         final org.fuin.porelo.core.project.Project resolved = GateSupport.byName(context, project);
-        final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
+        final MessageWatch watch =
+                new MessageWatch(context, java.time.Duration.ZERO, replies.apply(context));
         // The daemon's own pass, marks and all: one made here sent an unverified task's line
         // unmarked where the daemon marked it.
         final MessagePass pass = watch.pass();

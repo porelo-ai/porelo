@@ -70,8 +70,7 @@ public class GateResolveCommand implements Callable<Integer>, PoreloFactory.Cont
     public Integer call() {
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
-        final CommentIntake.Parts used =
-                parts == null ? CommentIntake.Parts.unwired(context) : parts;
+        final CommentIntake.Parts used = parts == null ? CommentIntake.Parts.of(context) : parts;
         try {
             final Push push = used.pushes().waiting(projectName, repository, name);
             // Only the thread's state: no finding is cleared and no approval is given or taken.

@@ -515,34 +515,49 @@ class GateCommentMethodsTest {
     }
 
     @Test
-    void untilTheReviewIsWiredEveryCallIsRefusedAsNoSuchPush() throws Exception {
-        // Taken and kept nowhere, a comment would read as written and be lost.
+    void theMachinesPartsKeepEachThreadInTheOwnerAccountsJournalAndCountAndPageIt()
+            throws Exception {
+        // The machine's own store, writer and counts; only the push and the anchor's check stand
+        // in,
+        // since no mirror holds the commit here.
         final PoreloContext context =
                 new PoreloContext(
                         new FakeCommandRunner(),
                         new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
                         arguments -> 0);
-        final CommentIntake.Parts unwired = CommentIntake.Parts.unwired(context);
+        final CommentIntake.Parts machine = CommentIntake.Parts.of(context);
         final VarlinkClient client =
                 serving(
                         new CommentIntake.Parts(
                                 pushes(),
-                                unwired.check(),
-                                unwired.store(),
-                                unwired.writer(),
-                                unwired.counts()));
+                                check,
+                                machine.store(),
+                                machine.writer(),
+                                machine.counts()));
 
-        refusedAs(() -> client.call(method("Comment"), comment(SHOP)), "NoSuchPush");
-        refusedAs(
-                () ->
-                        client.call(
-                                method("Reply"),
-                                named(SHOP, "commit", SHOP.head(), "thread", "t", "text", "Hi.")),
-                "NoSuchPush");
-        refusedAs(() -> client.call(method("Comments"), named(SHOP)), "NoSuchPush");
-        refusedAs(
-                () -> client.call(method("ResolveThread"), named(SHOP, "thread", "t")),
-                "NoSuchPush");
+        final String thread = (String) client.call(method("Comment"), comment(SHOP)).get("thread");
+
+        assertThat(
+                        count(
+                                client.call(
+                                        method("ReviewSummary"),
+                                        named(SHOP, "commit", SHOP.head())),
+                                "openThreads"))
+                .isEqualTo(1);
+        assertThat((String) client.call(method("Comments"), named(SHOP)).get("sarif"))
+                .contains(thread);
+        final java.nio.file.Path journals = context.paths().gate().reviewComments();
+        assertThat(journals).isDirectory();
+        assertThat(java.nio.file.Files.getPosixFilePermissions(journals))
+                .isEqualTo(java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        // Another push sees none of it.
+        assertThat(
+                        count(
+                                client.call(
+                                        method("ReviewSummary"),
+                                        named(OTHER, "commit", OTHER.head())),
+                                "openThreads"))
+                .isZero();
     }
 
     @Test
@@ -715,34 +730,5 @@ class GateCommentMethodsTest {
                 () -> client.call(method("ReviewSummary"), named(gone, "commit", gone.head())),
                 "NoSuchPush");
         assertThat(counts.asked).isEmpty();
-    }
-
-    @Test
-    void untilTheReviewIsWiredASummaryOfAWaitingPushCountsNothing() throws Exception {
-        // The unwired store reads no thread, so its counts read none either; a refusal here would
-        // say the push does not wait when it does.
-        final PoreloContext context =
-                new PoreloContext(
-                        new FakeCommandRunner(),
-                        new PoreloPaths(XdgPaths.of(name -> null, dir), dir.resolve("bin")),
-                        arguments -> 0);
-        final CommentIntake.Parts unwired = CommentIntake.Parts.unwired(context);
-        final VarlinkClient client =
-                serving(
-                        new CommentIntake.Parts(
-                                pushes(),
-                                unwired.check(),
-                                unwired.store(),
-                                unwired.writer(),
-                                unwired.counts()));
-
-        final Map<String, Object> answer =
-                client.call(method("ReviewSummary"), named(SHOP, "commit", SHOP.head()));
-
-        assertThat(count(answer, "openThreads")).isZero();
-        assertThat(count(answer, "openFindings")).isZero();
-        assertThat(answer.get("runs"))
-                .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.LIST)
-                .isEmpty();
     }
 }

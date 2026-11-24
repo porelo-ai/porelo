@@ -31,6 +31,19 @@ public record GatePaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory the review threads of waiting pushes are kept in, one journal per task
+     * container, readable by the owner account alone.
+     *
+     * <p>State, not data: a thread belongs to a push that waits, and loses its meaning when nothing
+     * of it waits any more.
+     *
+     * @return The directory, which may not exist yet.
+     */
+    public Path reviewComments() {
+        return paths.xdg().state().resolve("review-comments");
+    }
+
+    /**
      * Returns where a readable copy of waiting work is put.
      *
      * <p><strong>Visible, in the home directory, and not under the data directory.</strong> This is

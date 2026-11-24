@@ -118,16 +118,16 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                     upstreamHas ? "discarded, already upstream" : "discarded");
             // Told whether or not a reason was given: an agent whose work silently vanished hands
             // it over again.
+            final CommentIntake.Parts review = CommentIntake.Parts.of(context);
             out.println(
-                    // The review's real parts are wired when the review is assembled.
                     PersonNote.rejectedWork(
                                     context,
                                     project,
                                     name,
                                     said,
                                     rejected,
-                                    UnassembledReview.STORE,
-                                    UnassembledReview.WRITER)
+                                    review.store(),
+                                    review.writer())
                             ? "told      the task it came from"
                             : "not told  no task named '" + name + "' has a mailbox here any more");
             out.flush();

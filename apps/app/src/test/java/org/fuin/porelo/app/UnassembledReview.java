@@ -12,11 +12,10 @@ import org.fuin.porelo.gate.review.ThreadState;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The review's parts where a reject is assembled before the review is: a store that holds no
- * thread, so a reject's note carries none, and a writer that is never reached. The real ones take
- * their place when the review is assembled.
+ * A stand-in for the review's parts in a test of a reject that is not about its threads: a store
+ * that holds no thread, so the note carries none, and a writer that is never reached.
  */
-public final class UnassembledReview {
+final class UnassembledReview {
 
     /** Holds no thread and keeps nothing. */
     public static final ReviewStore STORE =

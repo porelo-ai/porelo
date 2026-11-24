@@ -99,7 +99,25 @@ public final class MessageWatch implements AutoCloseable {
      * @param interval How often to look. Zero or negative means never.
      */
     public MessageWatch(final PoreloContext context, final Duration interval) {
-        this(context, interval, IDLE);
+        this(context, interval, UNWIRED);
+    }
+
+    /**
+     * Constructor with what takes a task's reply in a review thread: the assembly's, which knows
+     * the review's parts that this area does not.
+     *
+     * @param context Where the paths, the runner and the projects come from.
+     * @param interval How often to look. Zero or negative means never.
+     * @param replies Takes a task's reply to a review thread.
+     */
+    public MessageWatch(
+            final PoreloContext context, final Duration interval, final ReviewReplies replies) {
+        this(
+                context,
+                interval,
+                () -> context.vault().exists() && context.opener().isPresent(),
+                IDLE,
+                replies);
     }
 
     /**
@@ -114,7 +132,8 @@ public final class MessageWatch implements AutoCloseable {
                 context,
                 interval,
                 () -> context.vault().exists() && context.opener().isPresent(),
-                rest);
+                rest,
+                UNWIRED);
     }
 
     /**
@@ -128,19 +147,30 @@ public final class MessageWatch implements AutoCloseable {
             final PoreloContext context,
             final Duration interval,
             final java.util.function.BooleanSupplier vaultOpen) {
-        this(context, interval, vaultOpen, IDLE);
+        this(context, interval, vaultOpen, IDLE, UNWIRED);
     }
 
     private MessageWatch(
             final PoreloContext context,
             final Duration interval,
             final java.util.function.BooleanSupplier vaultOpen,
-            final Duration rest) {
+            final Duration rest,
+            final ReviewReplies replies) {
         this.context = context;
         this.interval = interval;
         this.vaultOpen = vaultOpen;
         this.rest = rest;
+        this.replies = replies;
     }
+
+    /**
+     * A watch made without the review's parts refuses every reply in words the task can read; only
+     * the daemon's and a pass by hand move replies, and both are given the parts.
+     */
+    private static final ReviewReplies UNWIRED =
+            (task, thread, text) -> java.util.Optional.of("review replies are not taken here");
+
+    private final ReviewReplies replies;
 
     private final java.util.function.BooleanSupplier vaultOpen;
 
@@ -375,11 +405,7 @@ public final class MessageWatch implements AutoCloseable {
                         context.paths().messaging().transportDirectory(),
                         context.limits());
         pass.marking(marks());
-        // The review's assembly wires its intake here; until then every reply is refused in words
-        // the task can read.
-        pass.replying(
-                (task, thread, text) -> java.util.Optional.of("review replies are not wired yet"),
-                this::taskOf);
+        pass.replying(replies, this::taskOf);
         return pass;
     }
 

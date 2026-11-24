@@ -287,15 +287,14 @@ public final class PoreloDaemon {
         ProjectMethods.register(server, context, inventory, control);
         EgressMethods.register(server, context, inventory, control);
         VaultMethods.register(server, context, inventory, control);
-        // The review's checks, store and writer are not wired yet: every comment call is refused
-        // as NoSuchPush until they are.
+        // The review's parts, the same the command line and a pass by hand use.
         GateMethods.register(
                 server,
                 context,
                 inventory,
                 control,
                 sweep,
-                org.fuin.porelo.app.CommentIntake.Parts.unwired(context));
+                org.fuin.porelo.app.CommentIntake.Parts.of(context));
         AgentMethods.register(server, context, inventory, control, signIns);
         MessagingMethods.register(server, context, inventory, control, sweep);
         MachineMethods.register(server, context, inventory, control);
@@ -330,7 +329,8 @@ public final class PoreloDaemon {
         return new Watches(
                 context,
                 new org.fuin.porelo.app.UpstreamWatch(context, every),
-                new org.fuin.porelo.app.MessageWatch(context, messages));
+                new org.fuin.porelo.app.MessageWatch(
+                        context, messages, org.fuin.porelo.app.TaskReviewReplies.of(context)));
     }
 
     /**

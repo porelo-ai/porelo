@@ -1,6 +1,5 @@
 package org.fuin.porelo.app;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.fuin.porelo.core.project.Project;
@@ -13,18 +12,19 @@ import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.ReviewAnchors;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewComments;
 import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
 import org.fuin.porelo.gate.review.ReviewRefused;
 import org.fuin.porelo.gate.review.ReviewReply;
+import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.gate.review.ReviewStore;
-import org.fuin.porelo.gate.review.ReviewThread;
 import org.fuin.porelo.gate.review.ReviewWriter;
 import org.fuin.porelo.gate.review.Task;
-import org.fuin.porelo.gate.review.ThreadState;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -166,48 +166,24 @@ public final class CommentIntake {
         }
 
         /**
-         * Returns the parts of a machine whose review checks, store, writer and counts are not
-         * wired yet: the waiting pushes as the gate holds them, and every check, keep, state change
-         * and page refused as {@code NoSuchPush}, so nothing is taken that nothing could keep. What
-         * is only read answers as the store's threads do: nothing, so a push that waits counts no
-         * open finding, no open thread and no run, and one that does not wait is still refused by
-         * the pushes.
+         * Returns a machine's parts: the waiting pushes as the gate holds them, each item checked
+         * against its commit in the push's own mirror, the threads kept in the owner account's
+         * journals, which also count them, and the pages written in Porelo's review profile.
          *
          * @param context The machine.
          * @return The parts.
          */
-        public static Parts unwired(final PoreloContext context) {
-            final ReviewRefusal none = new ReviewRefusal(ReviewError.NO_SUCH_PUSH, null);
+        public static Parts of(final PoreloContext context) {
+            final ReviewComments journals =
+                    new ReviewComments(context.paths().gate().reviewComments());
             return new Parts(
                     waitingAt(context),
-                    (push, item) -> Optional.of(none),
-                    new ReviewStore() {
-                        @Override
-                        public Kept keep(
-                                final Push push,
-                                final ReviewItem item,
-                                final Origin origin,
-                                final @Nullable String id)
-                                throws ReviewRefused {
-                            throw new ReviewRefused(none);
-                        }
-
-                        @Override
-                        public List<ReviewThread> threads(final Push push) {
-                            return List.of();
-                        }
-
-                        @Override
-                        public ReviewThread state(
-                                final Push push, final String thread, final ThreadState state)
-                                throws ReviewRefused {
-                            throw new ReviewRefused(none);
-                        }
-                    },
-                    (push, threads, cursor) -> {
-                        throw new ReviewRefused(none);
-                    },
-                    push -> new ReviewCounts.Counts(0, 0, List.of()));
+                    new ReviewAnchors(
+                            push -> GateSupport.mirror(context, push.project(), push.repository()),
+                            context.limits()),
+                    journals,
+                    new ReviewSarif(),
+                    journals);
         }
     }
 

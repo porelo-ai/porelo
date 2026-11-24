@@ -81,6 +81,13 @@ public class PoreloCli implements Callable<Integer> {
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("vault"), "the vault group is named above")
                 .addSubcommand(VaultClearCommand.class);
+        // A pass by hand takes a task's reply in a review thread as the daemon's does, through
+        // the review's parts, which the messaging area does not depend on.
+        final TalkPassCommand pass = new TalkPassCommand(TaskReviewReplies::of);
+        pass.setContext(context);
+        java.util.Objects.requireNonNull(
+                        line.getSubcommands().get("talk"), "the talk group is named above")
+                .addSubcommand(pass);
         // And the account a tunnel reaches asks its daemon as doctor does.
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("host"), "the host group is named above")

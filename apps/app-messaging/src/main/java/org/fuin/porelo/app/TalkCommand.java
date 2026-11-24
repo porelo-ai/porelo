@@ -15,7 +15,6 @@ import picocli.CommandLine.Command;
         description = "Shows and moves the messages a task exchanges.",
         subcommands = {
             TalkPeersCommand.class,
-            TalkPassCommand.class,
             TalkHeldCommand.class,
             TalkReadCommand.class,
             TalkReleaseCommand.class,

@@ -802,12 +802,8 @@ final class GateMethods {
                 "Reject",
                 (parameters, replies) ->
                         replies.last(
-                                // The review's real parts are wired when the review is assembled.
-                                reject(
-                                        parameters,
-                                        context,
-                                        org.fuin.porelo.app.UnassembledReview.STORE,
-                                        org.fuin.porelo.app.UnassembledReview.WRITER)));
+                                // The same store and writer the review's own calls use.
+                                reject(parameters, context, comments.store(), comments.writer())));
     }
 
     /**

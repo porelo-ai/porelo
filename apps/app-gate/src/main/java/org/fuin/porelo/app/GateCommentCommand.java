@@ -138,8 +138,7 @@ public class GateCommentCommand implements Callable<Integer>, PoreloFactory.Cont
             err.flush();
             return 64;
         }
-        final CommentIntake.Parts used =
-                parts == null ? CommentIntake.Parts.unwired(context) : parts;
+        final CommentIntake.Parts used = parts == null ? CommentIntake.Parts.of(context) : parts;
         try {
             final Push push = used.pushes().waiting(projectName, repository, name);
             if (!push.head().equals(commit.strip())) {
