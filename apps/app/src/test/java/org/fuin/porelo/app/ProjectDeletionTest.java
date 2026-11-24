@@ -257,6 +257,90 @@ class ProjectDeletionTest {
     }
 
     @Test
+    void finishesBesideALeftoverMirrorInProgressAndLeavesItWhereItIs(@TempDir Path dir)
+            throws IOException {
+
+        // A leftover is not known to be this project's mirror in progress or garbage, so it is
+        // not removed; stopping on it would leave the project half removed.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        final Path named = dir.resolve("data/porelo/mirrors/uc");
+        final Path backend = Files.createDirectories(named.resolve("backend.git/objects"));
+        final Path leftover =
+                Files.writeString(
+                        Files.createDirectories(named.resolve(".backend.git.new-1a2b3c4d"))
+                                .resolve("HEAD"),
+                        "ref: refs/heads/main\n",
+                        StandardCharsets.UTF_8);
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
+
+        assertRemovedAllButTheMirrorsDirectory(dir, result);
+        assertThat(backend.getParent()).as("the repository's mirror goes").doesNotExist();
+        assertThat(leftover).as("the leftover stays, with what it holds").exists();
+        assertThat(named).as("the directory that holds it stays").isDirectory();
+        assertThat(result.keeps())
+                .as("and the person is told it stayed")
+                .anyMatch(kept -> kept.startsWith(named.toString()));
+    }
+
+    @Test
+    void finishesBesideAFileInTheMirrorsDirectoryThatIsNoMirror(@TempDir Path dir)
+            throws IOException {
+
+        // Nothing says whose that file is; it stays, and the rest of the project still goes.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        final Path named = dir.resolve("data/porelo/mirrors/uc");
+        final Path backend = Files.createDirectories(named.resolve("backend.git/objects"));
+        final Path notes =
+                Files.writeString(named.resolve("notes.txt"), "x", StandardCharsets.UTF_8);
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
+
+        assertRemovedAllButTheMirrorsDirectory(dir, result);
+        assertThat(backend.getParent()).as("the repository's mirror goes").doesNotExist();
+        assertThat(notes).as("the file that is no mirror stays").exists();
+        assertThat(result.keeps())
+                .as("and the person is told its directory stayed")
+                .anyMatch(kept -> kept.startsWith(named.toString()));
+    }
+
+    @Test
+    void removesTheMirrorsDirectoryOnceItsMirrorsLeftItEmpty(@TempDir Path dir) throws IOException {
+
+        // Keeping a non-empty directory must not turn into keeping an empty one.
+        final PoreloContext context = context(dir);
+        project("uc");
+        runner.answering("for-each-ref", "");
+        final Path named = dir.resolve("data/porelo/mirrors/uc");
+        Files.createDirectories(named.resolve("backend.git/objects"));
+
+        final ProjectDeletion.Result result =
+                new ProjectDeletion(context).delete("uc", false, false);
+
+        assertRemovedAllButTheMirrorsDirectory(dir, result);
+        assertThat(named).as("the emptied directory goes").doesNotExist();
+    }
+
+    private void assertRemovedAllButTheMirrorsDirectory(Path dir, ProjectDeletion.Result result) {
+        assertThat(result.outcome())
+                .as("the deletion finishes: %s", result.detail())
+                .isEqualTo(ProjectDeletion.Outcome.DELETED);
+        assertThat(dir.resolve("data/porelo/mirrors/uc.git")).as("its own mirror").doesNotExist();
+        assertThat(dir.resolve("data/porelo/build/uc")).as("its build directory").doesNotExist();
+        assertThat(dir.resolve("data/porelo/projects/uc")).as("its registry entry").doesNotExist();
+        assertThat(dir.resolve("data/porelo/upstream/uc")).as("its upstream record").doesNotExist();
+        assertThat(runner.lines())
+                .as("its image")
+                .anyMatch(line -> line.contains("rmi") && line.contains("porelo/uc"));
+    }
+
+    @Test
     void removesItsBuildLockAndItsRepositoriesUpstreamRecords(@TempDir Path dir)
             throws IOException {
 

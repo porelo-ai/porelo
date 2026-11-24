@@ -141,6 +141,21 @@ class ProjectRemoveCommandTest {
     }
 
     @Test
+    void says_after_a_deletion_the_mirrors_directory_it_kept(@TempDir final Path dir)
+            throws IOException {
+        // Kept for what it holds, it is otherwise found only by looking on disk.
+        final PoreloContext context = context(dir);
+        localProject("uc");
+        final Path named = context.paths().xdg().data().resolve("mirrors").resolve("uc");
+        Files.createDirectories(named.resolve(".backend.git.new-1a2b3c4d"));
+
+        final Run removed = run(context, "uc");
+
+        assertThat(removed.code()).as(removed.err()).isZero();
+        assertThat(removed.out()).contains("    kept: " + named);
+    }
+
+    @Test
     void takes_the_verified_clone_with_the_rest(@TempDir final Path dir) throws IOException {
 
         // It did not, over the socket: the terminal removed the clone by hand AFTER the deletion

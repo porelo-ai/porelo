@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.io.IOException;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -286,7 +287,7 @@ public final class ProjectDeletion {
     private Result remove(String project, Prepared prepared, boolean force) {
         final Result checked = prepared.result();
         final List<Removal> removes = checked.removes();
-        final List<String> keeps = checked.keeps();
+        final List<String> keeps = new ArrayList<>(checked.keeps());
         final List<String> unreviewed = checked.unreviewed();
         final List<String> running = checked.running();
         try {
@@ -342,8 +343,13 @@ public final class ProjectDeletion {
             }
             // The directory the named repositories' mirrors sat in, now that they are gone. It is
             // removed last and only when empty, so a mirror this run could not delete keeps its
-            // parent and stays findable rather than being orphaned under a deleted path.
-            Files.deleteIfExists(context.paths().xdg().data().resolve("mirrors").resolve(project));
+            // parent and stays findable rather than being orphaned under a deleted path. What else
+            // is in it - a half-made mirror's sibling, a file that is no mirror - is not known to
+            // be this project's, so it is kept with its directory and the deletion goes on.
+            final Path mirrors = context.paths().xdg().data().resolve("mirrors").resolve(project);
+            if (!deleteIfEmpty(mirrors)) {
+                keeps.add(mirrors + ", with what it holds that is not known to be this project's");
+            }
             deleteTree(context.paths().tasks().buildContext(project));
             final Path buildLock = context.paths().tasks().buildContext(project + ".build.lock");
             if (Files.isRegularFile(buildLock) && FileLocks.free(buildLock)) {
@@ -572,6 +578,22 @@ public final class ProjectDeletion {
     private static String nameOf(Path mirror) {
         final String file = mirror.getFileName().toString();
         return file.endsWith(".git") ? file.substring(0, file.length() - ".git".length()) : file;
+    }
+
+    /**
+     * Removes a directory only when nothing is in it.
+     *
+     * @param directory The directory; one that is gone already is fine.
+     * @return Whether it is gone; not when it holds something, which stays with it.
+     * @throws IOException When it cannot be removed for any reason but what it holds.
+     */
+    private static boolean deleteIfEmpty(Path directory) throws IOException {
+        try {
+            Files.deleteIfExists(directory);
+            return true;
+        } catch (DirectoryNotEmptyException kept) {
+            return false;
+        }
     }
 
     private static void deleteTree(Path root) throws IOException {

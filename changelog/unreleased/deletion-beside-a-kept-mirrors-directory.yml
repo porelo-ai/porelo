@@ -1,0 +1,2 @@
+title: "`porelo project remove` finishes when the project's mirrors directory still holds something not known to be its own, such as a half-made mirror's sibling, keeps that directory with what it holds, and names it as kept after the deletion as the preview names what it keeps"
+type: fixed

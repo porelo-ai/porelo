@@ -196,16 +196,20 @@ public class ProjectRemoveCommand
                 out.flush();
                 return 0;
             }
-            case DELETED ->
-                    deleted.removes()
-                            .forEach(
-                                    removal ->
-                                            out.printf(
-                                                    "removed  %-16s %s%n",
-                                                    removal.kind()
-                                                            .toLowerCase(java.util.Locale.ROOT)
-                                                            .replace('_', ' '),
-                                                    removal.what()));
+            case DELETED -> {
+                deleted.removes()
+                        .forEach(
+                                removal ->
+                                        out.printf(
+                                                "removed  %-16s %s%n",
+                                                removal.kind()
+                                                        .toLowerCase(java.util.Locale.ROOT)
+                                                        .replace('_', ' '),
+                                                removal.what()));
+                // What stayed is said after a deletion too: a directory kept for what it holds
+                // is otherwise found only by looking on disk.
+                deleted.keeps().forEach(kept -> out.println("    kept: " + kept));
+            }
             default -> {
                 err.println("porelo: " + deleted.detail());
                 err.flush();
