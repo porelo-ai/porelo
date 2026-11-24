@@ -162,6 +162,58 @@ class BackupRestoreTest {
     }
 
     @Test
+    void aMirrorAnotherStartMadeWhileARestoreFailedIsKept(@TempDir Path dir) throws Exception {
+        final Path file = project(dir);
+        final org.fuin.porelo.gate.GitGate gate = gateFor(dir, file);
+        gate.initialize();
+        final Path work = dir.resolve("work");
+        git(dir, "init", "--quiet", "--initial-branch=main", work.toString());
+        Files.writeString(work.resolve("a.txt"), "a\n");
+        git(work, "add", ".");
+        git(work, "commit", "--quiet", "-m", "a");
+        git(work, "push", "--quiet", gate.mirror().toString(), "main");
+        final Path bundle = dir.resolve("backup.bundle");
+        gate.backup(bundle);
+        final Path marker = gate.mirror().resolve("made-by-another-start");
+        // Another start makes its mirror while the bundle is fetched beside it, and the fetch
+        // fails.
+        final CommandRunner racing =
+                command -> {
+                    if (command.arguments().contains("fetch") && !Files.exists(gate.mirror())) {
+                        git(dir, "init", "--quiet", "--bare", gate.mirror().toString());
+                        try {
+                            Files.writeString(marker, "theirs\n");
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                        return runner.run(Command.of("false"));
+                    }
+                    return runner.run(command);
+                };
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_DATA_HOME" -> dir.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> dir.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> dir.resolve("run").toString();
+                                    default -> null;
+                                },
+                        dir);
+        final PoreloContext context =
+                new PoreloContext(racing, new PoreloPaths(xdg, dir.resolve("bin")), command -> 0);
+
+        final BackupRestore.Result result =
+                BackupRestore.restore(context, "demo", bundle, false, true);
+
+        assertThat(result.outcome()).isEqualTo(BackupRestore.Outcome.FAILED);
+        assertThat(marker).as("the other start's mirror").exists();
+        assertThat(result.detail())
+                .as("where the old mirror waits")
+                .contains("the mirror as it was is at");
+    }
+
+    @Test
     void aBundleThatRestoresReplacesTheMirrorAndLeavesNothingBesideIt(@TempDir Path dir)
             throws Exception {
 

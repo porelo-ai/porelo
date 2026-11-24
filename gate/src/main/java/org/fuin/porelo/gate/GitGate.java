@@ -258,13 +258,7 @@ public class GitGate {
             return;
         }
         // Made beside it, then moved in whole: a failure never removes another start's mirror.
-        final Path sibling =
-                mirror.toAbsolutePath()
-                        .resolveSibling(
-                                "."
-                                        + mirror.getFileName()
-                                        + ".new-"
-                                        + java.util.UUID.randomUUID().toString().substring(0, 8));
+        final Path sibling = sibling();
         try {
             try {
                 Directories.create(sibling);
@@ -288,6 +282,16 @@ public class GitGate {
                 new GitGate(runner, sibling, mode, upstreamUrl, seedUrl).deleteMirror();
             }
         }
+    }
+
+    /** Returns a fresh place beside the mirror, where a whole one is made before it is moved in. */
+    private Path sibling() {
+        return mirror.toAbsolutePath()
+                .resolveSibling(
+                        "."
+                                + mirror.getFileName()
+                                + ".new-"
+                                + java.util.UUID.randomUUID().toString().substring(0, 8));
     }
 
     /** Makes a mirror where this gate points, which nothing serves from yet. */
@@ -858,11 +862,42 @@ public class GitGate {
                             + ". Move it aside first: restoring over it would discard whatever has been"
                             + " pushed since the backup");
         }
+        // Made beside it, then moved in whole: a restore that fails or is cut off midway leaves no
+        // mirror that holds nothing, which every later start would take as the project's.
+        final Path sibling = sibling();
+        try {
+            try {
+                Directories.create(sibling);
+            } catch (java.io.IOException ex) {
+                throw new GateException("Cannot create " + sibling, ex);
+            }
+            new GitGate(runner, sibling, mode, upstreamUrl, seedUrl)
+                    .taskBranches(taskBranches)
+                    .restoreHere(bundle);
+            try {
+                Files.move(sibling, mirror, java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            } catch (java.io.IOException ex) {
+                throw new GateException(
+                        Files.isDirectory(mirror.resolve("objects"))
+                                ? "A mirror appeared at "
+                                        + mirror
+                                        + " while the bundle was restored"
+                                : "Cannot put the restored mirror in place at " + mirror,
+                        ex);
+            }
+        } finally {
+            if (Files.exists(sibling)) {
+                new GitGate(runner, sibling, mode, upstreamUrl, seedUrl).deleteMirror();
+            }
+        }
+    }
+
+    /** Restores the bundle where this gate points, which nothing serves from yet. */
+    private void restoreHere(Path bundle) {
         // The empty repository has to exist before the bundle can be verified: git checks the
         // bundle's prerequisites against an object store, and refuses outright without one.
         git("init", "--bare", mirror.toString());
         if (!verifyBackup(bundle)) {
-            deleteMirror();
             throw new GateException(bundle + " is not a usable git bundle");
         }
         // Not 'clone --bare': that takes refs/heads/* and silently drops everything else, including

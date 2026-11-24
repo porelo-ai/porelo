@@ -2340,6 +2340,48 @@ class GitGateTest {
     }
 
     @Test
+    void aRestoreWhoseFetchFailsLeavesNoMirrorBehind() throws IOException {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        pushAs("task-1");
+        final Path bundle = root.resolve("mirror.bundle");
+        gate.backup(bundle);
+        final Path gates = Files.createDirectories(root.resolve("gates"));
+        final var fetched = new java.util.concurrent.atomic.AtomicBoolean();
+        final CommandRunner fetchFails =
+                command -> {
+                    if (!command.arguments().contains("fetch")) return runner.run(command);
+                    fetched.set(true);
+                    return runner.run(Command.of("false"));
+                };
+        final GitGate restored =
+                new GitGate(fetchFails, gates.resolve("restored.git"), GateMode.GATEKEEPING, null);
+
+        assertThatThrownBy(() -> restored.restore(bundle))
+                .as("the bundle's refs never arrive")
+                .isInstanceOf(GateException.class);
+        assertThat(fetched).as("the failure came from the fetch").isTrue();
+        // A mirror there reads as the project's, and every later start serves from it: one that
+        // holds nothing would be served as if it held the backup.
+        assertThat(entries(gates)).as("what the failed restore left").isEmpty();
+    }
+
+    @Test
+    void aRestoreOntoAnEmptyDirectoryPutsTheMirrorThere() throws IOException {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        pushAs("task-1");
+        final Path bundle = root.resolve("mirror.bundle");
+        gate.backup(bundle);
+        final Path gates = Files.createDirectories(root.resolve("gates"));
+        final Path empty = Files.createDirectories(gates.resolve("restored.git"));
+        final GitGate restored = new GitGate(runner, empty, GateMode.GATEKEEPING, null);
+
+        restored.restore(bundle);
+
+        assertThat(restored.pending()).containsExactly("task-1");
+        assertThat(entries(gates)).as("only the mirror").containsExactly("restored.git");
+    }
+
+    @Test
     void verifyingWithoutARepositoryIsRefusedRatherThanAnsweredWrongly() throws IOException {
 
         final GitGate gate = gate(GateMode.GATEKEEPING, null);

@@ -175,7 +175,8 @@ public final class BackupRestore {
         } catch (RuntimeException | java.io.IOException ex) {
             String detail = String.valueOf(ex.getMessage());
             if (aside != null) {
-                gate.deleteMirror();
+                // The restore removed what it built; a mirror there now is another start's, kept,
+                // and the old one then stays aside, named below.
                 try {
                     Files.move(aside, mirror);
                 } catch (java.io.IOException back) {
