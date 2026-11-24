@@ -57,6 +57,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     /** Whether the person gave another name in answer to a refusal. */
     private boolean nameGiven;
 
+    /** The held-name line already printed by this command, so a second start says it no more. */
+    private @Nullable String nameNoteSaid;
+
     @Option(
             names = "--short",
             paramLabel = "<name>",
@@ -685,6 +688,24 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
+     * Names an unnamed task after a repository and says, before the task line the caller prints
+     * next, when the repository's own name was held and another was taken.
+     *
+     * @param project The project's name.
+     * @param repository The repository's name.
+     * @return The name.
+     */
+    private String named(final String project, final String repository) {
+        final TaskNames.Chosen chosen = TaskNames.choose(context, project, repository);
+        // Once: a start the person answered with another way runs this again for the same name.
+        if (chosen.note() != null && !chosen.note().equals(nameNoteSaid)) {
+            spec.commandLine().getOut().println(chosen.note());
+            nameNoteSaid = chosen.note();
+        }
+        return chosen.name();
+    }
+
+    /**
      * Takes the way the person chose instead of a refusal, for the next start.
      *
      * @param launch The start.
@@ -1064,9 +1085,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             projectFile = ProjectSource.require(context, projectName);
             if (allRepositories && !spec.commandLine().getParseResult().hasMatchedPositional(0)) {
                 // Named for what it reads, or the next free name: never a task on one of them.
-                task =
-                        TaskNames.fromRepository(
-                                context, projectName, TaskLaunch.ALL_REPOSITORIES_TASK);
+                task = named(projectName, TaskLaunch.ALL_REPOSITORIES_TASK);
                 spec.commandLine()
                         .getOut()
                         .println(
@@ -1158,13 +1177,13 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                 + " - the one started from this checkout, as"
                                                 + " chosen");
                     } else {
-                        task = TaskNames.fromRepository(context, projectName, repository);
+                        task = named(projectName, repository);
                         spec.commandLine()
                                 .getOut()
                                 .println("task           " + task + " - a new one, as chosen");
                     }
                 } else {
-                    task = TaskNames.fromRepository(context, projectName, repository);
+                    task = named(projectName, repository);
                     spec.commandLine()
                             .getOut()
                             .println(

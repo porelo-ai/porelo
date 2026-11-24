@@ -957,24 +957,55 @@ public final class PoreloDaemon {
         return values;
     }
 
+    /**
+     * Returns the name an unnamed start gets and the note that says its first choice was held.
+     *
+     * @param parameters The start's parameters.
+     * @param context The machine.
+     * @return The name and its note, or {@code null} when the start names its task or has no
+     *     repository to name one after.
+     */
+    static org.fuin.porelo.app.TaskNames.@Nullable Chosen unnamed(
+            Map<String, Object> parameters, PoreloContext context) {
+        if (!text(parameters, "task").isEmpty()) {
+            return null;
+        }
+        final String repository =
+                key(projectFile(parameters, context), text(parameters, "repository"));
+        final boolean allRepositories = flag(parameters, "allRepositories");
+        if (allRepositories && repository.isEmpty()) {
+            return org.fuin.porelo.app.TaskNames.choose(
+                    context, text(parameters, "project"), TaskLaunch.ALL_REPOSITORIES_TASK);
+        }
+        return repository.isEmpty()
+                ? null
+                : org.fuin.porelo.app.TaskNames.choose(
+                        context, text(parameters, "project"), repository);
+    }
+
     static TaskLaunch.Request request(Map<String, Object> parameters, PoreloContext context) {
+        return request(parameters, context, unnamed(parameters, context));
+    }
+
+    /**
+     * Returns the request a start makes, named by the choice already made for it.
+     *
+     * @param parameters The start's parameters.
+     * @param context The machine.
+     * @param unnamed What {@link #unnamed} chose for this start, once, or {@code null}.
+     * @return The request.
+     */
+    static TaskLaunch.Request request(
+            Map<String, Object> parameters,
+            PoreloContext context,
+            org.fuin.porelo.app.TaskNames.@Nullable Chosen unnamed) {
         final String task = text(parameters, "task");
         final Path projectFile = projectFile(parameters, context);
         final String repository = key(projectFile, text(parameters, "repository"));
         final boolean allRepositories = flag(parameters, "allRepositories");
         return new TaskLaunch.Request(
                 // Unnamed: after its repository, or after reading them all, as at the command line.
-                !task.isEmpty()
-                        ? task
-                        : allRepositories && repository.isEmpty()
-                                ? org.fuin.porelo.app.TaskNames.fromRepository(
-                                        context,
-                                        text(parameters, "project"),
-                                        TaskLaunch.ALL_REPOSITORIES_TASK)
-                                : repository.isEmpty()
-                                        ? "shell"
-                                        : org.fuin.porelo.app.TaskNames.fromRepository(
-                                                context, text(parameters, "project"), repository),
+                !task.isEmpty() ? task : unnamed == null ? "shell" : unnamed.name(),
                 // A name, resolved here rather than taken as a path. The machine prefers the file
                 // it verified; a client has no filesystem here to point at one.
                 projectFile,
@@ -1018,7 +1049,7 @@ public final class PoreloDaemon {
                 // The task whose MCP socket the call came over, never a field of the call.
                 McpTaskSockets.caller(),
                 // The caller's own word only: a name the MCP endpoint settled for it is none.
-                task.isEmpty() || flag(parameters, UNNAMED) ? null : task,
+                task.isEmpty() || parameters.get(UNNAMED) instanceof Own ? null : task,
                 shortName(parameters),
                 allRepositories,
                 work(parameters),
@@ -1112,6 +1143,16 @@ public final class PoreloDaemon {
      * and not in the contract; a caller that sent it would only lose its own name from the row.
      */
     static final String UNNAMED = ".unnamed";
+
+    /**
+     * A value Porelo itself put under a key beginning with a dot; a caller's JSON never makes one.
+     *
+     * @param value What Porelo put there.
+     */
+    record Own(Object value) {}
+
+    /** The line a start without a name carries when its first name was held; never a caller's. */
+    static final String NAME_NOTE = ".nameNote";
 
     /**
      * Returns the key of the repository a start names, by key or by full name, so an unnamed task

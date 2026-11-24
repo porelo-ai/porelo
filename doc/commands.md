@@ -238,7 +238,11 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   starts: each task is named with `porelo task attach <task>` or `porelo task start <task>`, exit 75. A new task
   is named after its repository, or the next free name (`my-first-2`); a repository
   named `people` or `person` gives `work`, and a leading `porelo-` is left out (`porelo-pi` gives `pi`). A name too
-  long for the container name's 64 characters is cut back to its last whole word that fits.
+  long for the container name's 64 characters is cut back to its last whole word that fits. When the repository's own
+  name is held, a line before the task line says which name and by what: `name my-first is held by the task my-first;
+  this task is my-first-2` (the holder is "the task NAME", "a container of that name" or "a start reserving it"). The
+  daemon's `Start` reply carries the same line as `nameNote`, absent when the first name was free or the start named
+  its task.
 - By default you get the agent's session. `--attach shell` gives a shell, `-P`/`--prompt` runs the
   agent unattended. `--detach` returns once the task runs, its image built and its container and helpers up, and
   opens no session.

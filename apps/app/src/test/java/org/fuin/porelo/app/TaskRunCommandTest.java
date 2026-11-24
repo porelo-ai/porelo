@@ -2178,6 +2178,44 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aStartWithNoNameSaysWhichNameIsHeldWhenItTakesTheNextOne(@TempDir Path dir)
+            throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        assertThat(out.toString())
+                .as("a free name says nothing of a held one")
+                .contains("task           shop")
+                .doesNotContain("is held by");
+        out.getBuffer().setLength(0);
+        runner.answering("ps", SHOP_TASK);
+
+        taskAnswer = "n";
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+
+        final String said = out.toString();
+        final String line = "name shop is held by the task shop; this task is shop-2";
+        assertThat(said).as("the line a person reads").contains(line + "\n");
+        assertThat(said.indexOf(line))
+                .as("before the task line")
+                .isLessThan(said.indexOf("task           shop-2"));
+    }
+
+    @Test
+    void aStartThatNamesItsTaskSaysNothingOfAHeldName(@TempDir Path dir) throws IOException {
+        final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();
+        firstStartAt(context(dir, true), checkout, true, "y", "--attach", "shell", "--detach");
+        out.getBuffer().setLength(0);
+        runner.answering("ps", SHOP_TASK);
+
+        firstStartAt(
+                context(dir, true), checkout, true, "y", "shop", "--attach", "shell", "--detach");
+
+        assertThat(out.toString())
+                .as("the name was given, none was taken")
+                .doesNotContain("is held by");
+    }
+
+    @Test
     void aSecondStartWithNoNameAtATerminalAndAYesStartsTheTaskThereAgain(@TempDir Path dir)
             throws IOException {
         final Path checkout = Files.createDirectories(dir.resolve("shop")).toRealPath();

@@ -1018,6 +1018,62 @@ class McpTaskSocketsTest {
         assertNothingStarted();
     }
 
+    /** Keeps what the start handed on to the daemon's own Start. */
+    private static final class SeenStart
+            implements org.fuin.porelo.wire.varlink.VarlinkServer.Method {
+        private volatile Map<String, Object> seen = Map.of();
+
+        @Override
+        public void call(
+                final Map<String, Object> parameters,
+                final org.fuin.porelo.wire.varlink.VarlinkServer.Replies replies)
+                throws IOException {
+            seen = Map.copyOf(parameters);
+            replies.last(Map.of("exitCode", 0));
+        }
+    }
+
+    @Test
+    void aTaskStartingAnotherWithNoNameIsToldWhichNameWasHeld() throws Exception {
+        // As a person is: a task that believes its child is 'uc' while it is 'uc-2' is as misled.
+        context(HEAD + SECTION);
+        runner.answering("ps", row("porelo-uc-uc", "uc"));
+        final Map<String, Object> unnamed = start("alpha", null, 30);
+        unnamed.remove("task");
+        final SeenStart seen = new SeenStart();
+
+        attempt(unnamed, seen).get(30, TimeUnit.SECONDS);
+
+        assertThat(seen.seen).containsEntry("task", "uc-2");
+        assertThat(String.valueOf(seen.seen.get(PoreloDaemon.NAME_NOTE)))
+                .contains("name uc is held by a container of that name; this task is uc-2");
+    }
+
+    @Test
+    void aTaskStartingAnotherWithNoNameAndAFreeNameIsToldNothing() throws Exception {
+        context(HEAD + SECTION);
+        final Map<String, Object> unnamed = start("alpha", null, 30);
+        unnamed.remove("task");
+        final SeenStart seen = new SeenStart();
+
+        attempt(unnamed, seen).get(30, TimeUnit.SECONDS);
+
+        assertThat(seen.seen).containsEntry("task", "uc").doesNotContainKey(PoreloDaemon.NAME_NOTE);
+    }
+
+    @Test
+    void aTaskCannotSetTheKeysPorelosOwnStartSetsForItself() throws Exception {
+        // Any key with a dot is Porelo's: text a task sent there would be printed to a person as
+        // Porelo's own line.
+        final Path socket = opened(HEAD + SECTION);
+        for (final String key : List.of(PoreloDaemon.NAME_NOTE, PoreloDaemon.UNNAMED)) {
+            final Map<String, Object> forged = start("alpha", null, 30);
+            forged.put(key, key.equals(PoreloDaemon.UNNAMED) ? (Object) true : "name x is held");
+            refused(socket, "Start", forged, "ParameterNotAllowed", Map.of("parameter", key));
+        }
+        assertNothingStarted();
+    }
+
     @Test
     void twoUnnamedStartsAtOnceBothCountAgainstTheLimit() throws Exception {
         // Overlapping preflights must not spend more task places than the project allows.

@@ -304,6 +304,84 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aFreeNameHasNoNote(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        tasks("");
+        final TaskNames.Chosen free = TaskNames.choose(context, "default", "my-first");
+        assertThat(free.name()).isEqualTo("my-first");
+        assertThat(free.note()).as("nothing to say for a free name").isNull();
+    }
+
+    @Test
+    void aNameHeldByATaskIsSaidWithTheTaskAndTheNameTakenInstead(@TempDir Path dir)
+            throws java.io.IOException {
+        final PoreloContext context = context(dir);
+        tasks(
+                "porelo-default_my-first\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\t0123456789abcdef\tmy-first\n");
+        TaskIdentityFixture.record(
+                context.paths(),
+                "porelo-default_my-first",
+                "default",
+                "my-first",
+                "0123456789abcdef");
+        assertThat(TaskNames.choose(context, "default", "my-first").note())
+                .isEqualTo("name my-first is held by the task my-first; this task is my-first-2");
+    }
+
+    @Test
+    void aNameHeldByAContainerOfThatNameIsSaidSo(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        tasks(
+                "porelo-default-my-first\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\n");
+        assertThat(TaskNames.choose(context, "default", "my-first").note())
+                .isEqualTo(
+                        "name my-first is held by a container of that name; this task is my-first-2");
+    }
+
+    @Test
+    void aNameHeldByAStartReservingItIsSaidSo(@TempDir Path dir) throws Exception {
+        final PoreloContext context = context(dir);
+        tasks("");
+        try (var held =
+                new TaskReservations(context)
+                        .reserve("default", "my-first", "porelo-default_my-first", "first")) {
+            assertThat(TaskNames.choose(context, "default", "my-first").note())
+                    .isEqualTo(
+                            "name my-first is held by a start reserving it; this task is my-first-2");
+        }
+    }
+
+    @Test
+    void aNameThatMovesTwiceSaysTheNameFirstWantedAndTheOneTaken(@TempDir Path dir) {
+        final PoreloContext context = context(dir);
+        tasks(
+                "porelo-default-my-first\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\n"
+                        + "porelo-default-my-first-2\tUp 4 minutes\t1700000000\t0\tdefault\tguarded\tmy-first\t\n");
+        final TaskNames.Chosen chosen = TaskNames.choose(context, "default", "my-first");
+        assertThat(chosen.name()).isEqualTo("my-first-3");
+        assertThat(chosen.note())
+                .isEqualTo(
+                        "name my-first is held by a container of that name; this task is"
+                                + " my-first-3");
+    }
+
+    @Test
+    void aChoiceMovedOnKeepsTheNameFirstWantedAndWhatHeldItEachHolderSaidWhole() {
+        // A free choice takes the holder it is given, and a held one keeps its first holder.
+        for (final String holder :
+                java.util.List.of(
+                        "the task uc", "a container of that name", "a start reserving it")) {
+            final TaskNames.Chosen moved = TaskNames.Chosen.free("uc").movedOn("uc-2", holder);
+            assertThat(moved.note())
+                    .isEqualTo("name uc is held by " + holder + "; this task is uc-2");
+            assertThat(moved.movedOn("uc-3", "the task uc-2").note())
+                    .as("a second move keeps the first holder")
+                    .isEqualTo("name uc is held by " + holder + "; this task is uc-3");
+        }
+        assertThat(TaskNames.Chosen.free("uc").note()).isNull();
+    }
+
+    @Test
     void anUnnamedTaskIsNamedAfterItsRepositoryAndNeverTakesOverOneThatIsThere(@TempDir Path dir) {
 
         // Unnamed starts were all 'shell', which read as the wrong mode for an agent's session

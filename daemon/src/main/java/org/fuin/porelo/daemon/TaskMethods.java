@@ -1335,7 +1335,11 @@ final class TaskMethods {
                             new java.util.concurrent.atomic.AtomicReference<>("");
                     final java.util.List<String> reads = reads(parameters);
                     final String callerKey = callerKey(parameters);
-                    final TaskLaunch.Request asked = request(parameters, context);
+                    // Chosen once: the name the task runs under and the note about it are one
+                    // value.
+                    final org.fuin.porelo.app.TaskNames.Chosen unnamed =
+                            unnamed(parameters, context);
+                    final TaskLaunch.Request asked = request(parameters, context, unnamed);
                     final TaskLaunch launch =
                             new TaskLaunch(
                                             context,
@@ -1343,7 +1347,15 @@ final class TaskMethods {
                                             new org.fuin.porelo.app.StartSteps(progress, sink))
                                     .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"))
                                     .reading(reads)
-                                    .keyedBy(callerKey);
+                                    .keyedBy(callerKey)
+                                    .nameHeld(
+                                            unnamed != null
+                                                    ? unnamed.note()
+                                                    : parameters.get(PoreloDaemon.NAME_NOTE)
+                                                                    instanceof
+                                                                    PoreloDaemon.Own(String said)
+                                                            ? said
+                                                            : null);
                     if (replies.streaming()) {
                         // The run's own lines as it writes them, apart from Porelo's.
                         launch.followRun(line -> progress.stream().send(Map.of("runLine", line)));
@@ -1574,6 +1586,9 @@ final class TaskMethods {
                     final Map<String, Object> reply = new LinkedHashMap<>();
                     reply.put("container", container);
                     reply.put("exitCode", code);
+                    if (launch.nameNote() != null) {
+                        reply.put("nameNote", launch.nameNote());
+                    }
                     if (launch.startingBranch() != null) {
                         reply.put("baseBranch", launch.startingBranch().branch());
                         reply.put("baseSource", launch.startingBranch().source());

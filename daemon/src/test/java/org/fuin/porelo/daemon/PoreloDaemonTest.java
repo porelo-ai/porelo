@@ -689,6 +689,191 @@ class PoreloDaemonTest {
     }
 
     @Test
+    void aStartWithNoNameCarriesTheNoteOfTheNameItFoundHeld(@TempDir Path dir) throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("ps", "porelo-uc-uc\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of("project", PROJECT, "repository", "uc"));
+
+                        assertThat(reply)
+                                .containsEntry(
+                                        "nameNote",
+                                        "name uc is held by a container of that name; this task"
+                                                + " is uc-2");
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(String.join("\n", output))
+                                .contains("name uc is held by a container of that name");
+                    }
+                });
+    }
+
+    @Test
+    void aCallersOwnNameNoteAndUnnamedMarkAreDroppedAndNeverPrinted(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("ps", "");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "repository",
+                                                "uc",
+                                                "task",
+                                                "shell",
+                                                ".nameNote",
+                                                "name uc is held by Porelo; this task is evil",
+                                                ".unnamed",
+                                                true));
+
+                        assertThat(reply).doesNotContainKey("nameNote");
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(String.join("\n", output)).doesNotContain("is held by", "evil");
+                    }
+                });
+    }
+
+    @Test
+    void aForgedNoteOnAnUnnamedStartNeverReplacesPorelosOwnLine(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("ps", "porelo-uc-uc\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\n");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "repository",
+                                                "uc",
+                                                ".nameNote",
+                                                "forged by a caller"));
+
+                        assertThat(reply)
+                                .containsEntry(
+                                        "nameNote",
+                                        "name uc is held by a container of that name; this task"
+                                                + " is uc-2");
+                    }
+                });
+    }
+
+    @Test
+    void aNoteTheEndpointSettledReachesTheStartReplyATaskGets(@TempDir Path dir) throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("ps", "");
+        final java.util.concurrent.atomic.AtomicReference<VarlinkServer.Method> start =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final VarlinkServer capturing =
+                new VarlinkServer(dir.resolve("unused.sock"), PoreloDaemon.INTERFACE) {
+                    @Override
+                    public VarlinkServer method(String name, Method method) {
+                        if ("Start".equals(name)) {
+                            start.set(method);
+                        }
+                        return this;
+                    }
+                };
+        TaskMethods.register(
+                capturing,
+                context,
+                org.fuin.porelo.app.TaskInventory.deriving(context),
+                new org.fuin.porelo.app.TaskControl(context),
+                org.fuin.porelo.app.AgentSignInRuns.of(context));
+        final List<Map<String, Object>> sent = new java.util.ArrayList<>();
+
+        start.get()
+                .call(
+                        Map.of(
+                                "project",
+                                PROJECT,
+                                "repository",
+                                "uc",
+                                "task",
+                                "uc-2",
+                                PoreloDaemon.NAME_NOTE,
+                                new PoreloDaemon.Own(
+                                        "name uc is held by a start reserving it;"
+                                                + " this task is uc-2")),
+                        new VarlinkServer.Replies() {
+                            @Override
+                            public void more(Map<String, Object> reply) {
+                                sent.add(reply);
+                            }
+
+                            @Override
+                            public void last(Map<String, Object> reply) {
+                                sent.add(reply);
+                            }
+
+                            @Override
+                            public boolean streaming() {
+                                return false;
+                            }
+
+                            @Override
+                            public boolean open() {
+                                return true;
+                            }
+                        });
+
+        assertThat(sent.getLast())
+                .containsEntry(
+                        "nameNote", "name uc is held by a start reserving it; this task is uc-2");
+    }
+
+    @Test
+    void aStartWithNoNameAndAFreeNameCarriesNoNote(@TempDir Path dir) throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering("ps", "");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of("project", PROJECT, "repository", "uc"));
+
+                        assertThat(reply).doesNotContainKey("nameNote");
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(String.join("\n", output)).doesNotContain("is held by");
+                    }
+                });
+    }
+
+    @Test
     void startRefusesATaskThatIsAlreadyRunning(@TempDir Path dir) throws Exception {
 
         final PoreloContext context = hooked(dir);

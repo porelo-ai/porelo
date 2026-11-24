@@ -455,8 +455,12 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     INTERFACE + ".RunTooLong",
                     Map.of("minutes", minutes, "limit", endpoint.minutes()));
         }
-        final TaskLaunch.Request request = PoreloDaemon.request(parameters, context);
         final boolean unnamed = PoreloDaemon.text(parameters, "task").isEmpty();
+        // Chosen once, here: the name the request carries, the one moved on below and the note a
+        // task is told are one value.
+        final org.fuin.porelo.app.TaskNames.Chosen first =
+                unnamed ? PoreloDaemon.unnamed(parameters, context) : null;
+        final TaskLaunch.Request request = PoreloDaemon.request(parameters, context, first);
         final TaskIdentities identities = new TaskIdentities(context);
         Map<String, Object> held = new LinkedHashMap<>(parameters);
         final Object token = new Object();
@@ -476,17 +480,21 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                             ? found.identity().task()
                             : request.task();
             String name = picked;
+            int at = 1;
+            org.fuin.porelo.app.TaskNames.Chosen chosen =
+                    first != null ? first : org.fuin.porelo.app.TaskNames.Chosen.free(picked);
             // Unnamed, past the name another start picked and has not made yet.
-            for (int at = 2;
-                    unnamed
-                            && (beingStarted(newContainer(project, name, request.shortName()))
-                                    || !(identities.lookup(name, project)
-                                                    instanceof TaskIdentities.Refused refusal
-                                            && refusal.reason() == TaskIdentities.Reason.MISSING)
-                                    || new TaskReservations(context).tasks(project).contains(name));
-                    at++) {
-                name = picked + "-" + at;
+            while (unnamed) {
+                final String holder = heldBy(identities, project, name, request.shortName());
+                if (holder == null) {
+                    break;
+                }
+                name = picked + "-" + (++at);
+                chosen = chosen.movedOn(name, holder);
             }
+            // Said to the caller as to a person: a task starting another one is as misled by a
+            // name it did not get.
+            final String said = unnamed ? chosen.note() : null;
             final String container =
                     !unnamed && selected instanceof TaskIdentities.Found found
                             ? found.identity().container()
@@ -502,6 +510,9 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                             held,
                             !unnamed && selected instanceof TaskIdentities.Found ? container : name,
                             unnamed);
+            if (said != null) {
+                held.put(PoreloDaemon.NAME_NOTE, new PoreloDaemon.Own(said));
+            }
             final String agent = PoreloDaemon.text(parameters, "agent");
             final String model = PoreloDaemon.text(parameters, "model");
             String runs = agent;
@@ -632,9 +643,36 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
         held.put("task", name);
         if (unnamed) {
             // Picked here, not given: the started task shows its short name.
-            held.put(PoreloDaemon.UNNAMED, true);
+            held.put(PoreloDaemon.UNNAMED, new PoreloDaemon.Own(true));
         }
         return held;
+    }
+
+    /**
+     * Says what holds an unnamed start's name, under the starts' lock.
+     *
+     * @param identities The machine's tasks.
+     * @param project The project.
+     * @param name The name asked.
+     * @param shortName The start's short spelling.
+     * @return {@code the task <name>}, {@code a start reserving it}, or {@code null} when the name
+     *     is free.
+     * @throws IOException When the reservations cannot be read.
+     */
+    private @Nullable String heldBy(
+            final TaskIdentities identities,
+            final String project,
+            final String name,
+            final @Nullable String shortName)
+            throws IOException {
+        if (beingStarted(newContainer(project, name, shortName))
+                || new TaskReservations(context).tasks(project).contains(name)) {
+            return "a start reserving it";
+        }
+        return identities.lookup(name, project) instanceof TaskIdentities.Refused refusal
+                        && refusal.reason() == TaskIdentities.Reason.MISSING
+                ? null
+                : "the task " + name;
     }
 
     /** Tells whether a start running now makes or brings back a container; under its lock. */

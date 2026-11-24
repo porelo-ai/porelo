@@ -2489,6 +2489,30 @@ public final class TaskLaunch {
      */
     private @Nullable String retry;
 
+    /** The line saying the name asked for was held, or {@code null}. */
+    private @Nullable String nameNote;
+
+    /**
+     * Says, before the task line and in the reply, that an unnamed task took another name than its
+     * repository's because something held that one.
+     *
+     * @param note The line, or {@code null} when the first name was free.
+     * @return This launch.
+     */
+    public TaskLaunch nameHeld(final @Nullable String note) {
+        this.nameNote = note;
+        return this;
+    }
+
+    /**
+     * Returns the line that says the task's name is not the first choice.
+     *
+     * @return The line, or {@code null}.
+     */
+    public @Nullable String nameNote() {
+        return nameNote;
+    }
+
     /**
      * Returns the way the person took instead of a refusal, for the caller to start again with.
      *
@@ -3322,6 +3346,9 @@ public final class TaskLaunch {
         }
 
         steps.started(StartStep.Step.CHECKS);
+        if (nameNote != null) {
+            out.println(nameNote);
+        }
         out.println("task           " + request.task());
         out.println("project        " + project.name());
         out.println(
