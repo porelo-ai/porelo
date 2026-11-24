@@ -935,14 +935,17 @@ class ProjectInventoryTest {
     }
 
     // A daemon row must carry progress without offering work against unfinished copies.
-    @Test
-    void takingRowsCarryCountsOnlyWhileTheFollowIsLive(@TempDir Path dir) throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void takingRowsCarryCountsOnlyWhileTheFollowIsLive(boolean counted, @TempDir Path dir)
+            throws Exception {
         final ProjectInventory inventory = inventory(context(dir));
         inventory.hostFiles = hostFiles(dir, "quad", "backend");
         central(
                 inventory,
                 "taking",
-                ",\"taking_done\":1,\"taking_total\":3,\"taking_since\":\"2026-11-09T10:01:00Z\",\"taking_pid\":123,\"taking_pid_start\":456,\"taking_boot\":\"12345678-1234-1234-1234-123456789abc\"");
+                (counted ? ",\"taking_done\":1,\"taking_total\":3" : "")
+                        + ",\"taking_since\":\"2026-11-09T10:01:00Z\",\"taking_pid\":123,\"taking_pid_start\":456,\"taking_boot\":\"12345678-1234-1234-1234-123456789abc\"");
         final var live = new java.util.concurrent.atomic.AtomicBoolean(true);
         inventory.followProcesses =
                 new org.fuin.porelo.organization.gittree.LinuxProcesses(
@@ -958,8 +961,6 @@ class ProjectInventoryTest {
             assertThat(project.asMap())
                     .as("the serialized project carries live progress")
                     .containsEntry("hostState", "taking")
-                    .containsEntry("hostTakingDone", 1)
-                    .containsEntry("hostTakingTotal", 3)
                     .containsEntry("hostTakingSince", "2026-11-09T10:01:00Z")
                     .containsEntry("carried", false)
                     .doesNotContainKeys(
@@ -969,6 +970,12 @@ class ProjectInventoryTest {
                             "hostTakingPid",
                             "hostTakingPidStart",
                             "hostTakingBoot");
+            if (counted)
+                assertThat(project.asMap())
+                        .containsEntry("hostTakingDone", 1)
+                        .containsEntry("hostTakingTotal", 3);
+            else
+                assertThat(project.asMap()).doesNotContainKeys("hostTakingDone", "hostTakingTotal");
             assertThat(project.repositories())
                     .allSatisfy(
                             repository ->

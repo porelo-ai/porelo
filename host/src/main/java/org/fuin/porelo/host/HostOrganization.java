@@ -183,7 +183,14 @@ final class HostOrganization {
         if (!files.exists(path)) {
             return null;
         }
-        final Map<String, @Nullable Object> answer = object(parse(files.read(path)));
+        final String text;
+        try {
+            text = files.read(path);
+        } catch (HostRefusal ex) {
+            if (files.exists(path)) throw ex;
+            return null;
+        }
+        final Map<String, @Nullable Object> answer = object(parse(text));
         if (!answer.containsKey("words")) {
             throw new IllegalArgumentException("The follow refusal must contain words");
         }

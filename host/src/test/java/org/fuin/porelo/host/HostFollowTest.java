@@ -96,6 +96,60 @@ class HostFollowTest {
                 .isEqualTo(Integer.parseInt(mode, 8));
     }
 
+    // Token validation and unavailable fetches have not changed membership, so access stays open.
+    @ParameterizedTest
+    @ValueSource(strings = {"token", "fetch"})
+    void aRefusedTokenOrFailedFetchKeepsMemberAccess(String failure) throws Exception {
+        f.migrated();
+        f.run();
+        final Path central = f.path(FollowFixture.ORG + "central");
+        final byte[] previous = Files.readAllBytes(central.resolve("alpha.json"));
+        if (failure.equals("token")) refused(() -> f.refresh("two\nlines"), 65, "token");
+        else {
+            f.fetchCode = 69;
+            refused(f::run, 69, "fetch");
+        }
+        assertThat((int) Files.getAttribute(central, "unix:mode") & 0777)
+                .as("a failed read of new state leaves the last publication accessible")
+                .isEqualTo(0711);
+        assertThat(Files.readAllBytes(central.resolve("alpha.json"))).isEqualTo(previous);
+    }
+
+    // Taking the new lock cannot make an abandoned root progress row appear live again.
+    @Test
+    void abandonedProgressIsClearedBeforeTheFollowLockIsTaken() throws Exception {
+        f.migrated();
+        f.run();
+        final var item = f.item();
+        item.putAll(
+                fields(
+                        "state",
+                        "taking",
+                        "taking_since",
+                        "2026-11-03T00:00:00Z",
+                        "taking_done",
+                        0,
+                        "taking_total",
+                        1));
+        f.write(FollowFixture.ORG + "host-projects.json", HostJson.write(Map.of("alpha", item)));
+        final var observed = new ArrayList<Boolean>();
+        f.hostInspection =
+                path -> {
+                    if (!path.equals(f.path(FollowFixture.ORG + "host-projects.json"))
+                            || !"taking".equals(f.item().get("state"))) return;
+                    try {
+                        observed.add(HostFollowLock.live(f.path(HostFollowLock.PATH)));
+                    } catch (IOException ex) {
+                        throw new UncheckedIOException(ex);
+                    }
+                };
+        f.run();
+        assertThat(observed)
+                .as("stale rows are read only while no run owns the follow lock")
+                .isNotEmpty()
+                .containsOnly(false);
+    }
+
     @BeforeEach
     void host() throws Exception {
         f = new FollowFixture(directory);

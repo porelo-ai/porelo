@@ -31,6 +31,7 @@ final class FollowContext {
     final ProjectRuntime runtime;
     final Clock clock;
     final PrintWriter err;
+    final org.fuin.porelo.organization.gittree.LinuxProcesses processes;
     Instant deadline;
 
     FollowContext(
@@ -39,6 +40,23 @@ final class FollowContext {
             ProjectRuntime runtime,
             Clock clock,
             PrintWriter err) {
+        this(
+                host,
+                files,
+                runtime,
+                clock,
+                err,
+                new org.fuin.porelo.organization.gittree.LinuxProcesses());
+    }
+
+    FollowContext(
+            HostFiles host,
+            ProjectFiles files,
+            ProjectRuntime runtime,
+            Clock clock,
+            PrintWriter err,
+            org.fuin.porelo.organization.gittree.LinuxProcesses processes) {
+        this.processes = processes;
         this.host = host;
         this.files = files;
         this.runtime = runtime;
@@ -49,7 +67,8 @@ final class FollowContext {
 
     FollowContext until(Instant deadline) {
         final FollowContext bounded =
-                new FollowContext(host, files, runtime.until(clock, deadline), clock, err);
+                new FollowContext(
+                        host, files, runtime.until(clock, deadline), clock, err, processes);
         bounded.deadline = this.deadline.isBefore(deadline) ? this.deadline : deadline;
         return bounded;
     }

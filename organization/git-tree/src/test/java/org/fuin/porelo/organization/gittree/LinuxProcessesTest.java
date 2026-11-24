@@ -38,6 +38,40 @@ class LinuxProcessesTest {
         assertThatCode(() -> processes.verify(processes.current())).doesNotThrowAnyException();
     }
 
+    // Invalid published identities cannot authenticate a different process or boot.
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "0,0,12345678-1234-1234-1234-123456789abc", "-1,0,12345678-1234-1234-1234-123456789abc",
+        "4194305,0,12345678-1234-1234-1234-123456789abc",
+                "9223372036854775807,0,12345678-1234-1234-1234-123456789abc",
+        "1,-1,12345678-1234-1234-1234-123456789abc", "1,0,12345678-1234-1234-1234-123456789ABC",
+        "1,0,unknown", "1,0,12345678-1234-1234-1234-123456789abcd"
+    })
+    void invalidIdentityRangesAndBootIdsAreRefused(long pid, long start, String boot) {
+        assertThatThrownBy(() -> new LinuxProcesses.Identity(pid, start, boot))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void identityBoundsAreInclusive() {
+        assertThat(new LinuxProcesses.Identity(1, 0, BOOT).pid()).isEqualTo(1);
+        assertThat(new LinuxProcesses.Identity(4194304, Long.MAX_VALUE, BOOT).start())
+                .isEqualTo(Long.MAX_VALUE);
+    }
+
+    // The default reader must bound real bytes, even for files with misleading reported sizes.
+    @Test
+    void processReadsRefuseMoreThanTheByteLimit(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        final var file =
+                java.nio.file.Files.writeString(directory.resolve("stat"), "a".repeat(65536));
+        assertThat(LinuxProcesses.read(file)).hasSize(65536);
+        java.nio.file.Files.writeString(file, "a".repeat(65537));
+        assertThatThrownBy(() -> LinuxProcesses.read(file))
+                .isInstanceOf(IOException.class)
+                .hasMessageContaining("too large");
+    }
+
     // Malformed or dead proc answers cannot prove that a follow is working.
     @ParameterizedTest
     @ValueSource(

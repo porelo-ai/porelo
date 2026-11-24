@@ -44,9 +44,27 @@ final class FollowFixture {
     String fetchErrors = "", advanceState = "up-to-date";
     @org.jspecify.annotations.Nullable String centralDiff;
     boolean noReadKeyAddedAnswer, noSigners, noForge;
-    int advanceCount, verifyCount, copyCount;
+    int advanceCount, verifyCount, copyCount, processReads;
+    final org.fuin.porelo.organization.gittree.LinuxProcesses processes =
+            new org.fuin.porelo.organization.gittree.LinuxProcesses(
+                    path -> {
+                        if (path.toString().endsWith("boot_id"))
+                            return "12345678-1234-1234-1234-123456789abc";
+                        processReads++;
+                        return ProcessHandle.current().pid()
+                                + " (fixture follow) S "
+                                + "0 ".repeat(18)
+                                + "456 0";
+                    });
     Function<List<String>, HostPrograms.Result> override = argv -> null;
-    Consumer<List<String>> before = argv -> {};
+
+    @FunctionalInterface
+    interface BeforeCommand {
+        void accept(List<String> arguments) throws IOException;
+    }
+
+    BeforeCommand before = argv -> {};
+    Consumer<Path> hostInspection = path -> {};
     Consumer<ProjectFixture.Call> forgeBefore = call -> {};
     final Set<String> linger = new HashSet<>();
     final Set<String> missing = new HashSet<>();
@@ -108,6 +126,7 @@ final class FollowFixture {
                             if (!descriptor && !path.startsWith(root)) {
                                 attrs.put("mode", 040755);
                             }
+                            hostInspection.accept(path);
                             return attrs;
                         });
         clock =
@@ -412,7 +431,8 @@ final class FollowFixture {
                 runtime,
                 clock,
                 new PrintWriter(journal, true),
-                (origin, token) -> TestForgeAdmin.create(token, true, project::centralExchange));
+                (origin, token) -> TestForgeAdmin.create(token, true, project::centralExchange),
+                processes);
     }
 
     Map<String, Object> run() throws IOException {
@@ -487,7 +507,12 @@ final class FollowFixture {
 
     FollowContext context() {
         return new FollowContext(
-                        host, project.files, runtime, clock, new PrintWriter(journal, true))
+                        host,
+                        project.files,
+                        runtime,
+                        clock,
+                        new PrintWriter(journal, true),
+                        processes)
                 .until(now.plusSeconds(300));
     }
 

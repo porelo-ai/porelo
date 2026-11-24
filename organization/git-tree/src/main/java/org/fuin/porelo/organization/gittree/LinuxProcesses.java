@@ -84,7 +84,7 @@ public final class LinuxProcesses {
         }
     }
 
-    private static String read(Path path) throws IOException {
+    static String read(Path path) throws IOException {
         // Proc files report size zero, which Files.readString can truncate in a native image.
         try (var input = Files.newInputStream(path)) {
             final byte[] bytes = input.readNBytes(65537);

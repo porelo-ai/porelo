@@ -13,6 +13,7 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,12 +49,27 @@ final class FollowProjects {
     private final FollowContext c;
     private final ProjectMigration.Central central;
     private final Supplier<Map<String, @Nullable Object>> progress;
+    private final ProjectMeasurements measurements;
     boolean takenOff;
 
     FollowProjects(
             FollowContext context,
             ProjectMigration.Central central,
             Supplier<Map<String, @Nullable Object>> progress) {
+        this(
+                context,
+                central,
+                progress,
+                new ProjectMeasurements(
+                        context.files, context.runtime, context.clock, context.processes));
+    }
+
+    FollowProjects(
+            FollowContext context,
+            ProjectMigration.Central central,
+            Supplier<Map<String, @Nullable Object>> progress,
+            ProjectMeasurements measurements) {
+        this.measurements = measurements;
         c = context;
         this.central = central;
         this.progress = progress;
@@ -83,20 +99,11 @@ final class FollowProjects {
     }
 
     private void publishProgress(
-            Map<String, @Nullable Object> entries,
-            Map<String, @Nullable Object> applied,
-            String name,
-            Map<String, @Nullable Object> item)
+            Map<String, @Nullable Object> entries, String name, Map<String, @Nullable Object> item)
             throws IOException {
         entries.put(name, item);
         save(entries);
-        new ProjectMeasurements(c.files, c.runtime, c.clock)
-                .progress(
-                        new HostProjects(c.host)
-                                .status(applied).stream()
-                                        .filter(row -> name.equals(row.get("project")))
-                                        .findFirst()
-                                        .orElseThrow());
+        measurements.progress(new HostProjects(c.host).status(name, item));
     }
 
     private void taking(Map<String, @Nullable Object> item) {
@@ -409,6 +416,13 @@ final class FollowProjects {
                 item.remove(field);
             }
         }
+        if (project.get("address") == null) {
+            item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
+            HostProjects.clearTaking(item);
+            if (!Boolean.TRUE.equals(item.get("migrated")))
+                item.putIfAbsent("migrate_refused", "the project names no usable central address");
+            return;
+        }
         if (Boolean.TRUE.equals(item.get("migrated"))) {
             final Object named = project.get("repositories");
             item.put("named", named instanceof List<?> list && !list.isEmpty() ? list : null);
@@ -456,120 +470,166 @@ final class FollowProjects {
             byte[] token)
             throws IOException {
         final var entries = progress.get();
-        final Map<String, Map<String, @Nullable Object>> desired = new TreeMap<>();
-        for (Object value : array(applied.get("projects"))) {
-            final var project = object(value);
-            desired.put(string(project.get("project")), project);
-        }
-        final boolean forge = c.runtime.configuration(HostFollow.admin(applied)) != null;
-        final Set<String> physical = new TreeSet<>();
-        final Path directory = c.path("/etc/porelo-host/projects");
-        if (forge && c.files.exists(directory)) {
-            c.files.directory(directory, false, false);
-            for (Path path : c.files.list(directory)) {
-                if (path.getFileName().toString().endsWith(".conf")) {
-                    c.host.check(path, 69, true, false, 0600);
-                    final String name = path.getFileName().toString().replaceFirst("\\.conf$", "");
-                    if (!name.matches(HostRecords.PROJECT)) {
-                        throw new HostRefusal(65, "the project records name an invalid project");
+        try {
+            final Map<String, Map<String, @Nullable Object>> desired = new TreeMap<>();
+            for (Object value : array(applied.get("projects"))) {
+                final var project = object(value);
+                desired.put(string(project.get("project")), project);
+            }
+            final boolean forge = c.runtime.configuration(HostFollow.admin(applied)) != null;
+            final Set<String> physical = new TreeSet<>();
+            final Path directory = c.path("/etc/porelo-host/projects");
+            if (forge && c.files.exists(directory)) {
+                c.files.directory(directory, false, false);
+                for (Path path : c.files.list(directory)) {
+                    if (path.getFileName().toString().endsWith(".conf")) {
+                        c.host.check(path, 69, true, false, 0600);
+                        final String name =
+                                path.getFileName().toString().replaceFirst("\\.conf$", "");
+                        if (!name.matches(HostRecords.PROJECT)) {
+                            throw new HostRefusal(
+                                    65, "the project records name an invalid project");
+                        }
+                        physical.add(name);
                     }
-                    physical.add(name);
                 }
             }
-        }
-        final List<Object> all = new ArrayList<>();
-        if (previous != null) {
-            all.addAll(array(previous.get("projects")));
-        }
-        all.addAll(array(applied.get("projects")));
-        for (Object value : all) {
-            final var project = object(value);
-            entries.putIfAbsent(
-                    string(project.get("project")),
-                    fields(
-                            "state",
-                            "pending",
-                            "since",
-                            project.get("since"),
-                            "gate",
-                            FollowRooms.installed(c)));
-        }
-        for (String name : physical) {
-            entries.putIfAbsent(name, fields("state", "pending", "gate", FollowRooms.installed(c)));
-        }
-        save(entries);
-        final Set<String> names = new TreeSet<>(entries.keySet());
-        names.addAll(desired.keySet());
-        for (String name : names) {
-            if (object(applied.get("project_refusals")).containsKey(name)) {
-                continue;
+            final List<Object> all = new ArrayList<>();
+            if (previous != null) {
+                all.addAll(array(previous.get("projects")));
             }
-            final var project = desired.get(name);
-            final var item = object(entries.get(name));
-            try {
-                if (project != null) {
-                    RuntimeException forgeError = null;
-                    try {
-                        forgeProject(
-                                project,
-                                item,
-                                forge,
-                                physical,
-                                token,
-                                () -> publishProgress(entries, applied, name, item));
-                    } catch (HostRefusal | ProjectRefusal ex) {
-                        forgeError = ex;
-                    }
-                    item.put("why", why(item, project));
-                    item.put("gate", FollowRooms.installed(c));
-                    if (Boolean.TRUE.equals(item.get("gate"))
-                            && !Boolean.TRUE.equals(item.get("room_refused"))) {
-                        keepRoom(applied, project, item);
+            all.addAll(array(applied.get("projects")));
+            for (Object value : all) {
+                final var project = object(value);
+                entries.putIfAbsent(
+                        string(project.get("project")),
+                        fields(
+                                "state",
+                                "pending",
+                                "since",
+                                project.get("since"),
+                                "gate",
+                                FollowRooms.installed(c)));
+            }
+            for (String name : physical) {
+                entries.putIfAbsent(
+                        name, fields("state", "pending", "gate", FollowRooms.installed(c)));
+            }
+            save(entries);
+            final Set<String> names = new TreeSet<>(entries.keySet());
+            names.addAll(desired.keySet());
+            for (String name : names) {
+                if (object(applied.get("project_refusals")).containsKey(name)) {
+                    continue;
+                }
+                final var project = desired.get(name);
+                final var item = object(entries.get(name));
+                try {
+                    if (project != null) {
+                        RuntimeException forgeError = null;
+                        try {
+                            forgeProject(
+                                    project,
+                                    item,
+                                    forge,
+                                    physical,
+                                    token,
+                                    () -> publishProgress(entries, name, item));
+                        } catch (HostRefusal | ProjectRefusal ex) {
+                            forgeError = ex;
+                        }
                         item.put("why", why(item, project));
-                    }
-                    if (forgeError != null) {
-                        throw forgeError;
-                    }
-                } else {
-                    item.put("state", "pending");
-                    if (physical.contains(name)) {
+                        item.put("gate", FollowRooms.installed(c));
+                        if (Boolean.TRUE.equals(item.get("gate"))
+                                && !Boolean.TRUE.equals(item.get("room_refused"))) {
+                            keepRoom(applied, project, item);
+                            item.put("why", why(item, project));
+                        }
+                        if (forgeError != null) {
+                            throw forgeError;
+                        }
+                    } else {
+                        item.put("state", "pending");
+                        if (physical.contains(name)) {
+                            if (Boolean.TRUE.equals(item.get("gate"))
+                                    && FollowRooms.installed(c)
+                                    && !Boolean.TRUE.equals(item.get("room_refused"))) {
+                                FollowRooms.room(c, "keep-room", name, List.of());
+                            }
+                            projectCommand("remove", List.of(name), null, c);
+                        }
                         if (Boolean.TRUE.equals(item.get("gate"))
                                 && FollowRooms.installed(c)
                                 && !Boolean.TRUE.equals(item.get("room_refused"))) {
-                            FollowRooms.room(c, "keep-room", name, List.of());
+                            FollowRooms.room(c, "drop-room", name, List.of());
                         }
-                        projectCommand("remove", List.of(name), null, c);
+                        if (!Boolean.TRUE.equals(item.get("room_refused"))) {
+                            entries.remove(name);
+                        }
                     }
-                    if (Boolean.TRUE.equals(item.get("gate"))
-                            && FollowRooms.installed(c)
-                            && !Boolean.TRUE.equals(item.get("room_refused"))) {
-                        FollowRooms.room(c, "drop-room", name, List.of());
+                } catch (HostRefusal ex) {
+                    if (project == null && ex.exitCode() == 65) {
+                        item.put("state", "held");
+                    } else if (ex.exitCode() == 78) {
+                        item.put("room_refused", true);
                     }
-                    if (!Boolean.TRUE.equals(item.get("room_refused"))) {
-                        entries.remove(name);
-                    }
+                    item.put("why", ex.getMessage());
+                } catch (ProjectRefusal ex) {
+                    item.put("why", ex.shown());
+                } finally {
+                    if (!"taking".equals(item.get("state"))) HostProjects.clearTaking(item);
                 }
-            } catch (HostRefusal ex) {
-                if (project == null && ex.exitCode() == 65) {
-                    item.put("state", "held");
-                } else if (ex.exitCode() == 78) {
-                    item.put("room_refused", true);
+                if (Boolean.TRUE.equals(item.get("room_refused"))) {
+                    item.put("why", "the gate refused the room (exit 78); left alone");
                 }
-                item.put("why", ex.getMessage());
-            } catch (ProjectRefusal ex) {
-                item.put("why", ex.shown());
-            } finally {
-                if (!"taking".equals(item.get("state"))) HostProjects.clearTaking(item);
+                if (entries.containsKey(name)) {
+                    entries.put(name, item);
+                }
+                if (project != null && entries.containsKey(name))
+                    publishProgress(entries, name, item);
+                else save(entries);
             }
-            if (Boolean.TRUE.equals(item.get("room_refused"))) {
-                item.put("why", "the gate refused the room (exit 78); left alone");
+        } catch (IOException | RuntimeException | Error failure) {
+            failedProgress(entries, applied, failure);
+            throw failure;
+        }
+    }
+
+    private void failedProgress(
+            Map<String, @Nullable Object> entries,
+            Map<String, @Nullable Object> applied,
+            Throwable failure) {
+        try {
+            final var changed = new ArrayList<String>();
+            final Map<String, Map<String, @Nullable Object>> projects = new HashMap<>();
+            for (Object value : array(applied.get("projects"))) {
+                final var project = object(value);
+                projects.put(string(project.get("project")), project);
             }
-            if (entries.containsKey(name)) {
-                entries.put(name, item);
+            for (var entry : entries.entrySet()) {
+                final var item = object(entry.getValue());
+                if (!"taking".equals(item.get("state"))) continue;
+                item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
+                HostProjects.clearTaking(item);
+                final var project = projects.get(entry.getKey());
+                if (project != null) item.put("why", why(item, project));
+                entry.setValue(item);
+                changed.add(entry.getKey());
             }
-            if (project != null && entries.containsKey(name))
-                publishProgress(entries, applied, name, item);
-            else save(entries);
+            if (changed.isEmpty()) return;
+            save(entries);
+            for (String name : changed) {
+                if (projects.containsKey(name))
+                    measurements.progress(
+                            new HostProjects(c.host).status(name, object(entries.get(name))));
+            }
+        } catch (IOException | RuntimeException | Error cleanup) {
+            failure.addSuppressed(cleanup);
+            try {
+                measurements.revoke();
+            } catch (IOException | RuntimeException closing) {
+                failure.addSuppressed(closing);
+            }
         }
     }
 
@@ -954,7 +1014,7 @@ final class FollowProjects {
             taking(item);
             item.put("taking_total", remaining.size());
             item.put("taking_done", 0);
-            publishProgress(entries, applied, string(project.get("project")), item);
+            publishProgress(entries, string(project.get("project")), item);
         }
         int done = 0;
         for (var entry : rows.entrySet()) {
@@ -1019,7 +1079,7 @@ final class FollowProjects {
                 taken.add(string(central));
                 item.put("taken", new ArrayList<>(taken));
                 item.put("taking_done", ++done);
-                publishProgress(entries, applied, string(project.get("project")), item);
+                publishProgress(entries, string(project.get("project")), item);
             } catch (HostRefusal ex) {
                 waiting.put(name, ex.getMessage());
                 failures.put(string(central), String.valueOf(ex.getMessage()));
@@ -1034,57 +1094,62 @@ final class FollowProjects {
     }
 
     void repositories(Map<String, @Nullable Object> applied, byte[] token) throws IOException {
-        final var configuration = c.runtime.configuration(HostFollow.admin(applied));
-        if (configuration == null) {
-            return;
-        }
         final var entries = progress.get();
-        final Instant deadline = c.clock.instant().plus(c.runtime.limits().machines(READS));
-        final List<String> errors = new ArrayList<>();
-        for (Object value : array(applied.get("projects"))) {
-            final var project = object(value);
-            final String name = string(project.get("project"));
-            if (!entries.containsKey(name)) {
-                continue;
-            }
-            final var item = object(entries.get(name));
-            if (!Boolean.TRUE.equals(item.get("migrated")) || project.get("address") == null) {
-                continue;
-            }
-            try {
-                final String signers = fileSigners(project);
-                if (!signers.isEmpty()) {
-                    readFile(project, item, signers, configuration.account(), deadline);
-                } else {
-                    item.put(
-                            "file_refused",
-                            "the project file: no project admin's key stands to have signed it");
+        try {
+            final var configuration = c.runtime.configuration(HostFollow.admin(applied));
+            if (configuration == null) return;
+            final Instant deadline = c.clock.instant().plus(c.runtime.limits().machines(READS));
+            final List<String> errors = new ArrayList<>();
+            for (Object value : array(applied.get("projects"))) {
+                final var project = object(value);
+                final String name = string(project.get("project"));
+                if (!entries.containsKey(name)) {
+                    continue;
                 }
-                takeNamed(project, item, token, entries, applied);
+                final var item = object(entries.get(name));
+                if (!Boolean.TRUE.equals(item.get("migrated")) || project.get("address") == null) {
+                    continue;
+                }
                 try {
-                    protect(project, item, HostFollow.admin(applied));
-                } catch (HttpForgeAdmin.Refusal | HostRefusal ex) {
-                    errors.add(String.valueOf(ex.getMessage()));
+                    final String signers = fileSigners(project);
+                    if (!signers.isEmpty()) {
+                        readFile(project, item, signers, configuration.account(), deadline);
+                    } else {
+                        item.put(
+                                "file_refused",
+                                "the project file: no project admin's key stands to have signed it");
+                    }
+                    takeNamed(project, item, token, entries, applied);
+                    try {
+                        protect(project, item, HostFollow.admin(applied));
+                    } catch (HttpForgeAdmin.Refusal | HostRefusal ex) {
+                        errors.add(String.valueOf(ex.getMessage()));
+                    }
+                } finally {
+                    final var reasons = optionalObject(item.get("repositories_why"));
+                    HostProjects.untaken(item)
+                            .keySet()
+                            .forEach(
+                                    repository ->
+                                            reasons.putIfAbsent(
+                                                    repository,
+                                                    "the follow ended before this repository was taken"));
+                    item.put("repositories_why", reasons);
+                    if ("taking".equals(item.get("state")))
+                        item.put(
+                                "state",
+                                HostProjects.waiting(item) ? "waiting-for-token" : "carried");
+                    HostProjects.clearTaking(item);
+                    item.put("why", why(item, project));
+                    publishProgress(entries, name, item);
                 }
-            } finally {
-                final var reasons = optionalObject(item.get("repositories_why"));
-                HostProjects.untaken(item)
-                        .keySet()
-                        .forEach(
-                                repository ->
-                                        reasons.putIfAbsent(
-                                                repository,
-                                                "the follow ended before this repository was taken"));
-                item.put("repositories_why", reasons);
-                if ("taking".equals(item.get("state")))
-                    item.put("state", HostProjects.waiting(item) ? "waiting-for-token" : "carried");
-                HostProjects.clearTaking(item);
-                item.put("why", why(item, project));
-                publishProgress(entries, applied, name, item);
             }
-        }
-        if (!errors.isEmpty()) {
-            throw new HostRefusal(69, String.join("; ", errors));
+            if (!errors.isEmpty()) {
+                throw new HostRefusal(69, String.join("; ", errors));
+            }
+        } catch (IOException | RuntimeException | Error failure) {
+            failedProgress(entries, applied, failure);
+            throw failure;
         }
     }
 
@@ -1107,8 +1172,6 @@ final class FollowProjects {
                         string(project.get("project")), repository(string(project.get("address"))));
             }
         }
-        final ProjectMeasurements measurements =
-                new ProjectMeasurements(c.files, c.runtime, c.clock);
         final var configuration = c.runtime.configuration(HostFollow.admin(applied));
         measurements.measure(
                 configuration == null ? null : configuration.account(),

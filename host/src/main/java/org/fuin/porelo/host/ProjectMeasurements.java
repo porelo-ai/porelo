@@ -26,11 +26,19 @@ final class ProjectMeasurements {
     private final ProjectRuntime runtime;
     private final Clock clock;
     private final ProjectPublication publication;
-    private final org.fuin.porelo.organization.gittree.LinuxProcesses processes =
-            new org.fuin.porelo.organization.gittree.LinuxProcesses();
+    private final org.fuin.porelo.organization.gittree.LinuxProcesses processes;
     private org.fuin.porelo.organization.gittree.LinuxProcesses.@Nullable Identity takingProcess;
 
     ProjectMeasurements(ProjectFiles files, ProjectRuntime runtime, Clock clock) {
+        this(files, runtime, clock, new org.fuin.porelo.organization.gittree.LinuxProcesses());
+    }
+
+    ProjectMeasurements(
+            ProjectFiles files,
+            ProjectRuntime runtime,
+            Clock clock,
+            org.fuin.porelo.organization.gittree.LinuxProcesses processes) {
+        this.processes = processes;
         this.files = files;
         this.runtime = runtime;
         this.clock = clock;
@@ -74,21 +82,30 @@ final class ProjectMeasurements {
         if (projects.isEmpty() && !files.exists(directory)) return;
         files.mkdir(directory, 0711);
         revoke();
+        final var current = publication.projects();
         for (Path path : files.list(directory)) {
             files.trusted(path, false);
             final String name = path.getFileName().toString();
-            if (name.endsWith(".json") && projects.contains(name.substring(0, name.length() - 5))) {
-                final String content = files.text(path, false);
-                publish(path, content, publication.readers(name.substring(0, name.length() - 5)));
-                continue;
-            } else if (name.endsWith(".json") && !pruneDeparted) {
-                continue;
-            } else if (!(ProjectFiles.isStaged(name)
-                    || name.endsWith(".json.new")
-                    || name.endsWith(".json"))) {
-                throw new HostRefusal(65, "the central states directory holds an unknown file");
-            }
-            files.delete(path);
+            if (name.endsWith(".json")) {
+                final String project = name.substring(0, name.length() - 5);
+                // A follow names the projects it keeps; a single measurement keeps every applied
+                // one.
+                if (current.contains(project) && (!pruneDeparted || projects.contains(project))) {
+                    try {
+                        publish(path, files.text(path, false), publication.readers(project));
+                    } catch (IOException | RuntimeException | Error ex) {
+                        try {
+                            files.delete(path);
+                        } catch (IOException | RuntimeException closing) {
+                            ex.addSuppressed(closing);
+                        }
+                        throw ex;
+                    }
+                } else if (pruneDeparted) files.delete(path);
+                else publication.rootOnly(path);
+            } else if (ProjectFiles.isStaged(name) || name.endsWith(".json.new"))
+                files.delete(path);
+            else throw new HostRefusal(65, "the central states directory holds an unknown file");
         }
     }
 

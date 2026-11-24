@@ -25,7 +25,11 @@ class HostOrgStatusTest {
     void statusIgnoresTrustedPersonStagingFiles() throws Exception {
         fixture.person("alice", "member=alpha developer\n", "");
         fixture.put("/etc/porelo-host/people/.porelo-host.123456", "unfinished person record");
-        assertThat(status().code()).as("a writer's private stage is not a person record").isZero();
+        final var answer = status();
+        assertThat(answer.code()).as("a writer's private stage is not a person record").isZero();
+        assertThat(HostJson.array(HostJson.object(HostJson.parse(answer.out())).get("persons")))
+                .extracting(value -> HostJson.object(value).get("login"))
+                .containsExactly("alice");
     }
 
     // A person purged after the directory listing must not make the whole status fail.
@@ -44,10 +48,34 @@ class HostOrgStatusTest {
                         }
                     }
                 };
-        assertThat(status().code())
+        final var answer = status();
+        assertThat(answer.code())
                 .as("a removed person is absent from the read-only snapshot")
                 .isZero();
+        assertThat(HostJson.array(HostJson.object(HostJson.parse(answer.out())).get("persons")))
+                .isEmpty();
         assertThat(removed).as("the removal raced the record read").isTrue();
+    }
+
+    // A refusal disappearing during a read is absence, not a failure of the status command.
+    @Test
+    void statusToleratesARefusalRemovedDuringTheRead() throws Exception {
+        final Path refusal = fixture.put(ORG + "refused.json", "{\"words\":\"old refusal\"}");
+        final var removed = new java.util.concurrent.atomic.AtomicBoolean();
+        fixture.afterAttributes =
+                path -> {
+                    if (path.equals(refusal) && removed.compareAndSet(false, true)) {
+                        try {
+                            Files.delete(path);
+                        } catch (java.io.IOException ex) {
+                            throw new java.io.UncheckedIOException(ex);
+                        }
+                    }
+                };
+        final var answer = status();
+        assertThat(answer.code()).as("an absent refusal leaves status readable").isZero();
+        assertThat(HostJson.object(HostJson.parse(answer.out()))).containsEntry("refused", null);
+        assertThat(removed).isTrue();
     }
 
     // A status command must not wait behind the refresh whose progress it is reporting.

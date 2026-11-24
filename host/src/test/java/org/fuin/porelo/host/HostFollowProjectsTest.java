@@ -18,7 +18,7 @@ class HostFollowProjectsTest {
 
     // A new timer pass must not make a killed refresh's member publication live again.
     @Test
-    void theNextFollowClosesAbandonedMemberProgressBeforeFetching() throws Exception {
+    void theNextFollowKeepsMemberAccessWhileFetching() throws Exception {
         f.migrated();
         f.run();
         item(
@@ -57,9 +57,8 @@ class HostFollowProjectsTest {
                                                                                 + "central"),
                                                                 "unix:mode")
                                                 & 0777)
-                                .as(
-                                        "members cannot revalidate the killed run during the next fetch")
-                                .isEqualTo(0700);
+                                .as("the fetch leaves member access to the last publication open")
+                                .isEqualTo(0711);
                     } catch (IOException ex) {
                         throw new UncheckedIOException(ex);
                     }
@@ -128,10 +127,12 @@ class HostFollowProjectsTest {
                                     .startsWith(f.path(FollowFixture.ORG + "central").toString()))
                         publishedAcls.add(argv.get(2));
                 };
+        final Instant takingSince = f.now;
         f.project.beforeCall =
                 call -> {
                     if (!call.path().startsWith("/api/v1/repos/migrate")) return;
                     snapshots.add(f.item());
+                    f.now = f.now.plusSeconds(1);
                     publications.add(f.json(FollowFixture.ORG + "central/alpha.json"));
                     try {
                         readers.add(f.readers(FollowFixture.ORG + "central/alpha.json"));
@@ -161,7 +162,7 @@ class HostFollowProjectsTest {
                         row ->
                                 assertThat(row)
                                         .containsEntry("state", "taking")
-                                        .containsEntry("taking_since", f.now.toString()));
+                                        .containsEntry("taking_since", takingSince.toString()));
         assertThat(snapshots)
                 .extracting(row -> ((Number) row.get("taking_total")).intValue())
                 .containsOnly(3);
@@ -172,7 +173,7 @@ class HostFollowProjectsTest {
                                         ? number.intValue()
                                         : -1)
                 .containsExactly(0, 1, 2);
-        final var identity = new org.fuin.porelo.organization.gittree.LinuxProcesses().current();
+        final var identity = f.processes.current();
         assertThat(publications)
                 .allSatisfy(
                         row -> {
@@ -247,6 +248,18 @@ class HostFollowProjectsTest {
                 .containsEntry("state", "waiting-for-token")
                 .doesNotContainKeys("taking_since", "taking_total", "taking_done");
         assertThat(f.item().get("why")).asString().contains("extra", "503");
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "waiting-for-token")
+                .doesNotContainKeys(
+                        "taking_since",
+                        "taking_done",
+                        "taking_total",
+                        "taking_pid",
+                        "taking_pid_start",
+                        "taking_boot");
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json").get("why"))
+                .asString()
+                .contains("extra", "503");
     }
 
     // An unexpected failure must not leave progress that claims a project is still being copied.
@@ -282,6 +295,296 @@ class HostFollowProjectsTest {
                 .containsEntry("state", "waiting-for-token")
                 .doesNotContainKeys("taking_since", "taking_total", "taking_done");
         assertThat(f.item().get("why")).asString().contains("second", "ended before");
+    }
+
+    // A migrated project without an address cannot finish a repository pass that never starts.
+    @Test
+    void aMigratedProjectWithoutAnAddressNeverLeavesTaking() throws Exception {
+        f.migrated();
+        f.verified.put(
+                "repositories",
+                fields(
+                        "extra",
+                        fields(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/extra.git")));
+        f.run();
+        f.project().put("address", null);
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertNoTaking("alpha");
+    }
+
+    // An abort on the first project must clean up every project the reconcile pass started.
+    @Test
+    void aRepositoryAbortClearsEveryTakingProject() throws Exception {
+        f.migrated();
+        f.verified.put(
+                "repositories",
+                fields(
+                        "extra",
+                        fields(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/extra.git")));
+        f.run();
+        final var applied = f.applied();
+        final var beta = FollowFixture.project("beta");
+        applied.put("projects", List.of(f.project(), beta));
+        f.write(FollowFixture.ORG + "applied.json", HostJson.write(applied));
+        final var alpha = f.item();
+        alpha.putAll(fields("state", "taking", "taking_since", f.now.toString()));
+        final var second = new LinkedHashMap<>(alpha);
+        f.write(
+                FollowFixture.ORG + "host-projects.json",
+                HostJson.write(Map.of("alpha", alpha, "beta", second)));
+        final var failed = new java.util.concurrent.atomic.AtomicBoolean();
+        f.before =
+                argv -> {
+                    if (argv.getFirst().endsWith("/setfacl")
+                            && "taking".equals(f.item().get("state"))
+                            && f.item().get("taking_done") instanceof Number done
+                            && done.intValue() == 0
+                            && failed.compareAndSet(false, true))
+                        throw new IOException("repository publication interrupted");
+                };
+        final Path lock = f.path(HostFollowLock.PATH);
+        try (var held = HostFollowLock.acquire(lock)) {
+            final var projects =
+                    new FollowProjects(
+                            f.context(),
+                            (origin, token) ->
+                                    org.fuin.porelo.organization.gittree.TestForgeAdmin.create(
+                                            token, true, f.project::centralExchange),
+                            () -> HostJson.object(f.progress()));
+            assertThatThrownBy(
+                            () ->
+                                    projects.repositories(
+                                            HostJson.object(applied),
+                                            ProjectFixture.CENTRAL_TOKEN.getBytes(
+                                                    java.nio.charset.StandardCharsets.US_ASCII)))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("interrupted");
+            HostStatusView.write(f.context(), 2001);
+            assertNoTaking("alpha", "beta");
+        }
+        assertThat(failed).isTrue();
+    }
+
+    private void assertNoTaking(String... names) {
+        final var raw = f.progress();
+        for (String name : names) {
+            assertThat(row(raw.get(name)))
+                    .as("raw progress for %s", name)
+                    .doesNotContainEntry("state", "taking")
+                    .doesNotContainKeys("taking_since", "taking_done", "taking_total");
+            final Path file = f.path(FollowFixture.ORG + "central/" + name + ".json");
+            if (Files.exists(file))
+                assertThat(f.json(FollowFixture.ORG + "central/" + name + ".json"))
+                        .as("member progress for %s", name)
+                        .doesNotContainEntry("state", "taking")
+                        .doesNotContainKeys(
+                                "taking_since",
+                                "taking_done",
+                                "taking_total",
+                                "taking_pid",
+                                "taking_pid_start",
+                                "taking_boot");
+        }
+        if (Files.exists(f.path(HostStatusView.PATH)))
+            assertThat(HostJson.array(f.json(HostStatusView.PATH).get("projects")))
+                    .allSatisfy(
+                            value ->
+                                    assertThat(row(value))
+                                            .doesNotContainEntry("state", "taking")
+                                            .doesNotContainKeys(
+                                                    "taking_since", "taking_done", "taking_total"));
+    }
+
+    // One run has one identity even when it publishes progress repeatedly.
+    @Test
+    void oneFollowCapturesItsProcessIdentityOnlyOnce() throws Exception {
+        f.migrated();
+        f.verified.put(
+                "repositories",
+                fields(
+                        "one",
+                        fields(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/one.git"),
+                        "two",
+                        fields(
+                                "review",
+                                "required",
+                                "central",
+                                "https://forge.example.org/acme/two.git")));
+        f.run();
+        f.processReads = 0;
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(f.processReads)
+                .as("every publication reuses the run's captured identity")
+                .isEqualTo(1);
+    }
+
+    // Before the signed repository file is read, counts must not imply invented work.
+    @Test
+    void theFirstMigrationPublishesTakingWhileStillCounting() throws Exception {
+        f.forge();
+        f.run();
+        final var snapshots = new ArrayList<Map<String, Object>>();
+        final var publications = new ArrayList<Map<String, Object>>();
+        f.project.beforeCall =
+                call -> {
+                    if (call.path().equals("/api/v1/repos/migrate")) {
+                        snapshots.add(f.item());
+                        publications.add(f.json(FollowFixture.ORG + "central/alpha.json"));
+                    }
+                };
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(snapshots)
+                .as("the primary repository is migrated once")
+                .hasSize(1)
+                .allSatisfy(
+                        row ->
+                                assertThat(row)
+                                        .containsEntry("state", "taking")
+                                        .containsKey("taking_since")
+                                        .doesNotContainKeys("taking_done", "taking_total"));
+        assertThat(publications)
+                .hasSize(1)
+                .allSatisfy(
+                        row ->
+                                assertThat(row)
+                                        .containsEntry("state", "taking")
+                                        .containsKeys(
+                                                "taking_since",
+                                                "taking_pid",
+                                                "taking_pid_start",
+                                                "taking_boot")
+                                        .doesNotContainKeys("taking_done", "taking_total"));
+        assertNoTaking("alpha");
+    }
+
+    // Supplying a token when all copies are present must not announce nonexistent work.
+    @Test
+    void aTokenRunWithNothingToTakeNeverPublishesTaking() throws Exception {
+        f.migrated();
+        f.run();
+        final var states = new ArrayList<Object>();
+        f.before =
+                argv -> {
+                    if (argv.getFirst().endsWith("/setfacl")) states.add(f.item().get("state"));
+                };
+        f.processReads = 0;
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(states)
+                .as("publications were observed throughout the run")
+                .isNotEmpty()
+                .containsOnly("carried");
+        assertThat(f.processReads).as("no taking identity is captured for an idle token").isZero();
+        assertNoTaking("alpha");
+    }
+
+    // Alias names must not retry the same failed migration or lose either repository reason.
+    @Test
+    void aFailingCentralUrlSharedByTwoNamesIsAttemptedOnlyOnce() throws Exception {
+        f.migrated();
+        final var repository =
+                fields("review", "required", "central", "https://forge.example.org/acme/extra.git");
+        f.verified.put("repositories", fields("one", repository, "two", repository));
+        f.run();
+        f.project.replies.put("POST /repos/migrate", new ProjectFixture.Reply(503, null));
+        final var attempts = new java.util.concurrent.atomic.AtomicInteger();
+        f.project.beforeCall =
+                call -> {
+                    if (call.path().equals("/api/v1/repos/migrate")) attempts.incrementAndGet();
+                };
+        f.refresh(ProjectFixture.CENTRAL_TOKEN);
+        assertThat(attempts.get())
+                .as("one shared failing address has one migration attempt")
+                .isEqualTo(1);
+        assertThat(f.item().get("why")).asString().contains("one", "two", "503");
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json"))
+                .containsEntry("state", "waiting-for-token");
+        assertThat(f.json(FollowFixture.ORG + "central/alpha.json").get("why"))
+                .asString()
+                .contains("one", "two", "503");
+        assertNoTaking("alpha");
+    }
+
+    // A publication IOException during reconcile must not leave any live-looking owner state.
+    @Test
+    void aReconcilePublicationIOExceptionClearsTaking() throws Exception {
+        f.migrated();
+        f.run();
+        final var item = f.item();
+        item.put("migrated", false);
+        f.write(FollowFixture.ORG + "host-projects.json", HostJson.write(Map.of("alpha", item)));
+        final var failed = new java.util.concurrent.atomic.AtomicBoolean();
+        f.before =
+                argv -> {
+                    if (argv.getFirst().endsWith("/setfacl")
+                            && "taking".equals(f.item().get("state"))
+                            && failed.compareAndSet(false, true))
+                        throw new IOException("migration publication interrupted");
+                };
+        try (var held = HostFollowLock.acquire(f.path(HostFollowLock.PATH))) {
+            final var projects =
+                    new FollowProjects(
+                            f.context(),
+                            (origin, token) ->
+                                    org.fuin.porelo.organization.gittree.TestForgeAdmin.create(
+                                            token, true, f.project::centralExchange),
+                            () -> HostJson.object(f.progress()));
+            assertThatThrownBy(
+                            () ->
+                                    projects.reconcile(
+                                            HostJson.object(f.applied()),
+                                            null,
+                                            ProjectFixture.CENTRAL_TOKEN.getBytes(
+                                                    java.nio.charset.StandardCharsets.US_ASCII)))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("interrupted");
+            HostStatusView.write(f.context(), 2001);
+            assertNoTaking("alpha");
+        }
+        assertThat(failed).isTrue();
+    }
+
+    // The helper converts central IOExceptions to a refusal without retaining taking progress.
+    @Test
+    void aMigrateIOExceptionLeavesNoTakingPublication() throws Exception {
+        f.forge();
+        f.run();
+        final var attempted = new java.util.concurrent.atomic.AtomicBoolean();
+        final var follow =
+                new HostFollow(
+                        f.host,
+                        f.project.files,
+                        f.runtime,
+                        f.clock,
+                        new PrintWriter(f.journal, true),
+                        (origin, token) ->
+                                org.fuin.porelo.organization.gittree.TestForgeAdmin.create(
+                                        token,
+                                        true,
+                                        (method, path, authorization, body) -> {
+                                            attempted.set(true);
+                                            throw new IOException("central unavailable");
+                                        }),
+                        f.processes);
+        follow.run(
+                "refresh",
+                Map.of(),
+                new ByteArrayInputStream(
+                        ProjectFixture.CENTRAL_TOKEN.getBytes(
+                                java.nio.charset.StandardCharsets.US_ASCII)));
+        assertThat(attempted).as("migrate reached the failing central transport").isTrue();
+        assertNoTaking("alpha");
     }
 
     @BeforeEach

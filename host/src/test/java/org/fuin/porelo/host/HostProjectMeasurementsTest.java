@@ -151,10 +151,89 @@ class HostProjectMeasurementsTest {
                             else measure();
                         })
                 .isInstanceOf(HostRefusal.class);
-        assertThat(answer()).as("atomic replacement keeps the previous file").exists();
+        assertThat(answer())
+                .as("failed reader replacement removes the former readers file")
+                .doesNotExist();
         assertThat((int) Files.getAttribute(answer().getParent(), "unix:mode") & 0777)
                 .as("failed ACL preparation keeps former readers outside")
                 .isEqualTo(0700);
+    }
+
+    // A later measurement of another project must never reopen a removed member's old ACL.
+    @ParameterizedTest
+    @ValueSource(strings = {"failed-republish", "other-listed", "departed"})
+    void anotherProjectsMeasurementCannotRestoreFormerReaders(String scenario) throws Exception {
+        final Map<Object, List<String>> acls = new HashMap<>();
+        final var before = host.program;
+        final var fail = new java.util.concurrent.atomic.AtomicBoolean();
+        host.program =
+                argv -> {
+                    if (!argv.getFirst().equals("/usr/bin/setfacl")) return before.apply(argv);
+                    try {
+                        final Path file = Path.of(argv.getLast());
+                        final Object inode = Files.getAttribute(file, "unix:ino");
+                        if (argv.contains("--remove-all")) {
+                            acls.put(inode, List.of());
+                            return new HostPrograms.Result(0, "");
+                        }
+                        if (fail.get() && Files.readString(file).contains("\"project\": \"alpha\""))
+                            return new HostPrograms.Result(1, "fixture ACL failure");
+                        acls.put(inode, List.of(argv.get(2).split(",")));
+                        return before.apply(argv);
+                    } catch (java.io.IOException ex) {
+                        throw new java.io.UncheckedIOException(ex);
+                    }
+                };
+        measure();
+        assertThat(acls.get(Files.getAttribute(answer(), "unix:ino")))
+                .as("the old publication really grants the member being removed")
+                .containsExactly("user:1001:r--", "user:1002:r--");
+        final var next = HostJson.object(HostJson.parse(applied));
+        final List<Object> projects = new ArrayList<>(HostJson.array(next.get("projects")));
+        if (scenario.equals("departed")) projects.clear();
+        else
+            projects.set(
+                    0,
+                    ProjectRecords.object(
+                            "project",
+                            "alpha",
+                            "members",
+                            List.of(ProjectRecords.object("login", "bob", "locked", false))));
+        projects.add(
+                ProjectRecords.object(
+                        "project",
+                        "beta",
+                        "members",
+                        List.of(ProjectRecords.object("login", "bob", "locked", false))));
+        next.put("projects", projects);
+        host.write(
+                "/etc/porelo-host/organization/applied.json",
+                ProjectRecords.pythonJson(next, false));
+        final var measurements = new ProjectMeasurements(host.files, host.runtime, clock);
+        if (scenario.equals("failed-republish")) {
+            fail.set(true);
+            assertThatThrownBy(() -> measurements.prepare(List.of("alpha", "beta")))
+                    .isInstanceOf(HostRefusal.class);
+            fail.set(false);
+        }
+        measurements.measure("forge", "beta");
+        assertThat((int) Files.getAttribute(answer().getParent(), "unix:mode") & 0777)
+                .as("the later measurement reopens member traversal")
+                .isEqualTo(0711);
+        if (Files.exists(answer())) {
+            assertThat(acls.getOrDefault(Files.getAttribute(answer(), "unix:ino"), List.of()))
+                    .as("the reopened directory exposes no former reader on alpha")
+                    .doesNotContain("user:1001:r--");
+            if (scenario.equals("departed")) {
+                assertThat(acls.get(Files.getAttribute(answer(), "unix:ino"))).isEmpty();
+                assertThat((int) Files.getAttribute(answer(), "unix:mode") & 0777).isEqualTo(0600);
+            } else
+                assertThat(acls.get(Files.getAttribute(answer(), "unix:ino")))
+                        .containsExactly("user:1002:r--");
+        } else
+            assertThat(scenario)
+                    .as("only the failed republish may remove alpha")
+                    .isEqualTo("failed-republish");
     }
 
     // A failed new measurement must not leave an old successful central answer visible.

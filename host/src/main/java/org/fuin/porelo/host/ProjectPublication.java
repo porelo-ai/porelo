@@ -25,8 +25,7 @@ final class ProjectPublication {
         this.runtime = runtime;
     }
 
-    List<String> readers(String project) throws IOException {
-        final var records = new ProjectRecords(files);
+    private Map<?, ?> applied() throws IOException {
         final Path appliedPath = files.etc.resolve("organization/applied.json");
         final Object parsed =
                 ProjectRecords.json(
@@ -44,6 +43,27 @@ final class ProjectPublication {
                                                 || !login.matches(ProjectRecords.PERSON))) {
             throw new HostRefusal(65, appliedPath + " holds no valid applied organization");
         }
+        return applied;
+    }
+
+    java.util.Set<String> projects() throws IOException {
+        final var projects = new java.util.HashSet<String>();
+        for (Object value : org.fuin.porelo.host.HostJson.array(applied().get("projects"))) {
+            final Object name = org.fuin.porelo.host.HostJson.object(value).get("project");
+            if (!(name instanceof String project) || !project.matches(HostRecords.PROJECT))
+                throw new HostRefusal(65, "the applied organization names an invalid project");
+            projects.add(project);
+        }
+        return projects;
+    }
+
+    List<String> readers(String project) throws IOException {
+        final var records = new ProjectRecords(files);
+        final var applied = applied();
+        final String appliedPath = files.etc.resolve("organization/applied.json").toString();
+        final var projects = org.fuin.porelo.host.HostJson.array(applied.get("projects"));
+        final var persons = org.fuin.porelo.host.HostJson.array(applied.get("persons"));
+        final var revoked = org.fuin.porelo.host.HostJson.array(applied.get("revoked"));
         final List<String> readers = new ArrayList<>();
         for (Object value : projects) {
             if (!(value instanceof Map<?, ?> entry) || !project.equals(entry.get("project"))) {
@@ -109,6 +129,23 @@ final class ProjectPublication {
             return readers;
         }
         throw new HostRefusal(65, "the host's organization names no project " + project);
+    }
+
+    void rootOnly(Path path) throws IOException {
+        files.trusted(path, false);
+        java.nio.file.Files.setAttribute(
+                path, "unix:mode", 0600, java.nio.file.LinkOption.NOFOLLOW_LINKS);
+        final var result =
+                runtime.run(
+                        List.of(
+                                runtime.checked("/usr/bin/setfacl").toString(),
+                                "--remove-all",
+                                path.toString()),
+                        new byte[0],
+                        ProjectRuntime.SAFE_ENV,
+                        runtime.limits().machines(SETFACL));
+        if (result.exitCode() != 0)
+            throw new HostRefusal(73, "the former publication's readers could not be removed");
     }
 
     private boolean expired(@org.jspecify.annotations.Nullable Object value) {

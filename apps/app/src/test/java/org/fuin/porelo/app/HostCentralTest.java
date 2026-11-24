@@ -244,6 +244,64 @@ class HostCentralTest {
         assertThat(answer.get("why")).asString().contains(HostCentral.REFUSED, field);
     }
 
+    // A failed process check without a diagnostic still needs a useful, non-null reason.
+    @ParameterizedTest
+    @ValueSource(strings = {"io", "argument", "security"})
+    void aMissingProcessDiagnosticNeverPrintsNull(String failure) throws Exception {
+        final var processes =
+                new org.fuin.porelo.organization.gittree.LinuxProcesses(
+                        path -> {
+                            switch (failure) {
+                                case "io" -> throw new java.io.IOException();
+                                case "argument" -> throw new IllegalArgumentException();
+                                default -> throw new SecurityException();
+                            }
+                        });
+        final var answer = reader(taking(), processes).centralState("alpha");
+        assertThat(answer).containsEntry("state", "cannot-say");
+        assertThat(answer.get("why")).asString().contains("follow process").doesNotContain("null");
+    }
+
+    // Both ends of a valid copy count must stay distinct from an absent count.
+    @ParameterizedTest
+    @ValueSource(ints = {0, 3})
+    void zeroAndCompleteProgressRemainValid(int done) throws Exception {
+        final var value =
+                new java.util.LinkedHashMap<>((Map<String, Object>) Json.parseExact(taking()));
+        value.put("taking_done", done);
+        final var central = reader(Json.write(value));
+        assertThat(central.centralState("alpha"))
+                .containsEntry("state", "taking")
+                .containsEntry("taking_done", done)
+                .containsEntry("taking_total", 3);
+    }
+
+    // JSON null does not mean absent for a field required by a taking publication.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "taking_done",
+                "taking_total",
+                "taking_since",
+                "taking_pid",
+                "taking_pid_start",
+                "taking_boot",
+                "both-counts"
+            })
+    void explicitNullTakingFieldsAreRefused(String field) throws Exception {
+        final var value =
+                new java.util.LinkedHashMap<>((Map<String, Object>) Json.parseExact(taking()));
+        if (field.equals("both-counts")) {
+            value.put("taking_done", null);
+            value.put("taking_total", null);
+        } else value.put(field, null);
+        final var answer = reader(Json.write(value)).centralState("alpha");
+        assertThat(answer).containsEntry("state", "cannot-say");
+        assertThat(answer.get("why"))
+                .asString()
+                .contains(field.equals("both-counts") ? "taking_done" : field);
+    }
+
     // A live host copy must be represented without asking the person for its token again.
     @Test
     void takingProgressSurvivesTheCheckedSchema() {

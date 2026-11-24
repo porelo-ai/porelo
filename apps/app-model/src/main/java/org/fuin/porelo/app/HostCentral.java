@@ -276,7 +276,12 @@ final class HostCentral {
             try {
                 processes.verify(publication.takingProcess());
             } catch (IOException | IllegalArgumentException | SecurityException ex) {
-                throw new RefusedAnswer("follow process: " + ex.getMessage());
+                final String reason = ex.getMessage();
+                throw new RefusedAnswer(
+                        "follow process: "
+                                + (reason == null
+                                        ? "process identity could not be verified"
+                                        : reason));
             }
         }
         return publication;

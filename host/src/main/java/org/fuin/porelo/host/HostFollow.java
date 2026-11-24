@@ -44,7 +44,25 @@ final class HostFollow {
             Clock clock,
             PrintWriter err,
             ProjectMigration.Central central) {
-        context = new FollowContext(host, files, runtime, clock, err);
+        this(
+                host,
+                files,
+                runtime,
+                clock,
+                err,
+                central,
+                new org.fuin.porelo.organization.gittree.LinuxProcesses());
+    }
+
+    HostFollow(
+            HostFiles host,
+            ProjectFiles files,
+            ProjectRuntime runtime,
+            Clock clock,
+            PrintWriter err,
+            ProjectMigration.Central central,
+            org.fuin.porelo.organization.gittree.LinuxProcesses processes) {
+        context = new FollowContext(host, files, runtime, clock, err, processes);
         this.central = central;
     }
 
@@ -65,12 +83,11 @@ final class HostFollow {
                     context.write(followLock, "", 0600);
                 }
                 context.host.check(followLock, 69, true, false, 0600);
-                new ProjectMeasurements(context.files, context.runtime, context.clock).revoke();
+                final boolean staleTaking =
+                        progress().values().stream()
+                                .anyMatch(value -> "taking".equals(object(value).get("state")));
+                clearProgress();
                 try (var following = HostFollowLock.acquire(followLock)) {
-                    final boolean staleTaking =
-                            progress().values().stream()
-                                    .anyMatch(value -> "taking".equals(object(value).get("state")));
-                    clearProgress();
                     final FollowContext bounded =
                             context.until(
                                     context.clock
@@ -316,31 +333,33 @@ final class HostFollow {
                                 people.accounts(),
                                 people.minimumUid());
         final java.time.Instant end = c.deadline;
+        final ProjectMeasurements measurements =
+                new ProjectMeasurements(c.files, c.runtime, c.clock, c.processes);
         final FollowProjects projects =
                 new FollowProjects(
                         c,
                         (origin, tokenValue) ->
                                 central.open(origin, tokenValue).until(c.clock, end),
-                        this::progress);
+                        this::progress,
+                        measurements);
         final var publications = publications(c, applied, projects);
         final var signers = signers(c, answer, applied);
         people.revokedBefore(applied, previous, records);
         writePin(c, applied);
         c.write(FollowContext.ORG + "applied.json", pretty(applied, 0) + "\n", 0600);
         final var arrivals = new ProjectArrivals(c.files, c.runtime, c.clock);
-        new ProjectMeasurements(c.files, c.runtime, c.clock).revoke();
+        measurements.revoke();
         arrivals.revoke();
         c.host.remove(FollowContext.ORG + "refused.json");
         publish(c, applied, publications, signers, people);
         final List<String> errors = new ArrayList<>();
         attempt(errors, () -> people.cards(applied, previous));
         attempt(errors, () -> people.memberships(applied));
-        new ProjectMeasurements(c.files, c.runtime, c.clock)
-                .prepare(
-                        array(applied.get("projects")).stream()
-                                .map(value -> string(object(value).get("project")))
-                                .toList(),
-                        new HostProjects(c.host).status(applied));
+        measurements.prepare(
+                array(applied.get("projects")).stream()
+                        .map(value -> string(object(value).get("project")))
+                        .toList(),
+                new HostProjects(c.host).status(applied));
         attempt(errors, () -> projects.reconcile(applied, previous, token));
         attempt(errors, () -> projects.members(applied, previous, people));
         attempt(errors, () -> projects.repositories(applied, token));
@@ -355,8 +374,10 @@ final class HostFollow {
                                 array(applied.get("projects")).stream()
                                         .map(value -> string(object(value).get("project")))
                                         .toList()));
+        clearProgress();
         attempt(errors, () -> projects.measure(applied));
         // Without the admins' group the view keeps its last follow, whose time it names.
+        clearProgress();
         attempt(errors, () -> HostStatusView.write(c, people.hostAdmins()));
         if (!errors.isEmpty()) {
             throw new HostRefusal(
@@ -364,6 +385,7 @@ final class HostFollow {
                     "the organization is taken; the next follow retries: "
                             + String.join("; ", errors));
         }
+        clearProgress();
         return new HostOrganization(c.host).status();
     }
 

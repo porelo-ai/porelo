@@ -73,27 +73,29 @@ final class HostProjects {
                 .forEach(
                         (project, value) -> {
                             final Map<String, @Nullable Object> item = object(value);
-                            final var status =
-                                    fields(
-                                            "project",
-                                            project,
-                                            "state",
-                                            item.get("state"),
-                                            "why",
-                                            item.get("why"),
-                                            "since",
-                                            item.get("since"),
-                                            "repositories",
-                                            repositories(item, project));
-                            if ("taking".equals(item.get("state"))) {
-                                for (String field :
-                                        List.of("taking_since", "taking_done", "taking_total")) {
-                                    if (item.containsKey(field)) status.put(field, item.get(field));
-                                }
-                            }
-                            result.add(status);
+                            result.add(status(project, item));
                         });
         return result;
+    }
+
+    Map<String, @Nullable Object> status(String project, Map<String, @Nullable Object> item) {
+        final var status =
+                fields(
+                        "project",
+                        project,
+                        "state",
+                        item.get("state"),
+                        "why",
+                        item.get("why"),
+                        "since",
+                        item.get("since"),
+                        "repositories",
+                        repositories(item, project));
+        if ("taking".equals(item.get("state"))) {
+            for (String field : List.of("taking_since", "taking_done", "taking_total"))
+                if (item.containsKey(field)) status.put(field, item.get(field));
+        }
+        return status;
     }
 
     static boolean following(HostFiles files) {
