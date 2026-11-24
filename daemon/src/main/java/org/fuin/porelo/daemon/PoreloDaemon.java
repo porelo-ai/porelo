@@ -173,6 +173,11 @@ public final class PoreloDaemon {
                         : ownedContext(supplied);
         final org.fuin.porelo.app.HostVaultOwner owner =
                 (org.fuin.porelo.app.HostVaultOwner) context.hostVault();
+        // Where a log's file store is probed for a birth time: directories of the daemon's own, on
+        // the stores of the logs, which no task mounts.
+        LogIdentity.probingIn(
+                context.paths().xdg().state().resolve("birth-probe"),
+                context.paths().xdg().runtime().resolve("birth-probe"));
         final VarlinkServer server =
                 new VarlinkServer(socket, INTERFACE, peers) {
                     @Override

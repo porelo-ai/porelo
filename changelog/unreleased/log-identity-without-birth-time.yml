@@ -1,0 +1,2 @@
+title: "A log's identity stays fixed while it is appended to on a file system that keeps no birth time, so a page of a live log is no longer answered as gone; there a log made anew under a reused file key is the same log, and a client pages the new file"
+type: fixed
