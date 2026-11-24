@@ -131,6 +131,15 @@ Feature: A start through the daemon has the person's own computer certify its ta
             rm -f "$places/certifying.json" "$places/certifying.git"
             true
             """
+        # The refused start is finished: no claim of it holds the vault, which clears in one step.
+        When a script runs:
+            """
+            porelo vault clear --yes --force </dev/null 2>&1; echo "clear $?"
+            test -f "$PORELO_VAULT" && echo "the vault file is still there"
+            """
+        Then its output contains "clear 0"
+        And its output does not contain "unfinished"
+        And its output does not contain "the vault file is still there"
 
     Scenario: a start in default through the daemon, as a window asks it, needs no certificate and asks for none
         When a script runs:

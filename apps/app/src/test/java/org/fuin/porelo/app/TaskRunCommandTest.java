@@ -1083,6 +1083,13 @@ class TaskRunCommandTest {
         assertThat(context.paths().messaging().mailbox("porelo-uc-first"))
                 .as("the refused task must leave no mailbox")
                 .doesNotExist();
+        // A start refused certification is finished: its claim held the vault against a clear
+        // and a lockout, for a task that never existed.
+        final TaskReservations reservations = new TaskReservations(context);
+        assertThat(reservations.unfinishedNames())
+                .as("a start that took back all it made holds no start")
+                .isEmpty();
+        assertThat(reservations.projects()).as("nor any project against its removal").isEmpty();
     }
 
     @Test

@@ -3110,6 +3110,7 @@ public final class TaskLaunch {
         context.openIfShut(
                 context.vault().exists() && context.recordedId(container) == null, true, err);
         enrolling = false;
+        forgotten = false;
         reservation =
                 new TaskReservations(context).start(project.name(), request.task(), container);
     }
@@ -3117,13 +3118,20 @@ public final class TaskLaunch {
     /** Whether this start has begun to make things under its name: from its enrolment on. */
     private boolean enrolling;
 
+    /**
+     * Whether a start that made things under its name, but no container, took all of them back: its
+     * claim then protects nothing and would block a vault clear and a lockout.
+     */
+    private boolean forgotten;
+
     private void releaseReservation() {
         final TaskReservations.Lease held = reservation;
         reservation = null;
         if (held != null) {
             try {
-                if (!enrolling) {
-                    // Refused before it made anything: its claim would only hold the project.
+                if (!enrolling || forgotten) {
+                    // Refused before it made anything, or with all it made taken back: its claim
+                    // would only hold the project, the vault clear and the lockout.
                     // Best effort: a claim that cannot be ended stays unfinished, and the refusal
                     // is still the start's answer.
                     try {
@@ -6887,20 +6895,23 @@ public final class TaskLaunch {
         final Project enrolled = enrolledIn;
         if (enrolled == null) {
             // Refused before it joined anything: nothing of it was made.
+            forgotten = true;
             return;
         }
-        new TaskConversations(context).retire(enrolled, container, err);
+        boolean all = new TaskConversations(context).retire(enrolled, container, err);
         try {
             new Mailbox(context.paths().messaging().mailbox(container)).delete(context.limits());
             new TaskGuide(context.paths(), container).delete();
             new TaskResult(context.paths()).forget(container);
             new TaskGiven(context.paths()).forget(container);
         } catch (java.io.IOException ex) {
+            all = false;
             err.println("porelo: could not delete the mailbox of " + container + ": " + ex);
         }
         try {
             new TaskRepositories(context.paths(), container).delete();
         } catch (java.io.IOException ex) {
+            all = false;
             err.println("porelo: could not delete what " + container + " was to read: " + ex);
         }
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
@@ -6912,10 +6923,13 @@ public final class TaskLaunch {
                     java.nio.file.Files.deleteIfExists(path);
                 }
             } catch (java.io.IOException ex) {
+                all = false;
                 err.println("porelo: could not delete the state of " + container + ": " + ex);
             }
         }
         err.flush();
+        // Everything it made is gone again: its claim would only hold the name and the vault.
+        forgotten = all;
     }
 
     /** Whether the task reads its whole project: asked for now, or made so. */

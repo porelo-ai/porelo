@@ -158,12 +158,15 @@ final class TaskConversations {
      * @param project The task's project.
      * @param container The task.
      * @param err Where a failure is said.
+     * @return Whether every conversation took it out.
      */
-    void retire(Project project, String container, PrintWriter err) {
+    boolean retire(Project project, String container, PrintWriter err) {
+        boolean all = true;
         for (final String scheme : conversations(project)) {
             try {
                 lifecycle.retire(scheme, project.name(), container, settings(project, scheme));
             } catch (TransportLifecycle.Refused ex) {
+                all = false;
                 // Its secrets stay in the vault, so the account can still be retired: nothing is
                 // lost that a transport which answers again could not finish.
                 err.println(
@@ -176,6 +179,7 @@ final class TaskConversations {
                 err.flush();
             }
         }
+        return all;
     }
 
     /**
