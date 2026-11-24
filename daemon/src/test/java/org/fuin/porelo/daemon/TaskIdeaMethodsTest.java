@@ -325,6 +325,27 @@ class TaskIdeaMethodsTest {
     }
 
     @Test
+    void ideasPastTheRoomTheHostKeepsAreRefusedAsNotAllowed() throws Exception {
+        // Every List and Watch reads every task's ideas: a task cannot make them heavy for all.
+        final PoreloContext context = context();
+        project("limits:\n  ideas: 100\n", "ProposeIdea");
+        final String widest = new String(Character.toChars(0xE0041));
+        final String what = widest.repeat(org.fuin.porelo.app.TaskIdeas.MOST_WHAT_MUST_BE_TRUE);
+        int kept = 0;
+        while (true) {
+            final Map<String, Object> call = idea(TASK, "Long " + kept, what);
+            final boolean full = 4 * 1024 * 1024 < (kept + 1) * (long) what.length() * 6;
+            if (full) {
+                refusedAs(TASK, context, call, PoreloDaemon.INTERFACE + ".NotAllowed");
+                break;
+            }
+            proposedAs(TASK, context, call);
+            kept++;
+        }
+        assertThat(kept).as("several ideas at their longest are kept first").isGreaterThan(1);
+    }
+
+    @Test
     void aTitleOverOneLineOrTooLongOrAnEmptyStatementIsRefused() throws Exception {
         // Task text reaches a person's window: unbounded or multi-line titles would spoof its rows.
         final PoreloContext context = context();
@@ -338,11 +359,16 @@ class TaskIdeaMethodsTest {
                         "carriage\rreturn",
                         "tab\there",
                         "line separator",
-                        "x".repeat(121))) {
+                        "x".repeat(TaskIdeas.MOST_TITLE + 1))) {
             calls.add(idea(TASK, title, "Something must be true."));
         }
         for (final String what :
-                List.of("", "  \n ", "bell\u0007", "tab\there", "x".repeat(1001))) {
+                List.of(
+                        "",
+                        "  \n ",
+                        "bell\u0007",
+                        "tab\there",
+                        "x".repeat(TaskIdeas.MOST_WHAT_MUST_BE_TRUE + 1))) {
             calls.add(idea(TASK, "A title", what));
         }
         final Map<String, Object> notText = idea(TASK, "A title", "It is.");
@@ -360,7 +386,14 @@ class TaskIdeaMethodsTest {
         assertThat(new TaskIdeas(context.paths()).read(TASK))
                 .as("a refused idea is not kept and takes no number")
                 .isEmpty();
-        assertThat(proposedAs(TASK, context, idea(TASK, "y".repeat(120), "z".repeat(999) + "\n")))
+        assertThat(
+                        proposedAs(
+                                TASK,
+                                context,
+                                idea(
+                                        TASK,
+                                        "y".repeat(TaskIdeas.MOST_TITLE),
+                                        "z".repeat(TaskIdeas.MOST_WHAT_MUST_BE_TRUE - 1) + "\n")))
                 .as("the bounds themselves are kept")
                 .containsEntry("id", "idea-1");
     }
@@ -387,8 +420,9 @@ class TaskIdeaMethodsTest {
         // One task's text must not reach another agent's prompt through a listing.
         final PoreloContext context = context();
         project("limits:\n  ideas: 100\n", "ProposeIdea, List");
-        // More than one reply carries, so the person's own listing holds some back.
-        seeded(context, TASK, 100, WIDE.repeat(TaskIdeas.MOST_TITLE));
+        // More than one reply carries, within what the host keeps for one task: the person's own
+        // listing holds one back.
+        seeded(context, TASK, 2, WIDE.repeat(TaskIdeas.MOST_TITLE));
         assertThat(((Number) row(context, TASK).get("ideasHeldBack")).longValue())
                 .as("the person's own listing holds some back")
                 .isPositive();

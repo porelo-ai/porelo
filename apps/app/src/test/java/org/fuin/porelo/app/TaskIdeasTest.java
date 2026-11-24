@@ -190,19 +190,85 @@ class TaskIdeasTest {
         assertThat(carried).as("only the newest is left out").hasSize(ideas.size() - 1);
     }
 
+    /**
+     * A code point outside the Basic Multilingual Plane, two chars, and a format character, which
+     * is written escaped as two six-byte escapes: the widest a code point is kept.
+     */
+    private static final String WIDEST = new String(Character.toChars(0xE0041));
+
+    @Test
+    void theBoundsAreCountedInCodePointsAsAForgeTakesThem() {
+        // A proposal a forge would take must not be refused for its chars or its bytes.
+        assertThat(WIDEST.length()).as("two chars, one code point").isEqualTo(2);
+        assertThat(TaskIdeas.validTitle(WIDEST.repeat(256))).as("256 code points").isTrue();
+        assertThat(TaskIdeas.validTitle(WIDEST.repeat(257))).as("257 code points").isFalse();
+        assertThat(TaskIdeas.validTitle("x".repeat(255) + "\ud83d\ude00"))
+                .as("an emoji is one code point")
+                .isTrue();
+        assertThat(TaskIdeas.validWhatMustBeTrue(WIDEST.repeat(65_536)))
+                .as("65,536 code points")
+                .isTrue();
+        assertThat(TaskIdeas.validWhatMustBeTrue(WIDEST.repeat(65_537)))
+                .as("65,537 code points")
+                .isFalse();
+    }
+
+    @Test
+    void theLongestIdeaIsKeptAsItIsAndFitsOneReply() throws Exception {
+        final TaskIdeas ideas = ideas();
+        final String title = WIDEST.repeat(TaskIdeas.MOST_TITLE);
+        final String what = WIDEST.repeat(TaskIdeas.MOST_WHAT_MUST_BE_TRUE);
+        ideas.propose(TASK, title, what, 1);
+        final TaskIdeas.Idea read = ideas.read(TASK).getFirst();
+        assertThat(read.title()).as("neither cut nor trimmed").isEqualTo(title);
+        assertThat(read.whatMustBeTrue()).as("neither cut nor trimmed").isEqualTo(what);
+        assertThat(TaskInventory.carried(List.of(List.of(read))).getFirst())
+                .as("a reply carries it, or the person would never see it")
+                .hasSize(1);
+    }
+
+    // Every List and Watch reads every task's record: one task's ideas are bounded as a whole.
+    @Test
+    void ideasPastTheRoomTheHostKeepsAreRefusedUntilOneIsTaken() throws Exception {
+        final TaskIdeas ideas = ideas();
+        final String title = WIDEST.repeat(TaskIdeas.MOST_TITLE);
+        final String what = WIDEST.repeat(TaskIdeas.MOST_WHAT_MUST_BE_TRUE);
+        final int most = org.fuin.porelo.core.project.Limits.MOST_IDEAS;
+        int kept = 0;
+        while (true) {
+            try {
+                ideas.propose(TASK, title, what, most);
+                kept++;
+            } catch (TaskIdeas.KeptFull full) {
+                break;
+            }
+            assertThat(kept).as("refused long before the count bound").isLessThan(most);
+        }
+        assertThat(kept).as("several ideas at their longest fit").isGreaterThan(1);
+        final Path record = ideas.paths().tasks().taskRecord(TASK).resolve("ideas.json");
+        assertThat(Files.size(record)).isLessThanOrEqualTo(TaskIdeas.MOST_RECORD);
+        assertThat(ideas.read(TASK)).as("what it kept, all of it").hasSize(kept);
+        assertThatThrownBy(() -> ideas.propose(TASK, title, what, most))
+                .isInstanceOf(TaskIdeas.KeptFull.class);
+        assertThat(ideas.take(TASK, "idea-1")).isTrue();
+        assertThat(ideas.propose(TASK, title, what, most).id())
+                .as("a taken idea frees its room, numbered on")
+                .isEqualTo("idea-" + (kept + 1));
+    }
+
     @Test
     void theTitleIsOneBoundedLineAndTheStatementBoundedText() {
         assertThat(TaskIdeas.validTitle("A title")).isTrue();
-        assertThat(TaskIdeas.validTitle("x".repeat(120))).isTrue();
-        assertThat(TaskIdeas.validTitle("x".repeat(121))).isFalse();
+        assertThat(TaskIdeas.validTitle("x".repeat(256))).isTrue();
+        assertThat(TaskIdeas.validTitle("x".repeat(257))).isFalse();
         assertThat(TaskIdeas.validTitle("")).isFalse();
         assertThat(TaskIdeas.validTitle(" ")).isFalse();
         assertThat(TaskIdeas.validTitle("a\nb")).isFalse();
         assertThat(TaskIdeas.validTitle("a b")).isFalse();
         assertThat(TaskIdeas.validTitle("\ud800")).as("no lone surrogate").isFalse();
         assertThat(TaskIdeas.validWhatMustBeTrue("It is.\r\nAnd so.")).isTrue();
-        assertThat(TaskIdeas.validWhatMustBeTrue("x".repeat(1000))).isTrue();
-        assertThat(TaskIdeas.validWhatMustBeTrue("x".repeat(1001))).isFalse();
+        assertThat(TaskIdeas.validWhatMustBeTrue("x".repeat(65_536))).isTrue();
+        assertThat(TaskIdeas.validWhatMustBeTrue("x".repeat(65_537))).isFalse();
         assertThat(TaskIdeas.validWhatMustBeTrue("\n")).isFalse();
         assertThat(TaskIdeas.validWhatMustBeTrue("a\tb")).isFalse();
         assertThat(TaskIdeas.validWhatMustBeTrue("a\u001bb")).isFalse();

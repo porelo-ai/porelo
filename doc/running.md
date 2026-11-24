@@ -427,15 +427,17 @@ completion. See [task status](commands.md) for the activity values.
 
 A task whose project's MCP endpoint allows `ProposeIdea`, and whose project file sets
 [`limits.ideas`](project-file.md#limits), can propose an idea for itself, a new issue it found while working, with
-`ProposeIdea(task: CONTAINER, title: ..., whatMustBeTrue: ...)`: a title of one line and at most 120 characters, and
-what must be true in one or two sentences of at most 1000 characters, with no control characters but line breaks.
+`ProposeIdea(task: CONTAINER, title: ..., whatMustBeTrue: ...)`: a title of one line and at most 256 characters, and
+what must be true in one or two sentences of at most 65536 characters, with no control characters but line breaks.
 It is told the idea's id, `idea-1`, `idea-2` and so on. Porelo keeps the idea on the host, outside the task's mounts,
 until a person takes it or the task is removed, and shows it on the task's row in List and Watch, where the person's
 window hands it on and then takes it with `TakeIdea(task, id)`, kept or declined; a later start keeps it. One reply
 carries at most 1 MiB of ideas across all tasks, each task's oldest first, so a row may carry only a task's oldest
 ideas; its `ideasHeldBack` says how many more it has, 0 when all are listed, and falls as ideas are taken, since the
 next reply carries the ones behind them. A taken idea frees no room under `limits.ideas`, and its id is not given
-again. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
+again. The ideas one task keeps take at most 4 MiB written all together, since every List and Watch reads them:
+several at their longest fit, and a proposal past that is refused with `NotAllowed` until a person takes some, which
+frees their room. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
 `NotAllowed`, and a title or text out of these bounds with `InvalidParameter`, never trimmed or cut. Another task of
 the project sees no idea in its own listing unless its endpoint reads output (`Logs` or `Tail`).
 
@@ -674,9 +676,9 @@ it; you do nothing more with it. This task may propose at most **2** ideas in
 its life, ones a person already took counted too, so propose only what matters.
 
 - `task`: this task's own name, `porelo-shop-fix`, and no other.
-- `title`: one line of at most 120 characters.
+- `title`: one line of at most 256 characters.
 - `whatMustBeTrue`: what must be true once it is done, in one or two sentences of at
-  most 1000 characters, with no control characters but line breaks.
+  most 65536 characters, with no control characters but line breaks.
 
 The answer names its id, such as `idea-1`. It is refused with `NotItsOwn` when `task`
 names another task, with `NotAllowed` past this task's bound, and with

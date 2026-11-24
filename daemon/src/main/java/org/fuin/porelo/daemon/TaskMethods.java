@@ -205,7 +205,8 @@ final class TaskMethods {
                             try {
                                 return new org.fuin.porelo.app.TaskIdeas(context.paths())
                                         .propose(task, title, whatMustBeTrue, most);
-                            } catch (org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
+                            } catch (org.fuin.porelo.app.TaskIdeas.BoundReached
+                                    | org.fuin.porelo.app.TaskIdeas.KeptFull ex) {
                                 return ex;
                             }
                         });
@@ -222,6 +223,10 @@ final class TaskMethods {
                                     + " ideas, the most limits.ideas of project '"
                                     + project
                                     + "' allows"));
+        }
+        if (kept instanceof org.fuin.porelo.app.TaskIdeas.KeptFull ex) {
+            throw new VarlinkException(
+                    INTERFACE + ".NotAllowed", Map.of("message", String.valueOf(ex.getMessage())));
         }
         // Removed, or its name started again, since the check: the socket's task is gone.
         throw new VarlinkException(INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));

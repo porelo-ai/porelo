@@ -80,9 +80,9 @@ type TaskIdea (
   # The task's own counter: idea-1, idea-2, ... A client hands each id on once, then takes it with
   # TakeIdea; a taken id is not given again.
   id: string,
-  # One line of at most 120 characters, as the task gave it.
+  # One line of at most 256 characters, as the task gave it.
   title: string,
-  # One or two sentences of at most 1000 characters; it may hold line breaks.
+  # One or two sentences of at most 65536 characters; it may hold line breaks.
   whatMustBeTrue: string,
   # When the host kept it, ISO-8601.
   at: string
@@ -579,7 +579,7 @@ method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
 # never even a child or another project; a call over the person's socket, or naming anybody else,
 # is NotItsOwn. The project file's limits.ideas, read at each call, is the most ideas one task may
 # propose (0, the default, for none): a call where it is 0, or past it, is NotAllowed naming the
-# bound. title is one line of at most 120 characters; whatMustBeTrue is at most 1000 characters,
+# bound. title is one line of at most 256 characters; whatMustBeTrue is at most 65536 characters,
 # with no control characters but line breaks; either empty is InvalidParameter, and neither is
 # trimmed or cut. id is the task's own counter, idea-1, idea-2, ... The daemon keeps the ideas in
 # its private durable task record, outside every task mount, until a person takes them or the task

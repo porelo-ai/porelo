@@ -215,8 +215,8 @@ class TaskGuideTest {
         assertThat(flat)
                 .contains("exactly as it stands")
                 .contains("at most **1** idea")
-                .contains("at most 120 characters")
-                .contains("at most 1000 characters")
+                .contains("at most 256 characters")
+                .contains("at most 65536 characters")
                 .contains("A person takes it");
         // The worked call is copied into a shell as it stands: its body one single-quoted word
         // holding one JSON-RPC message that names this task.

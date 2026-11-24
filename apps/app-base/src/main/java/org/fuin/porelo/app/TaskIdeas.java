@@ -32,20 +32,24 @@ import org.fuin.porelo.wire.JsonException;
  */
 public record TaskIdeas(PoreloPaths paths) {
 
-    /** The most characters of an idea's title, which is one line. */
-    public static final int MOST_TITLE = 120;
+    /**
+     * The most code points of an idea's title, which is one line: what a forge takes as a title.
+     */
+    public static final int MOST_TITLE = 256;
 
-    /** The most characters of what must be true, one or two sentences. */
-    public static final int MOST_WHAT_MUST_BE_TRUE = 1000;
+    /** The most code points of what must be true: what a forge takes as an issue's body. */
+    public static final int MOST_WHAT_MUST_BE_TRUE = 65_536;
 
     /** The record's name in the task's record directory. */
     static final String FILE = "ideas.json";
 
     /**
-     * Larger than the most ideas a project may allow, each at its longest and escaped; a larger
-     * record is not one the host wrote.
+     * The most bytes a task's ideas take written, all together: each one may be as long as a forge
+     * takes, but every List and Watch reads every task's record, so what one task keeps is bounded
+     * as a whole. A proposal past it is refused until a person takes some. One idea at its longest
+     * and widest written fits.
      */
-    private static final int MOST_RECORD = 4 * 1024 * 1024;
+    static final int MOST_RECORD = 4 * 1024 * 1024;
 
     /** The largest counter an id can carry. */
     private static final long MOST_PROPOSED = 999_999_999L;
@@ -81,6 +85,19 @@ public record TaskIdeas(PoreloPaths paths) {
             map.put("whatMustBeTrue", whatMustBeTrue);
             map.put("at", at);
             return map;
+        }
+    }
+
+    /** A proposal that would make the task's kept ideas larger than the host keeps. */
+    public static final class KeptFull extends Exception {
+        private static final long serialVersionUID = 1L;
+
+        /** Constructor. */
+        public KeptFull() {
+            super(
+                    "the ideas this task keeps take the most room the host keeps for them, "
+                            + MOST_RECORD / (1024 * 1024)
+                            + " MiB written; a person takes some before it proposes more");
         }
     }
 
@@ -121,7 +138,7 @@ public record TaskIdeas(PoreloPaths paths) {
     }
 
     /**
-     * Returns whether a title can be kept: one line of at most {@link #MOST_TITLE} characters,
+     * Returns whether a title can be kept: one line of at most {@link #MOST_TITLE} code points,
      * neither blank nor holding a control character, refused rather than trimmed or cut.
      *
      * @param title What the task gave.
@@ -138,8 +155,8 @@ public record TaskIdeas(PoreloPaths paths) {
     }
 
     /**
-     * Returns whether what must be true can be kept: at most {@link #MOST_WHAT_MUST_BE_TRUE}
-     * characters, not blank, with no control character but line breaks.
+     * Returns whether what must be true can be kept: at most {@link #MOST_WHAT_MUST_BE_TRUE} code
+     * points, not blank, with no control character but line breaks.
      *
      * @param whatMustBeTrue What the task gave.
      * @return Whether it is kept as it is.
@@ -186,22 +203,23 @@ public record TaskIdeas(PoreloPaths paths) {
      * @throws IOException If the record cannot be read or written; an unreadable record is never
      *     taken for an empty one, which would number an idea again.
      * @throws BoundReached If the task proposed {@code most} already.
+     * @throws KeptFull If keeping it would make the record larger than the host keeps.
      */
     public Idea propose(
             final String container, final String title, final String whatMustBeTrue, final int most)
-            throws IOException, BoundReached {
+            throws IOException, BoundReached, KeptFull {
         final Path directory = paths.tasks().taskRecord(container);
         Directories.create(directory);
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
         final Path file = record(container);
-        final java.util.Optional<Idea> kept =
+        final Object kept =
                 FileLocks.holding(
                         directory.resolve("ideas.lock"),
                         () -> {
                             final Kept record = load(file);
                             // Of every idea it proposed: one taken frees no room.
                             if (record.proposed() >= most) {
-                                return java.util.Optional.<Idea>empty();
+                                return new BoundReached(most);
                             }
                             final List<Idea> ideas = new ArrayList<>(record.ideas());
                             final Idea idea =
@@ -211,10 +229,16 @@ public record TaskIdeas(PoreloPaths paths) {
                                             whatMustBeTrue,
                                             Instant.now().toString());
                             ideas.add(idea);
-                            write(directory, file, new Kept(record.proposed() + 1, ideas));
-                            return java.util.Optional.of(idea);
+                            final String value = written(new Kept(record.proposed() + 1, ideas));
+                            if (value.getBytes(StandardCharsets.UTF_8).length > MOST_RECORD) {
+                                return new KeptFull();
+                            }
+                            write(directory, file, value);
+                            return idea;
                         });
-        return kept.orElseThrow(() -> new BoundReached(most));
+        if (kept instanceof BoundReached bound) throw bound;
+        if (kept instanceof KeptFull full) throw full;
+        return (Idea) kept;
     }
 
     /**
@@ -242,7 +266,7 @@ public record TaskIdeas(PoreloPaths paths) {
                     if (!ideas.removeIf(idea -> idea.id().equals(id))) {
                         return false;
                     }
-                    write(directory, file, new Kept(kept.proposed(), ideas));
+                    write(directory, file, written(new Kept(kept.proposed(), ideas)));
                     return true;
                 });
     }
@@ -305,12 +329,15 @@ public record TaskIdeas(PoreloPaths paths) {
         }
     }
 
-    private static void write(final Path directory, final Path file, final Kept kept)
-            throws IOException {
+    private static String written(final Kept kept) {
         final Map<String, Object> fields = new LinkedHashMap<>();
         fields.put("proposed", kept.proposed());
         fields.put("ideas", kept.ideas().stream().map(Idea::asMap).toList());
-        final String value = Json.write(fields);
+        return Json.write(fields);
+    }
+
+    private static void write(final Path directory, final Path file, final String value)
+            throws IOException {
         final Path staged = directory.resolve("ideas.new");
         try {
             Files.writeString(
