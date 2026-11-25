@@ -97,6 +97,7 @@ public final class ConversationRead {
         boolean refused = false;
         // A forge answers at least one page, so none at all is a short read.
         boolean shortened = answered.isEmpty();
+        final List<ForgeComment> read = new ArrayList<>();
         for (int index = 0; index < answered.size(); index++) {
             final Optional<Page> page = page(answered.get(index), channel, ref.forge());
             if (page.isEmpty() || !fresh(page.get(), ids, opened)) {
@@ -109,16 +110,28 @@ public final class ConversationRead {
             if (word != (last ? Completeness.COMPLETE : Completeness.PARTIAL)) {
                 shortened = true;
             }
-            for (final ForgeComment comment : page.get().comments()) {
-                final Optional<String> rule = withheldBy(pinned, comment, kept);
-                if (rule.isPresent()) {
-                    withheld.add(new Withheld(comment.id(), comment.thread(), rule.get()));
-                } else {
-                    items.add(comment.kept());
-                    if (comment.item() instanceof ReviewComment) {
-                        kept.add(comment.thread());
-                    }
+            read.addAll(page.get().comments());
+        }
+        // Every opening comment the run keeps, wherever the read lists it: a reply listed before
+        // its thread's opening comment still has a thread the run sees.
+        final java.util.Map<ForgeComment, Optional<String>> opening =
+                new java.util.IdentityHashMap<>();
+        for (final ForgeComment comment : read) {
+            if (comment.item() instanceof ReviewComment) {
+                final Optional<String> rule = checked(pinned, comment);
+                opening.put(comment, rule);
+                if (rule.isEmpty()) {
+                    kept.add(comment.thread());
                 }
+            }
+        }
+        for (final ForgeComment comment : read) {
+            final @Nullable Optional<String> known = opening.get(comment);
+            final Optional<String> rule = known != null ? known : withheldBy(pinned, comment, kept);
+            if (rule.isPresent()) {
+                withheld.add(new Withheld(comment.id(), comment.thread(), rule.get()));
+            } else {
+                items.add(comment.kept());
             }
         }
         // Pages the adapter never answered are the larger gap, so its reason is the one told.
@@ -168,6 +181,11 @@ public final class ConversationRead {
         if (comment.item() instanceof ForgeReply && !kept.contains(comment.thread())) {
             return Optional.of(NO_SUCH_THREAD);
         }
+        return checked(pinned, comment);
+    }
+
+    /** The check's refusal of a comment, as its rule. */
+    private Optional<String> checked(final Pinned pinned, final ForgeComment comment) {
         return check.check(pinned.push(), comment.item()).map(ConversationRead::rule);
     }
 

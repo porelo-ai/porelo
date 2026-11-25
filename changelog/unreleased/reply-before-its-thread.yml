@@ -1,0 +1,2 @@
+title: "A forge reply is kept for the run also when the forge lists it before its thread's opening comment, so an encoded answer to the task's own post is checked and held instead of dropped"
+type: fixed

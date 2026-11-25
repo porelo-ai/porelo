@@ -142,6 +142,23 @@ class ConversationReadTest {
     }
 
     @Test
+    void aReplyListedBeforeItsThreadsOpeningCommentIsKept() throws Exception {
+        // A reply's thread is the read's, wherever its opening comment stands: a forge that lists
+        // the post it was asked to write after what was already there must not lose its answers.
+        final ProfileItem own = opening("301", REVIEWER, "The loop never ends.");
+        final ProfileItem answer = reply("302", "301", OCTOCAT, "It does now.");
+        adapter.answer("p1");
+        reading.last("p1", answer, own);
+
+        final Conversation conversation = read.read(REF, PINNED, LENT);
+
+        assertThat(conversation.items())
+                .as("the answer and the post it answers, both kept")
+                .containsExactly(kept(answer), kept(own));
+        assertThat(conversation.withheld()).as("nothing withheld").isEmpty();
+    }
+
+    @Test
     void aReadTheAdapterReportsPartialMakesTheConversationPartialWithItsReason() throws Exception {
         // A run told it saw everything would take silence on a missing page for agreement.
         final ProfileItem first = opening("101", OCTOCAT, "This loses the order.");
