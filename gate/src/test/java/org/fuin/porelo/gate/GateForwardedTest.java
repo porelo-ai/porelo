@@ -66,6 +66,24 @@ class GateForwardedTest {
                 .isEmpty();
     }
 
+    // An online task's push goes on at once: its own pull request is pinned to what went on.
+    @Test
+    void anOnlineGateKeepsWhatItPassedOnForATaskAsAnApprovalDoes() {
+        final GitGate online = new GitGate(runner, mirror, GateMode.ONLINE, upstream.toString());
+
+        assertThat(online.passOn("fix", "porelo/online", amended))
+                .as("the upstream took it")
+                .isNull();
+
+        assertThat(online.forwarded("fix", "porelo/online"))
+                .as("what went on for the task to that branch")
+                .contains(amended);
+        assertThat(online.passOn("porelo/nameless", first)).as("taken").isNull();
+        assertThat(online.forwarded("fix", "porelo/nameless"))
+                .as("a push that names no task keeps nothing")
+                .isEmpty();
+    }
+
     // Rejecting every amendment forces duplicate branches and reviews for the same task.
     @Test
     void aNewGateInstanceCanReplaceWhatItLastForwardedForThisTask() {

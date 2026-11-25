@@ -2408,6 +2408,29 @@ public class GitGate {
      *     or that it did not answer within the gate's limit.
      */
     public @org.jspecify.annotations.Nullable String passOn(String branch, String commit) {
+        return passOn(null, branch, commit);
+    }
+
+    /**
+     * Gives the upstream a task's work at once, as {@link #passOn(String, String)} does, and keeps
+     * what went there as an approval keeps it: a pull request open from that branch is the task's
+     * own work, at that head.
+     *
+     * @param task The task's name, or {@code null} when the push names none: nothing is kept.
+     * @param branch The branch at the upstream, without {@code refs/heads/}.
+     * @param commit What it is to point at.
+     * @return {@code null} when the upstream took it, else why not.
+     */
+    public @org.jspecify.annotations.Nullable String passOn(
+            @org.jspecify.annotations.Nullable String task, String branch, String commit) {
+        final String refused = passedOn(branch, commit);
+        if (refused == null && task != null) {
+            gitIn("update-ref", forwardedRef(task, branch), commit);
+        }
+        return refused;
+    }
+
+    private @org.jspecify.annotations.Nullable String passedOn(String branch, String commit) {
         if (mode != GateMode.ONLINE) {
             return "this project's security class does not pass a push on; it waits for approval";
         }

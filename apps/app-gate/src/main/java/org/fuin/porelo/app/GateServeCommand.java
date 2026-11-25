@@ -451,7 +451,19 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                         @Override
                                         public @Nullable String passOn(
                                                 String taken, String commit) {
-                                            final String refused = gate.passOn(branch, commit);
+                                            final String task =
+                                                    ref != null && ref.startsWith(GitGate.INCOMING)
+                                                            ? ref.substring(
+                                                                    GitGate.INCOMING.length())
+                                                            : null;
+                                            // Kept as an approval keeps it: the task's own pull
+                                            // request from that branch is pinned to this head.
+                                            final String refused =
+                                                    gate.passOn(
+                                                            task,
+                                                            java.util.Objects.requireNonNull(
+                                                                    branch),
+                                                            commit);
                                             if (refused == null
                                                     && ref != null
                                                     && ref.startsWith(GitGate.INCOMING)) {
