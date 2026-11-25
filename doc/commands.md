@@ -921,6 +921,27 @@ already happened, and approval stays pending so `gate approve --commit FULL_ID` 
 Complete host approvals before removing the task: removal retires its forge identity and forgets its
 token. A pending ref outlives the container, but does not keep that credential alive.
 
+## review
+
+What is open in a review, and how it was decided, for whoever sends the work back or starts the next run.
+
+| Command | What it does |
+|---|---|
+| `porelo review open -p PROJECT (--gate-push NAME [--repository REPO] \| --pull-request BRANCH \| --own-pull-request) [--role AUTHOR\|REVIEWER] [--task TASK] [--json]` | Says what is open at one place for one role, and the place's decision, read anew from the gate's records at each call; it stores nothing and starts nothing. For a gate push: `OPEN` while it waits, `RETURNED` after a reject that carried open threads, `REJECTED` after one that carried none, `APPROVED` or `LANDED` with the commit that went and its branch, and when that decision began. Each point is an open thread whose last item is not the asking role's side (`AUTHOR`, the default, is the push's own task), with its file, line, who wrote last and when. `--json` prints one object with the daemon's field names. Exits 0 with the answer; 64 for no place, two places, `--own-pull-request` without `--task` or an unknown role, with nothing on standard output; 69 for a typed refusal, printed as `{"refused": NAME, ...its fields}`; 70 when anything else cannot be read. A pull request place is refused as `PlaceUnreadable` (`ForgeAdapterMissing`) until a forge adapter reads one. |
+
+Tasks1 `ReviewOpen` answers the same over the daemon's socket, for the owner account alone: a task's MCP
+socket is never offered it. Every time is UTC, RFC 3339, in whole seconds. The gate keeps when it took a
+task's push, in place of that task's last end, and the push's reject, approval or landing carries that
+time along; an `OPEN` push's `decisionSince` is that time, never its commit's. A review item carries the
+time it was kept, and one kept before items carried a time reads as the time its push was taken. `version`
+is a SHA-256 digest of the rest of the answer, so equal answers have equal versions. `complete` is false,
+with `reason`, only when part of the answer could not be read: `JournalUnreadable` for a review journal
+refused, `TimeMissing` for a push taken before the gate kept that time, `RecordMismatch` for a gate record
+of another push or another commit than the one waiting. A push that neither waits nor has a kept end is
+refused as `PlaceUnreadable` (`NoSuchPush`), a project or repository this machine does not have as
+`PlaceUnreadable` (`NotInProject`), and gate records that cannot be read as `PlaceUnreadable`
+(`Unreachable`); `porelo review open` exits 70 for those.
+
 ## credentials
 
 Which secret a destination uses, and where it lives. Nothing here prints a value.

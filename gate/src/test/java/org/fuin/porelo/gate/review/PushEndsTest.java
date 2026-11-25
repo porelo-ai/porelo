@@ -94,6 +94,43 @@ class PushEndsTest {
     }
 
     @Test
+    void aPushThatWaitsIsKeptWithTheTimeItWasTakenAndReplacesTheEarlierEnd() throws Exception {
+        final PushEnds ends = new PushEnds(dir.resolve("review"));
+        ends.keep(TASK, PushEnd.rejected("t", WAITED, 2, AT));
+
+        ends.keep(TASK, PushEnd.waiting("t", FORWARDED, AT));
+
+        final PushEnd read = new PushEnds(dir.resolve("review")).read(TASK).orElseThrow();
+        assertThat(read.end()).as("the push waits").isEqualTo(PushEnd.End.WAITING);
+        assertThat(read.commit()).as("the commit taken").isEqualTo(FORWARDED);
+        assertThat(read.waitingSince())
+                .as("when it was taken, in whole seconds")
+                .isEqualTo(Instant.parse("2026-11-25T10:15:30Z"));
+        assertThat(read.mergedCommit()).as("nothing went").isNull();
+        assertThat(Files.readString(dir.resolve("review").resolve(TASK).resolve(PushEnds.ENTRY)))
+                .as("the earlier end is gone")
+                .contains("\"end\":\"WAITING\"")
+                .doesNotContain("REJECTED");
+    }
+
+    @Test
+    void anEndCarriesTheTimeItsPushStartedWaiting() throws Exception {
+        final PushEnds ends = new PushEnds(dir.resolve("review"));
+        final Instant later = Instant.parse("2026-11-25T12:00:00Z");
+
+        ends.keep(TASK, PushEnd.rejected("t", WAITED, 1, later).waitedSince(AT));
+
+        final PushEnd read = ends.read(TASK).orElseThrow();
+        assertThat(read.waitingSince())
+                .as("the waiting time carried along, in whole seconds")
+                .isEqualTo(Instant.parse("2026-11-25T10:15:30Z"));
+        assertThat(read.at()).as("the reject's own time").isEqualTo(later);
+        assertThat(PushEnd.rejected("t", WAITED, 1, later).waitingSince())
+                .as("an end of a push taken before waiting times were kept has none")
+                .isNull();
+    }
+
+    @Test
     void aTaskInAnotherContainerUnderTheSameNameFindsNone() throws Exception {
         final PushEnds ends = new PushEnds(dir.resolve("review"));
         ends.keep(TASK, PushEnd.rejected("t", WAITED, 2, AT));
@@ -130,7 +167,10 @@ class PushEndsTest {
                 "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"MERGED\",\"openThreads\":0,\"at\":\"2026-11-25T10:15:30Z\"}",
                 "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"REJECTED\",\"at\":\"2026-11-25T10:15:30Z\"}",
                 "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"APPROVED\",\"openThreads\":0,\"at\":\"2026-11-25T10:15:30Z\"}",
-                "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"REJECTED\",\"openThreads\":0,\"at\":\"yesterday\"}"
+                "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"REJECTED\",\"openThreads\":0,\"at\":\"yesterday\"}",
+                "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"REJECTED\",\"openThreads\":0,\"at\":\"2026-11-25T10:15:30Z\",\"waitingSince\":\"yesterday\"}",
+                "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"WAITING\",\"openThreads\":0,\"mergedCommit\":\"1111111111111111111111111111111111111111\",\"branch\":\"main\",\"at\":\"2026-11-25T10:15:30Z\",\"waitingSince\":\"2026-11-25T10:15:30Z\"}",
+                "{\"version\":1,\"name\":\"t\",\"commit\":\"1111111111111111111111111111111111111111\",\"end\":\"WAITING\",\"openThreads\":0,\"at\":\"2026-11-25T10:15:30Z\",\"waitingSince\":\"2026-11-25T09:00:00Z\"}"
             })
     void aMalformedEntryIsRefusedNeverReadAsNoEnd(final String text) throws Exception {
         final PushEnds ends = new PushEnds(dir.resolve("review"));

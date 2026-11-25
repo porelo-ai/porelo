@@ -29,6 +29,7 @@ import picocli.CommandLine.Spec;
             HostCommand.class,
             CredentialsCommand.class,
             GateCommand.class,
+            ReviewCommand.class,
             AgentsCommand.class,
             EcosystemsCommand.class,
             ProvidersCommand.class,

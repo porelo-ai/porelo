@@ -198,7 +198,8 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     }
 
     /**
-     * Forgets how the task's last push ended as its next one is taken, then tells the listener.
+     * Keeps when the task's push was taken, in place of its last push's end, then tells the
+     * listener.
      *
      * @param context The machine.
      * @param project The project's name.
@@ -213,14 +214,11 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
             final GitHttpServer.Taken then) {
         return commit -> {
             try {
-                new GateEnds(context).waiting(project, task);
+                new GateEnds(context).waiting(project, task, commit);
             } catch (java.io.IOException ex) {
                 // Said in the gate's log by the server; the push is never refused for it.
                 throw new java.io.UncheckedIOException(
-                        "the end of "
-                                + task
-                                + "'s last push could not be forgotten: "
-                                + ex.getMessage(),
+                        "when " + task + "'s push was taken could not be kept: " + ex.getMessage(),
                         ex);
             } finally {
                 then.taken(commit);

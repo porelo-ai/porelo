@@ -364,6 +364,7 @@ final class GateMethods {
             ReadingSweep sweep,
             org.fuin.porelo.app.CommentIntake.Parts comments) {
         registerComments(server, comments);
+        registerReviewOpen(server, org.fuin.porelo.app.ReviewOpen.of(context));
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
         sweep.add(pullRequestPages::release);
@@ -1040,14 +1041,107 @@ final class GateMethods {
                                     "runs",
                                     runs));
                 });
-        // Described so a planner builds against it; answered once the gate keeps a push's end.
+    }
+
+    /**
+     * Registers ReviewOpen, what is open at a place and its decision, for the owner account: read
+     * anew at each call through the same reader as {@code porelo review open}.
+     *
+     * @param server Where.
+     * @param open The reader.
+     */
+    static void registerReviewOpen(
+            final VarlinkServer server, final org.fuin.porelo.app.ReviewOpen open) {
         server.method(
                 "ReviewOpen",
                 (parameters, replies) -> {
-                    throw new VarlinkException(
-                            "org.varlink.service.MethodNotImplemented",
-                            Map.of("method", PoreloDaemon.INTERFACE + ".ReviewOpen"));
+                    final org.fuin.porelo.app.ReviewOpen.Place place = place(parameters);
+                    final String task = optionalName(parameters, "task");
+                    if (place instanceof org.fuin.porelo.app.ReviewOpen.OwnPullRequest
+                            && task == null) {
+                        throw new VarlinkException(
+                                "org.varlink.service.InvalidParameter",
+                                Map.of("parameter", "task"));
+                    }
+                    // The parameters are refused as such before anything is read.
+                    final String project = text(parameters, "project");
+                    final org.fuin.porelo.app.ReviewOpen.Role role = role(parameters);
+                    final Map<String, Object> answer;
+                    try {
+                        answer = open.answer(project, place, role, task).fields();
+                    } catch (org.fuin.porelo.app.ReviewOpen.Refused ex) {
+                        throw new VarlinkException(INTERFACE + "." + ex.error(), ex.fields());
+                    } catch (RuntimeException ex) {
+                        // The gate, its records or the ends could not be read: a typed refusal,
+                        // never the server's generic error. Their text names local paths and
+                        // stays out of the answer.
+                        throw new VarlinkException(
+                                INTERFACE + ".PlaceUnreadable",
+                                Map.of(
+                                        "reason",
+                                        "Unreachable",
+                                        "detail",
+                                        "the gate's records of that push could not be read"));
+                    }
+                    replies.last(answer);
                 });
+    }
+
+    /** The place a ReviewOpen names: exactly one field set, else InvalidParameter. */
+    private static org.fuin.porelo.app.ReviewOpen.Place place(
+            final Map<String, Object> parameters) {
+        if (!(parameters.get("place") instanceof Map<?, ?> place)) {
+            throw invalid("place");
+        }
+        final Object gatePush = place.get("gatePush");
+        final Object pullRequest = place.get("pullRequest");
+        final Object ownPullRequest = place.get("ownPullRequest");
+        final int set =
+                (gatePush == null ? 0 : 1)
+                        + (pullRequest == null ? 0 : 1)
+                        + (ownPullRequest == null ? 0 : 1);
+        if (set != 1) {
+            throw invalid("place");
+        }
+        if (gatePush instanceof Map<?, ?> push) {
+            final Object repository = push.get("repository");
+            if (!(push.get("name") instanceof String name)
+                    || name.isBlank()
+                    || (repository != null && !(repository instanceof String))) {
+                throw invalid("place");
+            }
+            final String named = (String) repository;
+            return new org.fuin.porelo.app.ReviewOpen.GatePush(
+                    named == null || named.isBlank() ? null : named, name);
+        }
+        if (pullRequest instanceof String branch && !branch.isBlank()) {
+            return new org.fuin.porelo.app.ReviewOpen.PullRequest(branch);
+        }
+        if (Boolean.TRUE.equals(ownPullRequest)) {
+            return new org.fuin.porelo.app.ReviewOpen.OwnPullRequest();
+        }
+        throw invalid("place");
+    }
+
+    /** The role a ReviewOpen names: absent is the author's, a name the contract lacks refused. */
+    private static org.fuin.porelo.app.ReviewOpen.@org.jspecify.annotations.Nullable Role role(
+            final Map<String, Object> parameters) {
+        final Object role = parameters.get("role");
+        if (role == null) {
+            return null;
+        }
+        if ("AUTHOR".equals(role)) {
+            return org.fuin.porelo.app.ReviewOpen.Role.AUTHOR;
+        }
+        if ("REVIEWER".equals(role)) {
+            return org.fuin.porelo.app.ReviewOpen.Role.REVIEWER;
+        }
+        throw invalid("role");
+    }
+
+    private static VarlinkException invalid(final String parameter) {
+        return new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
     }
 
     /** Keeps an item from the owner account and answers its id and thread. */

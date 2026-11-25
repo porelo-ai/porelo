@@ -25,6 +25,10 @@ import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -49,12 +53,13 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The journal is {@code <root>/<container id>/journal}: one JSON object per line, each with its
  * format version, the push's project, repository, name, head and base, and either a kept item with
- * its producer and retry id or a thread's state. It only grows; every write takes the lock (in this
- * process and, through a file lock, in every other), writes the whole journal to a temporary file,
- * forces it, moves it over the journal and syncs the directory. A temporary left by an interrupted
- * write is removed on the next use. A journal that is cut off, unreadable or of a newer format is
- * refused with an exception, never read as empty. Nothing in the store is followed through a
- * symbolic link.
+ * its producer, retry id and the time it was kept (UTC, RFC 3339, whole seconds; absent on an item
+ * kept before items carried one) or a thread's state. It only grows; every write takes the lock (in
+ * this process and, through a file lock, in every other), writes the whole journal to a temporary
+ * file, forces it, moves it over the journal and syncs the directory. A temporary left by an
+ * interrupted write is removed on the next use. A journal that is cut off, unreadable or of a newer
+ * format is refused with an exception, never read as empty. Nothing in the store is followed
+ * through a symbolic link.
  *
  * <p>A later format adds entries (runs, rounds) beside these; a version-1 entry stays as it is.
  */
@@ -92,14 +97,27 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
 
     private final Path root;
 
+    private final Clock clock;
+
     /**
-     * Constructor with the store's directory. It and its missing parents are made, owner-only, on
-     * the first write.
+     * Constructor with the store's directory, each item's time read from the system's clock. It and
+     * its missing parents are made, owner-only, on the first write.
      *
      * @param root The directory that holds one directory per task container.
      */
     public ReviewComments(final Path root) {
+        this(root, Clock.systemUTC());
+    }
+
+    /**
+     * Constructor with the store's directory and the clock each item's time is read from.
+     *
+     * @param root The directory that holds one directory per task container.
+     * @param clock What the time an item is kept is read from.
+     */
+    public ReviewComments(final Path root, final Clock clock) {
         this.root = Objects.requireNonNull(root, "root").toAbsolutePath().normalize();
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     @Override
@@ -139,7 +157,11 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                                         };
                                 final Kept kept =
                                         new Kept(
-                                                UUID.randomUUID().toString(), thread, origin, item);
+                                                UUID.randomUUID().toString(),
+                                                thread,
+                                                origin,
+                                                item,
+                                                clock.instant().truncatedTo(ChronoUnit.SECONDS));
                                 append(container, journal, itemEntry(push, id, kept));
                                 return kept;
                             });
@@ -542,6 +564,10 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         entry.put("id", id);
         entry.put("guid", kept.guid());
         entry.put("thread", kept.thread());
+        final Instant at = kept.at();
+        if (at != null) {
+            entry.put("at", at.toString());
+        }
         entry.put("item", item(kept.item()));
         return Json.write(entry);
     }
@@ -638,7 +664,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                         push,
                         scope,
                         optional(entry, "id"),
-                        new Kept(text(entry, "guid"), thread, origin, item));
+                        new Kept(text(entry, "guid"), thread, origin, item, time(entry)));
             }
             case "state" ->
                     new StateEntry(
@@ -686,6 +712,24 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                 Side.named(text(anchor, "side")),
                 number(anchor, "startLine"),
                 number(anchor, "endLine"));
+    }
+
+    // An item's time, absent on one kept before items carried a time; one that is no instant in
+    // whole seconds refuses the entry.
+    private static @Nullable Instant time(final Map<?, ?> entry) {
+        if (!entry.containsKey("at")) {
+            return null;
+        }
+        final Instant at;
+        try {
+            at = Instant.parse(text(entry, "at"));
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("at is not a time", ex);
+        }
+        if (!at.equals(at.truncatedTo(ChronoUnit.SECONDS))) {
+            throw new IllegalArgumentException("at is not in whole seconds");
+        }
+        return at;
     }
 
     private static Map<?, ?> object(final @Nullable Object value, final String what) {

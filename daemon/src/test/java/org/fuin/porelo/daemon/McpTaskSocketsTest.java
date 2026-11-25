@@ -544,6 +544,13 @@ class McpTaskSocketsTest {
                 Map.of(),
                 "org.varlink.service.MethodNotFound",
                 Map.of("method", PoreloDaemon.INTERFACE + ".Panic"));
+        // What is open at a place is the person's planner's to read, never a task's.
+        refused(
+                socket,
+                "ReviewOpen",
+                Map.of("project", "uc", "place", Map.of("gatePush", Map.of("name", "lead"))),
+                "org.varlink.service.MethodNotFound",
+                Map.of("method", PoreloDaemon.INTERFACE + ".ReviewOpen"));
     }
 
     @Test

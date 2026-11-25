@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.time.Clock;
+import java.time.Instant;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.PushEnd;
@@ -11,9 +12,10 @@ import org.fuin.porelo.gate.review.ThreadState;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps how a task's push stopped waiting at the gate, for the task that pushed it, from the
- * command line and the daemon alike: each end is kept under the container id recorded for the task,
- * never its reusable name, and forgotten when the task's next push waits.
+ * Keeps where a task's push stands at the gate, for the task that pushed it, from the command line
+ * and the daemon alike: when the gate took it, then how it stopped waiting, each kept under the
+ * container id recorded for the task, never its reusable name. The task's next push replaces its
+ * last end, and an end carries the time its push was taken when that is the commit that ended.
  *
  * <p>A push no recorded task is known for keeps nothing: there is no task to keep it for.
  */
@@ -87,7 +89,7 @@ public final class GateEnds {
         } catch (RuntimeException ex) {
             throw new IOException("the rejected push's review could not be read", ex);
         }
-        store().keep(task, PushEnd.rejected(name, push.head(), open, clock.instant()));
+        keep(task, PushEnd.rejected(name, push.head(), open, clock.instant()));
     }
 
     /**
@@ -124,7 +126,7 @@ public final class GateEnds {
                                                         + name
                                                         + " on "
                                                         + branch));
-        store().keep(task, PushEnd.approved(name, reviewed, forwarded, branch, clock.instant()));
+        keep(task, PushEnd.approved(name, reviewed, forwarded, branch, clock.instant()));
     }
 
     /**
@@ -149,17 +151,23 @@ public final class GateEnds {
         if (task == null) {
             return;
         }
-        store().keep(task, PushEnd.landed(name, landing.commit(), branch, clock.instant()));
+        keep(task, PushEnd.landed(name, landing.commit(), branch, clock.instant()));
     }
 
     /**
-     * Forgets the end of a task's last push, as its next push waits.
+     * Keeps when the gate took a task's push, in place of its last push's end.
      *
      * @param project The project's name.
      * @param name The task's name, as its push is named at the gate.
-     * @throws IOException When the end could not be removed.
+     * @param commit The commit the push's ref points at now.
+     * @throws IOException When it could not be written.
      */
-    public void waiting(final String project, final String name) throws IOException {
+    public void waiting(final String project, final String name, final String commit)
+            throws IOException {
+        if (name.endsWith(GitGate.RESCUED)) {
+            // What was rescued is the person's to decide, never the task's own push.
+            return;
+        }
         final TaskIdentity identity;
         try {
             // From the records alone: asked at each push, before it is answered.
@@ -168,8 +176,27 @@ public final class GateEnds {
             throw new IOException("the task of " + name + " could not be read", ex);
         }
         if (identity != null) {
-            store().clear(identity.recordedId());
+            store().keep(identity.recordedId(), PushEnd.waiting(name, commit, clock.instant()));
         }
+    }
+
+    /** Keeps an end, with the time its push was taken when the gate kept it for that commit. */
+    private void keep(final String task, final PushEnd end) throws IOException {
+        Instant since = null;
+        try {
+            since =
+                    store().read(task)
+                            .filter(entry -> entry.end() == PushEnd.End.WAITING)
+                            .filter(entry -> entry.name().equals(end.name()))
+                            .filter(entry -> entry.commit().equals(end.commit()))
+                            .map(PushEnd::waitingSince)
+                            .orElse(null);
+        } catch (IOException ex) {
+            // A waiting record that cannot be read leaves the end without its waiting time;
+            // the end itself is still kept, and a reader says the time is missing.
+            since = null;
+        }
+        store().keep(task, end.waitedSince(since));
     }
 
     private @Nullable String recorded(final String project, final String name) throws IOException {

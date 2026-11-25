@@ -30,13 +30,13 @@ import org.fuin.porelo.wire.JsonException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Keeps how a task's last push stopped waiting at the gate, one entry per task container, beside
- * that container's review journal, so a reader can tell a returned push from an approved one after
- * nothing waits any more, and a task started later under a reused name, which runs in another
- * container, finds none.
+ * Keeps where a task's last push stands at the gate - waiting since it was taken, or how it stopped
+ * waiting - one entry per task container, beside that container's review journal, so a reader can
+ * tell a returned push from an approved one after nothing waits any more, and a task started later
+ * under a reused name, which runs in another container, finds none.
  *
  * <p>The entry is {@code <root>/<container id>/end}: one JSON object with its format version and
- * the {@link PushEnd}'s fields, the time in UTC, RFC 3339, whole seconds. Each write goes to an
+ * the {@link PushEnd}'s fields, the times in UTC, RFC 3339, whole seconds. Each write goes to an
  * owner-only temporary file, is forced, moved over the entry and the directory synced, so a reader
  * sees the old entry or the new one whole. An entry that is cut off, of a newer format or missing a
  * field is refused with an exception, never read as no end. Nothing is followed through a symbolic
@@ -177,6 +177,9 @@ public final class PushEnds {
             entry.put("branch", end.branch());
         }
         entry.put("at", end.at().toString());
+        if (end.waitingSince() != null) {
+            entry.put("waitingSince", String.valueOf(end.waitingSince()));
+        }
         return entry;
     }
 
@@ -199,7 +202,10 @@ public final class PushEnds {
                 (int) open,
                 optional(entry, "mergedCommit"),
                 optional(entry, "branch"),
-                Instant.parse(text(entry, "at")));
+                Instant.parse(text(entry, "at")),
+                entry.containsKey("waitingSince")
+                        ? Instant.parse(text(entry, "waitingSince"))
+                        : null);
     }
 
     private static String text(final Map<?, ?> entry, final String key) {

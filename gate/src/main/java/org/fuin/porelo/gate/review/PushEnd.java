@@ -6,7 +6,8 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
- * How a task's last push stopped waiting at the gate: rejected, approved or found landed.
+ * Where a task's last push stands at the gate: waiting since it was taken, or how it stopped
+ * waiting (rejected, approved or found landed).
  *
  * @param name The push's name at the gate.
  * @param commit The full commit that waited.
@@ -15,7 +16,10 @@ import org.jspecify.annotations.Nullable;
  *     ends.
  * @param mergedCommit The commit an approval forwarded or a landing found, or null for a reject.
  * @param branch The upstream branch that commit went onto, or null with mergedCommit.
- * @param at When the end was recorded, in whole seconds.
+ * @param at When the end was recorded, or for a waiting push when it was taken, in whole seconds.
+ * @param waitingSince When the push was taken at the gate, in whole seconds: the same as {@code at}
+ *     while it waits, carried along by its end; null for an end of a push taken before waiting
+ *     times were kept.
  */
 public record PushEnd(
         String name,
@@ -24,12 +28,15 @@ public record PushEnd(
         int openThreads,
         @Nullable String mergedCommit,
         @Nullable String branch,
-        Instant at) {
+        Instant at,
+        @Nullable Instant waitingSince) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
 
     /** How a push stopped waiting. */
     public enum End {
+        /** It waits; nothing decided it yet. */
+        WAITING,
         /** A person rejected it; the task was told, with the open threads counted. */
         REJECTED,
         /** A person approved it, and the gate forwarded it. */
@@ -39,8 +46,31 @@ public record PushEnd(
     }
 
     /**
+     * Constructor for an end without a waiting time.
+     *
+     * @param name The push's name at the gate.
+     * @param commit The full commit that waited.
+     * @param end How it ended.
+     * @param openThreads The open threads a reject carried.
+     * @param mergedCommit The commit that went, or null.
+     * @param branch The branch it went onto, or null.
+     * @param at When the end was recorded.
+     */
+    public PushEnd(
+            final String name,
+            final String commit,
+            final End end,
+            final int openThreads,
+            final @Nullable String mergedCommit,
+            final @Nullable String branch,
+            final Instant at) {
+        this(name, commit, end, openThreads, mergedCommit, branch, at, null);
+    }
+
+    /**
      * Refuses a blank name, a commit not written in full, a count below zero, a merged commit on a
-     * reject or missing on the others, and cuts the time to whole seconds.
+     * reject or a waiting push or missing on the others, a waiting push whose waiting time is not
+     * its own, and cuts the times to whole seconds.
      */
     public PushEnd {
         Objects.requireNonNull(name, "name");
@@ -56,7 +86,8 @@ public record PushEnd(
         if (openThreads < 0 || (end != End.REJECTED && openThreads != 0)) {
             throw new IllegalArgumentException("only a reject carries open threads");
         }
-        if ((end == End.REJECTED) != (mergedCommit == null)) {
+        final boolean went = end == End.APPROVED || end == End.LANDED;
+        if (went == (mergedCommit == null)) {
             throw new IllegalArgumentException("a merged commit belongs to an approval or landing");
         }
         if (mergedCommit != null && !mergedCommit.matches(COMMIT)) {
@@ -66,6 +97,34 @@ public record PushEnd(
             throw new IllegalArgumentException("a branch goes with a merged commit");
         }
         at = at.truncatedTo(ChronoUnit.SECONDS);
+        if (waitingSince != null) {
+            waitingSince = waitingSince.truncatedTo(ChronoUnit.SECONDS);
+        }
+        if (end == End.WAITING && !at.equals(waitingSince)) {
+            throw new IllegalArgumentException("a waiting push waits since it was taken");
+        }
+    }
+
+    /**
+     * Returns a push that waits, taken at the gate.
+     *
+     * @param name The push's name.
+     * @param commit The commit taken.
+     * @param at When it was taken.
+     * @return The entry.
+     */
+    public static PushEnd waiting(final String name, final String commit, final Instant at) {
+        return new PushEnd(name, commit, End.WAITING, 0, null, null, at, at);
+    }
+
+    /**
+     * Returns this end with the time its push was taken at the gate.
+     *
+     * @param since When it was taken, or null when that is not known.
+     * @return A copy.
+     */
+    public PushEnd waitedSince(final @Nullable Instant since) {
+        return new PushEnd(name, commit, end, openThreads, mergedCommit, branch, at, since);
     }
 
     /**

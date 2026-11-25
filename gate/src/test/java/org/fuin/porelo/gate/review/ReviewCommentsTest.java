@@ -9,6 +9,9 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -597,6 +600,42 @@ class ReviewCommentsTest {
     }
 
     // A container directory as the store makes it, so only the link is left to refuse.
+    @Test
+    void eachItemKeepsTheTimeItWasWrittenInWholeSecondsAndAnItemWithoutOneReadsAsUntimed()
+            throws Exception {
+        final Path root = dir.resolve("review");
+        final Instant written = Instant.parse("2026-11-25T10:15:30.750Z");
+        final ReviewComments store = new ReviewComments(root, Clock.fixed(written, ZoneOffset.UTC));
+        final Push push = push(CONTAINER, FIRST_HEAD);
+        final Kept kept = store.keep(push, comment("when"), OWNER, null);
+        final Path journal = journal(root, CONTAINER);
+
+        assertThat(kept.at())
+                .as("the time the item was kept, cut to whole seconds")
+                .isEqualTo(Instant.parse("2026-11-25T10:15:30Z"));
+        assertThat(Files.readString(journal))
+                .as("the journal holds the time in UTC, RFC 3339, whole seconds")
+                .contains("\"at\":\"2026-11-25T10:15:30Z\"");
+        assertThat(new ReviewComments(root).threads(push).getFirst().items())
+                .as("another instance reads the time back")
+                .containsExactly(kept);
+
+        // An item written before items carried a time.
+        Files.writeString(
+                journal, Files.readString(journal).replace(",\"at\":\"2026-11-25T10:15:30Z\"", ""));
+        assertThat(new ReviewComments(root).threads(push).getFirst().items().getFirst().at())
+                .as("an item written without a time reads as untimed, never as now")
+                .isNull();
+
+        Files.writeString(
+                journal,
+                Files.readString(journal).replace("\"item\":{", "\"at\":\"yesterday\",\"item\":{"));
+        assertThatThrownBy(() -> new ReviewComments(root).threads(push))
+                .as("a time that is none refuses the journal")
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageContaining("journal");
+    }
+
     private static Path ownerOnly(final Path directory) throws IOException {
         Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
         return directory;

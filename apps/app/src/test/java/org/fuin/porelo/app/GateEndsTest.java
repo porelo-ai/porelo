@@ -149,16 +149,38 @@ class GateEndsTest {
     }
 
     @Test
-    void theNextPushThatWaitsClearsTheEndAndIsStillTold() throws Exception {
+    void theNextPushThatWaitsReplacesTheEndWithWhenItWasTakenAndIsStillTold() throws Exception {
         assertThat(run("reject").code()).as("rejected").isZero();
         assertThat(ends().read(RECORDED)).as("the reject is kept").isPresent();
         final String next = push("the work again");
         final List<String> told = new ArrayList<>();
+        final Instant before = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
         GateServeCommand.waits(context, "default", "writer", told::add).taken(next);
 
-        assertThat(ends().read(RECORDED)).as("the next push waits; no end stands").isEmpty();
+        final PushEnd waits = ends().read(RECORDED).orElseThrow();
+        assertThat(waits.end())
+                .as("the next push waits; no end stands")
+                .isEqualTo(PushEnd.End.WAITING);
+        assertThat(waits.commit()).as("the commit taken").isEqualTo(next);
+        assertThat(waits.name()).as("the push's name").isEqualTo("writer");
+        assertThat(waits.waitingSince())
+                .as("when it was taken")
+                .isNotNull()
+                .isBetween(before, Instant.now());
         assertThat(told).as("the push is still told on").containsExactly(next);
+    }
+
+    @Test
+    void anEndOfTheWaitingCommitCarriesWhenItWasTaken() throws Exception {
+        GateServeCommand.waits(context, "default", "writer", commit -> {}).taken(waiting);
+        final Instant taken = ends().read(RECORDED).orElseThrow().waitingSince();
+
+        assertThat(run("reject").code()).as("rejected").isZero();
+
+        final PushEnd end = ends().read(RECORDED).orElseThrow();
+        assertThat(end.end()).as("rejected").isEqualTo(PushEnd.End.REJECTED);
+        assertThat(end.waitingSince()).as("the waiting time carried along").isEqualTo(taken);
     }
 
     @Test
@@ -170,10 +192,12 @@ class GateEndsTest {
         final String next = push("the later task's work");
         GateServeCommand.waits(context, "default", "writer", commit -> {}).taken(next);
 
-        assertThat(ends().read(LATER)).as("the later container finds none").isEmpty();
-        assertThat(ends().read(RECORDED))
-                .as("the later task's push clears nothing of the earlier task's container")
-                .isPresent();
+        assertThat(ends().read(LATER).orElseThrow().end())
+                .as("the later container finds only its own push waiting")
+                .isEqualTo(PushEnd.End.WAITING);
+        assertThat(ends().read(RECORDED).orElseThrow().end())
+                .as("the later task's push changes nothing of the earlier task's container")
+                .isEqualTo(PushEnd.End.REJECTED);
     }
 
     private PushEnds ends() {

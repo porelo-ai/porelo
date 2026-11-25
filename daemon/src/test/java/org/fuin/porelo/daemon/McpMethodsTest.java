@@ -149,10 +149,17 @@ class McpMethodsTest {
         // account, in any push's review, resolve its own threads, or read what is still open in
         // whoever decides it.
         final List<String> methods =
-                List.of("Comment", "Reply", "Comments", "ResolveThread", "ReviewSummary");
-        assertThat(McpMethods.NEVER).containsAll(methods);
+                List.of(
+                        "Comment",
+                        "Reply",
+                        "Comments",
+                        "ResolveThread",
+                        "ReviewSummary",
+                        "ReviewOpen");
+        assertThat(McpMethods.NEVER).as("never offered").containsAll(methods);
         assertThat(McpTaskSockets.refusals(methods))
-                .hasSize(5)
+                .as("a task's section naming one is refused")
+                .hasSize(6)
                 .allSatisfy(refusal -> assertThat(refusal).contains("is never offered to MCP"));
     }
 
