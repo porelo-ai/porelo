@@ -1,0 +1,61 @@
+# Version 1 of what a forge adapter answers Porelo about one pull request's review: its facts, the open pull request
+# from a branch, its whole conversation one page at a time, and one released result written. Nothing of a forge's own
+# format crosses: a conversation and a submission are review profile 2 documents. No method reaches a verdict; the
+# adapter reads what the forge says and writes what Porelo released, and decides nothing.
+# The token comes with each call over the owner-only socket, lent for that call alone; an adapter keeps no secret of
+# its own, never logs the token and never puts it in an error. One adapter executable serves this interface and
+# org.fuin.porelo.Build2 on one socket; one that reads no review answers neither this interface nor its Describe.
+# api is the forge's REST base URL, "" for the forge's public one, as Build2's Target says.
+interface org.fuin.porelo.Review1
+
+# Which forge, and which version of this contract the adapter speaks; Porelo refuses any version but 1.
+method Describe() -> (protocolVersion: int, forge: string)
+
+# A pull request's facts, by its https address. head is the commit reviewed, for a merged one the head that merged;
+# base the base branch's commit and mergeBase the merge base of the two, each a full commit id. mergeCommit and
+# mergedHead (the branch the merge commit went onto) are given exactly when merged. approved is the forge's
+# observed verdict at head, read only, never one this adapter reaches. repository is the https address of the
+# repository the head is read from.
+method PullRequest(api: string, token: string, url: string)
+    -> (repository: string, head: string, base: string, mergeBase: string, state: (open, merged, closed),
+        approved: bool, mergeCommit: ?string, mergedHead: ?string)
+
+# The open pull request from a branch of the repository upstream names, as the project file names it; absent when
+# none is open. Read only: it opens none.
+method PullRequestOf(api: string, token: string, upstream: string, branch: string) -> (url: ?string)
+
+# One page of a pull request's whole conversation: document is one profile 2 document of porelo/documentKind page,
+# which states its own completeness, at most 100 results and 1 MiB. cursor is absent for the first page; the answer's
+# cursor is absent after the last one.
+method Comments(api: string, token: string, url: string, cursor: ?string)
+    -> (document: string, cursor: ?string)
+
+# Writes one released result: document is one profile 2 submission of exactly one result. thread is the thread
+# answered, or the id of the new thread's root. A thread id is the forge's native id as a decimal string; for GitHub
+# its root comment's REST id.
+method Post(api: string, token: string, url: string, document: string) -> (thread: string)
+
+# The forge limits how often it is asked; retryAfter is in seconds, 0 when it did not say.
+error RateLimited(retryAfter: int)
+
+# The forge refused the token: expired, revoked, wrong, or without the scope it needs.
+error CredentialRefused()
+
+# The forge knows no pull request at that address, or the token may not see it.
+error NoSuchPullRequest()
+
+# A submission answers a thread the pull request does not hold.
+error NoSuchThread()
+
+# The forge did not answer, or answered something that is not an answer.
+error Unreachable()
+
+# A Post was sent and no answer says whether it was written; Porelo never sends it again.
+error WriteOutcomeUnknown()
+
+# What the forge holds or was asked to write is something profile 2 cannot carry, such as a general or a file
+# comment; field names the first point of it.
+error NotInProfile(field: string)
+
+# The adapter itself failed; message says why, never the token.
+error Failed(message: string)

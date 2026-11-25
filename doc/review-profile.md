@@ -3,8 +3,10 @@
 Every review document Porelo hands out is SARIF 2.1.0 in one closed profile, version 1: what a task
 receives with a reject, and what the command line, the interface and the IDE plugin read through
 `Comments`. The daemon alone writes it, from the comments and replies it keeps; every reader holds to
-this page and to the schema bundled with porelo's gate, `review-profile-1.schema.json`. A field not
-listed here is not in the profile, and a document holding one fails the schema.
+this page and to the schema `review-profile-1.schema.json`, published in `porelo-build-api` under
+`org/fuin/porelo/build/api/review/`. A field not listed here is not in the profile, and a document
+holding one fails the schema. [Profile 2](#profile-2-a-forges-conversation-and-a-submission) extends
+it for a forge's conversation and a producer's submission.
 
 ## The document
 
@@ -66,6 +68,89 @@ No other word names the daemon socket's producer.
 
 ## Later fields
 
-File and general anchors, findings (`kind: "fail"`), Markdown, source levels, risk classes, forge
-accounts and relocation are added by the change that first writes them, each as a new
-`porelo/profileVersion` agreed with the readers; none is admitted ahead of it.
+File and general anchors, findings (`kind: "fail"`), Markdown, source levels, risk classes and
+relocation are added by the change that first writes them, each as a new `porelo/profileVersion`
+agreed with the readers; none is admitted ahead of it. Forge accounts are in profile 2.
+
+## Profile 2: a forge's conversation and a submission
+
+Profile 2 is profile 1 with exactly what a forge's conversation and a submission need, so the forge
+adapter, the reviewer task and Porelo exchange one format. Its schema is
+`review-profile-2.schema.json`, beside profile 1's in `porelo-build-api`; the tests jar of
+`porelo-build-api` (`<type>test-jar</type>`) carries one passing fixture each for a forge page, a
+submitted comment and a submitted reply, under `org/fuin/porelo/build/api/review/fixtures/`, and the
+failing ones under `fixtures/failing/`. Porelo itself still writes profile 1 only.
+
+Everything profile 1 says holds, but for these points:
+
+- **Root:** `properties` holds `porelo/profileVersion: "2"` and `porelo/documentKind`, which is `page`
+  for a document a reader receives and `submission` for one a producer sends.
+- **A pull request run.** A run names either a push, as in profile 1, or a pull request: then
+  `porelo/pullRequest` is the pull request's `https` URL in place of `porelo/push`, and
+  `versionControlProvenance[0].repositoryUri` is the forge's `https` repository URL in place of the
+  `urn:porelo:repository` URI. Such a URL holds no user, query or fragment. A pull request run
+  carries no `porelo/project` or `porelo/repository`, and the schema refuses them: a forge's owner
+  is no Porelo project, and the pull request's address and `repositoryUri` name the repository. A
+  run naming `porelo/push` requires both, as in profile 1.
+- **Producers by run.** A pull request run's page holds only `forge-account` results: what Porelo,
+  its owner or a task says on a pull request reaches the forge through an account there. A push
+  run holds no `forge-account` result.
+- **A forge page's `guid`** is the adapter's stable UUIDv4 for each comment, the same on every page
+  it writes; Porelo takes it as the item's id at its place.
+- **Thread ids.** `porelo/threadId` and `porelo/replyTo` stay opaque strings of at most 64
+  characters. In a pull request's document they are the forge's native ids; for GitHub, a thread is
+  its root comment's REST id as a decimal string. A reply from outside Porelo is a `porelo/replyTo`
+  naming such an id, with no further field.
+- **Text** stays plain text as profile 1 says: an adapter puts a forge's text into `message.text`
+  escaped as written there, and `message.markdown` fails the schema.
+- **Patterns** end in `(?![\s\S])` rather than `$`, since a `$` in some regular expression engines
+  also matches before a final line feed and would let a value ending in one through.
+
+### A forge account as producer
+
+| `porelo/sourceKind` | Channel | Shown as |
+|---|---|---|
+| `forge-account` | a forge's conversation, through its adapter | the forge account's name |
+
+`porelo/forgeAccountId` (the forge's id of the account, at most 64 characters; for GitHub its
+numeric id as a decimal string) and `porelo/forgeAccountName` (its login, at most 256 characters)
+are required with `forge-account` and refused with any other source; `porelo/taskId` stays with
+`task` alone.
+
+### A submission
+
+A submission is what a producer sends: one or more results, each a new comment or a reply, without
+the fields only Porelo assigns, since the producer is the channel's to stamp.
+
+- A submission is always a pull request run: it names `porelo/pullRequest` and the forge's
+  repository URL, and no `porelo/push`, `porelo/project`, `porelo/repository` or
+  `urn:porelo:repository` URI.
+- A result carries no `guid`, `porelo/threadState`, `porelo/sourceKind`, `porelo/taskId`,
+  `porelo/forgeAccountId` or `porelo/forgeAccountName`, and no `porelo/threadId`: a new comment
+  opens a thread, and a reply names its thread in `porelo/replyTo` alone. A submitted reply's
+  location is its thread's as the producer read it; it is not used to route the reply, which
+  `porelo/replyTo` alone does.
+- The run carries no `porelo/completeness`, which belongs to a page.
+- A submission naming any of these fails the schema.
+
+### Bounds
+
+A reader of a profile 2 document holds it to these bounds, agreed with the receivers, and refuses a
+document past any of them before reading further. The schema states those a JSON Schema keyword can
+express; the others are the reader's alone.
+
+| Bound | In the schema |
+|---|---|
+| a document at most 1 MiB of UTF-8 | no |
+| a result at most 32 KiB of UTF-8 | no |
+| at most 100 results | `maxItems` |
+| JSON nesting at most 24 levels | no |
+| at most 100000 JSON tokens | no |
+| a string at most 16384 characters | `maxLength` on every string |
+| a property name at most 128 characters | `propertyNames` on each property bag; every object is closed besides |
+| a number at most 20 characters as written | no |
+| a region at most 100 lines | no |
+| a replacement (`insertedContent`) at most its anchored lines plus 10 lines | no |
+| a replacement's line at most 400 characters | no |
+| a replacement at most 8 KiB in all, braces as written | `maxLength` 8192 as a necessary bound; the bytes are the reader's |
+| `message.text` at most 8192 bytes of UTF-8 per result as given, before SARIF's escaping, as in profile 1 | `maxLength` 16384 on the written form, since each escape doubles one character; the bytes as given are the reader's |

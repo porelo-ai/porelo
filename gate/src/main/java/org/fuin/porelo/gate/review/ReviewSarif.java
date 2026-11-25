@@ -137,6 +137,9 @@ public final class ReviewSarif implements ReviewWriter {
                 result.put("locations", List.of(Map.of("physicalLocation", location(anchor))));
                 properties.put("porelo/replyTo", thread.id());
             }
+            case ForgeReply reply ->
+                    throw new IllegalArgumentException(
+                            "a forge reply is not in profile 1, which writes a push's threads");
         }
         properties.put(
                 "porelo/threadState", thread.state() == ThreadState.OPEN ? "open" : "resolved");
@@ -146,6 +149,9 @@ public final class ReviewSarif implements ReviewWriter {
                 properties.put("porelo/sourceKind", "task");
                 properties.put("porelo/taskId", task.id());
             }
+            case ForgeAccount _ ->
+                    throw new IllegalArgumentException(
+                            "a forge account is not in profile 1, which writes a push's threads");
         }
         result.put("properties", properties);
         return result;

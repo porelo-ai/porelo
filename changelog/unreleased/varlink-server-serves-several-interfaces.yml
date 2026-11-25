@@ -1,0 +1,2 @@
+title: "`porelo-wire`'s `VarlinkServer` serves further interfaces on one socket: `serving` adds one, which `GetInfo` lists and `GetInterfaceDescription` answers, and `method` registers under it, so one adapter executable can answer two contracts"
+type: added

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://porelo-ai.github.io/schema/review-profile-2.json",
+  "title": "Porelo review profile 2: profile 1 with a forge's conversation and a producer's submission",
+  "$comment": "Each pattern ends in (?![\\s\\S]), not $: some engines let $ match before a final line feed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "$schema", "runs", "properties"],
+  "propertyNames": { "maxLength": 128 },
+  "properties": {
+    "version": { "const": "2.1.0" },
+    "$schema": { "const": "https://json.schemastore.org/sarif-2.1.0.json" },
+    "properties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["porelo/profileVersion", "porelo/documentKind"],
+      "propertyNames": { "maxLength": 128 },
+      "properties": {
+        "porelo/profileVersion": { "const": "2" },
+        "porelo/documentKind": { "enum": ["page", "submission"] }
+      }
+    },
+    "runs": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/run" } }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "properties": { "properties": { "porelo/documentKind": { "const": "submission" } } } }
+      },
+      "then": { "properties": { "runs": { "items": { "$ref": "#/$defs/submissionRun" } } } },
+      "else": { "properties": { "runs": { "items": { "$ref": "#/$defs/pageRun" } } } }
+    }
+  ],
+  "$defs": {
+    "commit": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])" },
+    "uuid4": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])"
+    },
+    "httpsUrl": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384,
+      "pattern": "^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*)?(?![\\s\\S])"
+    },
+    "poreloRepository": {
+      "type": "string",
+      "maxLength": 16384,
+      "pattern": "^urn:porelo:repository:[A-Za-z0-9._~%-]+:[A-Za-z0-9._~%-]+(?![\\s\\S])"
+    },
+    "uri": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 12288,
+      "pattern": "^([A-Za-z0-9._~-]|%[0-9A-F]{2})+(/([A-Za-z0-9._~-]|%[0-9A-F]{2})+)*(?![\\s\\S])",
+      "not": { "pattern": "(^|/)\\.{1,2}(/|$)" }
+    },
+    "line": { "type": "integer", "minimum": 1 },
+    "region": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["startLine", "endLine"],
+      "properties": { "startLine": { "$ref": "#/$defs/line" }, "endLine": { "$ref": "#/$defs/line" } }
+    },
+    "artifactLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri"],
+      "properties": { "uri": { "$ref": "#/$defs/uri" } }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool", "versionControlProvenance", "columnKind", "results", "properties"],
+      "properties": {
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["driver"],
+          "properties": {
+            "driver": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name"],
+              "properties": { "name": { "const": "Porelo" } }
+            }
+          }
+        },
+        "versionControlProvenance": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["repositoryUri", "revisionId"],
+            "properties": {
+              "repositoryUri": { "type": "string" },
+              "revisionId": { "$ref": "#/$defs/commit" }
+            }
+          }
+        },
+        "columnKind": { "const": "unicodeCodePoints" },
+        "results": { "type": "array", "maxItems": 100, "items": { "$ref": "#/$defs/result" } },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "propertyNames": { "maxLength": 128 },
+          "properties": {
+            "porelo/project": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "porelo/repository": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "porelo/push": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "porelo/pullRequest": { "$ref": "#/$defs/httpsUrl" },
+            "porelo/baseRevisionId": { "$ref": "#/$defs/commit" },
+            "porelo/completeness": { "enum": ["complete", "partial", "failed", "unknown"] }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "properties": { "required": ["porelo/pullRequest"] } } },
+          "then": {
+            "properties": {
+              "properties": {
+                "not": {
+                  "anyOf": [
+                    { "required": ["porelo/push"] },
+                    { "required": ["porelo/project"] },
+                    { "required": ["porelo/repository"] }
+                  ]
+                }
+              },
+              "versionControlProvenance": {
+                "items": { "properties": { "repositoryUri": { "$ref": "#/$defs/httpsUrl" } } }
+              },
+              "results": {
+                "items": {
+                  "properties": {
+                    "properties": { "properties": { "porelo/sourceKind": { "const": "forge-account" } } }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "properties": { "required": ["porelo/project", "porelo/repository", "porelo/push"] },
+              "versionControlProvenance": {
+                "items": { "properties": { "repositoryUri": { "$ref": "#/$defs/poreloRepository" } } }
+              },
+              "results": {
+                "items": {
+                  "properties": {
+                    "properties": {
+                      "properties": { "porelo/sourceKind": { "not": { "const": "forge-account" } } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "pageRun": {
+      "properties": {
+        "properties": { "required": ["porelo/completeness"] },
+        "results": { "items": { "$ref": "#/$defs/pageResult" } }
+      }
+    },
+    "submissionRun": {
+      "properties": {
+        "properties": { "required": ["porelo/pullRequest"], "not": { "required": ["porelo/completeness"] } },
+        "results": { "minItems": 1, "items": { "$ref": "#/$defs/submissionResult" } }
+      }
+    },
+    "pageResult": {
+      "required": ["guid"],
+      "properties": {
+        "properties": { "required": ["porelo/threadId", "porelo/threadState", "porelo/sourceKind"] }
+      }
+    },
+    "submissionResult": {
+      "not": { "required": ["guid"] },
+      "properties": {
+        "properties": {
+          "not": {
+            "anyOf": [
+              { "required": ["porelo/threadId"] },
+              { "required": ["porelo/threadState"] },
+              { "required": ["porelo/sourceKind"] },
+              { "required": ["porelo/taskId"] },
+              { "required": ["porelo/forgeAccountId"] },
+              { "required": ["porelo/forgeAccountName"] }
+            ]
+          }
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "level", "message", "locations", "properties"],
+      "properties": {
+        "guid": { "$ref": "#/$defs/uuid4" },
+        "kind": { "const": "review" },
+        "level": { "const": "none" },
+        "message": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["text"],
+          "properties": { "text": { "type": "string", "minLength": 1, "maxLength": 16384, "pattern": "\\S" } }
+        },
+        "locations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["physicalLocation"],
+            "properties": {
+              "physicalLocation": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["artifactLocation", "region"],
+                "properties": {
+                  "artifactLocation": { "$ref": "#/$defs/artifactLocation" },
+                  "region": { "$ref": "#/$defs/region" }
+                }
+              }
+            }
+          }
+        },
+        "fixes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["artifactChanges"],
+            "properties": {
+              "artifactChanges": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["artifactLocation", "replacements"],
+                  "properties": {
+                    "artifactLocation": { "$ref": "#/$defs/artifactLocation" },
+                    "replacements": {
+                      "type": "array",
+                      "minItems": 1,
+                      "maxItems": 1,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["deletedRegion", "insertedContent"],
+                        "properties": {
+                          "deletedRegion": { "$ref": "#/$defs/region" },
+                          "insertedContent": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["text"],
+                            "properties": { "text": { "type": "string", "maxLength": 8192 } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["porelo/anchorKind", "porelo/diffSide"],
+          "propertyNames": { "maxLength": 128 },
+          "properties": {
+            "porelo/anchorKind": { "const": "line" },
+            "porelo/diffSide": { "enum": ["old", "new"] },
+            "porelo/threadId": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "porelo/replyTo": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "porelo/threadState": { "enum": ["open", "resolved"] },
+            "porelo/sourceKind": { "enum": ["owner-account", "task", "forge-account"] },
+            "porelo/taskId": {
+              "type": "string",
+              "maxLength": 16384,
+              "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(?![\\s\\S])"
+            },
+            "porelo/forgeAccountId": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "porelo/forgeAccountName": { "type": "string", "minLength": 1, "maxLength": 256 }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": ["porelo/sourceKind"],
+                "properties": { "porelo/sourceKind": { "const": "task" } }
+              },
+              "then": { "required": ["porelo/taskId"] },
+              "else": { "not": { "required": ["porelo/taskId"] } }
+            },
+            {
+              "if": {
+                "required": ["porelo/sourceKind"],
+                "properties": { "porelo/sourceKind": { "const": "forge-account" } }
+              },
+              "then": { "required": ["porelo/forgeAccountId", "porelo/forgeAccountName"] },
+              "else": {
+                "not": {
+                  "anyOf": [{ "required": ["porelo/forgeAccountId"] }, { "required": ["porelo/forgeAccountName"] }]
+                }
+              }
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["fixes"] },
+          "then": {
+            "properties": {
+              "properties": {
+                "properties": { "porelo/diffSide": { "const": "new" } },
+                "not": { "required": ["porelo/replyTo"] }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

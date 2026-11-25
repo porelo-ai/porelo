@@ -159,6 +159,12 @@ final class McpMethods {
                     "ReviewSummary",
                     // What is open at a place, read for the person's planner.
                     "ReviewOpen",
+                    // Held review items are the owner account's to decide, and how a forge's
+                    // comments reach a run is its choice.
+                    "HeldItems",
+                    "DecideItem",
+                    "Forges",
+                    "ForgeSet",
                     // What any task reported back, for whoever started it: never another agent's
                     // prompt.
                     "Reports");

@@ -129,6 +129,7 @@ public final class ReviewAnchors implements CommentCheck {
         return switch (item) {
             case ReviewComment comment -> anchor(push, comment.anchor());
             case ReviewReply reply -> Optional.empty();
+            case ForgeReply reply -> Optional.empty();
         };
     }
 

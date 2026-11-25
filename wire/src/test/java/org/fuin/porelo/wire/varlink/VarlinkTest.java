@@ -594,6 +594,352 @@ class VarlinkTest {
         }
     }
 
+    private static final String SECOND = "org.fuin.porelo.Review1";
+
+    private static final String SECOND_IDL =
+            "interface org.fuin.porelo.Review1\nmethod Read() -> ()\n";
+
+    @Test
+    void getInfoNamesEveryInterfaceTheServerServes(@TempDir Path dir) throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.describedBy("interface " + INTERFACE + "\n").serving(SECOND, SECOND_IDL);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                final Map<String, Object> info =
+                        client.call("org.varlink.service.GetInfo", Map.of());
+
+                assertThat(new ArrayList<Object>((List<?>) info.get("interfaces")))
+                        .as("the service interface, the first and the further one, in that order")
+                        .containsExactly("org.varlink.service", INTERFACE, SECOND);
+            }
+        }
+    }
+
+    @Test
+    void getInterfaceDescriptionAnswersEachServedInterfaceWithItsOwnIdl(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            final String first = "interface " + INTERFACE + "\n";
+            server.describedBy(first).serving(SECOND, SECOND_IDL);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                assertThat(
+                                client.call(
+                                        "org.varlink.service.GetInterfaceDescription",
+                                        Map.of("interface", SECOND)))
+                        .as("the further interface's description")
+                        .containsEntry("description", SECOND_IDL);
+                assertThat(
+                                client.call(
+                                        "org.varlink.service.GetInterfaceDescription",
+                                        Map.of("interface", INTERFACE)))
+                        .as("the first interface's description")
+                        .containsEntry("description", first);
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                "org.varlink.service.GetInterfaceDescription",
+                                                Map.of("interface", "org.example.Other1")))
+                        .as("an interface the server does not serve")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .as("the error's name")
+                                                .isEqualTo(
+                                                        "org.varlink.service.InterfaceNotFound"));
+            }
+        }
+    }
+
+    @Test
+    void aMethodOfAFurtherInterfaceIsReachedByItsOwnFullName(@TempDir Path dir) throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, SECOND_IDL)
+                    .method(
+                            SECOND,
+                            "Ping",
+                            (parameters, replies) -> replies.last(Map.of("from", "second")))
+                    .method("Ping", (parameters, replies) -> replies.last(Map.of("from", "first")));
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                assertThat(client.call(SECOND + ".Ping", Map.of()))
+                        .as("the further interface's method")
+                        .containsEntry("from", "second");
+                assertThat(client.call(INTERFACE + ".Ping", Map.of()))
+                        .as("the first interface's method of the same name")
+                        .containsEntry("from", "first");
+                assertThatThrownBy(() -> client.call(SECOND + ".Nope", Map.of()))
+                        .as("an unknown method of the further interface")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .as("the error's name")
+                                                .isEqualTo("org.varlink.service.MethodNotFound"));
+            }
+        }
+    }
+
+    @Test
+    void aFailingMethodOfAFurtherInterfaceAnswersThatInterfacesFailed(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, SECOND_IDL)
+                    .method(
+                            SECOND,
+                            "Boom",
+                            (parameters, replies) -> {
+                                throw new IllegalStateException("deliberate");
+                            });
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+
+                assertThatThrownBy(() -> client.call(SECOND + ".Boom", Map.of()))
+                        .as("a failure in a method of the further interface")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .as("named by the interface the method is in")
+                                                .isEqualTo(SECOND + ".Failed"));
+            }
+        }
+    }
+
+    @Test
+    void aMethodCannotBeRegisteredUnderAnInterfaceTheServerDoesNotServe(@TempDir Path dir) {
+
+        try (VarlinkServer server = server(dir)) {
+            assertThatThrownBy(
+                            () ->
+                                    server.method(
+                                            SECOND,
+                                            "Ping",
+                                            (parameters, replies) -> replies.last(Map.of())))
+                    .as("a method under an interface neither GetInfo nor a description names")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(SECOND);
+            assertThatThrownBy(
+                            () ->
+                                    server.methodEndingWithItsCaller(
+                                            SECOND,
+                                            "Slow",
+                                            (parameters, replies) -> replies.last(Map.of())))
+                    .as("a method ending with its caller under an interface not served")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(SECOND);
+            assertThatThrownBy(
+                            () ->
+                                    server.method(
+                                            "org.varlink.service",
+                                            "GetInfo",
+                                            (parameters, replies) -> replies.last(Map.of())))
+                    .as("a method under the service interface, which the server answers itself")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("org.varlink.service");
+        }
+    }
+
+    @Test
+    void servingRefusesTheFirstInterfacesNameAndTheServiceInterface(@TempDir Path dir) {
+
+        try (VarlinkServer server = server(dir)) {
+            assertThatThrownBy(() -> server.serving(INTERFACE, "interface " + INTERFACE + "\n"))
+                    .as("the first interface given again as a further one")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(INTERFACE);
+            assertThatThrownBy(
+                            () ->
+                                    server.serving(
+                                            "org.varlink.service",
+                                            "interface org.varlink.service\n"))
+                    .as("the service interface given as a further one")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("org.varlink.service");
+        }
+    }
+
+    @Test
+    void servingRefusesADescriptionOfAnotherInterface(@TempDir Path dir) {
+
+        try (VarlinkServer server = server(dir)) {
+            assertThatThrownBy(
+                            () ->
+                                    server.serving(
+                                            SECOND,
+                                            "# Reviews.\ninterface org.fuin.porelo.Build2\n"))
+                    .as("an IDL whose interface line names another interface")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(SECOND)
+                    .hasMessageContaining("org.fuin.porelo.Build2");
+            assertThatThrownBy(() -> server.serving(SECOND, "method Read() -> ()\n"))
+                    .as("an IDL without an interface line")
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining(SECOND);
+        }
+    }
+
+    @Test
+    void servingTheSameFurtherInterfaceAgainReplacesItsDescription(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            final String newer = "# Newer.\n" + SECOND_IDL;
+            server.serving(SECOND, SECOND_IDL).serving(SECOND, newer);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(
+                                client.call(
+                                        "org.varlink.service.GetInterfaceDescription",
+                                        Map.of("interface", SECOND)))
+                        .as("the description given last")
+                        .containsEntry("description", newer);
+                assertThat(
+                                new ArrayList<Object>(
+                                        (List<?>)
+                                                client.call("org.varlink.service.GetInfo", Map.of())
+                                                        .get("interfaces")))
+                        .as("the interface listed once")
+                        .containsExactly("org.varlink.service", INTERFACE, SECOND);
+            }
+        }
+    }
+
+    @Test
+    void getInfoListsSeveralFurtherInterfacesInTheOrderGiven(@TempDir Path dir) throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            final String third = "org.fuin.porelo.Zeta1";
+            final String fourth = "org.fuin.porelo.Alpha1";
+            server.serving(third, "interface " + third + "\n")
+                    .serving(fourth, "interface " + fourth + "\n");
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(
+                                new ArrayList<Object>(
+                                        (List<?>)
+                                                client.call("org.varlink.service.GetInfo", Map.of())
+                                                        .get("interfaces")))
+                        .as("further interfaces in the order given, not sorted")
+                        .containsExactly("org.varlink.service", INTERFACE, third, fourth);
+            }
+        }
+    }
+
+    @Test
+    void getInterfaceDescriptionAnswersAFurtherInterfaceWhenTheFirstHasNone(@TempDir Path dir)
+            throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, SECOND_IDL);
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(
+                                client.call(
+                                        "org.varlink.service.GetInterfaceDescription",
+                                        Map.of("interface", SECOND)))
+                        .as("the further interface's description")
+                        .containsEntry("description", SECOND_IDL);
+                assertThatThrownBy(
+                                () ->
+                                        client.call(
+                                                "org.varlink.service.GetInterfaceDescription",
+                                                Map.of("interface", INTERFACE)))
+                        .as("the first interface, which has no description")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .as("the error's name")
+                                                .isEqualTo(
+                                                        "org.varlink.service.InterfaceNotFound"));
+            }
+        }
+    }
+
+    @Test
+    void aFurtherInterfacesMethodFailingWithoutAnErrorNameAnswersThatInterfacesFailed(
+            @TempDir Path dir) throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, SECOND_IDL)
+                    .method(
+                            SECOND,
+                            "Refuse",
+                            (parameters, replies) -> {
+                                throw new VarlinkException("refused deliberately");
+                            });
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThatThrownBy(() -> client.call(SECOND + ".Refuse", Map.of()))
+                        .as("a VarlinkException without an error name")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex -> {
+                                    assertThat(ex.getErrorName())
+                                            .as("named by the interface the method is in")
+                                            .isEqualTo(SECOND + ".Failed");
+                                    assertThat(ex.getParameters())
+                                            .as("the message")
+                                            .containsEntry("message", "refused deliberately");
+                                });
+            }
+        }
+    }
+
+    @Test
+    void aFurtherInterfacesMethodFailingWithAnErrorAnswersAndLogsThatInterface(@TempDir Path dir)
+            throws IOException {
+
+        final List<String> logged = new java.util.concurrent.CopyOnWriteArrayList<>();
+        try (VarlinkServer server = server(dir).reportingTo(logged::add)) {
+            server.serving(SECOND, SECOND_IDL)
+                    .method(
+                            SECOND,
+                            "Deep",
+                            (parameters, replies) -> {
+                                throw new StackOverflowError();
+                            });
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThatThrownBy(() -> client.call(SECOND + ".Deep", Map.of()))
+                        .as("an Error in a method of the further interface")
+                        .isInstanceOfSatisfying(
+                                VarlinkException.class,
+                                ex ->
+                                        assertThat(ex.getErrorName())
+                                                .as("named by the interface the method is in")
+                                                .isEqualTo(SECOND + ".Failed"));
+            }
+            assertThat(logged)
+                    .as("the log line names the method's own interface")
+                    .anySatisfy(
+                            line ->
+                                    assertThat(line)
+                                            .as("the line")
+                                            .startsWith(SECOND + ": ")
+                                            .contains("Deep", "StackOverflowError"));
+        }
+    }
+
+    @Test
+    void aFirstInterfacesMethodStillAnswersTheFirstInterfacesFailedBesideAFurtherOne(
+            @TempDir Path dir) throws IOException {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, SECOND_IDL)
+                    .method(
+                            "Boom",
+                            (parameters, replies) -> {
+                                throw new IllegalStateException("deliberate");
+                            });
+            try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
+                assertThat(failedMessage(client, "Boom"))
+                        .as("the first interface's Failed, with the message")
+                        .contains("deliberate");
+            }
+        }
+    }
+
     @Test
     void createsTheSocketWithOwnerOnlyPermissions(@TempDir Path dir) throws IOException {
 

@@ -154,6 +154,9 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                                                 }
                                                 yield reply.thread();
                                             }
+                                            case ForgeReply reply ->
+                                                    // A forge's thread is never one of a push's.
+                                                    throw refused(ReviewError.NO_SUCH_THREAD);
                                         };
                                 final Kept kept =
                                         new Kept(
@@ -601,6 +604,9 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         return switch (producer) {
             case OwnerAccount owner -> Map.of("channel", "owner account");
             case Task task -> Map.of("channel", "task", "task", task.id());
+            case ForgeAccount account ->
+                    throw new IllegalArgumentException(
+                            "a forge account's item is never kept at the gate");
         };
     }
 
@@ -618,6 +624,8 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                 written.put("kind", "reply");
                 written.put("body", reply.body().text());
             }
+            case ForgeReply reply ->
+                    throw new IllegalArgumentException("a forge reply is never kept at the gate");
         }
         return written;
     }

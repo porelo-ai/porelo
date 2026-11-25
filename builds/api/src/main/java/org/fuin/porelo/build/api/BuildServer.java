@@ -13,14 +13,16 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The reader's side of {@link BuildProtocol#INTERFACE}: binds the socket and answers Porelo with a
- * {@link BuildReader}.
+ * {@link BuildReader}, and on the same socket {@link ReviewProtocol#INTERFACE} when the reader is
+ * also a {@link ReviewReader}.
  */
 public class BuildServer implements AutoCloseable {
 
     private final VarlinkServer server;
 
     /**
-     * Binds the socket and registers the protocol.
+     * Binds the socket and registers the protocol, and the review contract for a reader that reads
+     * reviews.
      *
      * @param reader The reader to serve.
      * @param socket Where to create the socket.
@@ -82,6 +84,10 @@ public class BuildServer implements AutoCloseable {
                     answer.put("opened", Boolean.valueOf(opened.opened()));
                     replies.last(answer);
                 });
+
+        if (reader instanceof ReviewReader review) {
+            ReviewMethods.register(server, review, reader.forge());
+        }
     }
 
     /**

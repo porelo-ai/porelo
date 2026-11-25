@@ -513,6 +513,53 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void heldItemsForgeInstancesAndAPullRequestsReasonsAreDeclaredAsTheirClientsReadThem() {
+        // The window, the IDE plugin and the planner build against these names before the
+        // methods answer; a renamed field is a client that reads nothing.
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .as("held items are listed by task or for the whole machine, in pages")
+                .containsPattern(
+                        "method HeldItems\\(\\s*(?s:.*?)task: \\?string,(?s:.*?)cursor: \\?string"
+                                + "\\s*\\) -> \\(\\s*items: \\[\\]HeldItem,(?s:.*?)cursor: \\?string"
+                                + "\\s*\\)")
+                .containsPattern(
+                        "type HeldItem \\(\\s*(?s:.*?)id: string,(?s:.*?)task: string,(?s:.*?)place:"
+                                + " string,\\s*direction: \\(outgoing, incoming\\),(?s:.*?)destination:"
+                                + " string,(?s:.*?)operation: \\(comment, reply\\),(?s:.*?)path:"
+                                + " \\?string,(?s:.*?)side: \\?\\(old, new\\),(?s:.*?)startLine:"
+                                + " \\?int,(?s:.*?)endLine: \\?int,(?s:.*?)thread:"
+                                + " \\?string,(?s:.*?)suggestion: \\?string,(?s:.*?)commit:"
+                                + " string,(?s:.*?)text: string,(?s:.*?)digest: string,(?s:.*?)from:"
+                                + " \\?string,(?s:.*?)at: string,(?s:.*?)run: int\\s*\\)")
+                .as("a decision names the digest it was shown and answers nothing")
+                .containsPattern(
+                        "method DecideItem\\(\\s*task: string,\\s*id: string,(?s:.*?)digest:"
+                                + " string,\\s*decision: \\(release, refuse, pass, dismiss\\)\\s*\\)"
+                                + " -> \\(\\)")
+                .contains(
+                        "error NoSuchItem(id: string)",
+                        "error DigestChanged(id: string)",
+                        "error AlreadyDecided(id: string)",
+                        "error Lapsed(id: string)")
+                .as("forge instances and the adapters installed")
+                .contains(
+                        "method Forges() -> (forges: []ForgeInstance, adapters: []string)",
+                        "method ForgeSet(host: string, adapter: string, comments: ?(EXTENDED,"
+                                + " TRUSTED)) -> ()",
+                        "error AdapterNotInstalled(adapter: string)",
+                        "error ForgeFileUnreadable(reason: string)")
+                .containsPattern(
+                        "type ForgeInstance \\(\\s*(?s:.*?)host: string,(?s:.*?)adapter:"
+                                + " string,(?s:.*?)comments: \\?string,(?s:.*?)unreadable: \\?string"
+                                + "\\s*\\)")
+                .as("a pull request's reasons and its refusal")
+                .contains("error NoSuchPullRequest(url: string)")
+                .containsPattern(
+                        "RateLimited(?s:.*?)PagePartial(?s:.*?)PageRefused(?s:.*?)reason: \\?string");
+    }
+
+    @Test
     void describesEveryErrorItCanRaise(@TempDir Path dir) {
         // The names the daemon throws, gathered from its own source rather than from a list kept
         // beside it: a list would be the third place to forget.

@@ -39,6 +39,7 @@ public final class CommentFields {
         return switch (item) {
             case ReviewComment comment -> comment(comment);
             case ReviewReply reply -> body(reply.body());
+            case ForgeReply reply -> body(reply.body());
         };
     }
 
@@ -169,6 +170,17 @@ public final class CommentFields {
      * C1 controls do not; nor does any format character (bidi overrides and isolates, zero-width
      * characters, the tag characters), a line or paragraph separator, or a lone surrogate.
      */
+    /**
+     * Returns the rule a one-line text shown to a person breaks by a character, or null: the same
+     * rule as a comment's text, without line breaks.
+     *
+     * @param text The text, such as a forge account's name.
+     * @return The rule's name, or null when every character may be shown.
+     */
+    public static @Nullable String lineCharacterRule(final String text) {
+        return characterRule(text, false);
+    }
+
     private static @Nullable String characterRule(final String text, final boolean multiline) {
         for (int index = 0; index < text.length(); ) {
             final int point = text.codePointAt(index);

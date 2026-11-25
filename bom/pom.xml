@@ -34,6 +34,13 @@
                 <artifactId>porelo-build-api</artifactId>
                 <version>${porelo.version}</version>
             </dependency>
+            <!-- Its tests jar: the review profiles' fixtures a forge adapter tests against. -->
+            <dependency>
+                <groupId>org.fuin.porelo</groupId>
+                <artifactId>porelo-build-api</artifactId>
+                <version>${porelo.version}</version>
+                <type>test-jar</type>
+            </dependency>
             <dependency>
                 <groupId>org.fuin.porelo</groupId>
                 <artifactId>porelo-ecosystem-api</artifactId>

@@ -164,6 +164,18 @@ class McpMethodsTest {
     }
 
     @Test
+    void aTasksSocketIsNeverOfferedTheHeldItemsOrTheForgeInstances() {
+        // A task deciding its own held items would release its own words; choosing how a forge's
+        // comments are read would choose what it is shown.
+        final List<String> methods = List.of("HeldItems", "DecideItem", "Forges", "ForgeSet");
+        assertThat(McpMethods.NEVER).as("never offered").containsAll(methods);
+        assertThat(McpTaskSockets.refusals(methods))
+                .as("a task's section naming one is refused")
+                .hasSize(4)
+                .allSatisfy(refusal -> assertThat(refusal).contains("is never offered to MCP"));
+    }
+
+    @Test
     void whatWritesAnythingIsNotReading() {
         assertThat(McpMethods.READING)
                 .as("each writes a file, fetches, or takes a project")

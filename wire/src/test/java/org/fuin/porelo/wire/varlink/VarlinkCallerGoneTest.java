@@ -235,4 +235,70 @@ class VarlinkCallerGoneTest {
             assertThat(finished).as("it ran to its end").isTrue();
         }
     }
+
+    private static final String SECOND = "org.fuin.porelo.Review1";
+
+    private static SocketChannel callFull(final Path socket, final String fullName)
+            throws Exception {
+        final SocketChannel raw = SocketChannel.open(UnixDomainSocketAddress.of(socket));
+        raw.write(
+                ByteBuffer.wrap(
+                        ("{\"method\":\"" + fullName + "\"}\0").getBytes(StandardCharsets.UTF_8)));
+        return raw;
+    }
+
+    @Test
+    void aFurtherInterfacesMethodEndingWithItsCallerIsToldWhenItsCallerCloses(@TempDir Path dir)
+            throws Exception {
+
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, "interface " + SECOND + "\n")
+                    .method(SECOND, "Slow", (parameters, replies) -> replies.last(Map.of()))
+                    .methodEndingWithItsCaller(SECOND, "Slow", blocking());
+            try (SocketChannel raw = callFull(server.socketPath(), SECOND + ".Slow")) {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).as("the call runs").isTrue();
+            }
+            assertThat(told.await(2, TimeUnit.SECONDS))
+                    .as("the further interface's call was told its caller went")
+                    .isTrue();
+        } finally {
+            release.countDown();
+        }
+    }
+
+    @Test
+    void aFurtherInterfacesMethodRegisteredAgainPlainlyNoLongerEndsWithItsCaller(@TempDir Path dir)
+            throws Exception {
+
+        final AtomicBoolean finished = new AtomicBoolean();
+        try (VarlinkServer server = server(dir)) {
+            server.serving(SECOND, "interface " + SECOND + "\n")
+                    .methodEndingWithItsCaller(SECOND, "Slow", blocking())
+                    .method(
+                            SECOND,
+                            "Slow",
+                            (parameters, replies) -> {
+                                entered.countDown();
+                                try {
+                                    release.await();
+                                } catch (InterruptedException ex) {
+                                    told.countDown();
+                                    Thread.currentThread().interrupt();
+                                    return;
+                                }
+                                finished.set(true);
+                                replies.last(Map.of());
+                            });
+            try (SocketChannel raw = callFull(server.socketPath(), SECOND + ".Slow")) {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).as("the call runs").isTrue();
+            }
+            assertThat(told.await(500, TimeUnit.MILLISECONDS)).as("it is not told").isFalse();
+            release.countDown();
+            final long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (!finished.get() && System.nanoTime() < until) {
+                Thread.onSpinWait();
+            }
+            assertThat(finished).as("it ran to its end").isTrue();
+        }
+    }
 }

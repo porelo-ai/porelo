@@ -7,14 +7,18 @@ import static org.fuin.porelo.app.ReviewStandIns.SHOP;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.gate.review.Body;
+import org.fuin.porelo.gate.review.ForgeAccount;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewError;
+import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
 import org.fuin.porelo.gate.review.ReviewRefused;
 import org.fuin.porelo.gate.review.ReviewReply;
@@ -96,6 +100,41 @@ class CommentIntakeTest {
                                 assertThat(refusal(ex).error())
                                         .isEqualTo(ReviewError.NO_SUCH_THREAD));
         assertThat(store.kept).hasSize(before);
+    }
+
+    @Test
+    void aForgeAccountsItemNeverReachesAPushsThreads() throws Exception {
+        // A forge's words are written at their pull request; at the gate they would speak as no
+        // channel Porelo stamps there.
+        final String thread = store.opened(SHOP, Origin.of(new OwnerAccount()), COMMENT);
+        final int before = store.kept.size();
+        final ForgeAccount octocat = new ForgeAccount("github.com", "583231", "octocat");
+
+        for (final ReviewItem item : List.of(COMMENT, reply(thread))) {
+            assertThatThrownBy(() -> intake.take(octocat, SHOP, item, null))
+                    .as("a forge account's " + item.getClass().getSimpleName())
+                    .isInstanceOfSatisfying(
+                            ReviewRefused.class,
+                            ex ->
+                                    assertThat(refusal(ex).error())
+                                            .as("refused by rule")
+                                            .isEqualTo(ReviewError.NO_SUCH_THREAD));
+        }
+        assertThatThrownBy(
+                        () ->
+                                intake.take(
+                                        new OwnerAccount(),
+                                        SHOP,
+                                        new ForgeReply(thread, new Body("Agreed.")),
+                                        null))
+                .as("a forge reply, even from the owner account")
+                .isInstanceOfSatisfying(
+                        ReviewRefused.class,
+                        ex ->
+                                assertThat(refusal(ex).error())
+                                        .as("refused by rule")
+                                        .isEqualTo(ReviewError.NO_SUCH_THREAD));
+        assertThat(store.kept).as("nothing kept").hasSize(before);
     }
 
     @Test

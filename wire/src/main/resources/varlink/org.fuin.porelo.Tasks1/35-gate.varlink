@@ -621,8 +621,8 @@ type ReviewRun (
 # What is open at a place for one role, and the place's decision, read anew from the gate's records and
 # the forge's answer at each call; Porelo stores nothing for it and starts nothing. Every time is UTC,
 # RFC 3339, in whole seconds. Never offered through MCP. 'porelo review open --json' answers the same.
-# Refused as PlaceUnreadable, UnknownForge or NoPullRequest; ownPullRequest without task is
-# org.varlink.service.InvalidParameter.
+# Refused as PlaceUnreadable, UnknownForge, NoPullRequest or, for a pull request address the forge does not
+# know, NoSuchPullRequest; ownPullRequest without task is org.varlink.service.InvalidParameter.
 method ReviewOpen(
   project: string,
   place: Place,
@@ -631,15 +631,16 @@ method ReviewOpen(
   # The task whose run asks; required for ownPullRequest.
   task: ?string
 ) -> (
-  # The head now at the place; absent when nothing stands there any more.
+  # The commit reviewed at the place: at the gate the push's waiting head, on a pull request its head, for a
+  # MERGED one the head that merged. Absent when nothing stands there any more.
   head: ?string,
   # At the gate: OPEN while the push waits, RETURNED after a Reject that carried open threads, REJECTED
   # after one that carried none, APPROVED when Approve forwarded it, LANDED when Landed found it merged
   # elsewhere. On a pull request: OPEN, APPROVED (an approving review stands), MERGED, CLOSED (unmerged).
   decision: (OPEN, RETURNED, REJECTED, LANDED, APPROVED, MERGED, CLOSED),
-  # The forwarded or merge commit; absent until one exists.
+  # The forwarded commit at the gate, the merge commit on a pull request; absent until one exists.
   mergedCommit: ?string,
-  # The head that commit took; absent with mergedCommit.
+  # The branch that commit went onto, at both places, such as "main"; absent with mergedCommit.
   mergedHead: ?string,
   # When the current decision began: at the gate when the push started waiting or when its Reject,
   # Approve or Landed was recorded; on a pull request when its current head was pushed, or when it
@@ -653,8 +654,9 @@ method ReviewOpen(
   held: int,
   # False when part of the answer could not be read; reason then says which part.
   complete: bool,
-  # Why complete is false, such as TimeMissing for a forge that answered no time for an item;
-  # absent when complete.
+  # Why complete is false; absent when complete. TimeMissing: a forge answered no time for an item. On a pull
+  # request also RateLimited (the forge asked to wait before every page was read), PagePartial (a page was cut
+  # short) and PageRefused (a page broke the review profile and was not read).
   reason: ?string,
   # A digest of this answer; equal versions are equal answers.
   version: string
@@ -673,6 +675,117 @@ type OpenPoint (
   # the time its push started waiting.
   lastAt: string
 )
+
+# A pull request address the forge does not know; nothing was made.
+error NoSuchPullRequest(url: string)
+
+# One review item held for the owner account's decision. Outgoing items come from a task's run and go to its
+# place once released; incoming items come from the place and reach the run once passed. Only undecided items
+# are listed.
+type HeldItem (
+  # The hold's id, which DecideItem names.
+  id: string,
+  # The task whose run it belongs to.
+  task: string,
+  # The place's name: a pull request's https address, or a gate push's "<repository>/<name>".
+  place: string,
+  direction: (outgoing, incoming),
+  # Where it goes: for an outgoing item the place, for an incoming one the task's run.
+  destination: string,
+  # What it does there: comment (opens a thread at a file's lines) or reply (answers a thread).
+  operation: (comment, reply),
+  # A comment's file, repository-relative; absent for a reply.
+  path: ?string,
+  # A comment's side: old (the base's file) or new (the reviewed commit's); absent for a reply.
+  side: ?(old, new),
+  # A comment's first and last line, inclusive, counted from 1; absent for a reply.
+  startLine: ?int,
+  endLine: ?int,
+  # The thread a reply answers, by its id at the place; absent for a comment.
+  thread: ?string,
+  # A comment's proposed replacement of its lines, exact and unescaped; absent when it has none.
+  suggestion: ?string,
+  # The commit the run pinned, in full; the item is written against it.
+  commit: string,
+  # The item's exact text, unescaped: what is released is exactly this.
+  text: string,
+  # SHA-256 of the item's content (operation, path, side, lines, thread, text, suggestion) in lowercase hex, as
+  # Porelo computes it; DecideItem names the digest it was shown, and a client never computes it.
+  digest: string,
+  # The name of the forge account that wrote an incoming item, such as "octocat", which a client shows as
+  # "forge account octocat"; absent for an outgoing one.
+  from: ?string,
+  # When it was held, UTC, RFC 3339, whole seconds.
+  at: string,
+  # The run's number at its place for its task, from 1.
+  run: int
+)
+
+# The undecided held items, oldest first, in pages. Never offered through MCP: the decision is the owner
+# account's. A cursor is refused as CursorRefused.
+method HeldItems(
+  # A task's name; absent lists every task's items on this machine.
+  task: ?string,
+  # From a previous answer's cursor; absent for the first page.
+  cursor: ?string
+) -> (
+  items: []HeldItem,
+  # The next page's cursor; absent on the last page.
+  cursor: ?string
+)
+
+# Decides one held item, if its content is still the one shown. release and refuse are for an outgoing item,
+# pass and dismiss for an incoming one; another is org.varlink.service.InvalidParameter. A refusal carries no
+# words for the task. The reply is empty; the item leaves HeldItems and Task.held. Never offered through MCP.
+method DecideItem(
+  task: string,
+  id: string,
+  # The digest the decider was shown.
+  digest: string,
+  decision: (release, refuse, pass, dismiss)
+) -> ()
+
+# No held item of that id for that task.
+error NoSuchItem(id: string)
+
+# The item's content is not the one its digest names; nothing was decided.
+error DigestChanged(id: string)
+
+# The item was decided before.
+error AlreadyDecided(id: string)
+
+# A later run of its task began at its place, so it can no longer be decided.
+error Lapsed(id: string)
+
+# A forge instance this machine knows. comments is EXTENDED (every comment through the message filter's
+# inbound check before a run sees it) or TRUSTED (format and size checks alone).
+type ForgeInstance (
+  # Its host, such as "github.com".
+  host: string,
+  # The forge adapter that reads it, such as "github".
+  adapter: string,
+  # EXTENDED or TRUSTED; absent when unreadable is set.
+  comments: ?string,
+  # Why this instance's entry could not be read; absent when it was.
+  unreadable: ?string
+)
+
+# The forge instances this machine knows, in the order they were added, and the names of the forge adapters
+# installed. Never offered through MCP.
+method Forges() -> (forges: []ForgeInstance, adapters: []string)
+
+# Adds a forge instance, or changes the adapter or comment reading of one. comments absent means EXTENDED,
+# also for a host that was TRUSTED, so a call that leaves it out only makes the reading stricter. adapter is
+# one of Forges' adapters, whose names are the forge kinds they serve. A host that is not a DNS name is
+# org.varlink.service.InvalidParameter. The reply is empty. Never offered through MCP: how a forge's words
+# reach a run is the owner account's choice.
+method ForgeSet(host: string, adapter: string, comments: ?(EXTENDED, TRUSTED)) -> ()
+
+# No forge adapter of that name is installed; nothing was changed.
+error AdapterNotInstalled(adapter: string)
+
+# The machine's forge file could not be read or written; reason is for a person. Nothing was changed.
+error ForgeFileUnreadable(reason: string)
 
 # Comment, Reply, Comments, ResolveThread or ReviewSummary named no push that waits, or one whose task
 # container is not recorded; nothing was kept.

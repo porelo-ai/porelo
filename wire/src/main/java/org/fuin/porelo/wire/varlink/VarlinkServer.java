@@ -102,10 +102,19 @@ public class VarlinkServer implements AutoCloseable, Runnable {
 
     private final String interfaceName;
 
-    private final Map<String, Method> methods = new ConcurrentHashMap<>();
+    /**
+     * A registered method, and whether it ends with its caller: kept as one value, so a method
+     * registered again never runs with the flag of the one it replaced.
+     */
+    private record Registered(Method method, boolean endingWithCaller) {}
 
-    /** The methods, fully qualified, that end with their caller. */
-    private final java.util.Set<String> endingWithCaller = ConcurrentHashMap.newKeySet();
+    /** The methods, fully qualified. */
+    private final Map<String, Registered> methods = new ConcurrentHashMap<>();
+
+    private static final String SERVICE = "org.varlink.service";
+
+    /** Each further interface served, by name, with its IDL, in the order given. */
+    private final Map<String, String> further = new LinkedHashMap<>();
 
     /** The IDL this service serves, or {@code null} until one is given. */
     private volatile @Nullable String description;
@@ -369,27 +378,44 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         }
         methods.put(
                 "org.varlink.service.GetInfo",
-                (parameters, replies) -> {
-                    final Map<String, Object> info = new LinkedHashMap<>();
-                    info.put("vendor", "fuin.org");
-                    info.put("product", "Porelo");
-                    info.put("version", version);
-                    info.put("url", "https://github.com/porelo-ai/porelo");
-                    info.put("interfaces", List.of("org.varlink.service", interfaceName));
-                    replies.last(info);
-                });
+                new Registered(
+                        (parameters, replies) -> {
+                            final Map<String, Object> info = new LinkedHashMap<>();
+                            info.put("vendor", "fuin.org");
+                            info.put("product", "Porelo");
+                            info.put("version", version);
+                            info.put("url", "https://github.com/porelo-ai/porelo");
+                            final List<String> interfaces = new java.util.ArrayList<>();
+                            interfaces.add(SERVICE);
+                            interfaces.add(interfaceName);
+                            synchronized (further) {
+                                interfaces.addAll(further.keySet());
+                            }
+                            info.put("interfaces", List.copyOf(interfaces));
+                            replies.last(info);
+                        },
+                        false));
         methods.put(
                 "org.varlink.service.GetInterfaceDescription",
-                (parameters, replies) -> {
-                    final Object wanted = parameters.get("interface");
-                    final String idl = description;
-                    if (idl == null || !interfaceName.equals(wanted)) {
-                        throw new VarlinkException(
-                                "org.varlink.service.InterfaceNotFound",
-                                Map.of("interface", String.valueOf(wanted)));
-                    }
-                    replies.last(Map.of("description", idl));
-                });
+                new Registered(
+                        (parameters, replies) -> {
+                            final Object wanted = parameters.get("interface");
+                            final @Nullable String idl;
+                            if (interfaceName.equals(wanted)) {
+                                idl = description;
+                            } else {
+                                synchronized (further) {
+                                    idl = further.get(wanted);
+                                }
+                            }
+                            if (idl == null) {
+                                throw new VarlinkException(
+                                        "org.varlink.service.InterfaceNotFound",
+                                        Map.of("interface", String.valueOf(wanted)));
+                            }
+                            replies.last(Map.of("description", idl));
+                        },
+                        false));
     }
 
     private static long ownUser() throws IOException {
@@ -445,16 +471,105 @@ public class VarlinkServer implements AutoCloseable, Runnable {
     }
 
     /**
-     * Registers a method.
+     * Registers a method under the first interface, the one the constructor names.
      *
      * @param name Method name without the interface prefix.
      * @param method What to run.
      * @return This instance.
      */
     public VarlinkServer method(String name, Method method) {
-        endingWithCaller.remove(interfaceName + "." + name);
-        methods.put(interfaceName + "." + name, method);
+        methods.put(interfaceName + "." + name, new Registered(method, false));
         return this;
+    }
+
+    /**
+     * Serves a further interface on this socket: {@code GetInfo} names it after the first, and
+     * {@code GetInterfaceDescription} answers its description.
+     *
+     * <p>So that one executable can answer two contracts on one socket, such as a forge adapter's
+     * build and review interfaces. Its methods are registered with {@link #method(String, String,
+     * Method)}; a failure in one of them is answered as that interface's {@code Failed}.
+     *
+     * <p>Given again with the same name, the description given last replaces the earlier one.
+     *
+     * @param name The interface's full name; neither the first one nor {@code org.varlink.service}.
+     * @param idl Its interface definition, in varlink's own syntax, served verbatim; its {@code
+     *     interface} line names {@code name}.
+     * @return This instance.
+     * @throws IllegalArgumentException If the name is the first interface's or the service's own,
+     *     or the definition declares another interface or none.
+     */
+    public VarlinkServer serving(String name, String idl) {
+        if (name.equals(interfaceName) || name.equals(SERVICE)) {
+            throw new IllegalArgumentException(
+                    name + " is served already; a further interface needs a name of its own");
+        }
+        final String declared = declaredName(idl);
+        if (!name.equals(declared)) {
+            throw new IllegalArgumentException(
+                    "The description given for "
+                            + name
+                            + " declares "
+                            + (declared == null ? "no interface" : "the interface " + declared));
+        }
+        synchronized (further) {
+            further.put(name, idl);
+        }
+        return this;
+    }
+
+    /**
+     * Registers a method under a named interface: the first one, or one given to {@link
+     * #serving(String, String)}.
+     *
+     * @param iface The interface's full name.
+     * @param name Method name without the interface prefix.
+     * @param method What to run.
+     * @return This instance.
+     * @throws IllegalArgumentException If this server does not serve that interface.
+     */
+    public VarlinkServer method(String iface, String name, Method method) {
+        methods.put(served(iface) + "." + name, new Registered(method, false));
+        return this;
+    }
+
+    /** Returns the interface if this server serves it, and refuses it otherwise. */
+    private String served(String iface) {
+        if (iface.equals(interfaceName)) {
+            return iface;
+        }
+        synchronized (further) {
+            if (!further.containsKey(iface)) {
+                throw new IllegalArgumentException(
+                        "This server does not serve " + iface + "; give it with serving first");
+            }
+        }
+        return iface;
+    }
+
+    /**
+     * Returns the name an interface definition gives in its {@code interface} line: the first line
+     * that is neither blank nor a comment.
+     */
+    private static @Nullable String declaredName(String idl) {
+        for (final String line : idl.split("\\R")) {
+            final String text = line.strip();
+            if (text.isEmpty() || text.startsWith("#")) {
+                continue;
+            }
+            final String[] words = text.split("\\s+");
+            return words.length == 2 && words[0].equals("interface") ? words[1] : null;
+        }
+        return null;
+    }
+
+    /** The interface whose {@code Failed} answers a failure in this method. */
+    private String interfaceOf(String methodName) {
+        final int dot = methodName.lastIndexOf('.');
+        final String iface = dot < 0 ? interfaceName : methodName.substring(0, dot);
+        synchronized (further) {
+            return further.containsKey(iface) ? iface : interfaceName;
+        }
     }
 
     /**
@@ -473,8 +588,23 @@ public class VarlinkServer implements AutoCloseable, Runnable {
      * @return This instance.
      */
     public VarlinkServer methodEndingWithItsCaller(String name, Method method) {
-        method(name, method);
-        endingWithCaller.add(interfaceName + "." + name);
+        methods.put(interfaceName + "." + name, new Registered(method, true));
+        return this;
+    }
+
+    /**
+     * Registers a method that ends with its caller, as {@link #methodEndingWithItsCaller(String,
+     * Method)} does, under a named interface: the first one, or one given to {@link
+     * #serving(String, String)}.
+     *
+     * @param iface The interface's full name.
+     * @param name Method name without the interface prefix.
+     * @param method What to run.
+     * @return This instance.
+     * @throws IllegalArgumentException If this server does not serve that interface.
+     */
+    public VarlinkServer methodEndingWithItsCaller(String iface, String name, Method method) {
+        methods.put(served(iface) + "." + name, new Registered(method, true));
         return this;
     }
 
@@ -541,15 +671,15 @@ public class VarlinkServer implements AutoCloseable, Runnable {
         } catch (IOException | RuntimeException ex) {
             // One broken client does not take the service down.
         } catch (Error ex) {
-            report("serving a connection", ex);
+            report(interfaceName, "serving a connection", ex);
             throw ex;
         }
     }
 
     /** Says in the log what went wrong beyond a call's answer. */
-    private void report(final String doing, final Throwable ex) {
+    private void report(final String iface, final String doing, final Throwable ex) {
         try {
-            log.accept(interfaceName + ": " + doing + " failed: " + text(ex));
+            log.accept(iface + ": " + doing + " failed: " + text(ex));
         } catch (RuntimeException | Error lost) {
             // The log is where this would have gone; nothing is left to say it with.
         }
@@ -601,8 +731,8 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                     Map.of("parameter", "method"));
             return true;
         }
-        final Method method = methods.get(methodName);
-        if (method == null) {
+        final Registered registered = methods.get(methodName);
+        if (registered == null) {
             error(connection, "org.varlink.service.MethodNotFound", Map.of("method", methodName));
             return true;
         }
@@ -612,7 +742,8 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                 raw instanceof Map<?, ?> map ? (Map<String, Object>) map : Map.of();
         final boolean more = Boolean.TRUE.equals(call.get("more"));
 
-        if (!endingWithCaller.contains(methodName)) {
+        final Method method = registered.method();
+        if (!registered.endingWithCaller()) {
             return answer(connection, methodName, method, parameters, more, null);
         }
         final CallerWatch watch = CallerWatch.start(connection);
@@ -706,7 +837,7 @@ public class VarlinkServer implements AutoCloseable, Runnable {
                 // Nobody is there to read what it says.
                 return false;
             }
-            final String failed = interfaceName + ".Failed";
+            final String failed = interfaceOf(methodName) + ".Failed";
             final String errorName = ex.getErrorName() == null ? failed : ex.getErrorName();
             error(
                     connection,
@@ -718,11 +849,11 @@ public class VarlinkServer implements AutoCloseable, Runnable {
             if (watch != null && watch.end()) {
                 return false;
             }
-            error(connection, interfaceName + ".Failed", failedParameters(null, ex));
+            error(connection, interfaceOf(methodName) + ".Failed", failedParameters(null, ex));
         } catch (Error ex) {
-            report("the call " + methodName, ex);
+            report(interfaceOf(methodName), "the call " + methodName, ex);
             try {
-                error(connection, interfaceName + ".Failed", failedParameters(null, ex));
+                error(connection, interfaceOf(methodName) + ".Failed", failedParameters(null, ex));
             } catch (IOException | RuntimeException | Error lost) {
                 // Said in the log; the caller hears the connection end.
             }

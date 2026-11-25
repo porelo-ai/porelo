@@ -210,6 +210,7 @@ class ReviewRecordsTest {
         return switch (item) {
             case ReviewComment comment -> "comment";
             case ReviewReply reply -> "reply";
+            case ForgeReply reply -> "forge reply";
         };
     }
 

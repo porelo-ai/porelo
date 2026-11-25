@@ -29,6 +29,12 @@
             <artifactId>porelo-wire</artifactId>
         </dependency>
 
+        <!-- The review profiles' schemas, shared with the forge adapters and the reviewer task. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-build-api</artifactId>
+        </dependency>
+
         <!-- test -->
 
         <dependency>

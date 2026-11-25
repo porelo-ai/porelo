@@ -525,7 +525,8 @@ class ReviewSarifTest {
 
     private static JsonSchema schema() {
         try (InputStream in =
-                ReviewSarif.class.getResourceAsStream("review-profile-1.schema.json")) {
+                ReviewSarif.class.getResourceAsStream(
+                        "/org/fuin/porelo/build/api/review/review-profile-1.schema.json")) {
             return JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012)
                     .getSchema(Objects.requireNonNull(in, "the bundled schema"));
         } catch (final IOException e) {

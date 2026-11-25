@@ -4,6 +4,7 @@ import java.io.PrintWriter;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.Push;
@@ -160,6 +161,10 @@ public class GateCommentsCommand implements Callable<Integer>, PoreloFactory.Con
                         }
                     }
                     case ReviewReply reply -> {
+                        text.append("  replies\n");
+                        indented(text, reply.body().text());
+                    }
+                    case ForgeReply reply -> {
                         text.append("  replies\n");
                         indented(text, reply.body().text());
                     }

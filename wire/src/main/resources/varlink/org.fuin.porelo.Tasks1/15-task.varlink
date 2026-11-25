@@ -433,7 +433,9 @@ type Task (
 type Place (
   # A push at this machine's gate.
   gatePush: ?GatePush,
-  # A pull request at the forge, by the branch it comes from.
+  # A pull request by its https address, such as "https://github.com/owner/repo/pull/12": no user, query or
+  # fragment, at most 2048 ASCII characters, otherwise org.varlink.service.InvalidParameter. Its host names a
+  # forge instance this machine knows, otherwise UnknownForge.
   pullRequest: ?string,
   # The task's own pull request, the one its pushes opened.
   ownPullRequest: ?bool
@@ -865,7 +867,8 @@ method Start(
   # The run's role. Absent means AUTHOR. A reviewer at its own task's work is refused as RoleNotAllowed.
   role: ?(AUTHOR, REVIEWER),
   # Where the run works. Absent means the task's own gate push, as before. A gate push of another
-  # task is refused as NotTheTasksPush; a place that cannot be read as PlaceUnreadable. A further
+  # task is refused as NotTheTasksPush; a pull request the forge does not know as NoSuchPullRequest; a
+  # place that cannot be read as PlaceUnreadable. A further
   # run at the same place is a further Start of the same task: there is no round or sequence.
   # A task that is running answers as it does without a place.
   place: ?Place
@@ -1762,9 +1765,9 @@ error RunTooShort(minutes: int)
 error MadeWithAnother(task: string, agent: string, model: string)
 # A Start named a task another Start is making or bringing back now.
 error AlreadyStarting(task: string)
-# A Start or CanStart named a pull request at a forge this project names no adapter for.
+# A Start, CanStart or ReviewOpen named a pull request at a host that is no forge instance this machine knows.
 error UnknownForge(host: string)
-# A Start or CanStart named a pull request place, and no pull request comes from that branch.
+# A Start or CanStart named ownPullRequest, and no pull request comes from the task's branch.
 error NoPullRequest(branch: string)
 # A Start or CanStart named a gate push that is not this task's own; 'head' is the push's head.
 error NotTheTasksPush(head: string)

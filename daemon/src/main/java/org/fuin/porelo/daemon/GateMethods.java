@@ -365,6 +365,7 @@ final class GateMethods {
             org.fuin.porelo.app.CommentIntake.Parts comments) {
         registerComments(server, comments);
         registerReviewOpen(server, org.fuin.porelo.app.ReviewOpen.of(context));
+        registerUnbuilt(server);
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
         sweep.add(pullRequestPages::release);
@@ -1085,6 +1086,22 @@ final class GateMethods {
                     }
                     replies.last(answer);
                 });
+    }
+
+    /**
+     * Registers the held items' and the forge instances' methods, described so the window, the IDE
+     * plugin and the planner build against them; each is answered once it is built.
+     */
+    static void registerUnbuilt(final VarlinkServer server) {
+        for (final String method : List.of("HeldItems", "DecideItem", "Forges", "ForgeSet")) {
+            server.method(
+                    method,
+                    (parameters, replies) -> {
+                        throw new VarlinkException(
+                                "org.varlink.service.MethodNotImplemented",
+                                Map.of("method", PoreloDaemon.INTERFACE + "." + method));
+                    });
+        }
     }
 
     /** The place a ReviewOpen names: exactly one field set, else InvalidParameter. */

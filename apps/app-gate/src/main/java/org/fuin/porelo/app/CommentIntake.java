@@ -7,6 +7,8 @@ import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.gate.review.CommentCheck;
+import org.fuin.porelo.gate.review.ForgeAccount;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.OwnerAccount;
@@ -93,6 +95,12 @@ public final class CommentIntake {
                     throw noSuchThread();
                 }
             }
+            case ForgeAccount _ ->
+                    // A forge's account writes at its pull request, never into a push's threads.
+                    throw noSuchThread();
+        }
+        if (item instanceof ForgeReply) {
+            throw noSuchThread();
         }
         if (item instanceof ReviewReply reply && !holds(push, reply.thread())) {
             throw noSuchThread();

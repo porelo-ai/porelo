@@ -53,6 +53,31 @@ Porelo reads the token from the vault and hands it over the owner-only socket in
 it anywhere, and never sends it to any host but the forge's API - a log behind a redirect to storage is fetched
 without it.
 
+## Answering a pull request's review
+
+The same executable can answer Porelo about a pull request's review, over a second varlink interface,
+`org.fuin.porelo.Review1`, on the same socket. A reader that also implements `ReviewReader` serves it beside
+`Build2` through the same `BuildMain`; one that does not serves `Build2` alone, as before. Porelo refuses an adapter
+that serves no review, or another review version, before it asks it anything. The description,
+`org.fuin.porelo.Review1.varlink` in `porelo-build-api`, is the contract; in short:
+
+- **`pullRequest(access, url)`**: a pull request's facts - the repository its head is read from, the head reviewed,
+  the base, the merge base, its state, whether the forge shows it approved at the head, and the merge commit and the
+  branch it went onto exactly when merged.
+- **`pullRequestOf(access, upstream, branch)`**: the open pull request from a branch, or none; it opens none.
+- **`comments(access, url, cursor)`**: one page of the whole conversation, one [review profile 2](review-profile.md)
+  document of kind `page` that states its own completeness, at most 100 results and 1 MiB, and the cursor of the
+  next page.
+- **`post(access, url, document)`**: writes one released result, a profile 2 submission of exactly one result, and
+  answers the thread it answered or the id of the new thread's root, the forge's native id in decimal.
+
+`access` carries the forge's REST base URL ("" for its public one) and the token lent for that call alone. Nothing
+of the forge's own format crosses, and no method reaches a verdict: `approved` is what the forge shows, read only.
+Porelo hands every document on as bytes and parses none here. The refusals are `RateLimited`, `CredentialRefused`,
+`NoSuchPullRequest`, `NoSuchThread`, `Unreachable`, `NotInProfile` (a general or file comment, or anything profile 2
+cannot carry, naming the field) and `WriteOutcomeUnknown`: a post that was sent with no answer saying whether it was
+written, which Porelo never sends again. An adapter never logs the token and never puts it in an error.
+
 ## The verdict, the jobs and their logs
 
 - **The verdict** is one of `queued`, `running`, `success`, `failure`, `cancelled`, `unknown`, across every run of
