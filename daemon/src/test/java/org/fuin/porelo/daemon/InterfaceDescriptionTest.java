@@ -458,6 +458,59 @@ class InterfaceDescriptionTest {
     }
 
     @Test
+    void aReviewRunsRolePlaceAndWhatIsOpenThereAreDeclaredAsThePlannerReadsThem() {
+        // The planner reads these names as the contract gives them; a renamed field is a planner
+        // that reads nothing.
+        final String description = PoreloDaemon.description();
+        assertThat(description)
+                .as("Start and CanStart take a role and a place")
+                .containsPattern(
+                        "method Start\\((?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)place:"
+                                + " \\?Place\\s*\\) -> \\(")
+                .containsPattern(
+                        "method CanStart\\((?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)place:"
+                                + " \\?Place\\s*\\) -> \\(")
+                .as("a place is a gate push, a pull request or the task's own pull request")
+                .containsPattern(
+                        "type Place \\((?s:.*?)gatePush: \\?GatePush,(?s:.*?)pullRequest:"
+                                + " \\?string,(?s:.*?)ownPullRequest: \\?bool\\s*\\)")
+                .containsPattern(
+                        "type GatePush \\((?s:.*?)repository: \\?string,(?s:.*?)name: string\\s*\\)")
+                .as("a task and its record carry the run's role, place and held items")
+                .containsPattern(
+                        "(?m)^type Task \\((?s:.*?)role: \\?string,(?s:.*?)place: \\?Place,"
+                                + "(?s:.*?)held: int\\s*\\n\\)")
+                .containsPattern(
+                        "type TaskRecord \\((?s:.*?)role: \\?string,(?s:.*?)place: \\?Place,"
+                                + "(?s:.*?)held: \\?int\\s*\\)")
+                .as("ReviewOpen answers the decision, the points with their times and the counts")
+                .containsPattern(
+                        "method ReviewOpen\\(\\s*project: string,(?s:.*?)place: Place,"
+                                + "(?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)task: \\?string"
+                                + "\\s*\\) -> \\((?s:.*?)head: \\?string,(?s:.*?)decision: \\(OPEN,"
+                                + " RETURNED, REJECTED, LANDED, APPROVED, MERGED, CLOSED\\),"
+                                + "(?s:.*?)mergedCommit: \\?string,(?s:.*?)mergedHead: \\?string,"
+                                + "(?s:.*?)decisionSince: \\?string,(?s:.*?)points:"
+                                + " \\[\\]OpenPoint,(?s:.*?)findings: int,(?s:.*?)held: int,"
+                                + "(?s:.*?)complete: bool,(?s:.*?)reason: \\?string,"
+                                + "(?s:.*?)version: string\\s*\\)")
+                .containsPattern(
+                        "type OpenPoint \\(\\s*thread: string,(?s:.*?)path: \\?string,"
+                                + "(?s:.*?)line: \\?int,(?s:.*?)lastBy: string,(?s:.*?)lastAt:"
+                                + " string\\s*\\)")
+                .as("the five refusals of a run's place")
+                .contains(
+                        "error UnknownForge(host: string)",
+                        "error NoPullRequest(branch: string)",
+                        "error NotTheTasksPush(head: string)",
+                        "error RoleNotAllowed(role: string, place: Place)")
+                .containsPattern(
+                        "error PlaceUnreadable\\(\\s*reason: \\(NoSuchPush, NotInProject,"
+                                + " MovedSinceReview, MissingForgeToken, ForgeAdapterMissing,"
+                                + " Unreachable\\),\\s*detail: string\\s*\\)");
+    }
+
+    @Test
     void describesEveryErrorItCanRaise(@TempDir Path dir) {
         // The names the daemon throws, gathered from its own source rather than from a list kept
         // beside it: a list would be the third place to forget.

@@ -618,6 +618,62 @@ type ReviewRun (
   findings: int
 )
 
+# What is open at a place for one role, and the place's decision, read anew from the gate's records and
+# the forge's answer at each call; Porelo stores nothing for it and starts nothing. Every time is UTC,
+# RFC 3339, in whole seconds. Never offered through MCP. 'porelo review open --json' answers the same.
+# Refused as PlaceUnreadable, UnknownForge or NoPullRequest; ownPullRequest without task is
+# org.varlink.service.InvalidParameter.
+method ReviewOpen(
+  project: string,
+  place: Place,
+  # The role asking; absent means AUTHOR.
+  role: ?(AUTHOR, REVIEWER),
+  # The task whose run asks; required for ownPullRequest.
+  task: ?string
+) -> (
+  # The head now at the place; absent when nothing stands there any more.
+  head: ?string,
+  # At the gate: OPEN while the push waits, RETURNED after a Reject that carried open threads, REJECTED
+  # after one that carried none, APPROVED when Approve forwarded it, LANDED when Landed found it merged
+  # elsewhere. On a pull request: OPEN, APPROVED (an approving review stands), MERGED, CLOSED (unmerged).
+  decision: (OPEN, RETURNED, REJECTED, LANDED, APPROVED, MERGED, CLOSED),
+  # The forwarded or merge commit; absent until one exists.
+  mergedCommit: ?string,
+  # The head that commit took; absent with mergedCommit.
+  mergedHead: ?string,
+  # When the current decision began: at the gate when the push started waiting or when its Reject,
+  # Approve or Landed was recorded; on a pull request when its current head was pushed, or when it
+  # was merged or closed. Absent when complete is false for a missing time.
+  decisionSince: ?string,
+  # Open threads whose last item is not the asking role's side; resolved threads and held items are none.
+  points: []OpenPoint,
+  # Findings no one answered, counted apart from points.
+  findings: int,
+  # Review items held back from the run at this place.
+  held: int,
+  # False when part of the answer could not be read; reason then says which part.
+  complete: bool,
+  # Why complete is false, such as TimeMissing for a forge that answered no time for an item;
+  # absent when complete.
+  reason: ?string,
+  # A digest of this answer; equal versions are equal answers.
+  version: string
+)
+
+# An open thread, as ReviewOpen counts it.
+type OpenPoint (
+  thread: string,
+  # The file the thread is on; absent for a thread on the whole push.
+  path: ?string,
+  # The thread's first line on that file; absent with path.
+  line: ?int,
+  # Who wrote the thread's last item: "owner account", "task <id>", or the forge's login.
+  lastBy: string,
+  # When the thread's last item was written. An item written before items carried a time reads as
+  # the time its push started waiting.
+  lastAt: string
+)
+
 # Comment, Reply, Comments, ResolveThread or ReviewSummary named no push that waits, or one whose task
 # container is not recorded; nothing was kept.
 error NoSuchPush()

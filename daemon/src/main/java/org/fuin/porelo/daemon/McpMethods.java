@@ -156,7 +156,9 @@ final class McpMethods {
                     "Reply",
                     "Comments",
                     "ResolveThread",
-                    "ReviewSummary");
+                    "ReviewSummary",
+                    // What is open at a place, read for the person's planner.
+                    "ReviewOpen");
 
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =

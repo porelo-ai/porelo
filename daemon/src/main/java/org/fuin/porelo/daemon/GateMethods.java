@@ -1007,6 +1007,14 @@ final class GateMethods {
                                     "runs",
                                     runs));
                 });
+        // Described so a planner builds against it; answered once the gate keeps a push's end.
+        server.method(
+                "ReviewOpen",
+                (parameters, replies) -> {
+                    throw new VarlinkException(
+                            "org.varlink.service.MethodNotImplemented",
+                            Map.of("method", PoreloDaemon.INTERFACE + ".ReviewOpen"));
+                });
     }
 
     /** Keeps an item from the owner account and answers its id and thread. */

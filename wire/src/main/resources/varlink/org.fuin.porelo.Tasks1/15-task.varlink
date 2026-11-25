@@ -424,7 +424,35 @@ type Task (
   buildProblem: string,
   # Set when this start follows no builds because the host's configured vault entry is absent.
   # The sentence remains in buildProblem; afterStore is "restart", even once the entry is stored.
-  buildsCredential: ?MissingCredential
+  buildsCredential: ?MissingCredential,
+  # The role of the task's current or last run: AUTHOR or REVIEWER, as Start's role took it. A start that
+  # named none is an author's. Absent for a task without a gate, and for one whose start recorded none.
+  # Only a run's role: the duties a planner gives people are its own settings, never this.
+  role: ?string,
+  # Where the task's current or last run works, as Start's place took it. A start that named none
+  # works at the task's own gate push, which is then given here. Absent as for role.
+  place: ?Place,
+  # How many review items at that place are held back from the run; 0 while nothing is held.
+  held: int
+)
+
+# Where a run works. Exactly one field is set; a Place with none or several is refused as
+# org.varlink.service.InvalidParameter.
+type Place (
+  # A push at this machine's gate.
+  gatePush: ?GatePush,
+  # A pull request at the forge, by the branch it comes from.
+  pullRequest: ?string,
+  # The task's own pull request, the one its pushes opened.
+  ownPullRequest: ?bool
+)
+
+# A push at the gate. Its threads follow the task's container and the push's name, whatever its head.
+type GatePush (
+  # The project's repository; absent for the task's own.
+  repository: ?string,
+  # The push's name, which is its task's name (PendingPush.name).
+  name: string
 )
 
 # The build of one commit the task pushed, as Porelo handed it into the task: build-<first 12 of commit>.txt in
@@ -850,7 +878,14 @@ method Start(
   # of its workflows), one that diverged from it, or a standing that cannot be read. Its line names the way
   # back: 'porelo host pull' and a task that merges central/main, or 'porelo host push' where only the host is
   # ahead. CanStart does not ask the host to follow and does not answer this.
-  work: ?[](issue: string, phase: string)
+  work: ?[](issue: string, phase: string),
+  # The run's role. Absent means AUTHOR. A reviewer at its own task's work is refused as RoleNotAllowed.
+  role: ?(AUTHOR, REVIEWER),
+  # Where the run works. Absent means the task's own gate push, as before. A gate push of another
+  # task is refused as NotTheTasksPush; a place that cannot be read as PlaceUnreadable. A further
+  # run at the same place is a further Start of the same task: there is no round or sequence.
+  # A task that is running answers as it does without a place.
+  place: ?Place
 ) -> (
   # One line of output. Set on every continuing reply unless steps: true was requested.
   line: ?string,
@@ -1276,7 +1311,11 @@ method CanStart(
   branch: ?string,
   # The issues and the phases the task would work on, as Start takes them. Work Start would refuse with exitCode 64 is
   # WORK_REFUSED; a value Start answers InvalidParameter for is InvalidParameter here too.
-  work: ?[](issue: string, phase: string)
+  work: ?[](issue: string, phase: string),
+  # The run's role, as Start takes it; refused by the same errors.
+  role: ?(AUTHOR, REVIEWER),
+  # Where the run would work, as Start takes it; refused by the same errors.
+  place: ?Place
 ) -> (
   # Whether work could start. True exactly when outcome is READY, so branch on whichever suits -
   # but never infer the ACTION from this alone: three different things somebody has to do all
@@ -1740,6 +1779,19 @@ error RunTooShort(minutes: int)
 error MadeWithAnother(task: string, agent: string, model: string)
 # A Start named a task another Start is making or bringing back now.
 error AlreadyStarting(task: string)
+# A Start or CanStart named a pull request at a forge this project names no adapter for.
+error UnknownForge(host: string)
+# A Start or CanStart named a pull request place, and no pull request comes from that branch.
+error NoPullRequest(branch: string)
+# A Start or CanStart named a gate push that is not this task's own; 'head' is the push's head.
+error NotTheTasksPush(head: string)
+# A Start or CanStart asked for a role this place does not allow, such as a reviewer at its own task's work.
+error RoleNotAllowed(role: string, place: Place)
+# A Start or CanStart named a place that could not be read; nothing was made. 'detail' is for a person.
+error PlaceUnreadable(
+  reason: (NoSuchPush, NotInProject, MovedSinceReview, MissingForgeToken, ForgeAdapterMissing, Unreachable),
+  detail: string
+)
 
 # The named log is not a file in that task's state directory.
 # A log or a session recording that is not there, is not the one a client's of names, or ends before
@@ -1875,7 +1927,13 @@ type TaskRecord (
   # RecordCalls from this position gives the rest. Absent when toolCalls is whole.
   toolCallsNext: ?int,
   # The unattended runs whose calls the record holds; absent in older records.
-  runs: ?int
+  runs: ?int,
+  # As Task.role, for the record's last run; absent in older records.
+  role: ?string,
+  # As Task.place, for the record's last run; absent in older records.
+  place: ?Place,
+  # As Task.held; absent in older records.
+  held: ?int
 )
 
 # Where the next page of Records starts: given by the daemon, passed back whole, never made by a client.
