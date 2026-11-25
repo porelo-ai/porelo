@@ -490,6 +490,7 @@ class PullRequestFetchGitTest {
                     false,
                     null,
                     null,
+                    null,
                     null);
         }
 

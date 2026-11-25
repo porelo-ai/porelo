@@ -121,7 +121,8 @@ class ReviewOpenPullRequestTest {
                             approved,
                             merged ? MERGE : null,
                             merged ? "main" : null,
-                            state == PullRequestState.OPEN ? null : DECIDED);
+                            state == PullRequestState.OPEN ? null : DECIDED,
+                            null);
                 }
 
                 @Override

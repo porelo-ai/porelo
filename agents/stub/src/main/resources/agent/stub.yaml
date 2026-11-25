@@ -43,6 +43,13 @@ session:
     # socket and 8 MiB written to the disk, for measuring a machine whose agents talk and write.
     # PORELO_STUB_WORKSPACE names another workspace, for a test outside a container.
     # A prompt 'stub sleeps <seconds>' makes the run last that long, for a run that outlasts its time limit.
+    # A workspace holding '.porelo-stub-review' makes an unattended run write to the review, as a reviewer's or an
+    # author's run at a pull request does; the file comes with the pull request's head. Its first line 'submit <name>'
+    # sends the rest of the file, a profile 2 submission, as one 'comment' message to 'review' with one data part and
+    # no thread; 'replies' sends the rest of the file as one submission with its one line holding PORELO_STUB_THREAD
+    # repeated for every open thread of the delivered conversation, by the thread's native id. PORELO_STUB_HEAD in
+    # either is replaced by the workspace's head commit, which the file, lying in that head, cannot name. PORELO_STUB_MAIL names
+    # another mailbox than /run/porelo/mail, for a test outside a container.
     ready_marker: "stub: at work, nothing asked"
     ready_within_seconds: 30
     # What the stub shows at its prompt, attached, waiting for the next line: its ready line, and no step
@@ -132,6 +139,11 @@ install:
         - "      '[ -z \"$1\" ] && [ -t 0 ] && { [ -e /workspace/.porelo-stub-asks ] && { printf \"Trust this folder? [y/N] \"; read answer; }; echo \"stub: \"\"at work, nothing asked\"; while IFS= read -r line; do echo \"$line\"; [ -s \"$s/$id.session\" ] || { printf \"%s\\\\n\" \"$line\" > \"$s/$id.session\"; echo \"stub: \"\"noted $line\"; }; done; exit 0; }' \\"
         - "      '[ -n \"$1\" ] && { mkdir -p \"$s\"; [ -n \"$resumed\" ] || printf \"%s\\\\n\" \"$1\" > \"$s/$id.session\"; }' \\"
         - "      'case \"$1\" in \"stub sleeps \"*) sleep \"$(echo \"$1\" | cut -d \" \" -f 3)\";; esac' \\"
+        - "      'rv=/workspace/.porelo-stub-review; [ -n \"$PORELO_STUB_WORKSPACE\" ] && rv=\"$PORELO_STUB_WORKSPACE/.porelo-stub-review\"; mb=/run/porelo/mail; [ -n \"$PORELO_STUB_MAIL\" ] && mb=$PORELO_STUB_MAIL; rb=\"\"' \\"
+        - "      '[ -n \"$1\" ] && [ -f \"$rv\" ] && [ \"$(head -n 1 \"$rv\" | cut -d \" \" -f 1)\" = submit ] && rb=$(tail -n +2 \"$rv\")' \\"
+        - "      '[ -n \"$1\" ] && [ -f \"$rv\" ] && [ \"$(head -n 1 \"$rv\")\" = replies ] && { ri=$(cat \"$mb\"/inbox/new/* \"$mb\"/inbox/cur/* 2>/dev/null | tr -d \"\\n\" | sed \"s/porelo\\/threadId/\\n&/g\" | grep \"^porelo/threadId.*porelo/threadState[^a-z]*open\" | sed -n \"s/^porelo\\/threadId[^0-9A-Za-z_-]*\\([0-9A-Za-z_-]*\\).*/\\1/p\" | sort -u); rt=$(tail -n +2 \"$rv\"); rr=$(printf \"%s\\n\" \"$rt\" | grep PORELO_STUB_THREAD); [ -n \"$ri\" ] && rb=$(printf \"%s\\n\" \"$rt\" | sed \"/PORELO_STUB_THREAD/,\\$d\"; for t in $ri; do printf \"%s\\n\" \"$rr\" | sed \"s/PORELO_STUB_THREAD/$t/g\"; done | sed \"\\$!s/\\$/,/\"; printf \"%s\\n\" \"$rt\" | sed \"1,/PORELO_STUB_THREAD/d\"); [ -n \"$ri\" ] || echo \"stub: \"\"no open thread to reply to\"; }' \\"
+        - "      '[ -n \"$rb\" ] && printf \"%s\" \"$rb\" | grep -q PORELO_STUB_HEAD && { rh=$(git -C \"$(dirname \"$rv\")\" rev-parse HEAD 2>/dev/null); [ -n \"$rh\" ] || { echo \"stub: \"\"no head commit to name, so nothing sent\"; rb=\"\"; }; [ -n \"$rb\" ] && rb=$(printf \"%s\\n\" \"$rb\" | sed \"s/PORELO_STUB_HEAD/$rh/g\"); }' \\"
+        - "      '[ -n \"$rb\" ] && { rn=\"stub-review-$$-$(date +%s)\"; printf \"{\\\"messageId\\\":\\\"%s\\\",\\\"role\\\":\\\"ROLE_AGENT\\\",\\\"parts\\\":[{\\\"data\\\":%s}],\\\"metadata\\\":{\\\"to\\\":\\\"review\\\",\\\"kind\\\":\\\"comment\\\"}}\" \"$rn\" \"$rb\" > \"$mb/outbox/tmp/$rn.json\" && mv \"$mb/outbox/tmp/$rn.json\" \"$mb/outbox/new/\" && echo \"stub: \"\"sent a submission to the review\"; }' \\"
         - "      'getent hosts example.com >/dev/null 2>&1 && echo \"stub: \"\"example.com resolved\" || echo \"stub: \"\"example.com did not resolve\"' \\"
         - "      'getent hosts example.net >/dev/null 2>&1 && echo \"stub: \"\"example.net resolved\" || echo \"stub: \"\"example.net refused\"' \\"
         - "      'echo \"{\\\"stub\\\":\\\"session\\\",\\\"id\\\":\\\"$id\\\"}\"' \\"

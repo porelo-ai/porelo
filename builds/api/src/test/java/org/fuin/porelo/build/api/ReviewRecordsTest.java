@@ -31,6 +31,7 @@ class ReviewRecordsTest {
                                 false,
                                 null,
                                 null,
+                                null,
                                 null));
         assertThat(
                         ReviewFacts.of(
@@ -167,6 +168,58 @@ class ReviewRecordsTest {
         assertThat(read.approved()).as("the forge's observed verdict").isTrue();
         assertThat(read.decidedAt()).as("open, so not decided").isNull();
         assertThat(read.asMap()).as("no time on the wire").doesNotContainKey("decidedAt");
+    }
+
+    @Test
+    void theAccountTheTokenStandsForIsReadAndWrittenBack() {
+        final Map<String, Object> answer =
+                facts(Map.of("account", Map.of("id", "583231", "login", "octocat")));
+
+        final ReviewFacts read = ReviewFacts.of(answer);
+
+        assertThat(read.account())
+                .as("the forge account the token stands for")
+                .isEqualTo(new ReviewFacts.Account("583231", "octocat"));
+        assertThat(read.asMap().get("account"))
+                .as("written back as the contract's ForgeAccount")
+                .isEqualTo(Map.of("id", "583231", "login", "octocat"));
+        assertThat(ReviewFacts.of(facts(Map.of())).account())
+                .as("absent when the forge does not say")
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"id-blank", "id-long", "login-blank", "login-long", "login-line"})
+    void anAccountOutOfProfileTwosBoundsIsRefused(final String which) {
+        final String id =
+                switch (which) {
+                    case "id-blank" -> " ";
+                    case "id-long" -> "1".repeat(65);
+                    default -> "583231";
+                };
+        final String login =
+                switch (which) {
+                    case "login-blank" -> "";
+                    case "login-long" -> "o".repeat(257);
+                    case "login-line" -> "octo\ncat";
+                    default -> "octocat";
+                };
+
+        assertThatThrownBy(
+                        () ->
+                                ReviewFacts.of(
+                                        facts(Map.of("account", Map.of("id", id, "login", login)))))
+                .as("%s is out of profile 2's bounds for a forge account", which)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("account");
+    }
+
+    @Test
+    void anAccountThatIsNoObjectIsRefused() {
+        assertThatThrownBy(() -> ReviewFacts.of(facts(Map.of("account", "octocat"))))
+                .as("the contract's ForgeAccount is an object of id and login")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("account");
     }
 
     @Test

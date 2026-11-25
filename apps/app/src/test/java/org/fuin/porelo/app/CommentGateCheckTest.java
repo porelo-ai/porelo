@@ -58,6 +58,7 @@ class CommentGateCheckTest {
                     false,
                     null,
                     null,
+                    null,
                     null);
 
     private static final Run RUN =

@@ -18,6 +18,8 @@ import org.jspecify.annotations.Nullable;
  * @param mergeCommit The merge commit when merged, else null.
  * @param mergedHead The branch the merge commit went onto when merged, else null.
  * @param decidedAt When the forge merged or closed it, exactly when merged or closed, else null.
+ * @param viewer The forge account the token the facts were read with stands for, or null when the
+ *     forge does not say.
  */
 public record PullRequestFacts(
         PullRequestRef ref,
@@ -29,7 +31,8 @@ public record PullRequestFacts(
         boolean approved,
         @Nullable String mergeCommit,
         @Nullable String mergedHead,
-        @Nullable Instant decidedAt) {
+        @Nullable Instant decidedAt,
+        @Nullable ForgeAccount viewer) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
 

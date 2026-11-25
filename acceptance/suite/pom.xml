@@ -53,6 +53,20 @@
     </dependencies>
 
     <build>
+        <testResources>
+            <testResource>
+                <directory>src/test/resources</directory>
+            </testResource>
+            <!-- The review profile's fixtures, read in place rather than copied, so a pull request's pages
+                 in a scenario are the ones the profile's own tests hold. -->
+            <testResource>
+                <directory>${project.basedir}/../../builds/api/src/test/resources/org/fuin/porelo/build/api/review/fixtures</directory>
+                <targetPath>org/fuin/porelo/acceptance/suite/review</targetPath>
+                <includes>
+                    <include>*.sarif.json</include>
+                </includes>
+            </testResource>
+        </testResources>
         <plugins>
             <!-- Failsafe, not surefire: these need a machine, so they are integration tests and
                  they run at 'verify'. A unit test that cannot run without a rented server would

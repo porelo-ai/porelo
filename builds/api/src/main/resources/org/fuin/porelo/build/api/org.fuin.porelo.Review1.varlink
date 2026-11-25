@@ -16,10 +16,17 @@ method Describe() -> (protocolVersion: int, forge: string)
 # mergedHead (the branch the merge commit went onto) are given exactly when merged. decidedAt is when the forge
 # merged or closed it, an RFC 3339 time in UTC ending in Z (the forge's merged_at for merged, its closed_at for
 # closed), given exactly when merged or closed. approved is the forge's observed verdict at head, read only, never
-# one this adapter reaches. repository is the https address of the repository the head is read from.
+# one this adapter reaches. repository is the https address of the repository the head is read from. account is
+# the forge account the given token stands for (for GitHub what GET /user answers), absent only when the forge
+# does not say.
 method PullRequest(api: string, token: string, url: string)
     -> (repository: string, head: string, base: string, mergeBase: string, state: (open, merged, closed),
-        approved: bool, mergeCommit: ?string, mergedHead: ?string, decidedAt: ?string)
+        approved: bool, mergeCommit: ?string, mergedHead: ?string, decidedAt: ?string, account: ?ForgeAccount)
+
+# An account at the forge, bounded as review profile 2 bounds porelo/forgeAccountId and porelo/forgeAccountName:
+# id is the forge's id of the account, which a renamed account keeps, 1 to 64 characters (for GitHub its numeric id
+# as a decimal string); login its name as shown, 1 to 256 characters. Neither holds a control character.
+type ForgeAccount (id: string, login: string)
 
 # The open pull request from a branch of the repository upstream names, as the project file names it; absent when
 # none is open. Read only: it opens none.

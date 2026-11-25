@@ -24,6 +24,7 @@ import org.fuin.porelo.gate.review.ForgeInstances;
 import org.fuin.porelo.gate.review.Held;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.PlaceUnreadable;
+import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PushEnd;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.Role;
@@ -475,6 +476,10 @@ class TaskReviewRoleTest {
     private void recorded(final String role) throws IOException {
         final Path state = Files.createDirectories(states.resolve(TASK));
         new RunPlace(role, null, TASK).writeTo(state);
+    }
+
+    private static ForgeAccount account(final PullRequestRef pullRequest, final String entry) {
+        return account(pullRequest.forge(), entry);
     }
 
     private static ForgeAccount account(final String forge, final String entry) {

@@ -2305,6 +2305,10 @@ public final class TaskLaunch {
                     "       it starts again; its agent may not reach its mailbox or know about it");
             err.flush();
         }
+        // A task brought back at a pull request starts its next run there before its agent runs.
+        if (runPlace != null && runPlace.pullRequest() != null) {
+            runStarts.begin(container, runPlace);
+        }
         // Its workspace, its branch and its uncommitted changes are all in that container. What has
         // to be started again is everything that lives on the host, which is what resume does.
         steps.at(container);
@@ -2705,6 +2709,40 @@ public final class TaskLaunch {
 
     /** The role and place the start asked for, or {@code null} for an author at its own push. */
     private @Nullable RunPlace runPlace;
+
+    /**
+     * Starts a task's run at its place once the task is made or brought back and before its agent
+     * runs: the review's, which this area does not know.
+     */
+    @FunctionalInterface
+    public interface RunStarts {
+
+        /** Starts nothing: a launch made without the review's parts. */
+        RunStarts NONE = (container, place) -> {};
+
+        /**
+         * Starts the run; a place that is no pull request starts nothing.
+         *
+         * @param container The task's container.
+         * @param place Its role and place.
+         * @throws RuntimeException When the run cannot start, in the words the caller answers with;
+         *     the start is refused then.
+         */
+        void begin(String container, RunPlace place);
+    }
+
+    private RunStarts runStarts = RunStarts.NONE;
+
+    /**
+     * Says what starts a task's run at its place, for this launch.
+     *
+     * @param starts The review's run start.
+     * @return This launch.
+     */
+    public TaskLaunch startingRuns(final RunStarts starts) {
+        this.runStarts = java.util.Objects.requireNonNull(starts, "starts");
+        return this;
+    }
 
     /** The role and place this task records once it is made, or {@code null} for none. */
     private @Nullable RunPlace recordedPlace;
@@ -4633,6 +4671,17 @@ public final class TaskLaunch {
                         new TaskSecrets(context).keepMcpKey(container, mcp.token());
                 if (!mcpUnkept.isEmpty()) {
                     out.println("mcp       " + mcpUnkept);
+                }
+            }
+
+            // Its run at a pull request starts once its gate, its recorded place and its mailbox
+            // exist, and before its agent runs, so the agent's first look finds the conversation.
+            if (recordedPlace != null) {
+                try {
+                    runStarts.begin(container, recordedPlace);
+                } catch (RuntimeException refused) {
+                    cleanUp(runner, container, 69, false, out, err);
+                    throw refused;
                 }
             }
 

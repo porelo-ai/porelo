@@ -364,6 +364,21 @@ final class TaskMethods {
     }
 
     /**
+     * Ends a task's run once the task is stopped or gone; its held items stay for the owner.
+     *
+     * @param reviews The daemon's review parts.
+     * @param container The task's container.
+     * @param result What the stop or removal answered.
+     */
+    static void ended(
+            final ReviewParts reviews, final String container, final TaskControl.Stopped result) {
+        if (result.outcome() == TaskControl.Outcome.STOPPED
+                || result.outcome() == TaskControl.Outcome.NOTHING_TO_STOP) {
+            reviews.end(container);
+        }
+    }
+
+    /**
      * Refuses the role and place a CanStart names as Start would refuse them.
      *
      * @param context The machine.
@@ -400,7 +415,6 @@ final class TaskMethods {
      * @param signIns The daemon's one sign-in registry.
      * @param sweep What releases this server's kept readings once their keep time has passed.
      */
-    @SuppressWarnings("unused")
     static void register(
             VarlinkServer server,
             PoreloContext context,
@@ -408,6 +422,37 @@ final class TaskMethods {
             TaskControl control,
             org.fuin.porelo.app.AgentSignInRuns signIns,
             ReadingSweep sweep) {
+        register(
+                server,
+                context,
+                inventory,
+                control,
+                signIns,
+                sweep,
+                ReviewParts.of(context, new org.fuin.porelo.app.HeldRuns()));
+    }
+
+    /**
+     * Registers this area's methods, a start at a pull request and a task's end going through the
+     * daemon's one run record.
+     *
+     * @param server Where.
+     * @param context The machine.
+     * @param inventory The daemon's one task inventory.
+     * @param control The daemon's one task control.
+     * @param signIns The daemon's one sign-in registry.
+     * @param sweep What releases this server's kept readings once their keep time has passed.
+     * @param reviews The daemon's one set of the review's parts.
+     */
+    @SuppressWarnings("unused")
+    static void register(
+            VarlinkServer server,
+            PoreloContext context,
+            TaskInventory inventory,
+            TaskControl control,
+            org.fuin.porelo.app.AgentSignInRuns signIns,
+            ReadingSweep sweep,
+            ReviewParts reviews) {
         // The same question 'porelo task list' asks, answered by the same code. A second
         // implementation is how the two come to disagree about what is running.
         server.method(
@@ -585,6 +630,7 @@ final class TaskMethods {
                     // Stops and keeps. What used to be Stop(purge:) is Remove, because one verb
                     // that destroys depending on a flag is one people press without reading.
                     final TaskControl.Stopped result = control.stop(text(parameters, "task"));
+                    ended(reviews, text(parameters, "task"), result);
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("outcome", result.outcome().name());
                     answer.put("helpers", result.helpers());
@@ -601,6 +647,7 @@ final class TaskMethods {
                                     text(parameters, "task"),
                                     flag(parameters, "rescue"),
                                     flag(parameters, "force"));
+                    ended(reviews, text(parameters, "task"), result);
                     final Map<String, Object> answer = new LinkedHashMap<>();
                     answer.put("outcome", result.outcome().name());
                     answer.put("work", result.work() == null ? "" : result.work());
@@ -1403,7 +1450,9 @@ final class TaskMethods {
                                     asked.projectFile(),
                                     asked.task(),
                                     asked.repository(),
-                                    !asked.noGate() && !asked.reads());
+                                    !asked.noGate() && !asked.reads(),
+                                    org.fuin.porelo.app.RunPlaceCheck.Forges.of(context),
+                                    reviews.checked());
                     final TaskLaunch launch =
                             new TaskLaunch(
                                             context,
@@ -1413,6 +1462,7 @@ final class TaskMethods {
                                     .reading(reads)
                                     .keyedBy(callerKey)
                                     .at(runPlace)
+                                    .startingRuns(reviews::begin)
                                     .nameHeld(
                                             unnamed != null
                                                     ? unnamed.note()

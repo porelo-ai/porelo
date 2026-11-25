@@ -125,6 +125,23 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     private final org.fuin.porelo.app.AgentSignInRuns signIns;
 
     McpTaskSockets(PoreloContext context, org.fuin.porelo.app.AgentSignInRuns signIns) {
+        this(context, signIns, ReviewParts.of(context, new org.fuin.porelo.app.HeldRuns()));
+    }
+
+    private final ReviewParts reviews;
+
+    /**
+     * Constructor over the daemon's one set of the review's parts.
+     *
+     * @param context The machine.
+     * @param signIns The daemon's one sign-in registry.
+     * @param reviews The daemon's one set of the review's parts.
+     */
+    McpTaskSockets(
+            PoreloContext context,
+            org.fuin.porelo.app.AgentSignInRuns signIns,
+            ReviewParts reviews) {
+        this.reviews = reviews;
         this.signIns = signIns;
         this.context = context;
         this.inventory = TaskInventory.deriving(context);
@@ -261,7 +278,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             try {
                 server.allow(endpoint);
                 server.reporting(org.fuin.porelo.app.PoreloVersion.version());
-                PoreloDaemon.register(server, context, inventory, control, signIns, sweep);
+                PoreloDaemon.register(server, context, inventory, control, signIns, sweep, reviews);
                 thread = Thread.ofPlatform().daemon().name("porelod-mcp-" + task).start(server);
             } catch (RuntimeException ex) {
                 // Bound and not served: the socket goes, as a stale one would.

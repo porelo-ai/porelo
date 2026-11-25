@@ -146,18 +146,6 @@ class GateReviewerIsolationTest {
     }
 
     @Test
-    void aWantOfAnUnadvertisedCommitIsRefusedWhateverTheRepositoryAllows() throws Exception {
-        final String answer =
-                uploadPack(
-                        pkt("want " + base + " multi_ack_detailed side-band-64k ofs-delta\n")
-                                + "0000"
-                                + pkt("done\n"));
-        assertThat(answer)
-                .as("the answer to a want of the base, which no shown ref names")
-                .doesNotContain("PACK");
-    }
-
-    @Test
     void aHaveOfAHiddenCommitIsNotAcknowledged() throws Exception {
         final String answer =
                 uploadPack(

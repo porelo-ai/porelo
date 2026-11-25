@@ -67,9 +67,11 @@ public final class MessagePass {
     private ReviewReplies replies =
             (task, thread, text) -> java.util.Optional.of("this pass takes no review replies");
 
-    // No task has a current run until runs are recorded, so every submission is refused as the
-    // review itself would refuse one without a run.
-    private final ReviewerComments comments =
+    // Until a pass is told where a run's submission goes, no task has a run it could go to.
+    private ReviewerComments comments = UNTOLD;
+
+    /** Refuses every submission as the review refuses one of a task without a current run. */
+    static final ReviewerComments UNTOLD =
             (task, document) -> {
                 throw new org.fuin.porelo.gate.review.ProfileRefused("run: none for the task");
             };
@@ -418,6 +420,15 @@ public final class MessagePass {
     public void replying(final ReviewReplies review, final MessageDispatch.Tasks owners) {
         this.replies = review;
         this.tasks = owners;
+    }
+
+    /**
+     * Says where a run's submission of comments and replies goes, for the passes that follow.
+     *
+     * @param review Takes the submission into the task's current run.
+     */
+    public void commenting(final ReviewerComments review) {
+        this.comments = java.util.Objects.requireNonNull(review, "review");
     }
 
     /**

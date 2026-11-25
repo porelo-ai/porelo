@@ -35,6 +35,7 @@ class ProfileWritingTest {
                     false,
                     null,
                     null,
+                    null,
                     null);
     static final ForgeAccount OCTOCAT = new ForgeAccount(FORGE, "583231", "octocat");
     static final ForgeAccount MONA = new ForgeAccount(FORGE, "2154823", "mona");

@@ -93,7 +93,12 @@ class PullRequestPinsTest {
                     return new CommandResult(command, fetchExit, "", fetchSaid);
                 }
                 if (arguments.contains("rev-parse")) {
-                    return new CommandResult(command, headExit, HEAD, "");
+                    // As git peels a commit id: to itself.
+                    return new CommandResult(
+                            command,
+                            headExit,
+                            arguments.getLast().replace("^{commit}", "") + "\n",
+                            "");
                 }
                 if (arguments.contains("merge-base")) {
                     return new CommandResult(command, ancestorExit, "", "");
@@ -237,6 +242,7 @@ class PullRequestPinsTest {
                                         MERGE_BASE,
                                         PullRequestState.OPEN,
                                         false,
+                                        null,
                                         null,
                                         null,
                                         null))
@@ -438,6 +444,7 @@ class PullRequestPinsTest {
                     MERGE_BASE,
                     PullRequestState.OPEN,
                     false,
+                    null,
                     null,
                     null,
                     null);

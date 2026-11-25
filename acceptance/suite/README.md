@@ -23,8 +23,17 @@ there - or assert the absence of one, which is half of every such behavior.
 
 ## Writing a scenario
 
-Every step here is the kit's; this module adds only its fixture cleanup hooks. The two vocabularies -
-a person watching, a script nobody watches - are described there.
+Steps come from the kit; the two vocabularies - a person watching, a script nobody watches - are
+described there. This module adds its fixture cleanup hooks and the steps of a task's runs at a pull
+request (`pr-review.feature`, run alone with `-Dcucumber.filter.tags=@pr-review`): what the stub forge
+adapter answers and what it wrote, what the stub agent submits in a run, and what the owner account
+releases. Every write of the adapter's answers and every read of its write log goes through
+`ForgeStub`, whose file formats are each one method; the pages it writes are the review profile's
+fixtures in `builds/api`, read in place. What the stub agent does in its next run is the
+`.porelo-stub-review` file `StubReview` makes, committed into the pull request's head. A pull request's
+repository is served by `StubGitForge`: a loopback https server on the machine, its throwaway authority added
+to the account's `ca-certificates.pem` while it runs, serving repositories by git's smart http to the
+scenario's token alone, so a reviewer's start fetches the head the facts name.
 
 **A run on a kept machine has one account, a leg has four.** `Leg.prepare` gives the accounts beside the build user a copy of
 what the build user has installed, and only what it names. A scenario relying on something new in an account's install passes on one

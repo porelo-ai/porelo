@@ -362,12 +362,14 @@ final class GateMethods {
             TaskInventory inventory,
             TaskControl control,
             ReadingSweep sweep,
-            org.fuin.porelo.app.CommentIntake.Parts comments) {
+            org.fuin.porelo.app.CommentIntake.Parts comments,
+            ReviewParts reviews) {
         registerComments(server, comments);
         registerReviewOpen(server, org.fuin.porelo.app.ReviewOpen.of(context));
         registerHolds(
                 server,
-                new org.fuin.porelo.gate.review.HoldJournal(context.paths().gate().reviewHolds()));
+                new org.fuin.porelo.gate.review.HoldJournal(context.paths().gate().reviewHolds()),
+                reviews::send);
         registerForges(
                 server,
                 org.fuin.porelo.app.ForgeInstanceFile.of(context),
@@ -1106,6 +1108,20 @@ final class GateMethods {
      */
     static void registerHolds(
             final VarlinkServer server, final org.fuin.porelo.gate.review.ReviewHolds holds) {
+        registerHolds(server, holds, () -> {});
+    }
+
+    /**
+     * Registers the held items' methods over a store, an item's release handed on to be sent.
+     *
+     * @param server Where.
+     * @param holds The held items.
+     * @param released Sends what the owner released, run after a release is answered.
+     */
+    static void registerHolds(
+            final VarlinkServer server,
+            final org.fuin.porelo.gate.review.ReviewHolds holds,
+            final Runnable released) {
         server.method(
                 "HeldItems",
                 (parameters, replies) -> {
@@ -1166,6 +1182,9 @@ final class GateMethods {
                         throw invalid("decision");
                     }
                     replies.last(Map.of());
+                    if (decision == org.fuin.porelo.gate.review.Decision.RELEASE) {
+                        released.run();
+                    }
                 });
     }
 

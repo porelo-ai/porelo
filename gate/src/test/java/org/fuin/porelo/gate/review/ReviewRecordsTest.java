@@ -27,7 +27,8 @@ class ReviewRecordsTest {
                                         false,
                                         null,
                                         null,
-                                        decided))
+                                        decided,
+                                        null))
                 .as("an open pull request was not decided")
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(
@@ -40,6 +41,7 @@ class ReviewRecordsTest {
                                         sha,
                                         PullRequestState.CLOSED,
                                         false,
+                                        null,
                                         null,
                                         null,
                                         null))
@@ -56,7 +58,8 @@ class ReviewRecordsTest {
                                         true,
                                         sha,
                                         "main",
-                                        decided)
+                                        decided,
+                                        null)
                                 .decidedAt())
                 .as("a merged one carries when it merged")
                 .isEqualTo(decided);

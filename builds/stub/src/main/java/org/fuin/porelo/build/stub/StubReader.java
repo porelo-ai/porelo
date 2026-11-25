@@ -5,8 +5,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +66,7 @@ import org.jspecify.annotations.Nullable;
  *               "state": "merged", "approved": true, "mergeCommit": "…", "mergedHead": "main",
  *               "decidedAt": "2026-11-20T10:15:30Z"},
  *     "pages": [{… a profile 2 page …}, …]}},
+ *  "accounts": {"sha256:9b1c…": {"porelo/forgeAccountId": "78", "porelo/forgeAccountName": "author"}},
  *  "openPullRequests": {"porelo/fix-login": "https://forge.example/o/n/pull/1"},
  *  "reviewRefuse": {"reason": "RATE_LIMITED", "retryAfter": 30}}
  * </pre>
@@ -71,13 +75,15 @@ import org.jspecify.annotations.Nullable;
  * merged or closed one, {@code decidedAt} among them, and {@code pages} its conversation, one
  * profile 2 page each, the cursor of the next being its index; a page past 100 results or 1 MiB
  * spills onto pages of its own. Each {@code Post} is written as one line to {@link #POSTS} beside
- * the answers - its address, its thread, the guid it is given then, and its document, never the
- * token - and its result joins the last page of that conversation with that guid, its thread, and
- * as {@code forge-account}: the stub's own account ({@link #ACCOUNT_ID}, {@link #ACCOUNT_NAME}), or
- * what {@code postedAs} names over it. A reply names a thread the conversation holds or is refused;
- * a new comment opens a thread of its own. A {@code reviewRefuse} refuses every review call, a
- * reason of {@link ForgeReviewRefused.Reason} with its {@code retryAfter} or {@code field}; the
- * {@code token} holds for the review calls too.
+ * the answers - its address, its thread, the guid it is given then, the account it went out under,
+ * and its document, never the token - and its result joins the last page of that conversation with
+ * that guid, its thread, and as {@code forge-account} under that account: the one {@code accounts}
+ * names for the token by {@link #tokenKey}, else what {@code postedAs} names, else the stub's own
+ * ({@link #ACCOUNT_ID}, {@link #ACCOUNT_NAME}). The facts' {@code account}, unless they name one,
+ * is that same account, as {@code id} and {@code login}. A reply names a thread the conversation
+ * holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse} refuses
+ * every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code retryAfter} or
+ * {@code field}; the {@code token} holds for the review calls too.
  */
 public final class StubReader implements BuildReader, ReviewReader {
 
@@ -96,13 +102,37 @@ public final class StubReader implements BuildReader, ReviewReader {
     /** The file beside the answers each {@code Post} is written to, one JSON line each. */
     public static final String POSTS = "review-posts.jsonl";
 
-    /** The first thread id a new comment opens, so a test tells it from the ones it wrote. */
+    /**
+     * The answers' map from a token, by {@link #tokenKey}, to the forge account it stands for, as
+     * {@code porelo/forgeAccountId} and {@code porelo/forgeAccountName}.
+     */
+    public static final String ACCOUNTS = "accounts";
+
+    /**
+     * Returns what the answers name a token by: its SHA-256, never the token.
+     *
+     * @param token The token.
+     * @return {@code sha256:} and the digest in lowercase hex.
+     */
+    public static String tokenKey(final String token) {
+        try {
+            return "sha256:"
+                    + HexFormat.of()
+                            .formatHex(
+                                    MessageDigest.getInstance("SHA-256")
+                                            .digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("every Java platform has SHA-256", ex);
+        }
+    }
+
     /** The forge account id a posted result carries when the answers name none. */
     public static final String ACCOUNT_ID = "4242";
 
     /** The forge account name a posted result carries when the answers name none. */
     public static final String ACCOUNT_NAME = "porelo-stub";
 
+    /** The first thread id a new comment opens, so a test tells it from the ones it wrote. */
     private static final long FIRST_THREAD = 9_000_000_000L;
 
     private final Path answers;
@@ -208,7 +238,28 @@ public final class StubReader implements BuildReader, ReviewReader {
         }
         final Map<String, Object> wire = new LinkedHashMap<>();
         facts.forEach((key, value) -> wire.put(String.valueOf(key), value));
+        if (!wire.containsKey("account")) {
+            // The account a post goes out under, so the facts and the pages name one account.
+            final Map<String, Object> as = postingAs(access, review(access, url));
+            wire.put(
+                    "account",
+                    Map.of(
+                            "id",
+                            text(as.get("porelo/forgeAccountId")),
+                            "login",
+                            text(as.get("porelo/forgeAccountName"))));
+        }
         return ReviewFacts.of(wire);
+    }
+
+    /** The account the lent token posts as: the one {@code accounts} names, else postedAs's. */
+    private Map<String, Object> postingAs(final ForgeAccess access, final Map<?, ?> review) {
+        final Map<String, Object> as = postedAs(review);
+        final Object named = accounts(access).get(tokenKey(access.token()));
+        if (named instanceof Map<?, ?> account) {
+            as.putAll(copy(account));
+        }
+        return as;
     }
 
     @Override
@@ -254,9 +305,13 @@ public final class StubReader implements BuildReader, ReviewReader {
                 throw new ForgeReviewRefused(ForgeReviewRefused.Reason.NO_SUCH_THREAD);
             }
         }
+        final Map<String, Object> as = postingAs(access, review);
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("url", url);
         line.put("thread", thread);
+        // The account it went out under, as the forge would show it; never the token.
+        line.put("account", text(as.get("porelo/forgeAccountName")));
+        line.put("accountId", text(as.get("porelo/forgeAccountId")));
         // Fixed when posted, so every page written later carries the same guid for it.
         line.put("guid", UUID.randomUUID().toString());
         line.put("document", Json.parseExact(document));
@@ -313,6 +368,23 @@ public final class StubReader implements BuildReader, ReviewReader {
         return read;
     }
 
+    /** The account a post goes out under unless its token stands for another. */
+    private static Map<String, Object> postedAs(final Map<?, ?> review) {
+        final Map<String, Object> postedAs = new LinkedHashMap<>();
+        postedAs.put("porelo/sourceKind", "forge-account");
+        postedAs.put("porelo/forgeAccountId", ACCOUNT_ID);
+        postedAs.put("porelo/forgeAccountName", ACCOUNT_NAME);
+        if (review.get("postedAs") instanceof Map<?, ?> named) {
+            postedAs.putAll(copy(named));
+        }
+        return postedAs;
+    }
+
+    /** The accounts the answers say tokens stand for; none when they name none. */
+    private Map<?, ?> accounts(final ForgeAccess access) {
+        return reviews(access).get(ACCOUNTS) instanceof Map<?, ?> accounts ? accounts : Map.of();
+    }
+
     private Map<?, ?> review(final ForgeAccess access, final String url) {
         if (reviews(access).get("reviews") instanceof Map<?, ?> reviews
                 && reviews.get(url) instanceof Map<?, ?> review) {
@@ -335,13 +407,7 @@ public final class StubReader implements BuildReader, ReviewReader {
             throw new IllegalArgumentException("the stub's answers hold no page of " + url);
         }
         final List<Object> added = new ArrayList<>();
-        final Map<String, Object> postedAs = new LinkedHashMap<>();
-        postedAs.put("porelo/sourceKind", "forge-account");
-        postedAs.put("porelo/forgeAccountId", ACCOUNT_ID);
-        postedAs.put("porelo/forgeAccountName", ACCOUNT_NAME);
-        if (review.get("postedAs") instanceof Map<?, ?> named) {
-            postedAs.putAll(copy(named));
-        }
+        final Map<String, Object> postedAs = postedAs(review);
         for (final Map<?, ?> post : posted()) {
             if (url.equals(post.get("url")) && post.get("document") instanceof Map<?, ?> doc) {
                 final Map<String, Object> result = onlyResult(Json.write(doc));
@@ -350,6 +416,11 @@ public final class StubReader implements BuildReader, ReviewReader {
                 properties.put("porelo/threadId", thread);
                 properties.put("porelo/threadState", stateOf(pages, thread));
                 properties.putAll(postedAs);
+                if (post.get("account") instanceof String name
+                        && post.get("accountId") instanceof String id) {
+                    properties.put("porelo/forgeAccountName", name);
+                    properties.put("porelo/forgeAccountId", id);
+                }
                 result.put("guid", text(post.get("guid")));
                 added.add(result);
             }

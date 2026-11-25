@@ -22,6 +22,8 @@ import org.jspecify.annotations.Nullable;
  * @param mergedHead The branch the merge commit went onto exactly when merged, else {@code null}.
  * @param decidedAt When the forge merged or closed it, exactly when merged or closed, else {@code
  *     null}.
+ * @param account The forge account the token the facts were read with stands for, or {@code null}
+ *     when the forge does not say.
  */
 public record ReviewFacts(
         String repository,
@@ -32,13 +34,62 @@ public record ReviewFacts(
         boolean approved,
         @Nullable String mergeCommit,
         @Nullable String mergedHead,
-        @Nullable Instant decidedAt) {
+        @Nullable Instant decidedAt,
+        @Nullable Account account) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
 
     /** RFC 3339 in UTC, as the contract writes a time: a date, a time, its fraction if any, Z. */
     private static final Pattern UTC =
             Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z");
+
+    /**
+     * An account at the forge, bounded as review profile 2 bounds a forge account's id and name.
+     *
+     * @param id The forge's id of the account, which a renamed account keeps.
+     * @param login Its name as shown.
+     */
+    public record Account(String id, String login) {
+
+        /** The most characters an account's id has, as profile 2 bounds it. */
+        public static final int MOST_ID = 64;
+
+        /** The most characters an account's login has, as profile 2 bounds its name. */
+        public static final int MOST_LOGIN = 256;
+
+        /** Refuses an id or a login that is blank, past its bound or holds a control character. */
+        public Account {
+            Objects.requireNonNull(id, "id");
+            Objects.requireNonNull(login, "login");
+            if (!AdapterText.isPlain(id, MOST_ID)) {
+                throw new IllegalArgumentException(
+                        "the account's id is blank, past 64 characters or not plain");
+            }
+            if (!AdapterText.isPlain(login, MOST_LOGIN)) {
+                throw new IllegalArgumentException(
+                        "the account's login is blank, past 256 characters or not plain");
+            }
+        }
+
+        Map<String, Object> asMap() {
+            final Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", id);
+            map.put("login", login);
+            return map;
+        }
+
+        static @Nullable Account of(final @Nullable Object value) {
+            if (value == null) {
+                return null;
+            }
+            if (!(value instanceof Map<?, ?> map)
+                    || !(map.get("id") instanceof String id)
+                    || !(map.get("login") instanceof String login)) {
+                throw new IllegalArgumentException("the account is no object of id and login");
+            }
+            return new Account(id, login);
+        }
+    }
 
     /** Where a pull request stands at its forge. */
     public enum State {
@@ -124,6 +175,9 @@ public record ReviewFacts(
         if (decidedAt != null) {
             map.put("decidedAt", decidedAt.toString());
         }
+        if (account != null) {
+            map.put("account", account.asMap());
+        }
         return map;
     }
 
@@ -147,7 +201,8 @@ public record ReviewFacts(
                 approved.booleanValue(),
                 optional(map, "mergeCommit"),
                 optional(map, "mergedHead"),
-                time(optional(map, "decidedAt")));
+                time(optional(map, "decidedAt")),
+                Account.of(map.get("account")));
     }
 
     /** Reads a time the contract wrote, refusing one that is no RFC 3339 time in UTC. */

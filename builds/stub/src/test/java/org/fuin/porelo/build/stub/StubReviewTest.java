@@ -102,7 +102,9 @@ class StubReviewTest {
                                     false,
                                     null,
                                     null,
-                                    null));
+                                    null,
+                                    new ReviewFacts.Account(
+                                            StubReader.ACCOUNT_ID, StubReader.ACCOUNT_NAME)));
             assertThat(
                             reader.pullRequestOf(
                                     ACCESS, "git@forge.example:shop/app.git", "porelo/fix-login"))
@@ -255,6 +257,61 @@ class StubReviewTest {
     }
 
     @Test
+    void eachPostIsLoggedAndShownUnderTheAccountItsTokenStandsForAndNeverTheToken()
+            throws IOException {
+        final Path file = answers();
+        final Map<String, Object> read = mutable(Json.parseExact(Files.readString(file)));
+        read.put(
+                StubReader.ACCOUNTS,
+                Map.of(
+                        StubReader.tokenKey(TOKEN),
+                        Map.of(
+                                "porelo/forgeAccountId", "77",
+                                "porelo/forgeAccountName", "porelo-author")));
+        Files.writeString(file, Json.write(read), StandardCharsets.UTF_8);
+        final StubReader stub = new StubReader(file);
+
+        stub.post(ACCESS, PR, text(submission(THREAD, "Moved the check up.")));
+
+        final String log = Files.readString(stub.posts(), StandardCharsets.UTF_8);
+        assertThat(((Map<?, ?>) Json.parseExact(log.strip())).get("account"))
+                .as("the account the post went out under")
+                .isEqualTo("porelo-author");
+        assertThat(log)
+                .as("never the token, nor what it is looked up by")
+                .doesNotContain(TOKEN)
+                .doesNotContain(StubReader.tokenKey(TOKEN));
+        assertThat(properties(valid(stub.comments(ACCESS, PR, null)).get(1)))
+                .as("the posted result, as that account")
+                .containsEntry("porelo/forgeAccountId", "77")
+                .containsEntry("porelo/forgeAccountName", "porelo-author");
+    }
+
+    @Test
+    void aPostWhoseTokenStandsForNoAccountIsLoggedAsTheAccountItWasShownAs() throws IOException {
+        final StubReader stub = new StubReader(answers());
+
+        stub.post(ACCESS, PR, text(submission(THREAD, "Moved the check up.")));
+
+        assertThat(
+                        ((Map<?, ?>)
+                                        Json.parseExact(
+                                                Files.readString(
+                                                                stub.posts(),
+                                                                StandardCharsets.UTF_8)
+                                                        .strip()))
+                                .get("account"))
+                .as("the stub's own account")
+                .isEqualTo(StubReader.ACCOUNT_NAME);
+    }
+
+    private static Map<String, Object> mutable(final Object json) {
+        final Map<String, Object> copy = new java.util.LinkedHashMap<>();
+        ((Map<?, ?>) json).forEach((key, value) -> copy.put(String.valueOf(key), value));
+        return copy;
+    }
+
+    @Test
     void answersPageByPageAndRefusesACursorItDidNotGive() throws IOException {
         final StubReader stub =
                 new StubReader(
@@ -340,6 +397,28 @@ class StubReviewTest {
                         .asString()
                         .contains(THREAD);
             }
+        }
+    }
+
+    @Test
+    void theFactsNameTheAccountTheAnswersGiveForTheToken() throws IOException {
+        final Path answers = answers();
+        Files.writeString(
+                answers,
+                Files.readString(answers, StandardCharsets.UTF_8)
+                        .replaceFirst(
+                                "\\{",
+                                "{\"accounts\": {\""
+                                        + StubReader.tokenKey(TOKEN)
+                                        + "\": {\"porelo/forgeAccountId\": \"583231\","
+                                        + " \"porelo/forgeAccountName\": \"octocat\"}},"),
+                StandardCharsets.UTF_8);
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(stub(answers), StubReader.FORGE, socket())) {
+
+            assertThat(reader.pullRequest(ACCESS, PR).account())
+                    .as("the account the answers name for the token the call lent, as a post's")
+                    .isEqualTo(new ReviewFacts.Account("583231", "octocat"));
         }
     }
 

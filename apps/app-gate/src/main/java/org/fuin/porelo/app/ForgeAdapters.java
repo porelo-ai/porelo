@@ -40,6 +40,15 @@ public final class ForgeAdapters {
     }
 
     /**
+     * Returns where adapters are looked for.
+     *
+     * @return The directories, in the order they are looked in.
+     */
+    public List<Path> directories() {
+        return directories;
+    }
+
+    /**
      * Returns whether an adapter of that name is installed.
      *
      * @param name The adapter's name, which is the forge kind it serves.

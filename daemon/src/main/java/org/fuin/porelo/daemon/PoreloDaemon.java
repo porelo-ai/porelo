@@ -192,11 +192,33 @@ public final class PoreloDaemon {
             VarlinkServer.PeerReader peers,
             org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns,
             ReadingSweep sweep) {
+        return serving(supplied, socket, peers, suppliedSignIns, sweep, null);
+    }
+
+    /**
+     * Serves the methods over the daemon's one set of the review's parts.
+     *
+     * @param supplied Where podman and the paths come from.
+     * @param socket Where to bind.
+     * @param peers The kernel peer check.
+     * @param suppliedSignIns The sign-in registry, or {@code null} for the context's own.
+     * @param sweep What releases the kept readings once their keep time has passed.
+     * @param reviews The review's parts, or {@code null} for a set of this server's own.
+     * @return The server, not yet running.
+     */
+    static VarlinkServer serving(
+            PoreloContext supplied,
+            Path socket,
+            VarlinkServer.PeerReader peers,
+            org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns,
+            ReadingSweep sweep,
+            @Nullable ReviewParts reviews) {
         // A server that cannot be made, its socket taken or a method that fails to register,
         // leaves no sweep on the shared timer for the life of the process; an Error neither.
         boolean served = false;
         try {
-            final VarlinkServer server = made(supplied, socket, peers, suppliedSignIns, sweep);
+            final VarlinkServer server =
+                    made(supplied, socket, peers, suppliedSignIns, sweep, reviews);
             served = true;
             return server;
         } finally {
@@ -211,7 +233,8 @@ public final class PoreloDaemon {
             Path socket,
             VarlinkServer.PeerReader peers,
             org.fuin.porelo.app.@Nullable AgentSignInRuns suppliedSignIns,
-            ReadingSweep sweep) {
+            ReadingSweep sweep,
+            @Nullable ReviewParts reviews) {
         final PoreloContext context =
                 supplied.hostVault() instanceof org.fuin.porelo.app.HostVaultOwner
                         ? supplied
@@ -260,7 +283,10 @@ public final class PoreloDaemon {
                 suppliedSignIns == null
                         ? org.fuin.porelo.app.AgentSignInRuns.of(context)
                         : suppliedSignIns,
-                sweep);
+                sweep,
+                reviews == null
+                        ? ReviewParts.of(context, new org.fuin.porelo.app.HeldRuns())
+                        : reviews);
         return server;
     }
 
@@ -274,6 +300,7 @@ public final class PoreloDaemon {
      * @param control The one task control.
      * @param signIns The daemon's one sign-in registry.
      * @param sweep What releases this server's kept readings once their keep time has passed.
+     * @param reviews The daemon's one set of the review's parts.
      */
     static void register(
             VarlinkServer server,
@@ -281,9 +308,10 @@ public final class PoreloDaemon {
             TaskInventory inventory,
             TaskControl control,
             org.fuin.porelo.app.AgentSignInRuns signIns,
-            ReadingSweep sweep) {
+            ReadingSweep sweep,
+            ReviewParts reviews) {
         // Each area registers its own methods, from its own file.
-        TaskMethods.register(server, context, inventory, control, signIns, sweep);
+        TaskMethods.register(server, context, inventory, control, signIns, sweep, reviews);
         ProjectMethods.register(server, context, inventory, control);
         EgressMethods.register(server, context, inventory, control);
         VaultMethods.register(server, context, inventory, control);
@@ -294,7 +322,8 @@ public final class PoreloDaemon {
                 inventory,
                 control,
                 sweep,
-                org.fuin.porelo.app.CommentIntake.Parts.of(context));
+                org.fuin.porelo.app.CommentIntake.Parts.of(context),
+                reviews);
         AgentMethods.register(server, context, inventory, control, signIns);
         MessagingMethods.register(server, context, inventory, control, sweep);
         MachineMethods.register(server, context, inventory, control);
@@ -310,7 +339,8 @@ public final class PoreloDaemon {
     record Watches(
             PoreloContext context,
             org.fuin.porelo.app.UpstreamWatch upstream,
-            org.fuin.porelo.app.MessageWatch mail)
+            org.fuin.porelo.app.MessageWatch mail,
+            ReviewParts reviews)
             implements AutoCloseable {
         @Override
         public void close() {
@@ -326,11 +356,18 @@ public final class PoreloDaemon {
     static Watches watches(
             PoreloContext supplied, java.time.Duration every, java.time.Duration messages) {
         final PoreloContext context = ownedContext(supplied);
+        // The daemon's one run record: the message pass, every socket's Start, Stop and Remove
+        // and every release read and change the same runs.
+        final ReviewParts reviews = ReviewParts.of(context, new org.fuin.porelo.app.HeldRuns());
         return new Watches(
                 context,
                 new org.fuin.porelo.app.UpstreamWatch(context, every),
                 new org.fuin.porelo.app.MessageWatch(
-                        context, messages, org.fuin.porelo.app.TaskReviewReplies.of(context)));
+                        context,
+                        messages,
+                        org.fuin.porelo.app.TaskReviewReplies.of(context),
+                        reviews.intake()),
+                reviews);
     }
 
     /**
@@ -1689,8 +1726,11 @@ public final class PoreloDaemon {
                                     owned,
                                     socket,
                                     org.fuin.porelo.core.process.SocketPeer::read,
-                                    signIns);
-                    McpTaskSockets taskSockets = new McpTaskSockets(owned, signIns)) {
+                                    signIns,
+                                    new ReadingSweep(owned.limits().polling(ReadingSweep.EVERY)),
+                                    watches.reviews());
+                    McpTaskSockets taskSockets =
+                            new McpTaskSockets(owned, signIns, watches.reviews())) {
                 // A task's start asks for its MCP socket through this; nothing else installs one.
                 org.fuin.porelo.app.McpDaemonSockets.install(taskSockets);
                 // A task still running keeps its porelo-mcp, pointed at a socket the daemon before

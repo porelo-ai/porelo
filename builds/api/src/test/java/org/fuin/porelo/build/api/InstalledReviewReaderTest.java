@@ -56,6 +56,7 @@ class InstalledReviewReaderTest {
                                     true,
                                     null,
                                     null,
+                                    null,
                                     null));
             assertThat(reader.pullRequest(ACCESS, "https://forge.example/owner/name/pull/2"))
                     .as("a merged one names its merge commit and the branch it went onto")

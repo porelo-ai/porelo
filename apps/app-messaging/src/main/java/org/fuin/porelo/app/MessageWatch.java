@@ -112,12 +112,30 @@ public final class MessageWatch implements AutoCloseable {
      */
     public MessageWatch(
             final PoreloContext context, final Duration interval, final ReviewReplies replies) {
+        this(context, interval, replies, MessagePass.UNTOLD);
+    }
+
+    /**
+     * Constructor with what takes a task's reply in a review thread and what takes a run's
+     * submission: the assembly's, which knows the review's parts that this area does not.
+     *
+     * @param context Where the paths, the runner and the projects come from.
+     * @param interval How often to look. Zero or negative means never.
+     * @param replies Takes a task's reply to a review thread.
+     * @param comments Takes a run's submission into the task's current run.
+     */
+    public MessageWatch(
+            final PoreloContext context,
+            final Duration interval,
+            final ReviewReplies replies,
+            final ReviewerComments comments) {
         this(
                 context,
                 interval,
                 () -> context.vault().exists() && context.opener().isPresent(),
                 IDLE,
                 replies);
+        this.comments = java.util.Objects.requireNonNull(comments, "comments");
     }
 
     /**
@@ -171,6 +189,9 @@ public final class MessageWatch implements AutoCloseable {
             (task, thread, text) -> java.util.Optional.of("review replies are not taken here");
 
     private final ReviewReplies replies;
+
+    // Set once by the constructor that is given it, before the watch is started.
+    private volatile ReviewerComments comments = MessagePass.UNTOLD;
 
     private final java.util.function.BooleanSupplier vaultOpen;
 
@@ -406,6 +427,7 @@ public final class MessageWatch implements AutoCloseable {
                         context.limits());
         pass.marking(marks());
         pass.replying(replies, this::taskOf);
+        pass.commenting(comments);
         return pass;
     }
 

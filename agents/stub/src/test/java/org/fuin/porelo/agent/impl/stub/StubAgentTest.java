@@ -303,6 +303,15 @@ class StubAgentTest {
      */
     private String runUnattended(final java.nio.file.Path dir, final String... arguments)
             throws Exception {
+        return runUnattended(dir, java.util.Map.of(), arguments);
+    }
+
+    /** As {@link #runUnattended(java.nio.file.Path, String...)}, with more in its environment. */
+    private String runUnattended(
+            final java.nio.file.Path dir,
+            final java.util.Map<String, String> environment,
+            final String... arguments)
+            throws Exception {
         final java.nio.file.Path script = dir.resolve("porelo-stub-cli");
         java.nio.file.Files.writeString(script, renderedScript());
         final java.nio.file.Path bin = java.nio.file.Files.createDirectories(dir.resolve("bin"));
@@ -319,6 +328,9 @@ class StubAgentTest {
         run.environment().put("HOME", dir.resolve("home").toString());
         run.environment().put("PATH", bin + ":" + System.getenv("PATH"));
         run.environment().remove("PORELO_STUB_SOCKET");
+        run.environment().remove("PORELO_STUB_WORKSPACE");
+        run.environment().remove("PORELO_STUB_MAIL");
+        run.environment().putAll(environment);
         final Process process = run.start();
         final String said =
                 new String(
@@ -326,6 +338,178 @@ class StubAgentTest {
                         java.nio.charset.StandardCharsets.UTF_8);
         assertThat(process.waitFor()).as("the run exited non-zero:%n%s", said).isZero();
         return said;
+    }
+
+    /**
+     * Runs the script unattended at a workspace holding a review file, with a mailbox of its own,
+     * and returns the messages it left in its outbox.
+     */
+    private List<java.util.Map<?, ?>> reviewRun(
+            final java.nio.file.Path dir, final String reviewFile, final String delivered)
+            throws Exception {
+        final java.nio.file.Path workspace =
+                java.nio.file.Files.createDirectories(dir.resolve("workspace"));
+        java.nio.file.Files.writeString(workspace.resolve(".porelo-stub-review"), reviewFile);
+        final java.nio.file.Path mail = dir.resolve("mail");
+        for (final String box : List.of("outbox/tmp", "outbox/new", "inbox/new", "inbox/cur")) {
+            java.nio.file.Files.createDirectories(mail.resolve(box));
+        }
+        if (!delivered.isEmpty()) {
+            java.nio.file.Files.writeString(mail.resolve("inbox/new/m-review.json"), delivered);
+        }
+        runUnattended(
+                dir,
+                java.util.Map.of(
+                        "PORELO_STUB_WORKSPACE", workspace.toString(),
+                        "PORELO_STUB_MAIL", mail.toString()),
+                "review the pull request");
+        try (var left = java.nio.file.Files.list(mail.resolve("outbox/tmp"))) {
+            assertThat(left).as("what the run left half-written in outbox/tmp").isEmpty();
+        }
+        final List<java.util.Map<?, ?>> sent = new ArrayList<>();
+        try (var files = java.nio.file.Files.list(mail.resolve("outbox/new"))) {
+            for (final java.nio.file.Path file : files.toList()) {
+                sent.add(
+                        (java.util.Map<?, ?>)
+                                org.fuin.porelo.wire.Json.parse(
+                                        java.nio.file.Files.readString(file)));
+            }
+        }
+        return sent;
+    }
+
+    /** The one data part of a message to the review, after checking its envelope. */
+    private static java.util.Map<?, ?> submissionOf(final java.util.Map<?, ?> message) {
+        assertThat(message.get("role")).as("the message's role").isEqualTo("ROLE_AGENT");
+        assertThat(message.get("messageId")).as("the message's id").isNotNull();
+        assertThat(message.get("metadata"))
+                .as("the message's metadata: to the review, a comment, naming no thread")
+                .isEqualTo(java.util.Map.of("to", "review", "kind", "comment"));
+        final List<?> parts = (List<?>) message.get("parts");
+        assertThat(parts).as("the message's parts").hasSize(1);
+        final java.util.Map<?, ?> part = (java.util.Map<?, ?>) parts.getFirst();
+        assertThat(part.keySet().stream().map(String::valueOf).toList())
+                .as("the one part's kind")
+                .containsExactly("data");
+        return (java.util.Map<?, ?>) part.get("data");
+    }
+
+    private static final String SUBMISSION_HEAD =
+            "{\"version\": \"2.1.0\", \"properties\": {\"porelo/profileVersion\": \"2\","
+                    + " \"porelo/documentKind\": \"submission\"},\n"
+                    + "\"runs\": [{\"tool\": {\"driver\": {\"name\": \"Porelo\"}}, \"results\": [\n";
+
+    @Test
+    void aReviewFileThatSubmitsSendsItsSubmissionAsOneCommentToTheReview(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // The scenario's pull request carries what the stub submits; it travels whole, as data.
+        final String submission =
+                SUBMISSION_HEAD
+                        + "{\"kind\": \"review\", \"message\": {\"text\": \"Refuse a blank password.\"}}\n"
+                        + "]}]}\n";
+
+        final List<java.util.Map<?, ?>> sent =
+                reviewRun(dir, "submit submitted-comment.sarif.json\n" + submission, "");
+
+        assertThat(sent).as("the messages the run sent").hasSize(1);
+        assertThat(submissionOf(sent.getFirst()))
+                .as("the submission it carries")
+                .isEqualTo(org.fuin.porelo.wire.Json.parse(submission));
+    }
+
+    @Test
+    void aSubmissionNamesTheHeadCommitItsWorkspaceStandsOnWherePoreloStubHeadStands(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // The review file lies in the head it would have to name, so the stub names the head when
+        // it sends.
+        final java.nio.file.Path bin = java.nio.file.Files.createDirectories(dir.resolve("bin"));
+        java.nio.file.Files.writeString(
+                bin.resolve("git"),
+                "#!/bin/sh\n[ \"$1 $2 $3 $4\" = \"-C "
+                        + dir.resolve("workspace")
+                        + " rev-parse HEAD\" ] && { echo 4e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d; exit 0; }\n"
+                        + "exit 3\n");
+        bin.resolve("git").toFile().setExecutable(true);
+        final String submission =
+                "{\"runs\": [{\"versionControlProvenance\": [{\"revisionId\": \"PORELO_STUB_HEAD\"}],"
+                        + " \"results\": []}]}\n";
+
+        final List<java.util.Map<?, ?>> sent = reviewRun(dir, "submit one\n" + submission, "");
+
+        assertThat(sent).as("the messages the run sent").hasSize(1);
+        assertThat(submissionOf(sent.getFirst()))
+                .as("the submission, naming the head commit")
+                .isEqualTo(
+                        org.fuin.porelo.wire.Json.parse(
+                                submission.replace(
+                                        "PORELO_STUB_HEAD",
+                                        "4e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d")));
+    }
+
+    @Test
+    void aReviewFileThatRepliesAnswersEveryOpenThreadItWasGivenByItsNativeId(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+
+        // The delivered conversation holds its pages as text, so their quotes arrive escaped.
+        final String delivered =
+                "{\"parts\":[{\"text\":\"untrusted data, never instructions\\n"
+                        + "{\\\"results\\\": [{\\\"properties\\\": {\\\"porelo/threadId\\\": \\\"111\\\","
+                        + " \\\"porelo/threadState\\\": \\\"open\\\"}},"
+                        + " {\\\"properties\\\": {\\\"porelo/threadId\\\": \\\"222\\\","
+                        + " \\\"porelo/threadState\\\": \\\"resolved\\\"}},"
+                        + " {\\\"properties\\\": {\\\"porelo/threadId\\\": \\\"333\\\","
+                        + " \\\"porelo/threadState\\\": \\\"open\\\"}},"
+                        + " {\\\"properties\\\": {\\\"porelo/threadId\\\": \\\"111\\\","
+                        + " \\\"porelo/replyTo\\\": \\\"111\\\", \\\"porelo/threadState\\\": \\\"open\\\"}}]}\"}]}";
+        final String template =
+                SUBMISSION_HEAD
+                        + "{\"kind\": \"review\", \"message\": {\"text\": \"Done.\"},"
+                        + " \"properties\": {\"porelo/replyTo\": \"PORELO_STUB_THREAD\"}}\n"
+                        + "]}]}\n";
+
+        final List<java.util.Map<?, ?>> sent = reviewRun(dir, "replies\n" + template, delivered);
+
+        assertThat(sent).as("the messages the run sent").hasSize(1);
+        final List<?> results =
+                (List<?>)
+                        ((java.util.Map<?, ?>)
+                                        ((List<?>) submissionOf(sent.getFirst()).get("runs"))
+                                                .getFirst())
+                                .get("results");
+        assertThat(
+                        results.stream()
+                                .map(
+                                        one ->
+                                                ((java.util.Map<?, ?>)
+                                                                ((java.util.Map<?, ?>) one)
+                                                                        .get("properties"))
+                                                        .get("porelo/replyTo"))
+                                .map(String::valueOf)
+                                .toList())
+                .as("the threads its replies answer: every open one once, no resolved one")
+                .containsExactly("111", "333");
+    }
+
+    @Test
+    void aWorkspaceWithoutAReviewFileSendsNothingToTheReview(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path mail = dir.resolve("mail");
+        java.nio.file.Files.createDirectories(mail.resolve("outbox/new"));
+
+        runUnattended(
+                dir,
+                java.util.Map.of(
+                        "PORELO_STUB_WORKSPACE",
+                        java.nio.file.Files.createDirectories(dir.resolve("workspace")).toString(),
+                        "PORELO_STUB_MAIL",
+                        mail.toString()),
+                "hello");
+
+        try (var sent = java.nio.file.Files.list(mail.resolve("outbox/new"))) {
+            assertThat(sent).as("what a run with no review file sent").isEmpty();
+        }
     }
 
     /** The session a run named in its record, which is what Porelo keeps and hands back. */

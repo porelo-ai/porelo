@@ -102,13 +102,14 @@ public final class TaskReviewRole implements ReviewRole {
     public interface Accounts {
 
         /**
-         * Returns the account an entry's token is at a forge.
+         * Returns the account an entry's token is at a pull request's forge.
          *
-         * @param forge The forge instance's host.
+         * @param pullRequest The pull request the items go out at, whose forge is asked.
          * @param entry The entry's name.
          * @return The account.
+         * @throws PlaceUnreadable When the forge cannot be asked or does not say.
          */
-        ForgeAccount of(String forge, String entry);
+        ForgeAccount of(PullRequestRef pullRequest, String entry) throws PlaceUnreadable;
     }
 
     /** Reads where a task's last push stands at its own gate, as the gate kept it. */
@@ -241,13 +242,14 @@ public final class TaskReviewRole implements ReviewRole {
                 return new Task(task);
             }
             posting = posting(task, place);
+            final PullRequestRef ref =
+                    Objects.requireNonNull(
+                            posting.ref(),
+                            "only an author at a gate push posts with no pull request");
+            return accounts.of(ref, posting.entry());
         } catch (PlaceUnreadable ex) {
             throw new IllegalStateException(ex.getMessage(), ex);
         }
-        final PullRequestRef ref =
-                Objects.requireNonNull(
-                        posting.ref(), "only an author at a gate push posts with no pull request");
-        return accounts.of(ref.forge(), posting.entry());
     }
 
     @Override

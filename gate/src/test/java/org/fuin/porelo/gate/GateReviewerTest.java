@@ -125,9 +125,26 @@ class GateReviewerTest {
 
     @Test
     void aCommitOfAHiddenRefIsNotFetched() {
-        assertThatThrownBy(() -> git(work, "fetch", "-q", url, later))
+        // Into an empty repository: one that holds the commit already fetches it without asking.
+        final Path empty = dir.resolve("empty.git");
+        git(dir, "init", "--bare", "-q", empty.toString());
+        git(empty, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+        assertThatThrownBy(() -> git(empty, "fetch", "-q", url, later + ":refs/taken"))
                 .as("the waiting push's next head, asked for by its id")
                 .isInstanceOf(RuntimeException.class);
+        assertThat(
+                        runner.run(
+                                        Command.of(
+                                                List.of(
+                                                        "git",
+                                                        "-C",
+                                                        empty.toString(),
+                                                        "cat-file",
+                                                        "-e",
+                                                        later)))
+                                .successful())
+                .as("whether the hidden commit arrived")
+                .isFalse();
     }
 
     @Test

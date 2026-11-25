@@ -158,8 +158,12 @@ class ConversationNoteTest {
 
         final List<Path> notes = notes();
         assertThat(notes).as("one note per run of one page").hasSize(2);
-        final String one = Files.readString(notes.get(0), StandardCharsets.UTF_8);
-        final String two = Files.readString(notes.get(1), StandardCharsets.UTF_8);
+        // A note's file name carries a random id, so each is found by its run, never by order.
+        final String first = Files.readString(notes.get(0), StandardCharsets.UTF_8);
+        final String second = Files.readString(notes.get(1), StandardCharsets.UTF_8);
+        final boolean inOrder = first.contains("\"run\":1,");
+        final String one = inOrder ? first : second;
+        final String two = inOrder ? second : first;
         assertThat(one)
                 .as("one withheld comment counted")
                 .contains("1 comment is held for the owner account's decision")

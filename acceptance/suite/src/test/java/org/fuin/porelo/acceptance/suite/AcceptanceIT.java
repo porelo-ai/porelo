@@ -12,7 +12,8 @@ import org.junit.platform.suite.api.Suite;
  * output - which is the other half of what this module was asked for: an overview of what is
  * tested, without anybody reading a log.
  *
- * <p>Every step comes from the kit; this suite adds only its fixture cleanup hooks.
+ * <p>Steps come from the kit; this suite adds its fixture cleanup hooks and the steps of a task's
+ * runs at a pull request.
  */
 @Suite
 @IncludeEngines("cucumber")

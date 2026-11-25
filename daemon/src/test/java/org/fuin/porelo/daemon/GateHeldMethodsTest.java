@@ -297,6 +297,35 @@ class GateHeldMethodsTest {
                 .containsExactly(TASK + " h1 RELEASE", TASK + " h2 RELEASE");
     }
 
+    @Test
+    void aReleaseIsHandedOnToBeSentAndARefusalIsNot() throws Exception {
+        final Held one = outgoing("h1", "Keep the order.", 1);
+        final Held two = outgoing("h2", "Keep it.", 2);
+        holds.with(one, two);
+        final List<String> sent = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final java.util.concurrent.CountDownLatch passed =
+                new java.util.concurrent.CountDownLatch(1);
+        server = new VarlinkServer(dir.resolve("h.sock"), PoreloDaemon.INTERFACE);
+        GateMethods.registerHolds(
+                server,
+                holds,
+                () -> {
+                    sent.add("pass");
+                    passed.countDown();
+                });
+        Thread.ofVirtual().start(server);
+        client = new VarlinkClient(server.socketPath());
+
+        client.call(PoreloDaemon.INTERFACE + ".DecideItem", decide(one, "refuse"));
+        assertThat(sent).as("nothing sent after a refusal").isEmpty();
+        client.call(PoreloDaemon.INTERFACE + ".DecideItem", decide(two, "release"));
+
+        assertThat(passed.await(10, java.util.concurrent.TimeUnit.SECONDS))
+                .as("a pass ran after the answer")
+                .isTrue();
+        assertThat(sent).as("one sending pass after the release").containsExactly("pass");
+    }
+
     /** An answer's object, its keys as text, so it can be asserted by name. */
     private static Map<String, Object> fields(final Object value) {
         final Map<String, Object> fields = new java.util.LinkedHashMap<>();

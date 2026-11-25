@@ -1,0 +1,2 @@
+title: A forge adapter's pull request facts now name the forge account the lent token stands for (account in org.fuin.porelo.Review1), so Porelo can tell which items at a pull request are the asking task's own; the stub adapter answers it from its answers file
+type: changed
