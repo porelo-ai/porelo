@@ -1,0 +1,2 @@
+title: An acceptance scenario selected by `@github` runs a reviewer's released comment and replies on a real GitHub pull request through the github forge adapter, the test identity's answers reaching the next run
+type: added

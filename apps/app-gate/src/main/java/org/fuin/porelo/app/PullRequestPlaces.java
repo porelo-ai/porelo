@@ -18,7 +18,6 @@ import org.fuin.porelo.gate.review.PullRequestPinning;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
-import org.fuin.porelo.gate.review.Role;
 
 /**
  * Finds a pull request's place by its address: one {@link PullRequestPlace} for every pull request
@@ -36,7 +35,7 @@ public final class PullRequestPlaces implements ReviewPlaces {
     private final CommentCheck check;
     private final ProfileWriting writing;
     private final ReleasedSender.Credentials credentials;
-    private final Function<String, Role> roles;
+    private final Predicate<String> author;
     private final PullRequestPlace.AuthorPins authors;
 
     /**
@@ -51,7 +50,7 @@ public final class PullRequestPlaces implements ReviewPlaces {
      * @param check The check of each comment against the pinned push.
      * @param writing The one writer of profile 2.
      * @param credentials Lends a forge's read credential for a pin's facts.
-     * @param roles A task's role, as its run recorded it.
+     * @param author Whether a task is the pull request's author, whose head its own gate sent.
      * @param authors Pins an author at its own pull request.
      */
     public PullRequestPlaces(
@@ -63,7 +62,7 @@ public final class PullRequestPlaces implements ReviewPlaces {
             final CommentCheck check,
             final ProfileWriting writing,
             final ReleasedSender.Credentials credentials,
-            final Function<String, Role> roles,
+            final Predicate<String> author,
             final PullRequestPlace.AuthorPins authors) {
         this.forges = Objects.requireNonNull(forges, "forges");
         this.installed = Objects.requireNonNull(installed, "installed");
@@ -73,7 +72,7 @@ public final class PullRequestPlaces implements ReviewPlaces {
         this.check = Objects.requireNonNull(check, "check");
         this.writing = Objects.requireNonNull(writing, "writing");
         this.credentials = Objects.requireNonNull(credentials, "credentials");
-        this.roles = Objects.requireNonNull(roles, "roles");
+        this.author = Objects.requireNonNull(author, "author");
         this.authors = Objects.requireNonNull(authors, "authors");
     }
 
@@ -132,7 +131,7 @@ public final class PullRequestPlaces implements ReviewPlaces {
                 check,
                 writing,
                 credentials,
-                roles,
+                author,
                 authors);
     }
 }

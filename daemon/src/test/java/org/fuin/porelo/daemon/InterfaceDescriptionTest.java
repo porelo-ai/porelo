@@ -1095,6 +1095,8 @@ class InterfaceDescriptionTest {
             if ("Gate".equals(area)) {
                 signature.add(org.fuin.porelo.app.CommentIntake.Parts.class);
                 arguments.add(org.fuin.porelo.app.CommentIntake.Parts.of(context));
+                signature.add(ReviewParts.class);
+                arguments.add(ReviewParts.of(context, new org.fuin.porelo.app.HeldRuns()));
             }
             registrar
                     .getDeclaredMethod("register", signature.toArray(Class<?>[]::new))

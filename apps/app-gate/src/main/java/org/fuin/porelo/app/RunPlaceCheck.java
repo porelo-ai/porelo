@@ -509,7 +509,11 @@ public final class RunPlaceCheck {
                     Refusal.unavailable(
                             "UnknownForge",
                             Map.of("host", host),
-                            "this machine knows no forge at " + host));
+                            "this machine knows no forge at "
+                                    + host
+                                    + "; 'porelo forge add "
+                                    + host
+                                    + " --adapter <adapter>' adds it"));
         }
         final String adapter = instance.get().adapter();
         if (adapter == null || !forges.installed(adapter)) {

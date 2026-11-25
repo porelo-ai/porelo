@@ -692,7 +692,19 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
     @Override
     public Integer call() {
-        return started(this::startOnce, context.limits());
+        return started(this::startOnceOrRefused, context.limits());
+    }
+
+    /** One start, a run that could not begin at its pull request refusing it. */
+    private int startOnceOrRefused() {
+        try {
+            return startOnce();
+        } catch (TaskLaunch.RunStarts.Refused refused) {
+            final PrintWriter err = spec.commandLine().getErr();
+            err.println("porelo: " + refused.getMessage());
+            err.flush();
+            return 69;
+        }
     }
 
     /** How often a start begins again after the person chose another way, at factor 1.0. */
@@ -1365,6 +1377,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         .reading(reads)
                         .keyedBy(callerKey)
                         .at(runPlace)
+                        // Its run at a pull request begins in the daemon, which keeps it.
+                        .startingRuns(DaemonRunStarts.of(context))
                         .configuringWith(detector)
                         // Asked at a terminal only; unattended the start only says it.
                         .askingToLeaveDefault(

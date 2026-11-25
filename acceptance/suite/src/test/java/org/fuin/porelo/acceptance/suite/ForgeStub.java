@@ -262,7 +262,7 @@ final class ForgeStub {
      */
     static String forgeItem(
             String page, String url, String account, String thread, boolean answers, String text) {
-        final Map<String, Object> document = map(Json.parse(page), "the page");
+        final Map<String, Object> document = map(Json.parseNumberTypes(page), "the page");
         final Map<String, Object> run = map(list(document.get("runs"), "runs").get(0), "the run");
         final Map<String, Object> runProperties =
                 map(run.get("properties"), "the run's properties");
@@ -295,9 +295,24 @@ final class ForgeStub {
         }
         item.put("properties", properties);
         item.put("message", Map.of("text", text));
+        // Anchored where every pull request the suite serves has a line: an author's project and
+        // the stub git forge's repository both hold a README.md; the fixture's fix was for its own.
+        item.put(
+                "locations",
+                List.of(
+                        Map.of(
+                                "physicalLocation",
+                                Map.of(
+                                        "artifactLocation",
+                                        Map.of("uri", "README.md"),
+                                        "region",
+                                        Map.of("startLine", 1, "endLine", 1)))));
+        item.remove("fixes");
         item.put(
                 "guid",
-                UUID.nameUUIDFromBytes((thread + answers + text).getBytes(StandardCharsets.UTF_8))
+                version4(
+                                UUID.nameUUIDFromBytes(
+                                        (thread + answers + text).getBytes(StandardCharsets.UTF_8)))
                         .toString());
         run.put("results", List.of(item));
         document.put("runs", List.of(run));
@@ -353,6 +368,10 @@ final class ForgeStub {
         written.put("state", "open");
         written.put("approved", false);
         review.put("facts", written);
+        if (!(review.get("pages") instanceof List<?> listed) || listed.isEmpty()) {
+            // A pull request nobody has said anything on yet: its conversation is one empty page.
+            review.put("pages", List.of(emptyPage(url, facts)));
+        }
         final Map<String, Object> open =
                 read.get("openPullRequests") == null
                         ? new LinkedHashMap<>()
@@ -409,6 +428,41 @@ final class ForgeStub {
     record Facts(String repository, String head, String base, String mergeBase) {}
 
     /**
+     * Makes a name-based UUID one of version 4, which the review profile asks of a result's guid,
+     * so the same comment keeps the same guid.
+     *
+     * @param named A name-based UUID.
+     * @return It, as version 4.
+     */
+    static UUID version4(UUID named) {
+        return new UUID(
+                (named.getMostSignificantBits() & ~0xF000L) | 0x4000L,
+                named.getLeastSignificantBits());
+    }
+
+    /** A complete profile 2 page of a pull request's conversation that holds no result yet. */
+    static Map<String, Object> emptyPage(String url, Facts facts) {
+        final Map<String, Object> run = new LinkedHashMap<>();
+        run.put("tool", Map.of("driver", Map.of("name", "Porelo")));
+        run.put(
+                "versionControlProvenance",
+                List.of(Map.of("repositoryUri", facts.repository(), "revisionId", facts.head())));
+        run.put("columnKind", "unicodeCodePoints");
+        final Map<String, Object> runProperties = new LinkedHashMap<>();
+        runProperties.put("porelo/pullRequest", url);
+        runProperties.put("porelo/baseRevisionId", facts.base());
+        runProperties.put("porelo/completeness", "complete");
+        run.put("properties", runProperties);
+        run.put("results", List.of());
+        final Map<String, Object> page = new LinkedHashMap<>();
+        page.put("version", "2.1.0");
+        page.put("$schema", "https://json.schemastore.org/sarif-2.1.0.json");
+        page.put("properties", Map.of("porelo/profileVersion", "2", "porelo/documentKind", "page"));
+        page.put("runs", List.of(run));
+        return page;
+    }
+
+    /**
      * Appends a conversation page to a pull request's answers.
      *
      * @param answers The answers as they are.
@@ -423,7 +477,7 @@ final class ForgeStub {
                 review.get("pages") instanceof List<?> listed
                         ? new ArrayList<>(listed)
                         : new ArrayList<>();
-        final Map<String, Object> added = map(Json.parse(page), "the page");
+        final Map<String, Object> added = map(Json.parseNumberTypes(page), "the page");
         if (pages.isEmpty()) {
             pages.add(added);
         } else {

@@ -177,7 +177,7 @@ class PullRequestPlacesTest {
                     new ReviewStandIns.Check(),
                     new Writing(),
                     entry -> new ForgeCredential(entry, "t"),
-                    task -> roles.getOrDefault(task, Role.REVIEWER),
+                    task -> roles.getOrDefault(task, Role.REVIEWER) == Role.AUTHOR,
                     (task, facts) -> {
                         authorsPinned.add(task + " " + facts.head());
                         if (!HEAD.equals(facts.head())) {

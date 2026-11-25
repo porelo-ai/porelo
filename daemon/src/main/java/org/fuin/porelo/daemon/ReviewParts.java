@@ -1,6 +1,6 @@
 package org.fuin.porelo.daemon;
 
-import java.nio.file.Files;
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Map;
@@ -11,10 +11,10 @@ import org.fuin.porelo.app.CommentIntake;
 import org.fuin.porelo.app.ConversationNote;
 import org.fuin.porelo.app.ForgeAdapters;
 import org.fuin.porelo.app.ForgeInstanceFile;
-import org.fuin.porelo.app.GateEnds;
 import org.fuin.porelo.app.GateSupport;
 import org.fuin.porelo.app.HeldRuns;
 import org.fuin.porelo.app.InboundCommentFilter;
+import org.fuin.porelo.app.MachineReviewRole;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PullRequestPins;
 import org.fuin.porelo.app.PullRequestPlace;
@@ -24,18 +24,18 @@ import org.fuin.porelo.app.ReleasedSender;
 import org.fuin.porelo.app.RunIntake;
 import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.app.RunPlaceCheck;
+import org.fuin.porelo.app.RunStart;
 import org.fuin.porelo.app.TaskReviewRole;
 import org.fuin.porelo.core.net.GitCertificates;
-import org.fuin.porelo.gate.review.ForgeCredential;
 import org.fuin.porelo.gate.review.ForgeReview;
 import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.ProfileTranslator;
 import org.fuin.porelo.gate.review.PullRequestPinning;
-import org.fuin.porelo.gate.review.PushEnd;
+import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.runtime.ContainerSummary;
-import org.fuin.porelo.vault.VaultEntry;
+import org.fuin.porelo.wire.TaskProfile;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 
 /**
@@ -55,6 +55,9 @@ final class ReviewParts {
     private final RunIntake intake;
     private final ReleasedSender sender;
 
+    // Where each task's start recorded its role and place.
+    private final java.util.function.Function<String, java.nio.file.Path> states;
+
     // One pass at a time: two passes over the same due items would post one item twice.
     private final java.util.concurrent.ExecutorService sending =
             java.util.concurrent.Executors.newSingleThreadExecutor(
@@ -64,7 +67,9 @@ final class ReviewParts {
             final HeldRuns runs,
             final PullRequestRunStart start,
             final RunIntake intake,
-            final ReleasedSender sender) {
+            final ReleasedSender sender,
+            final java.util.function.Function<String, java.nio.file.Path> states) {
+        this.states = states;
         this.runs = runs;
         this.start = start;
         this.intake = intake;
@@ -84,8 +89,9 @@ final class ReviewParts {
         final ForgeAdapters adapters = ForgeAdapters.of(context);
         final ProfileTranslator reading = new ProfileTranslator();
         final ReviewSarif writing = new ReviewSarif();
-        final ReleasedSender.Credentials credentials = entry -> lend(context, entry);
-        final TaskReviewRole role = role(context, forges);
+        final ReleasedSender.Credentials credentials =
+                entry -> MachineReviewRole.lend(context, entry);
+        final TaskReviewRole role = MachineReviewRole.of(context, forges, forwarded(context));
         final PullRequestPlaces places =
                 new PullRequestPlaces(
                         forges,
@@ -96,8 +102,8 @@ final class ReviewParts {
                         CommentIntake.Parts.of(context).check(),
                         writing,
                         credentials,
-                        role::role,
-                        AUTHOR_PINS);
+                        role::mayPush,
+                        authorPins(role, authors(context)));
         final PullRequestRunStart start =
                 new PullRequestRunStart(
                         places,
@@ -108,7 +114,7 @@ final class ReviewParts {
                                 context.runner(),
                                 context.paths().messaging().messageFilter(),
                                 context.limits(),
-                                context.paths().xdg().state().resolve("comment-check")),
+                                context.paths().gate().commentChecks()),
                         new ConversationNote(context),
                         credentials);
         return new ReviewParts(
@@ -121,20 +127,66 @@ final class ReviewParts {
                         holds,
                         runs,
                         places),
-                new ReleasedSender(holds, places, role, credentials, Clock.systemUTC()));
+                new ReleasedSender(holds, places, role, credentials, Clock.systemUTC()),
+                container -> context.paths().tasks().containerState(container));
     }
 
     /**
-     * An author's pin at its own pull request refuses until the check that its gate forwarded the
-     * head lands: {@code TaskReviewRole.mayPinAtPullRequest(task, upstream, branch, head)} plugs in
-     * here, and the author is then pinned to the facts' head.
+     * Where an author's task stands for its own pull request.
+     *
+     * @param gate The task's gate, as a reviewer's pin finds it.
+     * @param id The task's recorded container id.
+     * @param upstream The repository its approvals go to, as its project names it.
+     * @param branch The branch its work carries beyond the gate.
      */
-    static final PullRequestPlace.AuthorPins AUTHOR_PINS =
-            (task, facts) -> {
-                throw new PlaceUnreadable(
-                        PlaceUnreadable.Reason.NOT_IN_PROJECT,
-                        "an author's run at its own pull request is not pinned on this machine yet");
-            };
+    record Author(PullRequestPins.TaskGate gate, String id, String upstream, String branch) {}
+
+    /** Finds where an author's task stands, by its container name. */
+    @FunctionalInterface
+    interface Authors {
+
+        /**
+         * Finds it.
+         *
+         * @param container The task's container name.
+         * @return Where it stands.
+         * @throws PlaceUnreadable As {@code NotInProject} when the task records no gate, upstream
+         *     or branch.
+         */
+        Author of(String container) throws PlaceUnreadable;
+    }
+
+    /**
+     * Pins an author at its own pull request to the head the forge answered, once the role allows
+     * it: that head is the commit the task's own gate last forwarded to its branch. A refusal keeps
+     * the contract's {@code NotTheTasksPush} as its cause, so the start answers with it.
+     *
+     * @param role The task's role, which asks its gate what it forwarded.
+     * @param authors Where an author's task stands.
+     * @return The pins.
+     */
+    static PullRequestPlace.AuthorPins authorPins(
+            final TaskReviewRole role, final Authors authors) {
+        return (task, facts) -> {
+            final Author at = authors.of(task);
+            try {
+                role.mayPinAtPullRequest(task, at.upstream(), at.branch(), facts.head());
+            } catch (RunPlaceCheck.Refused refused) {
+                final PlaceUnreadable unpinned =
+                        new PlaceUnreadable(
+                                PlaceUnreadable.Reason.NO_SUCH_PUSH, refused.refusal().said());
+                unpinned.initCause(refused);
+                throw unpinned;
+            }
+            return new Push(
+                    at.gate().project(),
+                    at.gate().repository(),
+                    at.gate().push(),
+                    facts.head(),
+                    facts.mergeBase(),
+                    at.id());
+        };
+    }
 
     /**
      * Returns the run each task is in.
@@ -179,6 +231,35 @@ final class ReviewParts {
     }
 
     /**
+     * Begins a task's run at the pull request its start recorded, for a start that is not this
+     * daemon's own; a refusal is the contract's error.
+     *
+     * @param container The task's container.
+     * @return The run's number and the head it is pinned to.
+     */
+    Map<String, Object> begun(final String container) {
+        final RunPlace place =
+                org.fuin.porelo.runtime.ContainerName.isTask(container)
+                        ? RunPlace.readFrom(states.apply(container))
+                        : null;
+        if (place == null || place.pullRequest() == null) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
+        }
+        final RunStart.Outcome outcome;
+        try {
+            outcome = start.begin(container, place);
+        } catch (RunPlaceCheck.Refused refused) {
+            throw new VarlinkException(refused.refusal().error(), refused.refusal().fields());
+        }
+        if (outcome == null) {
+            throw new VarlinkException(
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
+        }
+        return Map.of("run", outcome.run(), "head", outcome.head());
+    }
+
+    /**
      * Sends what the owner released, in one pass after another off the caller's thread, so a
      * decision's answer never waits on a forge; a failure is marked on its hold, and one the pass
      * could not mark is said in the daemon's journal.
@@ -204,20 +285,6 @@ final class ReviewParts {
         runs.end(container);
     }
 
-    private static ForgeCredential lend(final PoreloContext context, final String entry)
-            throws PlaceUnreadable {
-        final Optional<Map<String, VaultEntry>> held = context.readableCredentials();
-        final VaultEntry found = held.map(entries -> entries.get(entry)).orElse(null);
-        if (found == null || found.value().isBlank()) {
-            throw new PlaceUnreadable(
-                    PlaceUnreadable.Reason.MISSING_FORGE_TOKEN,
-                    held.isEmpty()
-                            ? "the vault is shut, so '" + entry + "' cannot be lent"
-                            : "the vault holds no '" + entry + "'");
-        }
-        return new ForgeCredential(entry, found.value());
-    }
-
     /**
      * A reviewer's pin through the task's gate: the forge's pinning takes the task's recorded
      * container id, every other part its container name.
@@ -227,7 +294,7 @@ final class ReviewParts {
         final PullRequestPins pins =
                 new PullRequestPins(
                         forge,
-                        entry -> lend(context, entry),
+                        entry -> MachineReviewRole.lend(context, entry),
                         PullRequestPins.gatesOn(context),
                         context.runner(),
                         new GitCertificates(context.paths().xdg())::environment,
@@ -254,82 +321,50 @@ final class ReviewParts {
                 .findFirst();
     }
 
-    /** The task's role and accounts as this machine records them. */
-    private static TaskReviewRole role(
-            final PoreloContext context, final ForgeInstanceFile forges) {
-        final GateEnds ends = new GateEnds(context);
-        return new TaskReviewRole(
-                container -> context.paths().tasks().containerState(container),
-                new TaskReviewRole.Entries() {
-                    @Override
-                    public boolean onHost() {
-                        return Files.isRegularFile(context.paths().hostProgram());
-                    }
+    /** An author's gate, upstream and branch as its task recorded them. */
+    private static Authors authors(final PoreloContext context) {
+        return container -> {
+            final String id = recordedId(context, container);
+            final PullRequestPins.TaskGate gate = PullRequestPins.gatesOn(context).locate(id);
+            final String upstream;
+            try {
+                final var project = GateSupport.byName(context, gate.project());
+                final String named = GateSupport.repository(project, gate.repository()).upstream();
+                upstream = named != null ? named : project.upstream();
+            } catch (RuntimeException ex) {
+                throw new PlaceUnreadable(
+                        PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                        "project " + gate.project() + " cannot be read");
+            }
+            final TaskProfile profile = TaskProfile.readFrom(gate.state());
+            final String branch = profile == null ? null : profile.forgeBranchOrToday();
+            if (upstream == null || branch == null) {
+                throw new PlaceUnreadable(
+                        PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                        "task " + container + " records no upstream or branch");
+            }
+            return new Author(gate, id, upstream, branch);
+        };
+    }
 
-                    @Override
-                    public String taskAccount(final String task) {
-                        return TaskReviewRole.taskForgeEntry(task);
-                    }
-
-                    @Override
-                    public Optional<String> projectBuilds(final String task) {
-                        return summary(context, task)
-                                .map(ContainerSummary::project)
-                                .filter(Objects::nonNull)
-                                .flatMap(
-                                        project -> {
-                                            try {
-                                                final var builds =
-                                                        GateSupport.byName(context, project)
-                                                                .builds();
-                                                return builds == null
-                                                        ? Optional.empty()
-                                                        : Optional.of(builds.credential());
-                                            } catch (RuntimeException ex) {
-                                                return Optional.empty();
-                                            }
-                                        });
-                    }
-
-                    @Override
-                    public boolean held(final String entry) {
-                        return context.readableCredentials()
-                                .map(entries -> entries.containsKey(entry))
-                                .orElse(false);
-                    }
-                },
-                forges,
-                new org.fuin.porelo.app.ForgeAccounts(
-                        (ref, credential) -> {
-                            // The adapter of the pull request's forge entry says whose token it is.
-                            final Optional<org.fuin.porelo.gate.review.ForgeInstance> found;
-                            try {
-                                found = forges.of(ref.url());
-                            } catch (org.fuin.porelo.gate.review.ForgeFileUnreadable ex) {
-                                throw new PlaceUnreadable(
-                                        PlaceUnreadable.Reason.FORGE_FILE_UNREADABLE,
-                                        "this machine's forge file cannot be read");
-                            }
-                            final String adapter =
-                                    found.filter(each -> each.unreadable() == null)
-                                            .map(org.fuin.porelo.gate.review.ForgeInstance::adapter)
-                                            .orElse(null);
-                            if (adapter == null) {
-                                throw new PlaceUnreadable(
-                                        PlaceUnreadable.Reason.UNKNOWN_FORGE,
-                                        "this machine knows no readable forge at " + ref.forge());
-                            }
-                            return AdapterForgeReview.of(context, adapter).facts(ref, credential);
-                        },
-                        entry -> lend(context, entry)),
-                task -> {
-                    final Optional<String> id =
-                            summary(context, task)
-                                    .map(ContainerSummary::id)
-                                    .filter(Objects::nonNull);
-                    final Optional<PushEnd> end =
-                            id.isEmpty() ? Optional.empty() : ends.store().read(id.get());
-                    return end;
-                });
+    /** What a task's own gate last forwarded to a branch of an upstream, by its container name. */
+    private static TaskReviewRole.Forwarded forwarded(final PoreloContext context) {
+        return (container, upstream, branch) -> {
+            try {
+                final PullRequestPins.TaskGate gate =
+                        PullRequestPins.gatesOn(context).locate(recordedId(context, container));
+                final var project = GateSupport.byName(context, gate.project());
+                return GateSupport.gate(
+                                context,
+                                project,
+                                GateSupport.repository(project, gate.repository()),
+                                upstream,
+                                null)
+                        .forwarded(gate.taskName(), branch);
+            } catch (PlaceUnreadable | RuntimeException ex) {
+                throw new IOException(
+                        "the gate of " + container + " cannot be read: " + ex.getMessage(), ex);
+            }
+        };
     }
 }

@@ -20,6 +20,7 @@ import org.jspecify.annotations.Nullable;
  * says, and deliver what passed to the task as notes, waking it once.
  *
  * <p>Refusals are the task contract's: {@code NoSuchPullRequest(url)}, {@code UnknownForge(host)},
+ * {@code NotTheTasksPush(head)} for an author whose gate did not forward the pull request's head,
  * and {@code PlaceUnreadable(reason, detail)} for every other reason, an unreadable forge file
  * among them; a delivery that failed is {@code Failed(message)}. No run of the task is current
  * after a refusal.
@@ -111,6 +112,12 @@ public final class PullRequestRunStart {
         try {
             return start.start(container, Role.of(place.role()), at);
         } catch (RunRefused ex) {
+            for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
+                if (cause instanceof RunPlaceCheck.Refused typed) {
+                    // A refusal the contract names itself, such as NotTheTasksPush, stays as it is.
+                    throw typed;
+                }
+            }
             final PlaceUnreadable.Reason reason = ex.reason();
             if (reason == null) {
                 throw new RunPlaceCheck.Refused(

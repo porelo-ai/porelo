@@ -102,7 +102,7 @@ class HostServicesTest {
                     .as("ordinary features first")
                     .contains(
                             "-Dcucumber.filter.tags=not @restart and not @upgrade"
-                                    + " and not @machine-package");
+                                    + " and not @machine-package and not @github");
             assertThat(passes.getLast())
                     .as("restart scenarios last with a separate report")
                     .contains(

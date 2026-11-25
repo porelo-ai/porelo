@@ -113,6 +113,8 @@ final class McpMethods {
                     "PullRequests",
                     "PullRequestsPage",
                     "WatchPullRequests",
+                    // A run begins for a task its start placed, never at a task's own asking.
+                    "BeginRun",
                     // A host-credentialed query returns unfiltered server names for the operator.
                     "RoomMembers",
                     "RoomMembersPage",

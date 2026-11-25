@@ -67,6 +67,9 @@ class ReviewOpenPullRequestTest {
 
     static final String CONTAINER = "c".repeat(64);
 
+    /** The task's container's name, which keys its run's role and its held items. */
+    static final String CONTAINER_NAME = "porelo-uc_shop-2";
+
     static final String HEAD = "a".repeat(40);
 
     static final String BASE = "b".repeat(40);
@@ -98,6 +101,9 @@ class ReviewOpenPullRequestTest {
     final List<Held> held = new ArrayList<>();
 
     final List<String> lentEntries = new ArrayList<>();
+
+    /** The task each side was asked for. */
+    final List<String> sidesAsked = new ArrayList<>();
 
     final ForgeReview forge =
             new ForgeReview() {
@@ -157,6 +163,7 @@ class ReviewOpenPullRequestTest {
                 @Override
                 public Producer postingAccount(final String task, final ReviewPlace place) {
                     assertThat(place.name()).as("the side asked at the address").isEqualTo(ADDRESS);
+                    sidesAsked.add(task);
                     return AUTHOR;
                 }
 
@@ -262,7 +269,10 @@ class ReviewOpenPullRequestTest {
                     name -> Optional.of(new Named(name)),
                     role,
                     (project, task) ->
-                            task.equals(TASK) ? Optional.of(CONTAINER) : Optional.empty(),
+                            task.equals(TASK)
+                                    ? Optional.of(
+                                            new ReviewOpen.Recorded(CONTAINER_NAME, CONTAINER))
+                                    : Optional.empty(),
                     holds);
 
     /** Knows github.com only, read by the github adapter. */
@@ -590,7 +600,7 @@ class ReviewOpenPullRequestTest {
         return new Held(
                 id,
                 Direction.OUTGOING,
-                TASK,
+                CONTAINER_NAME,
                 1,
                 place,
                 HEAD,
@@ -601,5 +611,18 @@ class ReviewOpenPullRequestTest {
                 HeldState.UNDECIDED,
                 null,
                 null);
+    }
+
+    @Test
+    void aTasksSideAndHeldItemsAreReadUnderItsContainerNameNeverItsTaskName() throws Exception {
+        page(Completeness.COMPLETE);
+        held.add(held("h1", ADDRESS));
+
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+
+        assertThat(answer.held()).as("the item held under its container").isEqualTo(1);
+        assertThat(sidesAsked)
+                .as("its side asked under its container")
+                .containsExactly(CONTAINER_NAME);
     }
 }

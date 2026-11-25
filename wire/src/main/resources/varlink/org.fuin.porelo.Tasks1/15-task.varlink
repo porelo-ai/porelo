@@ -950,6 +950,18 @@ type CertifyRequest (
 # start waits five minutes, or until its stream closes. An id no start waits by is NoSuchStart.
 method Certify(start: string, certificate: ?string, refused: ?string) -> ()
 
+# Begins a task's run at the pull request its start recorded as its place, in this daemon, which keeps
+# every task's current run: its head pinned, its whole conversation read and checked, and what passed
+# handed to the task's mailbox. A start that is not the daemon's own asks this once the task's gate,
+# recorded place and mailbox exist and before its agent runs, so its agent's first look finds the
+# conversation. run is the run's number at that place, head the commit it is pinned to. A task whose
+# recorded place is no pull request is InvalidParameter("task"); the refusals are Start's:
+# NoSuchPullRequest, UnknownForge, NotTheTasksPush, PlaceUnreadable. Never offered on a task's socket.
+method BeginRun(
+  # Container name.
+  task: string
+) -> (run: int, head: string)
+
 # Brings a task's repository at the gate up to its source - the checkout it was started in, or its remote - and,
 # when a branch moved, tells its agent through its mailbox, so 'git fetch porelo' in the task brings it. Starting a
 # stopped task does the same on its own. outcome: MOVED (moved names each branch that moved and the commit it names

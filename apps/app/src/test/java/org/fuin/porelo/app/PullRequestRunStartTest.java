@@ -121,6 +121,8 @@ class PullRequestRunStartTest {
 
     private final HeldRuns runs = new HeldRuns();
 
+    private Role role = Role.REVIEWER;
+
     private PullRequestRunStart start() {
         final ForgeInstances forges =
                 new ForgeInstances() {
@@ -160,10 +162,20 @@ class PullRequestRunStartTest {
                         new ReviewStandIns.Check(),
                         writing,
                         entry -> new ForgeCredential(entry, "t"),
-                        task -> Role.REVIEWER,
+                        task -> role == Role.AUTHOR,
                         (task, facts) -> {
-                            throw new PlaceUnreadable(
-                                    PlaceUnreadable.Reason.NOT_IN_PROJECT, "no author here");
+                            // As the daemon's author pin refuses: the contract's error as its
+                            // cause.
+                            final PlaceUnreadable unpinned =
+                                    new PlaceUnreadable(
+                                            PlaceUnreadable.Reason.NO_SUCH_PUSH, "not its push");
+                            unpinned.initCause(
+                                    new RunPlaceCheck.Refused(
+                                            RunPlaceCheck.Refusal.unavailable(
+                                                    "NotTheTasksPush",
+                                                    java.util.Map.of("head", facts.head()),
+                                                    "not its push")));
+                            throw unpinned;
                         });
         return new PullRequestRunStart(
                 places,
@@ -327,5 +339,32 @@ class PullRequestRunStartTest {
 
         assertThat(outcome).as("nothing started").isNull();
         assertThat(runs.of(TASK)).as("no run").isEmpty();
+    }
+
+    @Test
+    void anAuthorWhoseGateDidNotForwardTheHeadIsRefusedAsNotTheTasksPush() {
+        known.add(
+                new ForgeInstance(
+                        "review.stub.invalid", "stub-forge", CommentReading.EXTENDED, null));
+        role = Role.AUTHOR;
+
+        assertThatThrownBy(
+                        () ->
+                                start().begin(
+                                                TASK,
+                                                RunPlace.atPullRequest(RunPlace.AUTHOR, TASK, URL)))
+                .as("a head its own gate never forwarded")
+                .isInstanceOfSatisfying(
+                        RunPlaceCheck.Refused.class,
+                        ex -> {
+                            assertThat(ex.refusal().error())
+                                    .as("the contract's own error")
+                                    .isEqualTo("org.fuin.porelo.Tasks1.NotTheTasksPush");
+                            assertThat(ex.refusal().fields())
+                                    .as("its head")
+                                    .containsEntry("head", HEAD);
+                        });
+        assertThat(runs.of(TASK)).as("no run").isEmpty();
+        assertThat(delivered).as("nothing delivered").isEmpty();
     }
 }

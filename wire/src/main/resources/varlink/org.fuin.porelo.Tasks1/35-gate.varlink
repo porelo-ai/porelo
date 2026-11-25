@@ -643,8 +643,9 @@ method ReviewOpen(
   # The branch that commit went onto, at both places, such as "main"; absent with mergedCommit.
   mergedHead: ?string,
   # When the current decision began: at the gate when the push started waiting or when its Reject,
-  # Approve or Landed was recorded; on a pull request when its current head was pushed, or when it
-  # was merged or closed. Absent when complete is false for a missing time.
+  # Approve or Landed was recorded; on a pull request when it was merged or closed, and absent while
+  # it is OPEN or APPROVED, since the forge does not say when its head was pushed. Absent also when
+  # complete is false for a missing time.
   decisionSince: ?string,
   # Open threads whose last item is not the asking role's side; resolved threads and held items are none.
   points: []OpenPoint,

@@ -2,7 +2,7 @@ package org.fuin.porelo.app;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import org.fuin.porelo.gate.review.CommentCheck;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.Conversation;
@@ -24,7 +24,6 @@ import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.jspecify.annotations.Nullable;
 
@@ -51,7 +50,7 @@ public final class PullRequestPlace implements ReviewPlace {
     private final CommentCheck check;
     private final ProfileWriting writing;
     private final ReleasedSender.Credentials credentials;
-    private final Function<String, Role> roles;
+    private final Predicate<String> author;
     private final AuthorPins authors;
 
     /**
@@ -84,7 +83,7 @@ public final class PullRequestPlace implements ReviewPlace {
      * @param check The check of each comment's format and size against the pinned push.
      * @param writing The one writer of profile 2.
      * @param credentials Lends the forge's read credential for a pin's facts.
-     * @param roles A task's role, as its run recorded it.
+     * @param author Whether a task is the pull request's author, whose head its own gate sent.
      * @param authors Pins an author at its own pull request.
      */
     public PullRequestPlace(
@@ -96,7 +95,7 @@ public final class PullRequestPlace implements ReviewPlace {
             final CommentCheck check,
             final ProfileWriting writing,
             final ReleasedSender.Credentials credentials,
-            final Function<String, Role> roles,
+            final Predicate<String> author,
             final AuthorPins authors) {
         this.ref = Objects.requireNonNull(ref, "ref");
         this.instance = Objects.requireNonNull(instance, "instance");
@@ -106,7 +105,7 @@ public final class PullRequestPlace implements ReviewPlace {
         this.check = Objects.requireNonNull(check, "check");
         this.writing = Objects.requireNonNull(writing, "writing");
         this.credentials = Objects.requireNonNull(credentials, "credentials");
-        this.roles = Objects.requireNonNull(roles, "roles");
+        this.author = Objects.requireNonNull(author, "author");
         this.authors = Objects.requireNonNull(authors, "authors");
         if (instance.adapter() == null || !instance.host().equals(ref.forge())) {
             throw new IllegalArgumentException(
@@ -150,7 +149,7 @@ public final class PullRequestPlace implements ReviewPlace {
 
     @Override
     public Pinned pin(final String task) throws PlaceUnreadable {
-        if (roles.apply(task) == Role.AUTHOR) {
+        if (author.test(task)) {
             // The pinning fetches only a reviewer's head; an author's is the one its gate sent.
             final PullRequestFacts facts =
                     forge.facts(ref, credentials.lend(instance.credential()));

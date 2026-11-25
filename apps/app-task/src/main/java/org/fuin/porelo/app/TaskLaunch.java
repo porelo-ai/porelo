@@ -1964,6 +1964,13 @@ public final class TaskLaunch {
             return new Existing(container, project.name(), 64);
         }
         startingBranch = TaskBase.recorded(context, container);
+        // A role and place given to a start that brings it back are its run's, never dropped.
+        final String moved = broughtBackAt(container);
+        if (moved != null) {
+            err.println("porelo: " + container + ": " + moved);
+            err.flush();
+            return new Existing(container, project.name(), 69);
+        }
         // Its branch at the forge was settled when it was created and recorded; one handed to a
         // start that brings it back would change nothing, and say nothing.
         if (request.branch() != null
@@ -2729,6 +2736,22 @@ public final class TaskLaunch {
          *     the start is refused then.
          */
         void begin(String container, RunPlace place);
+
+        /** A run that could not begin, said in the start's words; the start is refused. */
+        final class Refused extends RuntimeException {
+
+            private static final long serialVersionUID = 1L;
+
+            /**
+             * Constructor.
+             *
+             * @param said Why, for a person.
+             * @param cause What refused it, or null.
+             */
+            public Refused(final String said, final @Nullable Throwable cause) {
+                super(said, cause);
+            }
+        }
     }
 
     private RunStarts runStarts = RunStarts.NONE;
@@ -4681,7 +4704,7 @@ public final class TaskLaunch {
                     runStarts.begin(container, recordedPlace);
                 } catch (RuntimeException refused) {
                     cleanUp(runner, container, 69, false, out, err);
-                    throw refused;
+                    throw new RunStartRefused(refused);
                 }
             }
 
@@ -4746,10 +4769,70 @@ public final class TaskLaunch {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return cleanUp(runner, container, 69, handedOver && request.keep(), out, err);
+        } catch (RunStartRefused ex) {
+            // Cleaned up where it refused; its caller answers with the refusal as it was.
+            throw ex.refusal();
         } catch (Exception ex) {
             err.println("porelo: " + ex);
             err.flush();
             return cleanUp(runner, container, 70, handedOver && request.keep(), out, err);
+        }
+    }
+
+    /**
+     * Takes the role and place a start that brings a task back was given: the same as it recorded,
+     * or an author's own gate push moved to a pull request, which is then recorded. Every other
+     * change is refused, since its run, its holds and its threads belong to the place it has.
+     *
+     * @return Why it is refused, or null when the task may come back there.
+     */
+    private @Nullable String broughtBackAt(final String container) throws java.io.IOException {
+        final RunPlace given = runPlace;
+        if (given == null) {
+            return null;
+        }
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        final RunPlace recorded = RunPlace.readFrom(state);
+        // The same role at the same place, whatever its run pinned there.
+        if (recorded != null
+                && given.role().equals(recorded.role())
+                && java.util.Objects.equals(given.repository(), recorded.repository())
+                && given.name().equals(recorded.name())
+                && java.util.Objects.equals(given.pullRequest(), recorded.pullRequest())) {
+            return null;
+        }
+        final boolean ownPushToPullRequest =
+                recorded != null
+                        && RunPlace.AUTHOR.equals(recorded.role())
+                        && recorded.pullRequest() == null
+                        && RunPlace.AUTHOR.equals(given.role())
+                        && given.pullRequest() != null;
+        if (recorded == null || ownPushToPullRequest) {
+            given.writeTo(state);
+            return null;
+        }
+        return "RoleNotAllowed: it works as "
+                + recorded.role().toLowerCase(java.util.Locale.ROOT)
+                + " at "
+                + (recorded.pullRequest() != null ? recorded.pullRequest() : "its gate push")
+                + ", which stays as it was; start a new task for another role or place";
+    }
+
+    /** A run's start that refused once the task was made, which is cleaned up already. */
+    private static final class RunStartRefused extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /** Not serialized: answered where it is caught. */
+        private final transient RuntimeException refusal;
+
+        RunStartRefused(final RuntimeException refusal) {
+            super(refusal.getMessage(), refusal, false, false);
+            this.refusal = refusal;
+        }
+
+        RuntimeException refusal() {
+            return refusal;
         }
     }
 

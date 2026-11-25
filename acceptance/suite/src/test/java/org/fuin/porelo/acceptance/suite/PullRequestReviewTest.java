@@ -90,6 +90,40 @@ class PullRequestReviewTest {
     }
 
     @Test
+    void whatATaskHoldsIsAwaitedPastTheDaemonsMinuteOfMovingMail() {
+        assertThat(PullRequestReviewSteps.MAILBOX_MOVED)
+                .as("a run's last message can wait for the timer, once a minute")
+                .isGreaterThan(java.time.Duration.ofSeconds(60));
+    }
+
+    @Test
+    void aForgeAccountsCommentStandsAtALineEveryServedPullRequestHas() {
+        final Map<?, ?> result =
+                (Map<?, ?>)
+                        ((List<?>)
+                                        run(ForgeStub.forgeItem(
+                                                        ForgeStub.fixture(ForgeStub.FORGE_PAGE),
+                                                        URL,
+                                                        "hubot",
+                                                        "9100000003",
+                                                        false,
+                                                        "Why?"))
+                                                .get("results"))
+                                .get(0);
+
+        assertThat(Json.write(result.get("locations")))
+                .as("the README.md an author's project and the stub git forge both hold, line 1")
+                .contains("\"uri\":\"README.md\"")
+                .contains("\"startLine\":1");
+        assertThat(result.containsKey("fixes"))
+                .as("no suggestion for lines of another file")
+                .isFalse();
+        assertThat(PullRequestReviewSteps.repositoryCommand("/r"))
+                .as("the stub git forge's repository holds that README.md")
+                .contains("> \"$r/README.md\"");
+    }
+
+    @Test
     void theAnswersAreReplacedWholeFromStandardInput() throws Exception {
         Files.createDirectories(home.resolve("data/porelo/builds"));
         Files.writeString(home.resolve("data/porelo/builds/" + ForgeStub.answersFile()), "old");
@@ -115,23 +149,283 @@ class PullRequestReviewTest {
     }
 
     @Test
-    void theHeldItemsAnswerIsReadItemByItem() {
+    void theHeldItemsArrayIsReadItemByItem() {
         final List<Map<String, Object>> items =
                 PullRequestReviewSteps.items(
-                        "{\"items\":[{\"id\":\"h1\",\"direction\":\"outgoing\",\"digest\":\"ab\"}]}");
+                        "[{\"id\":\"h1\",\"direction\":\"outgoing\",\"digest\":\"ab\"}]");
 
         assertThat(items).as("the items read").hasSize(1);
         assertThat(items.get(0).get("digest")).as("the first item's digest").isEqualTo("ab");
     }
 
     @Test
-    void aRunNamesItsAgentRoleAndPlaceQuoted() {
+    void anEmptyHeldItemsArrayIsNothingHeld() {
+        assertThat(PullRequestReviewSteps.items("[]")).as("the items of an empty array").isEmpty();
+    }
+
+    @Test
+    void aHeldItemsAnswerThatIsNoArrayIsRefused() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> PullRequestReviewSteps.items("{\"items\":[]}"))
+                .as("an object in place of the array")
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining("no JSON array");
+    }
+
+    @Test
+    void aRunIsATaskStartWithItsAgentRolePlaceAndAPromptQuoted() {
         assertThat(PullRequestReviewSteps.runCommand("reviewer", "reviewer", URL))
                 .as("the run's command")
+                .startsWith(PullRequestReviewSteps.certified("t='reviewer'; "))
+                .contains("porelo task stop \"$t\"")
                 .endsWith(
-                        "porelo task run 'reviewer' --agent stub --role 'reviewer' --place '"
+                        "porelo task start \"$t\" --project default --repository default --agent stub"
+                                + " --role 'reviewer'"
+                                + " --place '"
                                 + URL
-                                + "'");
+                                + "' --prompt review")
+                .doesNotContain("task run");
+        assertThat(PullRequestReviewSteps.runCommand("porelo-shop_authored", "author", URL))
+                .as("a task named by its container carries its own project")
+                .contains("porelo task start \"$t\" --agent stub --role 'author'")
+                .doesNotContain("--project");
+    }
+
+    @Test
+    void theSameReviewFileTwiceStillMovesTheHead() throws Exception {
+        final Path repository = home.resolve("head");
+        Files.createDirectories(repository);
+        assertThat(exitOf(home, "git init -q -b review-head " + repository)).as("init").isZero();
+        final String command = PullRequestReviewSteps.commitCommand(repository.toString());
+
+        assertThat(exitOf(home, "printf 'replies\\n' | " + command)).as("the first round").isZero();
+        assertThat(exitOf(home, "printf 'replies\\n' | " + command))
+                .as("the second round, the same file")
+                .isZero();
+        assertThat(exitOf(home, "test \"$(git -C " + repository + " rev-list --count HEAD)\" = 2"))
+                .as("two commits: the head moved twice")
+                .isZero();
+    }
+
+    private static int exitOf(Path home, String command) throws Exception {
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", command).redirectErrorStream(true);
+        builder.environment().put("HOME", home.toString());
+        builder.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+        final Process process = builder.start();
+        process.getInputStream().readAllBytes();
+        assertThat(process.waitFor(30, TimeUnit.SECONDS)).as("ran").isTrue();
+        return process.exitValue();
+    }
+
+    @Test
+    void aProjectIsPlacedNamingTheScenariosKeyAsTheOneThatCertifiesItsTasks() throws Exception {
+        final ProcessBuilder builder =
+                new ProcessBuilder(
+                                "sh",
+                                "-c",
+                                PullRequestReviewSteps.certified(
+                                        PullRequestReviewSteps.placed("authored") + "true"))
+                        .redirectErrorStream(true);
+        builder.environment().put("HOME", home.toString());
+        builder.environment().remove("XDG_STATE_HOME");
+        builder.environment().remove("SSH_AUTH_SOCK");
+        final Process process = builder.start();
+        final String said =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        assertThat(process.waitFor(30, TimeUnit.SECONDS)).as("ran").isTrue();
+        assertThat(process.exitValue()).as("exit, having said:%n%s", said).isZero();
+
+        final Path places = home.resolve(".local/state/porelo/organization-projects");
+        assertThat(Files.readSymbolicLink(places.resolve("authored.git")))
+                .as("the placed project is the scenario's repository")
+                .isEqualTo(home.resolve("authored"));
+        final Map<?, ?> placed =
+                (Map<?, ?>) Json.parse(Files.readString(places.resolve("authored.json")));
+        final String key =
+                String.join(
+                        " ",
+                        java.util.Arrays.asList(
+                                        Files.readString(
+                                                        home.resolve(
+                                                                "porelo-acceptance-certifier/key.pub"))
+                                                .strip()
+                                                .split(" "))
+                                .subList(0, 2));
+        assertThat(placed.get("project")).as("the project").isEqualTo("authored");
+        assertThat(((Map<?, ?>) ((List<?>) placed.get("signing_keys")).get(0)).get("key"))
+                .as("the one key that may certify its tasks: the scenario's")
+                .isEqualTo(key);
+    }
+
+    @Test
+    void aStartRunsUnderAnAgentOfItsOwnHoldingTheScenariosKeySoItsTaskIsCertified()
+            throws Exception {
+        final Path key = home.resolve("porelo-acceptance-certifier/key");
+        final Path agents = home.resolve("agents");
+
+        final ProcessBuilder builder =
+                new ProcessBuilder(
+                                "sh",
+                                "-c",
+                                PullRequestReviewSteps.certified(
+                                        "ssh-add -L | cut -d' ' -f3; echo \"$SSH_AGENT_PID\" >"
+                                                + " \"$AGENTS\""))
+                        .redirectErrorStream(true);
+        builder.environment().put("HOME", home.toString());
+        builder.environment().put("AGENTS", agents.toString());
+        builder.environment().remove("SSH_AUTH_SOCK");
+        final Process process = builder.start();
+        final String said =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
+        assertThat(process.waitFor(30, TimeUnit.SECONDS)).as("ran").isTrue();
+
+        assertThat(process.exitValue()).as("exit, having said:%n%s", said).isZero();
+        assertThat(said)
+                .as("the agent holds the scenario's key")
+                .isEqualTo("porelo-acceptance-certifier");
+        assertThat(key).as("the key, kept for the next start").isRegularFile();
+        assertThat(home.resolve("porelo-stub-git-forge"))
+                .as("the forge's folder, which a key in it would keep after the forge stopped")
+                .doesNotExist();
+        final java.util.Optional<ProcessHandle> agent =
+                ProcessHandle.of(Long.parseLong(Files.readString(agents).strip()));
+        final long until = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (agent.map(ProcessHandle::isAlive).orElse(false) && System.nanoTime() < until) {
+            Thread.sleep(100);
+        }
+        assertThat(agent.map(ProcessHandle::isAlive).orElse(false))
+                .as("the agent ended with its command")
+                .isFalse();
+    }
+
+    @Test
+    void anAuthorsPushIsAwaitedAtItsUpstreamBranchUntilItHoldsTheTasksHead() {
+        assertThat(
+                        PullRequestReviewSteps.arrivedCommand(
+                                "porelo-shop_authored",
+                                "\"$HOME/shop/.git/upstream.git\"",
+                                "porelo/a"))
+                .as("the task's head, then the upstream's branch compared to it")
+                .startsWith(
+                        "h=$(timeout 30 podman exec --user agent 'porelo-shop_authored'"
+                                + " git -C /workspace rev-parse HEAD) || exit 1;")
+                .contains("u=\"$HOME/shop/.git/upstream.git\";")
+                .contains("rev-parse -q --verify 'refs/heads/porelo/a')\" = \"$h\" ] && exit 0")
+                .endsWith("exit 1");
+    }
+
+    @Test
+    void theGatesCommandsNameATaskByItsContainerInTheProjectItWasStartedIn() {
+        assertThat(PullRequestReviewSteps.containerOf("reviewer"))
+                .as("a bare name is a task of the default project")
+                .isEqualTo("porelo-default_reviewer");
+        assertThat(PullRequestReviewSteps.containerOf("porelo-shop_authored"))
+                .as("a container's name stays as it is")
+                .isEqualTo("porelo-shop_authored");
+    }
+
+    @Test
+    void aRunStopsTheTaskFirstWhateverItsState() throws Exception {
+        final Path bin = Files.createDirectories(home.resolve("bin"));
+        final Path calls = home.resolve("calls");
+        final Path porelo = bin.resolve("porelo");
+        Files.writeString(
+                porelo,
+                "#!/bin/sh\necho \"$*\" >> '"
+                        + calls
+                        + "'\nif [ \"$1 $2\" = 'task status' ]; then printf 'state      %s\\n'"
+                        + " \"$STATE\"; fi\n");
+        Files.writeString(bin.resolve("timeout"), "#!/bin/sh\nshift\nexec \"$@\"\n");
+        porelo.toFile().setExecutable(true);
+        bin.resolve("timeout").toFile().setExecutable(true);
+        for (final String state : List.of("running", "stopped")) {
+            Files.deleteIfExists(calls);
+            final ProcessBuilder builder =
+                    new ProcessBuilder(
+                                    "sh",
+                                    "-c",
+                                    PullRequestReviewSteps.runCommand("reviewer", "reviewer", URL))
+                            .redirectErrorStream(true);
+            builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
+            builder.environment().put("STATE", state);
+            final Process shell = builder.start();
+            shell.getOutputStream().close();
+            final String said =
+                    new String(shell.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(shell.waitFor(30, TimeUnit.SECONDS)).as("the run ended").isTrue();
+            assertThat(shell.exitValue()).as("the run's exit while %s: %s", state, said).isZero();
+            final List<String> called =
+                    Files.readAllLines(calls).stream()
+                            .map(line -> line.split(" ")[1] + " " + line.split(" ")[0])
+                            .toList();
+            assertThat(called)
+                    .as("what porelo was asked while the task was %s", state)
+                    .containsExactly("stop task", "start task");
+        }
+    }
+
+    @Test
+    void theTasksBaseIsTheGatesBranchWhereTheWorkspaceHasOne() throws Exception {
+        final Path workspace = workspace(3);
+        sh(workspace, "git update-ref refs/remotes/porelo/main HEAD~1");
+
+        assertThat(taskBase(workspace))
+                .as("the base beside porelo/main")
+                .isEqualTo(sh(workspace, "git rev-parse HEAD~1"));
+    }
+
+    @Test
+    void theTasksBaseIsItsFirstCommitWhereTheWorkspaceHasNoGateBranch() throws Exception {
+        final Path workspace = workspace(3);
+
+        assertThat(taskBase(workspace))
+                .as("the base without porelo/HEAD or porelo/main")
+                .isEqualTo(sh(workspace, "git rev-list --max-parents=0 HEAD"));
+    }
+
+    @Test
+    void aGateBranchAtTheHeadIsNoBase() throws Exception {
+        final Path workspace = workspace(2);
+        sh(workspace, "git update-ref refs/remotes/porelo/main HEAD");
+
+        assertThat(taskBase(workspace))
+                .as("the base where porelo/main is the head itself")
+                .isEqualTo(sh(workspace, "git rev-list --max-parents=0 HEAD"));
+    }
+
+    private Path workspace(int commits) throws Exception {
+        final Path workspace = Files.createDirectories(home.resolve("workspace"));
+        sh(workspace, "git init -q -b work .");
+        for (int i = 1; i <= commits; i++) {
+            sh(
+                    workspace,
+                    "git -c user.email=t@example.invalid -c user.name=t -c commit.gpgsign=false"
+                            + " commit -q --allow-empty -m c"
+                            + i);
+        }
+        return workspace;
+    }
+
+    private static String taskBase(Path workspace) throws Exception {
+        return sh(
+                workspace,
+                PullRequestReviewSteps.TASK_BASE.replace(
+                        "cd /workspace", "cd '" + workspace + "'"));
+    }
+
+    private static String sh(Path directory, String command) throws Exception {
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", command).directory(directory.toFile());
+        builder.environment().put("GIT_CONFIG_GLOBAL", "/dev/null");
+        builder.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+        final Process process = builder.start();
+        process.getOutputStream().close();
+        final String out =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(process.waitFor(30, TimeUnit.SECONDS)).as("%s ended", command).isTrue();
+        assertThat(process.exitValue()).as("%s exited", command).isZero();
+        return out.strip();
     }
 
     @Test
@@ -148,6 +442,16 @@ class PullRequestReviewTest {
         assertThat(((Map<?, ?>) run(once).get("properties")).get("porelo/pullRequest"))
                 .as("the submission's pull request, with one reply in place")
                 .isEqualTo(URL);
+    }
+
+    @Test
+    void aSubmissionKeepsItsLinesWholeNumbersSoTheMessageFilterTakesIt() {
+        final String text = StubReview.submit("submitted-comment.sarif.json", URL, BASE, null);
+
+        assertThat(text.substring(text.indexOf('\n') + 1))
+                .as("the submission as the stub sends it: a line is a whole number, never 27.0")
+                .contains("\"startLine\":27")
+                .doesNotContainPattern("\"(start|end)Line\":[0-9]+\\.");
     }
 
     @Test

@@ -28,6 +28,8 @@ public final class PullRequestReviewSteps {
     private static final Pattern CONTAINER =
             Pattern.compile("^container\\s+(\\S+)", Pattern.MULTILINE);
 
+    private static final Pattern SIDECAR = Pattern.compile("^sidecar\\s+(\\S+)", Pattern.MULTILINE);
+
     private static final int RUN_SECONDS = 300;
 
     private final World world;
@@ -46,12 +48,17 @@ public final class PullRequestReviewSteps {
     private static final String BASE_BRANCH = "main";
 
     /**
-     * Reads, inside a task, where its branch left the branch it started from, as the workspace's
-     * remote names that.
+     * Reads, inside a task, where its branch left the branch it started from: the first of the
+     * gate's branches the workspace has fetched that is not its head, else its first commit, since
+     * a workspace may hold neither {@code porelo/HEAD} nor {@code porelo/main}.
      */
     static final String TASK_BASE =
-            "cd /workspace && git merge-base HEAD"
-                    + " \"$(git symbolic-ref -q --short refs/remotes/porelo/HEAD || echo porelo/main)\"";
+            "cd /workspace && h=$(git rev-parse HEAD) && for r in"
+                    + " \"$(git symbolic-ref -q --short refs/remotes/porelo/HEAD || true)\""
+                    + " porelo/main porelo/master origin/main origin/master; do"
+                    + " if [ -n \"$r\" ] && b=$(git merge-base HEAD \"$r\" 2>/dev/null)"
+                    + " && [ \"$b\" != \"$h\" ]; then echo \"$b\"; exit 0; fi; done;"
+                    + " git rev-list --max-parents=0 HEAD | tail -n 1";
 
     private @Nullable String base;
 
@@ -61,6 +68,11 @@ public final class PullRequestReviewSteps {
     private @Nullable String pullRequest;
 
     private @Nullable String headRepository;
+
+    /** A task's own pull request's upstream and branch, which its pushes reach. */
+    private @Nullable String ownUpstream;
+
+    private @Nullable String ownBranch;
 
     /**
      * Creates the steps over the scenario's world.
@@ -183,6 +195,8 @@ public final class PullRequestReviewSteps {
         pullRequest = url;
         openedBy = account;
         headRepository = null;
+        ownUpstream = upstream;
+        ownBranch = branch;
     }
 
     /**
@@ -264,6 +278,7 @@ public final class PullRequestReviewSteps {
                 + " \"$r\";"
                 + " seq 1 120 | sed 's/^/line /' > \"$r/src/main/java/org/example/shop/Login.java\";"
                 + " seq 1 120 | sed 's/^/line /' > \"$r/src/main/java/org/example/shop/Session.java\";"
+                + " echo 'the project' > \"$r/README.md\";"
                 + " git -C \"$r\" add -A;"
                 + " git -C \"$r\" -c user.email=forge@localhost -c user.name=forge commit -qm"
                 + " 'acceptance: the base';"
@@ -297,7 +312,7 @@ public final class PullRequestReviewSteps {
     public void aForgeAccountAnswers(String account, String written, String text)
             throws IOException {
         final String url = url(written);
-        final List<ForgeStub.Written> writes = forge.written(url);
+        final List<ForgeStub.Written> writes = writtenOnceMoved(url, count -> count > 0);
         assertThat(writes)
                 .as("nothing reached %s, so there is no thread to answer", url)
                 .isNotEmpty();
@@ -348,7 +363,12 @@ public final class PullRequestReviewSteps {
     }
 
     /**
-     * Builds the command a run is started with.
+     * Builds the command a run is started with: {@code porelo task start} with a prompt, which runs
+     * the agent once and stops and keeps the task at the run's end, so the next start brings it
+     * back at its place. A task left running is stopped first, since a start refuses a running one;
+     * stopping one that is not running answers nothing the start would not say itself. A task named
+     * by its container carries its project; one named alone starts in the default project, since a
+     * reviewer's pull request belongs to no checkout of the machine.
      *
      * @param task The task's name.
      * @param role Its role.
@@ -356,14 +376,108 @@ public final class PullRequestReviewSteps {
      * @return The command.
      */
     static String runCommand(String task, String role, String url) {
-        return "timeout "
-                + RUN_SECONDS
-                + " porelo task run "
-                + quote(task)
-                + " --agent stub --role "
-                + quote(role)
-                + " --place "
-                + quote(url);
+        return certified(
+                "t="
+                        + quote(task)
+                        + "; porelo task stop \"$t\" > /dev/null 2>&1 || true;"
+                        + " timeout "
+                        + RUN_SECONDS
+                        + " porelo task start \"$t\""
+                        + (task.startsWith("porelo-")
+                                ? ""
+                                : " --project default --repository default")
+                        + " --agent stub --role "
+                        + quote(role)
+                        + " --place "
+                        + quote(url)
+                        + " --prompt review");
+    }
+
+    /**
+     * Runs a start with the person's agent holding a key of the scenario's own, so the task is
+     * certified: a project of this machine alone takes the first Ed25519 key the starter's agent
+     * holds, and only a certified task's key signs what it sends to a pull request. The agent is
+     * this command's alone and ends with it; the key stays beside the stub forge for the next run.
+     *
+     * @param command The start.
+     * @return The command, run under the agent.
+     */
+    static String certified(String command) {
+        return "k=\"$HOME/porelo-acceptance-certifier/key\"; mkdir -p -m 700 \"${k%/*}\";"
+                + " [ -f \"$k\" ] || ssh-keygen -q -t ed25519 -N '' -C porelo-acceptance-certifier"
+                + " -f \"$k\" || exit 1;"
+                + " eval \"$(ssh-agent -s)\" > /dev/null || exit 1;"
+                + " trap 'ssh-agent -k > /dev/null 2>&1' EXIT;"
+                + " ssh-add -q \"$k\" || exit 1; "
+                + command;
+    }
+
+    /**
+     * Places a project as its organization does, naming the scenario's own key as the one that may
+     * certify its tasks: a project of a name of its own certifies by the keys its organization
+     * names, and by none else. Run inside {@link #certified}, which makes the key first.
+     *
+     * @param project The project, whose repository is {@code ~/<project>}.
+     * @return The commands, ending in {@code ;}.
+     */
+    static String placed(String project) {
+        return "p="
+                + quote(project)
+                + "; s=\"${XDG_STATE_HOME:-$HOME/.local/state}/porelo/organization-projects\";"
+                + " mkdir -p \"$s\" && ln -sfnT \"$HOME/$p\" \"$s/$p.git\" || exit 1;"
+                + " key=$(cut -d' ' -f1-2 \"$k.pub\") || exit 1;"
+                + " printf '{\"project\":\"%s\",\"revision\":\"c0\",\"address\":"
+                + "\"https://forge.example/%s.git\",\"fetch_from\":null,\"homeserver\":null,"
+                + "\"room\":null,\"signing_keys\":[{\"login\":\"person\",\"role\":\"member\","
+                + "\"key\":\"%s\",\"valid_from\":\"2000-01-01\",\"valid_until\":\"2999-01-01\","
+                + "\"revoked_since\":null}]}' \"$p\" \"$p\" \"$key\" > \"$s/$p.json\" || exit 1; ";
+    }
+
+    /**
+     * Starts a task in a project and leaves it running, certified by the scenario's own key as
+     * {@link #certified} gives it, and makes it the scenario's task.
+     *
+     * @param project The project, which names its repository and the task.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @When("a certified task is started in {string} for the stub agent and left running")
+    public void aCertifiedTask(String project) throws IOException {
+        final Ssh.Output output =
+                world.run(
+                        certified(
+                                placed(project)
+                                        + "timeout 900 porelo task start --project "
+                                        + quote(project)
+                                        + " --repository "
+                                        + quote(project)
+                                        + " --agent stub --detach --clearance deny"));
+        world.output(output);
+        final Matcher container = CONTAINER.matcher(output.all());
+        assertThat(output.status() == 0 && container.find())
+                .as("the certified task did not start:%n%s", world.redact(output.all()))
+                .isTrue();
+        final Matcher sidecar = SIDECAR.matcher(output.all());
+        final java.nio.file.Path state =
+                sidecar.find() ? java.nio.file.Path.of(sidecar.group(1)).getParent() : null;
+        world.task(
+                new World.Task(
+                        container.group(1), state == null ? null : state.toString(), output.all()));
+    }
+
+    /**
+     * Opens the scenario's vault to its own daemon, as {@code porelo vault unlock} does: the daemon
+     * signs a task's messages with the task's key, which the vault holds, and waits while it is
+     * shut.
+     *
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Given("the scenario's vault is open to its daemon")
+    public void theVaultIsOpenToTheDaemon() throws IOException {
+        final Ssh.Output output =
+                world.run("porelo vault unlock --passphrase-command 'printf acceptance'");
+        assertThat(output.status())
+                .as("the vault could not be opened:%n%s", world.redact(output.all()))
+                .isZero();
     }
 
     /**
@@ -448,7 +562,38 @@ public final class PullRequestReviewSteps {
                     java.util.Objects.requireNonNull(openedBy, "openedBy"),
                     repository,
                     HEAD_BRANCH);
+        } else if (ownUpstream != null && ownBranch != null) {
+            // The task's push goes on to its upstream branch; once there, the facts name it.
+            final Ssh.Output arrived =
+                    world.run(arrivedCommand(world.task().container(), ownUpstream, ownBranch));
+            assertThat(arrived.status())
+                    .as("the task's push never reached its upstream:%n%s", arrived.all())
+                    .isZero();
+            forge.pullRequest(
+                    pullRequest(),
+                    java.util.Objects.requireNonNull(openedBy, "openedBy"),
+                    ownUpstream,
+                    ownBranch);
         }
+    }
+
+    /**
+     * Waits until a task's upstream branch holds the task's own head.
+     *
+     * @param container The task's container.
+     * @param upstream The upstream repository, for the shell.
+     * @param branch The branch its pushes reach.
+     * @return The command.
+     */
+    static String arrivedCommand(String container, String upstream, String branch) {
+        return "h=$(timeout 30 podman exec --user agent "
+                + quote(container)
+                + " git -C /workspace rev-parse HEAD) || exit 1; u="
+                + upstream
+                + "; for i in $(seq 1 60); do [ \"$(git -C \"$u\" rev-parse -q --verify "
+                + quote("refs/heads/" + branch)
+                + ")\" = \"$h\" ] && exit 0; sleep 1; done;"
+                + " echo \"the upstream's branch never reached $h\" >&2; exit 1";
     }
 
     /**
@@ -468,7 +613,9 @@ public final class PullRequestReviewSteps {
                 + StubReview.FILE
                 + " && git -C "
                 + directory
-                + " -c user.email=agent@localhost -c user.name=agent commit -qm"
+                // Allowed empty: a second round of the same replies writes the same file, and the
+                // head still moves, as the next run's pin expects.
+                + " -c user.email=agent@localhost -c user.name=agent commit -q --allow-empty -m"
                 + " 'acceptance: what the stub does in its next run'";
     }
 
@@ -504,10 +651,20 @@ public final class PullRequestReviewSteps {
         decideEvery(world.task().container(), "outgoing", "release");
     }
 
+    /**
+     * Names a task's container, which the gate's commands take: a bare name is a task of the
+     * default project, as {@link #runCommand} starts it.
+     *
+     * @param task A task's name, or its container's.
+     * @return The container's name.
+     */
+    static String containerOf(String task) {
+        return task.startsWith("porelo-") ? task : "porelo-default_" + task;
+    }
+
     private void decideEvery(String task, String direction, String decision) throws IOException {
-        final List<Map<String, Object>> items = held(task);
         final List<Map<String, Object>> decided =
-                items.stream().filter(item -> direction.equals(item.get("direction"))).toList();
+                heldOnceMoved(task, direction, count -> count > 0);
         assertThat(decided)
                 .as("the task %s holds nothing %s to decide", task, direction)
                 .isNotEmpty();
@@ -515,7 +672,7 @@ public final class PullRequestReviewSteps {
             final Ssh.Output output =
                     world.run(
                             "porelo gate decide "
-                                    + quote(task)
+                                    + quote(containerOf(task))
                                     + " "
                                     + quote(String.valueOf(item.get("id")))
                                     + " "
@@ -549,10 +706,39 @@ public final class PullRequestReviewSteps {
      */
     @Then("the task {string} holds {int} {word} item(s)")
     public void holds(String task, int count, String direction) throws IOException {
-        assertThat(held(task).stream().filter(item -> direction.equals(item.get("direction"))))
+        assertThat(heldOnceMoved(task, direction, found -> found == count))
                 .as("the %s items the task %s holds", direction, task)
                 .hasSize(count);
     }
+
+    /**
+     * Reads a task's held items of a direction until their count is as expected or the daemon's
+     * timer has surely moved its mailbox: a run's last message can land after the watch's notice,
+     * and then only the timer, once a minute, takes it to the gate.
+     */
+    private List<Map<String, Object>> heldOnceMoved(
+            String task, String direction, java.util.function.IntPredicate expected)
+            throws IOException {
+        final long until = System.nanoTime() + MAILBOX_MOVED.toNanos();
+        while (true) {
+            final List<Map<String, Object>> found =
+                    held(task).stream()
+                            .filter(item -> direction.equals(item.get("direction")))
+                            .toList();
+            if (expected.test(found.size()) || System.nanoTime() - until > 0) {
+                return found;
+            }
+            try {
+                Thread.sleep(2_000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return found;
+            }
+        }
+    }
+
+    /** The daemon's timer moves every mailbox once a minute; this leaves it a margin. */
+    static final java.time.Duration MAILBOX_MOVED = java.time.Duration.ofSeconds(90);
 
     /**
      * Asserts how many items of a direction the scenario's task holds.
@@ -567,7 +753,8 @@ public final class PullRequestReviewSteps {
     }
 
     private List<Map<String, Object>> held(String task) throws IOException {
-        final Ssh.Output output = world.run("porelo gate held " + quote(task) + " --json");
+        final Ssh.Output output =
+                world.run("porelo gate held " + quote(containerOf(task)) + " --json");
         assertThat(output.status())
                 .as("porelo gate held failed:%n%s", world.redact(output.all()))
                 .isZero();
@@ -575,15 +762,14 @@ public final class PullRequestReviewSteps {
     }
 
     /**
-     * Reads the items of a {@code HeldItems} answer.
+     * Reads what {@code porelo gate held --json} prints: a JSON array of {@code HeldItem}.
      *
      * @param json The answer.
      * @return Its items.
      */
     static List<Map<String, Object>> items(String json) {
-        if (!(Json.parse(json) instanceof Map<?, ?> answer)
-                || !(answer.get("items") instanceof List<?> items)) {
-            throw new AssertionError("porelo gate held --json printed no items: " + json);
+        if (!(Json.parse(json) instanceof List<?> items)) {
+            throw new AssertionError("porelo gate held --json printed no JSON array: " + json);
         }
         final List<Map<String, Object>> read = new ArrayList<>();
         for (final Object one : items) {
@@ -606,10 +792,36 @@ public final class PullRequestReviewSteps {
      */
     @Then("the stub forge's write log for {string} shows {string}")
     public void theWriteLogShows(String url, String operations) throws IOException {
-        assertThat(forge.written(url(url)).stream().map(ForgeStub.Written::operation).toList())
+        final List<String> expected =
+                Arrays.stream(operations.split(",")).map(String::strip).toList();
+        assertThat(
+                        writtenOnceMoved(url(url), count -> count >= expected.size()).stream()
+                                .map(ForgeStub.Written::operation)
+                                .toList())
                 .as("what reached %s", url)
-                .containsExactlyElementsOf(
-                        Arrays.stream(operations.split(",")).map(String::strip).toList());
+                .containsExactlyElementsOf(expected);
+    }
+
+    /**
+     * Reads what reached the forge at a pull request until its count is as expected or the daemon's
+     * timer has surely moved the mailbox: a released answer goes out on the mailbox's next pass,
+     * not with the decision.
+     */
+    private List<ForgeStub.Written> writtenOnceMoved(
+            String url, java.util.function.IntPredicate expected) throws IOException {
+        final long until = System.nanoTime() + MAILBOX_MOVED.toNanos();
+        while (true) {
+            final List<ForgeStub.Written> found = forge.written(url);
+            if (expected.test(found.size()) || System.nanoTime() - until > 0) {
+                return found;
+            }
+            try {
+                Thread.sleep(2_000);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return found;
+            }
+        }
     }
 
     /**

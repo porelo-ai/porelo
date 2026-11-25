@@ -91,7 +91,7 @@ final class StubReview {
 
     /** Reads a fixture and points its run at the scenario's pull request and its base. */
     private static Map<String, Object> at(String fixture, String url, String base) {
-        final Map<String, Object> document = map(Json.parse(fixture), "the fixture");
+        final Map<String, Object> document = map(Json.parseNumberTypes(fixture), "the fixture");
         final Map<String, Object> run = first(document);
         final Map<String, Object> properties = map(run.get("properties"), "the run's properties");
         properties.put("porelo/pullRequest", url);

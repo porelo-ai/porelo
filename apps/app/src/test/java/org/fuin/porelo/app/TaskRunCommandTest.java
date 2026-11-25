@@ -1784,6 +1784,17 @@ class TaskRunCommandTest {
         if (args.length > 1 && args[0].equals("task") && args[1].equals("start"))
             recordedTasks(context);
         final CommandLine cmd = PoreloCli.commandLine(context);
+        final RunPlace checked = checkedPlace;
+        if (checked != null) {
+            // The forge's reading of a place is measured by the check's own tests.
+            ((TaskRunCommand)
+                            cmd.getSubcommands()
+                                    .get("task")
+                                    .getSubcommands()
+                                    .get("start")
+                                    .getCommand())
+                    .placedBy((c, file, task, repository, gated, role, place, branch) -> checked);
+        }
         cmd.setOut(new PrintWriter(out));
         cmd.setErr(new PrintWriter(err));
         final List<String> all = new java.util.ArrayList<>(List.of(args));
@@ -4510,6 +4521,118 @@ class TaskRunCommandTest {
                 .isLessThan(checkout);
     }
 
+    /** A start at a pull request, its run's start told through the hook given. */
+    private int launchAtPullRequest(
+            final PoreloContext context,
+            final Path dir,
+            final TaskLaunch.RunStarts starts,
+            final List<String> order)
+            throws IOException {
+        projectFile(dir, MINIMAL);
+        final Path helpers = helperStandIns(dir);
+        final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
+        System.setProperty(PoreloBinary.NAMED, helpers.toString());
+        try {
+            return new TaskLaunch(
+                            context,
+                            new TaskLaunch.Request(
+                                    "shell",
+                                    dir.resolve("project.yml"),
+                                    "preview",
+                                    null,
+                                    null,
+                                    8,
+                                    null,
+                                    false,
+                                    false,
+                                    "deny",
+                                    false,
+                                    org.fuin.porelo.wire.TaskMode.SHELL,
+                                    null,
+                                    null,
+                                    null,
+                                    60,
+                                    "uc",
+                                    java.util.Map.of(),
+                                    java.util.Map.of()))
+                    .at(
+                            RunPlace.atPullRequest(
+                                    RunPlace.AUTHOR,
+                                    "shell",
+                                    "https://review.stub.invalid/uc/uc/pull/7"))
+                    .startingRuns(starts)
+                    .launch(
+                            new PrintWriter(out, true),
+                            new PrintWriter(err, true),
+                            running -> {
+                                order.add("agent");
+                                return running.cleanUp().applyAsInt(0);
+                            });
+        } finally {
+            System.setProperty(PoreloBinary.NAMED, ownPorelo);
+            HelperStandIn.stop(helpers.getParent());
+        }
+    }
+
+    @Test
+    void aRunAtAPullRequestStartsOnceTheMailboxExistsAndBeforeTheAgent(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = countingContext(dir);
+        final List<String> order = new ArrayList<>();
+        final List<String> seen = new ArrayList<>();
+
+        final int code =
+                launchAtPullRequest(
+                        context,
+                        dir,
+                        (container, place) -> {
+                            order.add("run");
+                            seen.add(container + " " + place.pullRequest());
+                            assertThat(context.paths().messaging().mailbox(container))
+                                    .as("its mailbox exists when its run starts")
+                                    .isDirectory();
+                            assertThat(
+                                            RunPlace.readFrom(
+                                                    context.paths()
+                                                            .tasks()
+                                                            .containerState(container)))
+                                    .as("its place is recorded when its run starts")
+                                    .isEqualTo(place);
+                        },
+                        order);
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(seen)
+                .as("the run started for the task at its pull request")
+                .containsExactly("porelo-uc_shell https://review.stub.invalid/uc/uc/pull/7");
+        assertThat(order).as("the run before the agent").containsExactly("run", "agent");
+    }
+
+    @Test
+    void aRunThatRefusesToStartRemovesTheTaskAndReachesTheCallerAsItWas(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = countingContext(dir);
+        final List<String> order = new ArrayList<>();
+        final IllegalStateException refusal = new IllegalStateException("the forge said no");
+
+        final Throwable thrown =
+                org.assertj.core.api.Assertions.catchThrowable(
+                        () ->
+                                launchAtPullRequest(
+                                        context,
+                                        dir,
+                                        (container, place) -> {
+                                            throw refusal;
+                                        },
+                                        order));
+
+        assertThat(thrown).as("the refusal as the run gave it").isSameAs(refusal);
+        assertThat(order).as("no agent ran").isEmpty();
+        assertThat(runner.lines())
+                .as("the container it made is removed: %s", runner.lines())
+                .anyMatch(line -> line.contains("podman rm") || line.contains("podman stop"));
+    }
+
     @Test
     void aTaskKeptAfterItsStartFailedComesBackWithTheHelpersItHad(@TempDir Path dir)
             throws IOException {
@@ -5762,6 +5885,127 @@ class TaskRunCommandTest {
         assertThat(runner.lines().subList(before, runner.lines().size()))
                 .as("brought back with its own number: its container is asked for")
                 .anyMatch(line -> line.contains("container inspect"));
+    }
+
+    /** The place the start's check takes, standing in for this machine's forges; none: theirs. */
+    private @org.jspecify.annotations.Nullable RunPlace checkedPlace;
+
+    private static final String BROUGHT_BACK_AT = "https://github.com/uc/uc/pull/7";
+
+    /**
+     * A stopped task brought back with a role and place, as the scenario brings back its author.
+     */
+    private int broughtBackAt(final PoreloContext context, final Path dir, final String role)
+            throws IOException {
+        checkedPlace =
+                RunPlace.atPullRequest(
+                        "author".equals(role) ? RunPlace.AUTHOR : RunPlace.REVIEWER,
+                        "shell",
+                        BROUGHT_BACK_AT);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        return execute(
+                context,
+                "task",
+                "start",
+                "shell",
+                "-p",
+                projectFile(dir, MINIMAL),
+                "--role",
+                role,
+                "--place",
+                BROUGHT_BACK_AT,
+                "--detach");
+    }
+
+    @Test
+    void anAuthorAtItsOwnGatePushBroughtBackAtAPullRequestBeginsItsRunThereInTheDaemon(
+            @TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        RunPlace.ownPush("uc", null, "shell").writeTo(state);
+
+        final int code = broughtBackAt(context, dir, "author");
+
+        assertThat(RunPlace.readFrom(state))
+                .as("its place is now the pull request, as an author")
+                .isEqualTo(RunPlace.atPullRequest(RunPlace.AUTHOR, "shell", BROUGHT_BACK_AT));
+        assertThat(code).as("no daemon to begin its run in: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("its run is asked of the daemon, never dropped")
+                .contains("porelod does not answer");
+        assertThat(runner.lines())
+                .as("nothing is resumed without its run")
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
+    @Test
+    void aNewReviewerAtAPullRequestWithoutADaemonIsRefusedAndKeptStopped(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = countingContext(dir);
+        checkedPlace = RunPlace.atPullRequest(RunPlace.REVIEWER, "shell", BROUGHT_BACK_AT);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--role",
+                        "reviewer",
+                        "--place",
+                        BROUGHT_BACK_AT,
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("its run cannot begin: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("says the daemon is where it begins")
+                .contains("porelod does not answer");
+        assertThat(runner.lines())
+                .as("the container it made is stopped: %s", runner.lines())
+                .anyMatch(line -> line.contains("podman stop"));
+        assertThat(out.toString())
+                .as("kept to be brought back once its daemon answers")
+                .contains("kept      porelo-uc_shell");
+    }
+
+    @Test
+    void aTaskBroughtBackInAnotherRoleThanItsRecordedOneIsRefused(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        RunPlace.ownPush("uc", null, "shell").writeTo(state);
+
+        final int code = broughtBackAt(context, dir, "reviewer");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(69);
+        assertThat(err.toString()).as("in the start's words").contains("RoleNotAllowed");
+        assertThat(RunPlace.readFrom(state))
+                .as("its place stays as it was")
+                .isEqualTo(RunPlace.ownPush("uc", null, "shell"));
+        assertThat(runner.lines())
+                .as("nothing is resumed")
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
+    @Test
+    void anAuthorAtOnePullRequestBroughtBackAtAnotherIsRefused(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        final RunPlace first =
+                RunPlace.atPullRequest(RunPlace.AUTHOR, "shell", "https://github.com/uc/uc/pull/3");
+        first.writeTo(state);
+
+        final int code = broughtBackAt(context, dir, "author");
+
+        assertThat(code).as("refused: %s", err).isEqualTo(69);
+        assertThat(RunPlace.readFrom(state)).as("its place stays as it was").isEqualTo(first);
     }
 
     /** A project file whose conversation is a room on a transport that shows a task's name. */

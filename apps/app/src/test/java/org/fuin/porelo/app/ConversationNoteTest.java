@@ -71,6 +71,18 @@ class ConversationNoteTest {
         }
     }
 
+    private String noteOfRun(final int run) throws IOException {
+        final List<String> found = new java.util.ArrayList<>();
+        for (final Path note : notes()) {
+            final String text = Files.readString(note, StandardCharsets.UTF_8);
+            if (text.contains("\"run\":" + run + ",")) {
+                found.add(text);
+            }
+        }
+        assertThat(found).as("one note of run " + run).hasSize(1);
+        return found.get(0);
+    }
+
     private Map<?, ?> only() throws IOException {
         final List<Path> notes = notes();
         assertThat(notes).as("one note in the inbox").hasSize(1);
@@ -334,10 +346,10 @@ class ConversationNoteTest {
         note.deliver(TASK, 2, PLACE, List.of(page(result("t-1", "Fine.", "octocat"))), 0, 1);
         note.deliver(TASK, 3, PLACE, List.of(page(result("t-1", "Fine.", "octocat"))), 0, 0);
 
-        final List<Path> notes = notes();
-        final String both = Files.readString(notes.get(0), StandardCharsets.UTF_8);
-        final String unreadOnly = Files.readString(notes.get(1), StandardCharsets.UTF_8);
-        final String neither = Files.readString(notes.get(2), StandardCharsets.UTF_8);
+        // A note's file name carries a random id, so each is found by its run, never by order.
+        final String both = noteOfRun(1);
+        final String unreadOnly = noteOfRun(2);
+        final String neither = noteOfRun(3);
         assertThat(both)
                 .as("held and unread, each said")
                 .contains("1 comment is held for the owner account's decision.")
@@ -359,8 +371,9 @@ class ConversationNoteTest {
         note.deliver(TASK, 1, odd, List.of(page(result("t-1", "Fine.", "octocat"))), 0, 0);
         note.deliver(TASK, 2, PLACE, List.of(page(result("t-1", "Fine.", "octocat"))), 0, 0);
 
-        final List<?> oddParts = parts(read(notes().get(0)));
-        final List<?> addressParts = parts(read(notes().get(1)));
+        // Each note by its run: two notes written in one millisecond sort in no fixed order.
+        final List<?> oddParts = parts((Map<?, ?>) Json.parseExact(noteOfRun(1)));
+        final List<?> addressParts = parts((Map<?, ?>) Json.parseExact(noteOfRun(2)));
         assertThat((String) ((Map<?, ?>) oddParts.get(0)).get("text"))
                 .as("the place's words never reach the text raw")
                 .contains("for run 1 at the pull request,")

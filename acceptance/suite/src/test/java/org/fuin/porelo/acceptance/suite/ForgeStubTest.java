@@ -12,6 +12,19 @@ class ForgeStubTest {
 
     private static final String URL = "https://review.stub.invalid/shop/app/pull/42";
 
+    @Test
+    void aCommentsGuidIsAVersion4UuidAsTheProfileAsksAndStaysTheSameForTheSameComment() {
+        final java.util.UUID named =
+                java.util.UUID.nameUUIDFromBytes(
+                        "thread answers text".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertThat(ForgeStub.version4(named).version()).as("version 4").isEqualTo(4);
+        assertThat(ForgeStub.version4(named).variant()).as("the IETF variant").isEqualTo(2);
+        assertThat(ForgeStub.version4(named))
+                .as("the same comment, the same guid")
+                .isEqualTo(ForgeStub.version4(named));
+    }
+
     private static String page(String thread) {
         return Json.write(
                 Map.of(
@@ -98,6 +111,19 @@ class ForgeStubTest {
                         "a".repeat(40),
                         "b".repeat(40),
                         "b".repeat(40));
+
+        final Map<?, ?> fresh =
+                (Map<?, ?>)
+                        Json.parse(ForgeStub.answersWithPullRequest("", URL, facts, "review-head"));
+        assertThat(
+                        Json.write(
+                                ((Map<?, ?>) ((Map<?, ?>) fresh.get("reviews")).get(URL))
+                                        .get("pages")))
+                .as("a pull request nobody spoke on yet has one empty, complete page")
+                .contains("\"porelo/documentKind\":\"page\"")
+                .contains("\"porelo/completeness\":\"complete\"")
+                .contains("\"results\":[]")
+                .contains("\"revisionId\":\"" + "a".repeat(40) + "\"");
 
         final Map<?, ?> answers =
                 (Map<?, ?>)

@@ -32,8 +32,9 @@
         <!-- Features at a time; more than one needs as many accounts in porelo.acceptance.users. -->
         <porelo.acceptance.parallelism>1</porelo.acceptance.parallelism>
         <porelo.acceptance.parallel>false</porelo.acceptance.parallel>
-        <!-- Package replacement has its own disposable account and pinned inputs; select it explicitly. -->
-        <cucumber.filter.tags>not @upgrade</cucumber.filter.tags>
+        <!-- Package replacement has its own disposable account and pinned inputs, and the pull request on
+             GitHub a test identity and organization; select each explicitly. -->
+        <cucumber.filter.tags>not @upgrade and not @github</cucumber.filter.tags>
         <!-- Nothing to publish: this module is a test harness. -->
         <maven.deploy.skip>true</maven.deploy.skip>
         <maven.install.skip>true</maven.install.skip>

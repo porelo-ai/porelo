@@ -56,6 +56,18 @@ public record GatePaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory a forge comment is checked in by the message filter before a run is
+     * handed it, reached by the owner account alone.
+     *
+     * <p>State, not data: each check's files are gone once its answer is read.
+     *
+     * @return The directory, which may not exist yet.
+     */
+    public Path commentChecks() {
+        return paths.xdg().state().resolve("comment-check");
+    }
+
+    /**
      * Returns where a readable copy of waiting work is put.
      *
      * <p><strong>Visible, in the home directory, and not under the data directory.</strong> This is

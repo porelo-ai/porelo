@@ -26,12 +26,14 @@ import org.fuin.porelo.gate.review.ForgeCredential;
 import org.fuin.porelo.gate.review.ForgeFileUnreadable;
 import org.fuin.porelo.gate.review.ForgeInstance;
 import org.fuin.porelo.gate.review.ForgeReview;
+import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.ProfileReading;
+import org.fuin.porelo.gate.review.ProfileTranslator;
 import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.Push;
@@ -43,6 +45,7 @@ import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewRefused;
 import org.fuin.porelo.gate.review.ReviewRole;
+import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewThread;
 import org.fuin.porelo.gate.review.Task;
@@ -263,7 +266,7 @@ public final class ReviewOpen {
                                                 "no client of the forge adapter "
                                                         + adapter
                                                         + " is called on this machine"));
-        final String container =
+        final Recorded recorded =
                 reader.containers()
                         .recorded(project, task)
                         .orElseThrow(
@@ -286,7 +289,8 @@ public final class ReviewOpen {
                                             new PlaceUnreadable(
                                                     PlaceUnreadable.Reason.UNREACHABLE,
                                                     "the pull request cannot be reached"));
-            side = side(reader.role(), task, place);
+            // The run's role and its held items are kept under the task's container.
+            side = side(reader.role(), recorded.container(), place);
         } catch (PlaceUnreadable ex) {
             throw refused(ex, ref);
         }
@@ -299,7 +303,7 @@ public final class ReviewOpen {
                                 task,
                                 facts.head(),
                                 facts.mergeBase(),
-                                container),
+                                recorded.recordedId()),
                         facts);
         List<Kept> items;
         try {
@@ -321,7 +325,7 @@ public final class ReviewOpen {
         final List<Point> points = forgePoints(items, side, reading);
         final int held =
                 (int)
-                        reader.holds().undecided(task).stream()
+                        reader.holds().undecided(recorded.container()).stream()
                                 .filter(each -> each.place().equals(address))
                                 .count();
         // An open pull request's decision has no time to miss; a merge or a close carries the
@@ -876,7 +880,23 @@ public final class ReviewOpen {
         Optional<PullRequestParts> of(ForgeInstance instance);
     }
 
-    /** Finds the container recorded for a task, which keys its push and its checks. */
+    /**
+     * The container recorded for a task: its name keys the run's role and its held items, its id
+     * the task's push and its checks.
+     *
+     * @param container The container's name.
+     * @param recordedId The container's recorded id.
+     */
+    public record Recorded(String container, String recordedId) {
+
+        /** Refuses a missing part. */
+        public Recorded {
+            Objects.requireNonNull(container, "container");
+            Objects.requireNonNull(recordedId, "recordedId");
+        }
+    }
+
+    /** Finds the container recorded for a task. */
     @FunctionalInterface
     public interface Containers {
 
@@ -885,9 +905,9 @@ public final class ReviewOpen {
          *
          * @param project The project's name.
          * @param task The task's name.
-         * @return Its recorded container id, or empty when none is recorded.
+         * @return Its container, or empty when none is recorded.
          */
-        Optional<String> recorded(String project, String task);
+        Optional<Recorded> recorded(String project, String task);
     }
 
     /**
@@ -956,22 +976,96 @@ public final class ReviewOpen {
 
         /**
          * Returns a machine's parts: its gates, the owner account's journals, the ends kept beside
-         * them and its forge file. No adapter's client is called on this machine yet, so a pull
-         * request at a known forge is refused as its adapter missing.
+         * them, its forge file, and a pull request read through its forge's installed adapter.
          *
          * @param context The machine.
          * @return The parts.
          */
         public static Parts of(final PoreloContext context) {
             final CommentIntake.Parts comments = CommentIntake.Parts.of(context);
+            final ForgeInstanceFile forges = ForgeInstanceFile.of(context);
             return new Parts(
                     gateAt(context),
                     comments.store(),
                     comments.counts(),
                     new GateEnds(context).store()::read,
-                    ForgeInstanceFile.of(context)::of,
-                    instance -> Optional.empty());
+                    forges::of,
+                    pullRequestsAt(context, forges, ForgeAdapters.of(context)));
         }
+    }
+
+    /**
+     * Returns what reads a pull request at a forge whose adapter is installed: the same adapter
+     * calls, input path, check, credentials and role a run at it uses. An answer never pins, so its
+     * places and its role pin nothing.
+     *
+     * @param context The machine.
+     * @param forges Its forge file.
+     * @param adapters The forge adapters installed.
+     * @return The reader, empty for an instance whose adapter is not installed.
+     */
+    static Adapters pullRequestsAt(
+            final PoreloContext context,
+            final ForgeInstanceFile forges,
+            final ForgeAdapters adapters) {
+        return instance -> {
+            final String adapter = instance.adapter();
+            if (adapter == null || !adapters.installed(adapter)) {
+                return Optional.empty();
+            }
+            final ProfileTranslator reading = new ProfileTranslator();
+            final CommentCheck check = CommentIntake.Parts.of(context).check();
+            final ReleasedSender.Credentials credentials =
+                    entry -> MachineReviewRole.lend(context, entry);
+            final TaskReviewRole role =
+                    MachineReviewRole.of(
+                            context,
+                            forges,
+                            (task, upstream, branch) -> {
+                                throw new IOException("ReviewOpen never pins a head");
+                            });
+            final PullRequestPlaces places =
+                    new PullRequestPlaces(
+                            forges,
+                            adapters::installed,
+                            each -> AdapterForgeReview.of(context, each),
+                            review ->
+                                    (ref, task) -> {
+                                        throw new PlaceUnreadable(
+                                                PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                                                "ReviewOpen never pins a head");
+                                    },
+                            reading,
+                            check,
+                            new ReviewSarif(),
+                            credentials,
+                            role::mayPush,
+                            (task, facts) -> {
+                                throw new PlaceUnreadable(
+                                        PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                                        "ReviewOpen never pins a head");
+                            });
+            return Optional.of(
+                    new PullRequestParts(
+                            AdapterForgeReview.of(context, adapter),
+                            reading,
+                            check,
+                            credentials,
+                            places,
+                            role,
+                            (project, task) -> {
+                                try {
+                                    final TaskIdentity identity =
+                                            CommentIntake.recorded(context, project, task);
+                                    return Optional.of(
+                                            new Recorded(
+                                                    identity.container(), identity.recordedId()));
+                                } catch (ReviewRefused ex) {
+                                    return Optional.empty();
+                                }
+                            },
+                            new HoldJournal(context.paths().gate().reviewHolds())));
+        };
     }
 
     /**

@@ -271,6 +271,39 @@ provider, a queue transport that always defers delivery, and the installed MCP h
    legs explicitly exclude `@upgrade`; the command above selects it. A custom tag expression for an ordinary run
    should also exclude `@upgrade`. Once selected, missing inputs fail instead of skipping.
 
+### Testing the pull request conversation on GitHub
+
+**Not run here.** `gate/pr-review-github.feature` runs the stub forge's reviewer scenario once against a real pull
+request on GitHub, through the installed `github` forge adapter. It makes a private scratch repository in a test
+organization, pushes a branch and opens a pull request from the machine running Maven, never through Porelo or a
+task. The task's comment and both replies are released through the gate and read back from GitHub in order, and the
+test identity's two answers in that thread must reach the next run. The repository is deleted at the end, also
+when a step fails. No approval is posted: GitHub refuses one on one's own pull request.
+
+1. Install the `github` forge adapter into the suite's account on the machine; the scenario's adapter step fails
+   with Porelo's own answer when it is missing.
+2. Set two variables on the machine running Maven. The token reaches GitHub in a request header, git through its
+   environment, and the account's Porelo-Vault as `git.token.github.com` through standard input.
+
+   | Variable | Value |
+   |---|---|
+   | `PORELO_GITHUB_TEST_TOKEN` | A test identity's token that may create, push to, comment in and delete repositories of the organization |
+   | `PORELO_GITHUB_TEST_ORG` | That organization's login |
+
+3. Run the feature alone; a missing variable fails its first step, naming it.
+
+   ```sh
+   ./mvnw -B -s settings.xml -o -pl acceptance/suite -am verify -Dsurefire.skip=true \
+     -Dit.test=AcceptanceIT -Dfailsafe.failIfNoSpecifiedTests=false \
+     -Dporelo.acceptance.host="$PORELO_ACCEPTANCE_HOST" \
+     -Dporelo.acceptance.user="$PORELO_ACCEPTANCE_USER" \
+     -Dcucumber.filter.tags=@github \
+     -Dcucumber.glue=org.fuin.porelo.acceptance \
+     -Dcucumber.features=classpath:org/fuin/porelo/acceptance/gate/pr-review-github.feature
+   ```
+
+The suite's default selection and the ordinary legs exclude `@github`, as they exclude `@upgrade`.
+
 ## The documentation site
 
 The site at `https://porelo-ai.github.io` is built in the repository `porelo-ai/porelo-ai.github.io`, from this

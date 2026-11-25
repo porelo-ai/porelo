@@ -58,8 +58,16 @@ public final class Leg {
      */
     private static final String PACKAGE_ONLY = "@machine-package";
 
+    /** The tag of a scenario at a real pull request on GitHub, which needs a test identity. */
+    private static final String GITHUB = "@github";
+
     private static final String MACHINE_WIDE_EXCLUDED =
-            "not " + MACHINE_WIDE + " and not @upgrade and not " + PACKAGE_ONLY;
+            "not "
+                    + MACHINE_WIDE
+                    + " and not @upgrade and not "
+                    + PACKAGE_ONLY
+                    + " and not "
+                    + GITHUB;
 
     /**
      * How the product is built, named once and identical to what CI runs.

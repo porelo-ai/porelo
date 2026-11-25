@@ -1361,6 +1361,11 @@ final class TaskMethods {
                 "Certify",
                 (parameters, replies) -> replies.last(certified(certificates, parameters)));
 
+        // A start that is not the daemon's own begins its run here, where every task's run is kept.
+        server.method(
+                "BeginRun",
+                (parameters, replies) -> replies.last(reviews.begun(text(parameters, "task"))));
+
         server.method(
                 "Start",
                 (parameters, replies) -> {
