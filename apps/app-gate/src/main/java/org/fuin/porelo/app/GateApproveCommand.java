@@ -230,6 +230,18 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                 out.println("pull request " + TalkReadCommand.shown(pullRequest));
             }
             out.flush();
+            try {
+                new GateEnds(context).approved(project.name(), gate, name, bound, onto);
+            } catch (java.io.IOException ex) {
+                err.println(
+                        "porelo: forwarded "
+                                + TalkReadCommand.shown(name)
+                                + ", and its end could not be kept for the task: "
+                                + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
+                err.flush();
+                exit = 70;
+                return null;
+            }
             exit = 0;
             return null;
         } catch (GateException.BranchExists ex) {

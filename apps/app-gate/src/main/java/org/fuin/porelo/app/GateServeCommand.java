@@ -197,6 +197,37 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 : project.limits().passOn();
     }
 
+    /**
+     * Forgets how the task's last push ended as its next one is taken, then tells the listener.
+     *
+     * @param context The machine.
+     * @param project The project's name.
+     * @param task The task's name, as its push is named at the gate.
+     * @param then What is told of the push next, whether or not the end could be forgotten.
+     * @return The listener for the server.
+     */
+    static GitHttpServer.Taken waits(
+            final PoreloContext context,
+            final String project,
+            final String task,
+            final GitHttpServer.Taken then) {
+        return commit -> {
+            try {
+                new GateEnds(context).waiting(project, task);
+            } catch (java.io.IOException ex) {
+                // Said in the gate's log by the server; the push is never refused for it.
+                throw new java.io.UncheckedIOException(
+                        "the end of "
+                                + task
+                                + "'s last push could not be forgotten: "
+                                + ex.getMessage(),
+                        ex);
+            } finally {
+                then.taken(commit);
+            }
+        };
+    }
+
     static GitHttpServer.Signer signing(PoreloContext context, String project, String task) {
         final TaskSecrets secrets = new TaskSecrets(context);
         final TaskIdentity identity = TaskHistory.find(context, project, task);
@@ -437,20 +468,29 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 if (ref != null && ref.startsWith(GitGate.INCOMING) && unbuilt != null) {
                     // No build report comes while the task runs: said at the push, so the agent
                     // does not wait for one.
+                    final String task = ref.substring(GitGate.INCOMING.length());
                     server.taking(
-                            unbuilt(
+                            waits(
                                     context,
                                     project.name(),
-                                    ref.substring(GitGate.INCOMING.length()),
-                                    unbuilt));
+                                    task,
+                                    unbuilt(context, project.name(), task, unbuilt)));
                 } else if (ref != null && ref.startsWith(GitGate.INCOMING)) {
                     // The watch started, and may end while the task runs, its reader failing:
                     // asked at each push, so a push after it is not left waiting either.
                     final String task = ref.substring(GitGate.INCOMING.length());
                     server.taking(
-                            UnbuiltPush.unlessWatched(
-                                    () -> watchPid(context, project.name(), task),
-                                    unbuilt(context, project.name(), task, UnbuiltPush.UNWATCHED)));
+                            waits(
+                                    context,
+                                    project.name(),
+                                    task,
+                                    UnbuiltPush.unlessWatched(
+                                            () -> watchPid(context, project.name(), task),
+                                            unbuilt(
+                                                    context,
+                                                    project.name(),
+                                                    task,
+                                                    UnbuiltPush.UNWATCHED))));
                 }
                 if (ref != null && !reads.isEmpty()) {
                     server.reading(reads);

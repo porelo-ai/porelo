@@ -119,6 +119,13 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             // Told whether or not a reason was given: an agent whose work silently vanished hands
             // it over again.
             final CommentIntake.Parts review = CommentIntake.Parts.of(context);
+            // Kept before the task is told, so a note that cannot be written loses no end.
+            java.io.IOException unkept = null;
+            try {
+                new GateEnds(context).rejected(project.name(), name, rejected, review.store());
+            } catch (java.io.IOException ex) {
+                unkept = ex;
+            }
             out.println(
                     PersonNote.rejectedWork(
                                     context,
@@ -131,7 +138,7 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                             ? "told      the task it came from"
                             : "not told  no task named '" + name + "' has a mailbox here any more");
             out.flush();
-            return 0;
+            return unkept == null ? 0 : unkept(err, name, unkept);
         } catch (java.io.IOException ex) {
             err.println(
                     "porelo: discarded "
@@ -149,5 +156,17 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
             err.flush();
             return 2;
         }
+    }
+
+    // The push is discarded either way; the end the task's review reads is said missing, loud.
+    private static int unkept(
+            final PrintWriter err, final String name, final java.io.IOException ex) {
+        err.println(
+                "porelo: discarded "
+                        + TalkReadCommand.shown(name)
+                        + ", and its end could not be kept for the task: "
+                        + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
+        err.flush();
+        return 70;
     }
 }

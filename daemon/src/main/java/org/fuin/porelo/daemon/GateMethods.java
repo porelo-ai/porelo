@@ -709,6 +709,17 @@ final class GateMethods {
                                     + ", reviewed at "
                                     + commit
                                     + ", through the daemon");
+                    try {
+                        new org.fuin.porelo.app.GateEnds(context)
+                                .approved(
+                                        text(parameters, "project"),
+                                        gate,
+                                        text(parameters, "name"),
+                                        commit,
+                                        branch);
+                    } catch (java.io.IOException ex) {
+                        unkept("forwarded " + text(parameters, "name"), ex);
+                    }
                     final Map<String, Object> reply = new java.util.LinkedHashMap<>();
                     reply.put("forwarded", text(parameters, "name"));
                     reply.put("branch", branch);
@@ -788,6 +799,16 @@ final class GateMethods {
                                 Map.of("name", text(parameters, "name")));
                     }
                     final GitGate.Landing landing = gate.landed(text(parameters, "name"), branch);
+                    try {
+                        new org.fuin.porelo.app.GateEnds(context)
+                                .landed(
+                                        text(parameters, "project"),
+                                        text(parameters, "name"),
+                                        landing,
+                                        branch);
+                    } catch (java.io.IOException ex) {
+                        unkept("cleared " + text(parameters, "name") + " as landed", ex);
+                    }
                     replies.last(
                             Map.of(
                                     "landed",
@@ -804,6 +825,12 @@ final class GateMethods {
                         replies.last(
                                 // The same store and writer the review's own calls use.
                                 reject(parameters, context, comments.store(), comments.writer())));
+    }
+
+    // The gate's work is done and stays done; the end the task's review reads is said missing in
+    // the daemon's log, never undone or refused.
+    private static void unkept(final String done, final java.io.IOException ex) {
+        FileFailure.said(done + ", and its end could not be kept for the task", ex);
     }
 
     /**
@@ -866,6 +893,12 @@ final class GateMethods {
                             writer);
         } catch (java.io.IOException ex) {
             told = false;
+        }
+        try {
+            new org.fuin.porelo.app.GateEnds(context)
+                    .rejected(text(parameters, "project"), name, rejected, store);
+        } catch (java.io.IOException ex) {
+            unkept("discarded " + name, ex);
         }
         return Map.of("rejected", name, "told", told);
     }

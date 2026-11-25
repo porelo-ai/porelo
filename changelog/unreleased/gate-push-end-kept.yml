@@ -1,0 +1,2 @@
+title: "A push's end at the gate is kept for its task: a reject with the number of open threads it carried, an approval with the commit it forwarded, or a landing, with when it was recorded, until the task's next push waits"
+type: added

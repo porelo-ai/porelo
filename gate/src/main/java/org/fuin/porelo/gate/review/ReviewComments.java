@@ -216,6 +216,21 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     // The container's directory, checked to be a real directory under the root; made when asked
     // and missing, or empty when not asked and missing.
     private Optional<Path> container(final Push push, final boolean make) throws IOException {
+        return container(root, push.task(), make);
+    }
+
+    /**
+     * Returns a task container's directory in a store, checked as the journal's is: owner-only,
+     * never a link, made with its missing parents when asked.
+     *
+     * @param root The store's directory.
+     * @param task The container id Porelo recorded for the task.
+     * @param make Whether to make it when missing.
+     * @return The directory, or empty when it is missing and not made.
+     * @throws IOException When it cannot be made, or is refused.
+     */
+    static Optional<Path> container(final Path root, final String task, final boolean make)
+            throws IOException {
         if (!directory(root, make, false)) {
             return Optional.empty();
         }
@@ -223,7 +238,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         // spellings (a linked parent, a relative path) must share one lock, or the second
         // channel's file lock in this process throws instead of waiting for the first.
         final Path real = root.toRealPath();
-        final Path container = real.resolve(push.task()).normalize();
+        final Path container = real.resolve(task).normalize();
         if (!real.equals(container.getParent())) {
             throw new IOException("A container directory outside the review store: " + container);
         }

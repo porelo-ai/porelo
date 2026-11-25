@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -15,12 +17,21 @@ import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.core.project.Project;
+import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.Kept;
+import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.Origin;
+import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.PushEnd;
+import org.fuin.porelo.gate.review.PushEnds;
+import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewComments;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewThread;
+import org.fuin.porelo.gate.review.ReviewWriter;
+import org.fuin.porelo.gate.review.Side;
 import org.fuin.porelo.gate.review.ThreadState;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Sidecar;
@@ -28,10 +39,15 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-/** The daemon's {@code Reject} reads the push's review from the repository its gate is for. */
+/**
+ * The daemon's {@code Reject} reads the push's review from the repository its gate is for, and
+ * keeps how the push ended for its task.
+ */
 class GateRejectThreadsTest {
 
     private static final String RECORDED = "a".repeat(64);
+
+    private static final Origin OWNER = Origin.of(new OwnerAccount());
 
     @TempDir Path dir;
 
@@ -39,6 +55,116 @@ class GateRejectThreadsTest {
     void aRejectInARepositoryNotTheProjectsOwnAsksTheReviewAboutThatRepositorysPush()
             throws Exception {
         // Asked about the project's own repository, the review found none of the work's threads.
+        final Waiting waiting = waiting();
+        final Store store = new Store();
+
+        final Map<String, Object> reply =
+                GateMethods.reject(
+                        Map.of("project", "uc", "name", "t", "repository", "backend"),
+                        waiting.context(),
+                        store,
+                        (push, threads, cursor) -> {
+                            throw new IllegalStateException("no open thread to write");
+                        });
+
+        assertThat(reply).containsEntry("rejected", "t").containsEntry("told", true);
+        // Asked for the note to the task and again for the end kept for it: each time the same
+        // push.
+        assertThat(store.asked)
+                .isNotEmpty()
+                .allSatisfy(
+                        push -> {
+                            assertThat(push.repository()).isEqualTo("backend");
+                            assertThat(push.head()).isEqualTo(waiting.head());
+                            assertThat(push.task()).isEqualTo(RECORDED);
+                        });
+        assertThat(git(waiting.mirror(), "for-each-ref", "refs/porelo/incoming/"))
+                .as("the work was discarded")
+                .doesNotContain("incoming/t");
+    }
+
+    @Test
+    void aRejectThatCarriedTwoOpenThreadsIsKeptForTheTaskAsRejectedWithTheirCount()
+            throws Exception {
+        final Waiting waiting = waiting();
+        final ReviewComments threads =
+                new ReviewComments(waiting.context().paths().gate().reviewComments());
+        final Push push = waiting.push();
+        threads.keep(push, comment("one"), OWNER, null);
+        threads.keep(push, comment("two"), OWNER, null);
+        final String resolved = threads.keep(push, comment("three"), OWNER, null).thread();
+        threads.state(push, resolved, ThreadState.RESOLVED);
+        final Instant before = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+
+        GateMethods.reject(
+                Map.of("project", "uc", "name", "t", "repository", "backend"),
+                waiting.context(),
+                threads,
+                (asked, open, cursor) -> new ReviewWriter.Page("{\"runs\":[]}", null));
+
+        final PushEnd end = ends(waiting).read(RECORDED).orElseThrow();
+        assertThat(end.end()).as("rejected").isEqualTo(PushEnd.End.REJECTED);
+        assertThat(end.openThreads())
+                .as("the two open threads the reject carried, not the resolved one")
+                .isEqualTo(2);
+        assertThat(end.name()).as("the push's name").isEqualTo("t");
+        assertThat(end.commit()).as("the commit that waited").isEqualTo(waiting.head());
+        assertThat(end.mergedCommit()).as("nothing was forwarded").isNull();
+        assertThat(end.at()).as("when the reject was recorded").isBetween(before, Instant.now());
+    }
+
+    @Test
+    void aRejectWithNoOpenThreadIsKeptAsRejectedWithNone() throws Exception {
+        final Waiting waiting = waiting();
+
+        GateMethods.reject(
+                Map.of("project", "uc", "name", "t", "repository", "backend"),
+                waiting.context(),
+                new Store(),
+                (push, threads, cursor) -> {
+                    throw new IllegalStateException("no open thread to write");
+                });
+
+        final PushEnd end = ends(waiting).read(RECORDED).orElseThrow();
+        assertThat(end.end()).as("rejected").isEqualTo(PushEnd.End.REJECTED);
+        assertThat(end.openThreads()).as("a reject that carried no thread").isZero();
+    }
+
+    private static PushEnds ends(final Waiting waiting) {
+        return new PushEnds(waiting.context().paths().gate().reviewComments());
+    }
+
+    private static ReviewComment comment(final String text) {
+        return new ReviewComment(new LineAnchor("a.txt", Side.NEW, 1, 1), new Body(text), null);
+    }
+
+    /**
+     * A push that waits at the gate of a project's second repository, from a recorded task with a
+     * mailbox.
+     */
+    private record Waiting(PoreloContext context, Project project, Path mirror, String head) {
+
+        Push push() {
+            return java.util.Objects.requireNonNull(
+                    org.fuin.porelo.app.PersonNote.Rejected.waitingIn(
+                                    context,
+                                    project,
+                                    java.util.Objects.requireNonNull(
+                                            project.repository("backend"), "backend"),
+                                    org.fuin.porelo.app.GateSupport.gate(
+                                            context,
+                                            project,
+                                            java.util.Objects.requireNonNull(
+                                                    project.repository("backend"), "backend"),
+                                            null,
+                                            null),
+                                    "t")
+                            .push(RECORDED),
+                    "the push waits");
+        }
+    }
+
+    private Waiting waiting() throws Exception {
         final Path origin = dir.resolve("backend.git");
         git(dir, "init", "-q", "--bare", "-b", "main", origin.toString());
         final Path file = dir.resolve("project.yml");
@@ -87,29 +213,7 @@ class GateRejectThreadsTest {
         final String container = context.tasks().containerName(project, "t");
         record(context, container);
         new Mailbox(context.paths().messaging().mailbox(container)).create();
-        final Store store = new Store();
-
-        final Map<String, Object> reply =
-                GateMethods.reject(
-                        Map.of("project", "uc", "name", "t", "repository", "backend"),
-                        context,
-                        store,
-                        (push, threads, cursor) -> {
-                            throw new IllegalStateException("no open thread to write");
-                        });
-
-        assertThat(reply).containsEntry("rejected", "t").containsEntry("told", true);
-        assertThat(store.asked)
-                .singleElement()
-                .satisfies(
-                        push -> {
-                            assertThat(push.repository()).isEqualTo("backend");
-                            assertThat(push.head()).isEqualTo(head);
-                            assertThat(push.task()).isEqualTo(RECORDED);
-                        });
-        assertThat(git(mirror, "for-each-ref", "refs/porelo/incoming/"))
-                .as("the work was discarded")
-                .doesNotContain("incoming/t");
+        return new Waiting(context, project, mirror, head);
     }
 
     private PoreloContext context() {
