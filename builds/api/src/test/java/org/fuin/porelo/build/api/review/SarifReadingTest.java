@@ -29,6 +29,9 @@ class SarifReadingTest {
 
     private static final int MIB = 1024 * 1024;
 
+    // A quarter of a default thread's stack on Linux: enough for the reader's own frames.
+    private static final long SMALL_STACK = 256 * 1024;
+
     @ParameterizedTest
     @CsvSource({
         "deep.sarif.json, NESTING, /runs/0/results/0/properties/porelo~1replyTo/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0/0",
@@ -357,6 +360,158 @@ class SarifReadingTest {
         assertThat(refused(utf8(profileOneUri("a".repeat(12_000)))).rule())
                 .as("a profile 1 URI of 12000 characters")
                 .isEqualTo(Rule.URI_LENGTH);
+    }
+
+    @Test
+    void anArtifactUriOf2048CharactersInItsCostliestShapesIsJudgedOnASmallStack() throws Exception {
+        final String path = "src/main/java/org/example/shop/Login.java";
+        final List<String> valid =
+                List.of(
+                        "a".repeat(2048),
+                        "%41".repeat(682) + "aa",
+                        "a/".repeat(1023) + "aa",
+                        "a%41/".repeat(408) + "a%41");
+        for (final String uri : valid) {
+            assertThat(uri.length()).as("a costly URI's length").isLessThanOrEqualTo(2048);
+            assertThat(onSmallStack(profileOneUri(uri)))
+                    .as("a profile 1 URI of %s, read on a small stack", shape(uri))
+                    .isEqualTo("read");
+            assertThat(onSmallStack(reply().replace(path, uri)))
+                    .as("a profile 2 URI of %s, read on a small stack", shape(uri))
+                    .isEqualTo("read");
+        }
+        // Each fails only at its last character (the last a backslash escaped for JSON).
+        for (final String uri :
+                List.of(
+                        "%41".repeat(682) + "a%",
+                        "a/".repeat(1023) + "a/",
+                        "a".repeat(2047) + "\\\\")) {
+            assertThat(onSmallStack(profileOneUri(uri)))
+                    .as("a profile 1 URI of %s failing at its end, on a small stack", shape(uri))
+                    .isEqualTo("SCHEMA");
+            assertThat(onSmallStack(reply().replace(path, uri)))
+                    .as("a profile 2 URI of %s failing at its end, on a small stack", shape(uri))
+                    .isEqualTo("SCHEMA");
+        }
+    }
+
+    @Test
+    void profileOnesStackSafeUriPatternAdmitsExactlyWhatItsGroupedFormDid() throws Exception {
+        // The grouped form recursed per character; it stays here as the language to keep.
+        final java.util.regex.Pattern grouped =
+                java.util.regex.Pattern.compile(
+                        "^([A-Za-z0-9._~-]|%[0-9A-F]{2})+(/([A-Za-z0-9._~-]|%[0-9A-F]{2})+)*(?![\\s\\S])");
+        final java.util.regex.Pattern safe =
+                java.util.regex.Pattern.compile(
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(resource("review-profile-1.schema.json"))
+                                .at("/$defs/uri/pattern")
+                                .asText());
+        final String alphabet = "a%4F/f\n";
+        List<String> level = List.of("");
+        int compared = 0;
+        for (int length = 1; length <= 6; length++) {
+            final List<String> next = new java.util.ArrayList<>();
+            for (final String prefix : level) {
+                for (final char c : alphabet.toCharArray()) {
+                    final String text = prefix + c;
+                    next.add(text);
+                    assertThat(safe.matcher(text).find())
+                            .as("the stack-safe pattern on %s", text.replace("\n", "\\n"))
+                            .isEqualTo(grouped.matcher(text).find());
+                    compared++;
+                }
+            }
+            level = next;
+        }
+        assertThat(compared).as("the texts compared").isEqualTo(137_256);
+    }
+
+    @Test
+    void noSchemaPatternRecursesPerCharacter() throws Exception {
+        final List<String> shapes =
+                List.of("a", "%41", "a/", "0", "-", "a-", "a.", "a ", "/", "%", "ab:");
+        for (final String profile : List.of("1", "2")) {
+            final List<String> patterns = new java.util.ArrayList<>();
+            patterns(
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(resource("review-profile-" + profile + ".schema.json")),
+                    patterns);
+            assertThat(patterns).as("profile %s's patterns", profile).isNotEmpty();
+            for (final String pattern : patterns) {
+                final java.util.regex.Pattern compiled = java.util.regex.Pattern.compile(pattern);
+                for (final String shape : shapes) {
+                    for (final String end : List.of("", "\n", "!")) {
+                        final String input = shape.repeat(16_384 / shape.length()) + end;
+                        assertThat(onSmallStack(() -> compiled.matcher(input).find()))
+                                .as("profile %s's pattern %s on %s", profile, pattern, shape(input))
+                                .isNotEqualTo(StackOverflowError.class.getName());
+                    }
+                }
+            }
+        }
+    }
+
+    private static void patterns(
+            final com.fasterxml.jackson.databind.JsonNode node, final List<String> into) {
+        node.properties()
+                .forEach(
+                        entry -> {
+                            if ("pattern".equals(entry.getKey()) && entry.getValue().isTextual()) {
+                                into.add(entry.getValue().asText());
+                            } else {
+                                patterns(entry.getValue(), into);
+                            }
+                        });
+        if (node.isArray()) {
+            node.forEach(each -> patterns(each, into));
+        }
+    }
+
+    /**
+     * Reads a document on a fresh thread of a small stack: read, its rule, or the error's class.
+     */
+    private static String onSmallStack(final String document) throws InterruptedException {
+        return onSmallStack(
+                () -> {
+                    try {
+                        SarifReading.read(utf8(document));
+                        return "read";
+                    } catch (final SarifRefused refused) {
+                        return refused.rule().name();
+                    }
+                });
+    }
+
+    /**
+     * Runs a call on a fresh thread whose stack is far smaller than a default thread's, so a
+     * pattern that recurses per character overflows it whether or not the JIT has compiled it.
+     */
+    private static String onSmallStack(final java.util.concurrent.Callable<Object> call)
+            throws InterruptedException {
+        final java.util.concurrent.atomic.AtomicReference<String> outcome =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        final Thread thread =
+                new Thread(
+                        null,
+                        () -> {
+                            try {
+                                outcome.set(String.valueOf(call.call()));
+                            } catch (final Throwable e) {
+                                outcome.set(e.getClass().getName());
+                            }
+                        },
+                        "small-stack",
+                        SMALL_STACK);
+        thread.start();
+        thread.join();
+        return outcome.get();
+    }
+
+    private static String shape(final String text) {
+        return text.length()
+                + " characters starting "
+                + text.substring(0, Math.min(6, text.length()));
     }
 
     private static String profileOneUri(final String uri) throws IOException {

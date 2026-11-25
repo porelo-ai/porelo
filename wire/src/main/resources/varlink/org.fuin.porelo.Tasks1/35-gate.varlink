@@ -622,13 +622,13 @@ type ReviewRun (
 # the forge's answer at each call; Porelo stores nothing for it and starts nothing. Every time is UTC,
 # RFC 3339, in whole seconds. Never offered through MCP. 'porelo review open --json' answers the same.
 # Refused as PlaceUnreadable, UnknownForge, NoPullRequest or, for a pull request address the forge does not
-# know, NoSuchPullRequest; ownPullRequest without task is org.varlink.service.InvalidParameter.
+# know, NoSuchPullRequest; pullRequest or ownPullRequest without task is org.varlink.service.InvalidParameter.
 method ReviewOpen(
   project: string,
   place: Place,
   # The role asking; absent means AUTHOR.
   role: ?(AUTHOR, REVIEWER),
-  # The task whose run asks; required for ownPullRequest.
+  # The task whose run asks; required for pullRequest and ownPullRequest, whose side and held items are its.
   task: ?string
 ) -> (
   # The commit reviewed at the place: at the gate the push's waiting head, on a pull request its head, for a
@@ -731,7 +731,10 @@ method HeldItems(
 ) -> (
   items: []HeldItem,
   # The next page's cursor; absent on the last page.
-  cursor: ?string
+  cursor: ?string,
+  # Without a task: each entry of the hold store whose journal cannot be read, or that is no task's, by
+  # name; its items are left out and every other task's listed. Absent when every journal was read.
+  unreadable: ?[]string
 )
 
 # Decides one held item, if its content is still the one shown. release and refuse are for an outgoing item,

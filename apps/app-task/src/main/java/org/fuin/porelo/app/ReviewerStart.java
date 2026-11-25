@@ -69,6 +69,25 @@ final class ReviewerStart {
     }
 
     /**
+     * Returns the project a task's container is started with: a reviewer's has no host services, so
+     * no name resolves to this host and no port to it opens but its gate's.
+     *
+     * @param place The recorded role and place, or {@code null}.
+     * @param project The project.
+     * @return The project to start with.
+     */
+    static org.fuin.porelo.core.project.Project started(
+            final @Nullable RunPlace place, final org.fuin.porelo.core.project.Project project) {
+        if (!reviewing(place)) {
+            return project;
+        }
+        final org.fuin.porelo.core.project.Egress egress = project.egress();
+        return project.withEgress(
+                new org.fuin.porelo.core.project.Egress(
+                        List.of(), List.of(), egress.refused(), List.of()));
+    }
+
+    /**
      * Returns the workspace's variables naming its refs: a reviewer's pinned ref and no ref to push
      * to, an author's own ref.
      *

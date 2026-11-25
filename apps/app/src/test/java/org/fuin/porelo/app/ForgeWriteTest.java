@@ -59,6 +59,8 @@ class ForgeWriteTest {
                     BASE,
                     BASE,
                     PullRequestState.OPEN,
+                    false,
+                    null,
                     null,
                     null);
 
@@ -76,7 +78,7 @@ class ForgeWriteTest {
         adapter.answer = new WriteOutcome.Delivered("1834527690");
         final ReviewItem reply = new ForgeReply("1834527690", new Body("Moved the check up."));
 
-        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, reply), LENT);
+        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, reply), LENT, OPENING);
 
         assertThat(outcome)
                 .as("the forge's answer")
@@ -90,8 +92,34 @@ class ForgeWriteTest {
                 .as("with the lent credential")
                 .isSameAs(LENT);
         assertThat(writing.written)
-                .as("the item written against the pinned facts")
-                .containsExactly(new Written(FACTS, reply));
+                .as("the reply written against the pinned facts at its thread's place")
+                .containsExactly(new Written(FACTS, reply, OPENING));
+    }
+
+    @Test
+    void aCommentIsWrittenAtItsOwnAnchorWhateverPlaceIsGiven() {
+        write.write(REF, FACTS, held(HEAD, comment()), LENT, OPENING);
+
+        assertThat(writing.written)
+                .as("the comment at its own line anchor")
+                .containsExactly(new Written(FACTS, comment(), (LineAnchor) comment().anchor()));
+    }
+
+    @Test
+    void aForgeReplyWhoseThreadWasNotFoundIsRefusedUnposted() {
+        final WriteOutcome outcome =
+                write.write(
+                        REF,
+                        FACTS,
+                        held(HEAD, new ForgeReply("77", new Body("Lost."))),
+                        LENT,
+                        null);
+
+        assertThat(outcome)
+                .as("no place to write the reply at")
+                .isEqualTo(new WriteOutcome.Refused(ForgeWrite.NO_SUCH_THREAD));
+        assertThat(adapter.posts).as("nothing posted").isEmpty();
+        assertThat(writing.written).as("nothing written").isEmpty();
     }
 
     @Test
@@ -99,7 +127,12 @@ class ForgeWriteTest {
         adapter.answer = new WriteOutcome.Refused("NoSuchThread");
 
         final WriteOutcome outcome =
-                write.write(REF, FACTS, held(HEAD, new ForgeReply("77", new Body("Lost."))), LENT);
+                write.write(
+                        REF,
+                        FACTS,
+                        held(HEAD, new ForgeReply("77", new Body("Lost."))),
+                        LENT,
+                        OPENING);
 
         assertThat(outcome)
                 .as("the forge's refusal, with its reason")
@@ -111,7 +144,7 @@ class ForgeWriteTest {
     void aPostThatThrowsIsOfUnknownOutcomeAndIsNotRepeated() {
         adapter.failure = new IllegalStateException("connection reset, token " + TOKEN);
 
-        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, comment()), LENT);
+        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, comment()), LENT, null);
 
         assertThat(outcome)
                 .as("sent, and no answer said whether it was written")
@@ -120,8 +153,20 @@ class ForgeWriteTest {
     }
 
     @Test
+    void anAdapterThatAnswersNothingIsOfUnknownOutcome() {
+        adapter.answer = null;
+
+        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, comment()), LENT, null);
+
+        assertThat(outcome)
+                .as("sent, and no answer said whether it was written")
+                .isEqualTo(new WriteOutcome.OutcomeUnknown());
+        assertThat(adapter.posts).as("posted once").hasSize(1);
+    }
+
+    @Test
     void anItemHeldForAnotherCommitThanThePinnedHeadIsRefusedUnposted() {
-        final WriteOutcome outcome = write.write(REF, FACTS, held(OTHER, comment()), LENT);
+        final WriteOutcome outcome = write.write(REF, FACTS, held(OTHER, comment()), LENT, null);
 
         assertThat(outcome)
                 .as("held for a commit the pull request is no longer at")
@@ -137,7 +182,8 @@ class ForgeWriteTest {
                         REF,
                         FACTS,
                         held(HEAD, new ReviewReply("porelo-thread-3", new Body("Done."))),
-                        LENT);
+                        LENT,
+                        OPENING);
 
         assertThat(outcome)
                 .as("a reply naming no forge thread")
@@ -149,7 +195,7 @@ class ForgeWriteTest {
     void anItemTheProfileCannotCarryIsRefusedUnposted() {
         writing.failure = new IllegalArgumentException("a suggestion profile 2 cannot carry");
 
-        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, comment()), LENT);
+        final WriteOutcome outcome = write.write(REF, FACTS, held(HEAD, comment()), LENT, null);
 
         assertThat(outcome)
                 .as("the writer refused it")
@@ -168,13 +214,13 @@ class ForgeWriteTest {
         System.setErr(capture);
         try {
             adapter.failure = new IllegalStateException("Authorization: Bearer " + TOKEN);
-            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT));
+            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT, null));
             adapter.failure = null;
             adapter.answer = new WriteOutcome.RateLimited(Duration.ofSeconds(30));
-            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT));
-            outcomes.add(write.write(REF, FACTS, held(OTHER, comment()), LENT));
+            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT, null));
+            outcomes.add(write.write(REF, FACTS, held(OTHER, comment()), LENT, null));
             writing.failure = new IllegalArgumentException("refused for " + TOKEN);
-            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT));
+            outcomes.add(write.write(REF, FACTS, held(HEAD, comment()), LENT, null));
         } finally {
             System.setOut(out);
             System.setErr(err);
@@ -192,6 +238,9 @@ class ForgeWriteTest {
                 .doesNotContain(TOKEN);
         assertThat(write.toString()).as("the writer as text").doesNotContain(TOKEN);
     }
+
+    /** The anchor of the forge thread's opening comment a reply answers. */
+    private static final LineAnchor OPENING = new LineAnchor("src/Login.java", Side.NEW, 12, 12);
 
     private static ReviewComment comment() {
         return new ReviewComment(
@@ -221,14 +270,14 @@ class ForgeWriteTest {
     private record Post(PullRequestRef ref, byte[] document, ForgeCredential credential) {}
 
     /** One submission as the writer was asked for it. */
-    private record Written(PullRequestFacts facts, ReviewItem item) {}
+    private record Written(PullRequestFacts facts, ReviewItem item, LineAnchor place) {}
 
     /** The forge adapter: records each post and answers as told. */
     private static final class Adapter implements ForgeReview {
 
         private final List<Post> posts = new ArrayList<>();
 
-        private WriteOutcome answer = new WriteOutcome.Delivered("1");
+        private @Nullable WriteOutcome answer = new WriteOutcome.Delivered("1");
 
         private @Nullable RuntimeException failure;
 
@@ -266,16 +315,17 @@ class ForgeWriteTest {
         }
 
         @Override
-        public byte[] one(final PullRequestFacts facts, final Kept item) {
+        public byte[] one(final PullRequestFacts facts, final Kept opening, final Kept item) {
             throw new UnsupportedOperationException("a write writes no conversation item");
         }
 
         @Override
-        public byte[] submission(final PullRequestFacts facts, final ReviewItem item) {
+        public byte[] submission(
+                final PullRequestFacts facts, final ReviewItem item, final LineAnchor place) {
             if (failure != null) {
                 throw failure;
             }
-            written.add(new Written(facts, item));
+            written.add(new Written(facts, item, place));
             return SUBMISSION.clone();
         }
     }

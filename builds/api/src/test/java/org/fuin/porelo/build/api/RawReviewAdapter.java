@@ -27,6 +27,9 @@ public final class RawReviewAdapter {
     /** A text past every bound a cursor or field has. */
     static final String LONG = "x".repeat(300);
 
+    /** A decision time as the contract writes one. */
+    private static final String TIME = "2026-11-20T10:15:30Z";
+
     /** Each key's whole frame, without its NUL. */
     static final Map<String, String> ANSWERS =
             Map.ofEntries(
@@ -80,19 +83,28 @@ public final class RawReviewAdapter {
                     Map.entry("dots", url("https://forge.example/o/../pull/1")),
                     Map.entry(
                             "https://forge.example/o/n/pull/1",
-                            facts("https://user:pass@forge.example/o/n", "open", null)),
+                            facts("https://user:pass@forge.example/o/n", "open", null, null)),
                     Map.entry(
                             "https://forge.example/o/n/pull/2",
-                            facts("https://forge.example/o/n\ninjected", "open", null)),
+                            facts("https://forge.example/o/n\ninjected", "open", null, null)),
                     Map.entry(
                             "https://forge.example/o/n/pull/3",
-                            facts("https://forge.example/o/n", "merged", "main\nstatus: ok")),
+                            facts("https://forge.example/o/n", "merged", "main\nstatus: ok", TIME)),
                     Map.entry(
                             "https://forge.example/o/n/pull/4",
-                            facts("https://forge.example/o/n", "merged", "main..x")),
+                            facts("https://forge.example/o/n", "merged", "main..x", TIME)),
                     Map.entry(
                             "https://forge.example/o/n/pull/5",
-                            facts("https://forge.example/o/n", "pending", null)));
+                            facts("https://forge.example/o/n", "pending", null, TIME)),
+                    Map.entry(
+                            "https://forge.example/o/n/pull/6",
+                            facts("https://forge.example/o/n", "open", null, TIME)),
+                    Map.entry(
+                            "https://forge.example/o/n/pull/7",
+                            facts("https://forge.example/o/n", "merged", "main", null)),
+                    Map.entry(
+                            "https://forge.example/o/n/pull/8",
+                            facts("https://forge.example/o/n", "closed", null, "2026-11-20")));
 
     private RawReviewAdapter() {}
 
@@ -104,7 +116,11 @@ public final class RawReviewAdapter {
         return Json.write(Map.of("parameters", Map.of("url", url)));
     }
 
-    private static String facts(final String repository, final String state, final String merged) {
+    private static String facts(
+            final String repository,
+            final String state,
+            final String merged,
+            final String decidedAt) {
         final Map<String, Object> facts = new java.util.LinkedHashMap<>();
         facts.put("repository", repository);
         facts.put("head", "a".repeat(40));
@@ -115,6 +131,9 @@ public final class RawReviewAdapter {
         if (merged != null) {
             facts.put("mergeCommit", "d".repeat(40));
             facts.put("mergedHead", merged);
+        }
+        if (decidedAt != null) {
+            facts.put("decidedAt", decidedAt);
         }
         return Json.write(Map.of("parameters", facts));
     }

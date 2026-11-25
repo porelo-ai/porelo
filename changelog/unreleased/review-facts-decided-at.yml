@@ -1,0 +1,2 @@
+title: A forge adapter's pull request facts now carry when the forge merged or closed it (decidedAt in org.fuin.porelo.Review1), so the open points of a merged or closed pull request answer complete with that time, and an open one the forge shows approved answers APPROVED
+type: changed

@@ -17,6 +17,7 @@ import org.fuin.porelo.gate.review.Decision;
 import org.fuin.porelo.gate.review.Direction;
 import org.fuin.porelo.gate.review.ForgeAccount;
 import org.fuin.porelo.gate.review.ForgeCredential;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Held;
 import org.fuin.porelo.gate.review.HeldState;
 import org.fuin.porelo.gate.review.Kept;
@@ -54,6 +55,8 @@ class CommentGateCheckTest {
                     "f".repeat(40),
                     "f".repeat(40),
                     PullRequestState.OPEN,
+                    false,
+                    null,
                     null,
                     null);
 
@@ -73,6 +76,14 @@ class CommentGateCheckTest {
                             null),
                     Instant.parse("2026-11-25T10:00:00Z"));
 
+    private static final Kept REPLY =
+            new Kept(
+                    "102",
+                    "101",
+                    Origin.of(OCTOCAT),
+                    new ForgeReply("101", new Body("Agreed.")),
+                    Instant.parse("2026-11-25T10:05:00Z"));
+
     private final Writing writing = new Writing();
     private final Filter filter = new Filter();
     private final Holds holds = new Holds();
@@ -80,11 +91,25 @@ class CommentGateCheckTest {
     private final CommentGateCheck gate = new CommentGateCheck(writing, filter, holds, TASK);
 
     @Test
+    void aReplyIsWrittenForTheFilterWithItsThreadsOpeningComment() {
+        final Optional<String> judged = gate.judge(place, RUN, REPLY, COMMENT);
+
+        assertThat(judged).as("a reply the filter passes").isEmpty();
+        assertThat(writing.roots)
+                .as("the opening comment whose place the reply is written at")
+                .containsExactly(COMMENT);
+        assertThat(filter.checked)
+                .as("the filter given the reply's page")
+                .singleElement()
+                .isEqualTo(Writing.page(REPLY));
+    }
+
+    @Test
     void aCommentTheFilterRefusesIsWithheldAndHeldWithItsRule() {
         // Whoever wrote it cannot be told apart, so it is judged as an external peer's message.
         filter.rule = "zero-width-characters";
 
-        final Optional<String> judged = gate.judge(place, RUN, COMMENT);
+        final Optional<String> judged = gate.judge(place, RUN, COMMENT, COMMENT);
 
         assertThat(judged).as("withheld by the filter's rule").contains("zero-width-characters");
         assertThat(filter.checked)
@@ -124,7 +149,7 @@ class CommentGateCheckTest {
         // A machine that cannot check is not a machine that may skip checking.
         filter.broken = true;
 
-        final Optional<String> judged = gate.judge(place, RUN, COMMENT);
+        final Optional<String> judged = gate.judge(place, RUN, COMMENT, COMMENT);
 
         assertThat(judged)
                 .as("withheld, the rule naming that the filter could not run")
@@ -136,7 +161,7 @@ class CommentGateCheckTest {
 
     @Test
     void aCommentTheFilterPassesReachesTheRunUnheld() {
-        final Optional<String> judged = gate.judge(place, RUN, COMMENT);
+        final Optional<String> judged = gate.judge(place, RUN, COMMENT, COMMENT);
 
         assertThat(judged).as("it passes").isEmpty();
         assertThat(filter.checked).as("the filter asked once").hasSize(1);
@@ -149,7 +174,7 @@ class CommentGateCheckTest {
         place.reading = CommentReading.TRUSTED;
         filter.rule = "zero-width-characters";
 
-        final Optional<String> judged = gate.judge(place, RUN, COMMENT);
+        final Optional<String> judged = gate.judge(place, RUN, COMMENT, COMMENT);
 
         assertThat(judged).as("it passes").isEmpty();
         assertThat(filter.checked).as("the filter never asked").isEmpty();
@@ -161,7 +186,7 @@ class CommentGateCheckTest {
         // No page can be written for the filter, so nothing passes unchecked.
         final Run atGate = new Run("shop/shop-2", Role.REVIEWER, new Pinned(SHOP, null), 1);
 
-        final Optional<String> judged = gate.judge(place, atGate, COMMENT);
+        final Optional<String> judged = gate.judge(place, atGate, COMMENT, COMMENT);
 
         assertThat(judged).as("withheld").contains(CommentGateCheck.NO_PAGE);
         assertThat(filter.checked).as("the filter never asked").isEmpty();
@@ -172,11 +197,11 @@ class CommentGateCheckTest {
     void aCommentWithheldInOneRunIsJudgedAgainInTheNext() {
         // Everything is read again each run, so an earlier verdict decides nothing.
         filter.rule = "zero-width-characters";
-        gate.judge(place, RUN, COMMENT);
+        gate.judge(place, RUN, COMMENT, COMMENT);
         filter.rule = null;
         final Run next = new Run(RUN.place(), RUN.role(), RUN.pinned(), 2);
 
-        final Optional<String> judged = gate.judge(place, next, COMMENT);
+        final Optional<String> judged = gate.judge(place, next, COMMENT, COMMENT);
 
         assertThat(judged).as("it passes in the next run").isEmpty();
         assertThat(filter.checked).as("the filter asked in both runs").hasSize(2);
@@ -186,6 +211,7 @@ class CommentGateCheckTest {
     /** Writes a fixed page per item and records the facts it was given. */
     private static final class Writing implements ProfileWriting {
         final List<PullRequestFacts> facts = new ArrayList<>();
+        final List<Kept> roots = new ArrayList<>();
 
         static byte[] page(final Kept item) {
             return ("page of " + item.guid()).getBytes(UTF_8);
@@ -197,13 +223,15 @@ class CommentGateCheckTest {
         }
 
         @Override
-        public byte[] one(final PullRequestFacts facts, final Kept item) {
+        public byte[] one(final PullRequestFacts facts, final Kept item, final Kept root) {
             this.facts.add(facts);
+            roots.add(root);
             return page(item);
         }
 
         @Override
-        public byte[] submission(final PullRequestFacts facts, final ReviewItem item) {
+        public byte[] submission(
+                final PullRequestFacts facts, final ReviewItem item, final LineAnchor place) {
             throw new UnsupportedOperationException("no submission here");
         }
     }

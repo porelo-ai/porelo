@@ -10,6 +10,59 @@ import org.junit.jupiter.api.Test;
 class ReviewRecordsTest {
 
     @Test
+    void aPullRequestsFactsCarryADecisionTimeExactlyWhenMergedOrClosed() {
+        final PullRequestRef ref =
+                PullRequestRef.of(java.net.URI.create("https://github.com/shop/app/pull/1"));
+        final String sha = "a".repeat(40);
+        final java.time.Instant decided = java.time.Instant.parse("2026-11-20T10:15:30Z");
+        assertThatThrownBy(
+                        () ->
+                                new PullRequestFacts(
+                                        ref,
+                                        "https://github.com/shop/app",
+                                        sha,
+                                        sha,
+                                        sha,
+                                        PullRequestState.OPEN,
+                                        false,
+                                        null,
+                                        null,
+                                        decided))
+                .as("an open pull request was not decided")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                new PullRequestFacts(
+                                        ref,
+                                        "https://github.com/shop/app",
+                                        sha,
+                                        sha,
+                                        sha,
+                                        PullRequestState.CLOSED,
+                                        false,
+                                        null,
+                                        null,
+                                        null))
+                .as("a closed one names when it was closed")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(
+                        new PullRequestFacts(
+                                        ref,
+                                        "https://github.com/shop/app",
+                                        sha,
+                                        sha,
+                                        sha,
+                                        PullRequestState.MERGED,
+                                        true,
+                                        sha,
+                                        "main",
+                                        decided)
+                                .decidedAt())
+                .as("a merged one carries when it merged")
+                .isEqualTo(decided);
+    }
+
+    @Test
     void aLineAnchorRefusesAMissingOrBlankPath() {
         assertThatThrownBy(() -> new LineAnchor(nullString(), Side.NEW, 1, 1))
                 .isInstanceOf(NullPointerException.class);

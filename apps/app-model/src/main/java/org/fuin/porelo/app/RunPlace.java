@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -197,7 +198,8 @@ public record RunPlace(
     }
 
     /**
-     * Writes the role and place into a task's state, which keeps them through a stop and a reboot.
+     * Writes the role and place into a task's state, which keeps them through a stop and a reboot;
+     * the record before it stays whole when the write fails.
      *
      * @param state The task's state directory.
      * @throws IOException If they cannot be written.
@@ -221,9 +223,24 @@ public record RunPlace(
             }
             document.put("pinned", pin);
         }
-        final Path file = state.resolve(FILE);
-        Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
-        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
+        // Written beside it and moved over it: a write that does not finish leaves the old record.
+        final Path written =
+                Files.createTempFile(
+                        state,
+                        "." + FILE + "-",
+                        ".new",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")));
+        try {
+            Files.writeString(written, Json.write(document), StandardCharsets.UTF_8);
+            Files.move(
+                    written,
+                    state.resolve(FILE),
+                    StandardCopyOption.ATOMIC_MOVE,
+                    StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(written);
+        }
     }
 
     /**

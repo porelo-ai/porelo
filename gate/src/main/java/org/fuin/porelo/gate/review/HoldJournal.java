@@ -254,6 +254,38 @@ public final class HoldJournal implements ReviewHolds {
         return every(task, held -> held.state() == HeldState.UNDECIDED);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>An entry of the store that is no task's name, or whose journal is refused in any way, is
+     * named and passed; a store that cannot be listed at all still refuses.
+     */
+    @Override
+    public Undecided everyUndecided() {
+        final List<Held> found = new ArrayList<>();
+        final List<String> unreadable = new ArrayList<>();
+        for (final String each : entries()) {
+            if (!TASK.matcher(each).matches()) {
+                unreadable.add(each);
+                continue;
+            }
+            try {
+                locked(
+                                each,
+                                false,
+                                (container, journal) ->
+                                        journal.items().values().stream()
+                                                .filter(held -> held.state() == HeldState.UNDECIDED)
+                                                .toList())
+                        .ifPresent(found::addAll);
+            } catch (UncheckedIOException | IllegalStateException | IllegalArgumentException ex) {
+                unreadable.add(each);
+            }
+        }
+        found.sort(OLDEST_FIRST);
+        return new Undecided(found, unreadable);
+    }
+
     @Override
     public Optional<Held> find(final String task, final String id) {
         named(task);
@@ -472,8 +504,31 @@ public final class HoldJournal implements ReviewHolds {
                                     journal.items().values().stream().filter(wanted).toList())
                     .ifPresent(found::addAll);
         }
-        found.sort(Comparator.comparing(Held::at));
+        found.sort(OLDEST_FIRST);
         return List.copyOf(found);
+    }
+
+    // Oldest first, a tie by task; the sort is stable, so each task's items keep the order they
+    // were held in, which a random id would not: a new item never moves one listed before it.
+    private static final Comparator<Held> OLDEST_FIRST =
+            Comparator.comparing(Held::at).thenComparing(Held::task);
+
+    // Every entry of the store, by name, task's or not; none while there is no store.
+    private List<String> entries() {
+        try {
+            if (!ReviewComments.directory(root, false, false)) {
+                return List.of();
+            }
+            final Set<String> names = new TreeSet<>();
+            try (DirectoryStream<Path> entries = Files.newDirectoryStream(root.toRealPath())) {
+                for (final Path entry : entries) {
+                    names.add(String.valueOf(entry.getFileName()));
+                }
+            }
+            return List.copyOf(names);
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex.getMessage(), ex);
+        }
     }
 
     // The tasks that have a directory in the store, by name; anything else in it refuses the store.

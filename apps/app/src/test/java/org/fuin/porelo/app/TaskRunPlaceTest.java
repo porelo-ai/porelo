@@ -300,6 +300,86 @@ class TaskRunPlaceTest {
                 .isFalse();
     }
 
+    @Test
+    void aStoreBehindASymbolicLinkLeavesOutEveryCountAndTheListGoesOn() throws Exception {
+        profile(context.paths().tasks().containerState(TASK));
+        profile(context.paths().tasks().containerState(OTHER));
+        runner.answering("ps", row(TASK, true) + row(OTHER, true));
+        final Path store = context.paths().gate().reviewHolds();
+        final Path elsewhere = dir.resolve("elsewhere");
+        holdOne(new HoldJournal(elsewhere));
+        Files.createDirectories(store.getParent());
+        Files.createSymbolicLink(store, elsewhere);
+        final List<String> said = new java.util.ArrayList<>();
+
+        final TaskInventory inventory = new TaskInventory(context, null);
+        final List<Map<String, Object>> rows = inventory.rows(inventory.tasks(), said::add);
+
+        assertThat(rows).as("both tasks listed").hasSize(2);
+        assertThat(rows)
+                .as("no row with a count")
+                .allSatisfy(row -> assertThat(row).as("a row").doesNotContainKey("held"));
+        assertThat(said).as("one line for each task").hasSize(2);
+    }
+
+    @Test
+    void aJournalThatFailsInAnyOfItsThreeWaysLeavesOutTheCountAndSaysWhy() {
+        for (final RuntimeException failure :
+                List.of(
+                        new java.io.UncheckedIOException(new IOException("journal damaged")),
+                        new IllegalStateException("journal refused"),
+                        new IllegalArgumentException("journal entry not read"))) {
+            final List<String> said = new java.util.ArrayList<>();
+            final org.fuin.porelo.gate.review.ReviewHolds failing =
+                    (org.fuin.porelo.gate.review.ReviewHolds)
+                            java.lang.reflect.Proxy.newProxyInstance(
+                                    getClass().getClassLoader(),
+                                    new Class<?>[] {org.fuin.porelo.gate.review.ReviewHolds.class},
+                                    (proxy, method, arguments) -> {
+                                        throw failure;
+                                    });
+
+            assertThat(TaskInventory.held(failing, TASK, said::add))
+                    .as("the count over %s", failure)
+                    .isNull();
+            assertThat(said)
+                    .as("what the log is told over %s", failure)
+                    .singleElement()
+                    .asString()
+                    .contains(TASK);
+        }
+    }
+
+    @Test
+    void oneRecordOfALiveTaskCarriesItsHeldCountNowAndNoneOverAnUnreadableJournal()
+            throws Exception {
+        final TaskWorkRecords records = new TaskWorkRecords(context);
+        records.started(
+                TASK,
+                "demo",
+                "demo",
+                null,
+                "an-agent",
+                null,
+                "agent",
+                null,
+                null,
+                RunPlace.ownPush("demo", "demo", "fix"));
+        final String startedAt = String.valueOf(recordsAnswered().getFirst().get("startedAt"));
+        holdOne(new HoldJournal(context.paths().gate().reviewHolds()));
+
+        assertThat(records.record("demo", TASK, startedAt).orElseThrow().get("held"))
+                .as("the record with one item held")
+                .isEqualTo(1L);
+
+        Files.writeString(
+                context.paths().gate().reviewHolds().resolve(TASK).resolve("holds"), "not json\n");
+
+        assertThat(records.record("demo", TASK, startedAt).orElseThrow())
+                .as("the record over a journal that cannot be read")
+                .doesNotContainKey("held");
+    }
+
     /** Holds one outgoing item of the task's first run at its own push. */
     private static Held holdOne(final HoldJournal holds) {
         final String place = "demo/fix";

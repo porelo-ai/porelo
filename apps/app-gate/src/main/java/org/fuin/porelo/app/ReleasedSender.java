@@ -20,14 +20,14 @@ import org.fuin.porelo.gate.review.WriteOutcome;
  * named, or of unknown outcome, which is shown and never sent again by itself.
  *
  * <p>A pass takes what the hold lists as due, oldest first, and hands over only an item that is
- * released, or waiting for a retry whose time passed. An item whose place cannot be found is marked
- * not delivered as {@value #PLACE_UNREACHABLE}; one whose account's credential the vault lacks,
- * with the refusal's word in the contract. A write that throws may have gone out, so it is marked
- * of unknown outcome. Before the write the item is recorded as being sent, so one whose answer is
- * never marked is shown as it is and never sent again by itself. Any other failure before the
- * write, that record among them, leaves the item due; the pass goes on with the next item and
- * throws the failure at its end, as it does when an answer cannot be marked. The same for every
- * place.
+ * released, or waiting for a retry whose time passed when its turn comes; the time is read anew for
+ * each check and each answer. An item whose place cannot be found is marked not delivered as
+ * {@value #PLACE_UNREACHABLE}. A write that throws may have gone out, so it is marked of unknown
+ * outcome. Before the write the item is recorded as being sent, so one whose answer is never marked
+ * is shown as it is and never sent again by itself. Any other failure before the write, a
+ * credential that cannot be lent and that record among them, leaves the item due; the pass goes on
+ * with the next item and throws the failure at its end, named by its class, as it does when an
+ * answer cannot be marked. The same for every place.
  *
  * <p>The credential is lent for each write and never kept.
  */
@@ -94,15 +94,15 @@ public final class ReleasedSender {
      *     leaves it due, or its answer could not be marked; every other item was handed over.
      */
     public int send() {
-        final Instant now = clock.instant();
         int written = 0;
         IllegalStateException failed = null;
-        for (final Held held : holds.due(now)) {
-            if (!due(held, now)) {
+        for (final Held held : holds.due(clock.instant())) {
+            // Read anew for each item: a slow write before it must not leave it waiting a pass.
+            if (!due(held, clock.instant())) {
                 continue;
             }
             try {
-                if (send(held, now)) {
+                if (send(held)) {
                     written++;
                 }
             } catch (RuntimeException ex) {
@@ -130,31 +130,30 @@ public final class ReleasedSender {
     }
 
     // Whether the item was handed to its place's write; either way, an answer is marked.
-    private boolean send(final Held held, final Instant now) {
+    private boolean send(final Held held) {
         final ReviewPlace place;
-        final ForgeCredential credential;
         try {
             final Optional<ReviewPlace> found = places.named(held.place());
             if (found.isEmpty()) {
                 holds.mark(
-                        held.task(), held.id(), new WriteOutcome.Refused(PLACE_UNREACHABLE), now);
+                        held.task(),
+                        held.id(),
+                        new WriteOutcome.Refused(PLACE_UNREACHABLE),
+                        clock.instant());
                 return false;
             }
             place = found.get();
-            try {
-                credential = credentials.lend(role.postingEntry(held.task(), place));
-            } catch (PlaceUnreadable ex) {
-                holds.mark(
-                        held.task(),
-                        held.id(),
-                        new WriteOutcome.Refused(ex.reason().wireName()),
-                        now);
-                return false;
-            }
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException(
+                    "was not sent and stays due: " + ex.getClass().getSimpleName(), ex);
+        }
+        final ForgeCredential credential = lent(held, place);
+        try {
             // Recorded before the write: an item whose answer is never marked is not sent again.
             holds.sending(held.task(), held.id());
         } catch (RuntimeException ex) {
-            throw new IllegalStateException("was not sent and stays due: " + ex.getMessage(), ex);
+            throw new IllegalStateException(
+                    "was not sent and stays due: " + ex.getClass().getSimpleName(), ex);
         }
         WriteOutcome outcome;
         try {
@@ -164,14 +163,34 @@ public final class ReleasedSender {
             outcome = new WriteOutcome.OutcomeUnknown();
         }
         try {
-            holds.mark(held.task(), held.id(), outcome, now);
+            // Read after the write: a retry time counts from the answer, however long it took.
+            holds.mark(held.task(), held.id(), outcome, clock.instant());
         } catch (RuntimeException ex) {
             throw new IllegalStateException(
                     "was handed to its place, but the answer could not be marked; it stays being"
                             + " sent and is never sent again by itself: "
-                            + ex.getMessage(),
+                            + ex.getClass().getSimpleName(),
                     ex);
         }
         return true;
+    }
+
+    /**
+     * The credential for the item's write. A failure leaves the item due and is named by its class
+     * alone, without its message or cause, which may hold what the vault was asked for.
+     */
+    private ForgeCredential lent(final Held held, final ReviewPlace place) {
+        try {
+            return credentials.lend(role.postingEntry(held.task(), place));
+        } catch (PlaceUnreadable ex) {
+            throw new IllegalStateException(
+                    "was not sent and stays due: "
+                            + ex.getClass().getSimpleName()
+                            + " "
+                            + ex.reason().wireName());
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException(
+                    "was not sent and stays due: " + ex.getClass().getSimpleName());
+        }
     }
 }

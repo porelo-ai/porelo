@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.fuin.porelo.gate.review.HoldJournal;
+import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -340,15 +341,7 @@ public record TaskWorkRecords(PoreloContext context) {
             }
             if (!file.getFileName().toString().contains(RETAINED)
                     && record.get("task") instanceof String task) {
-                // A task that is still there counts on.
-                record.put("totals", totals(task));
-                // A journal that cannot be read leaves this record's count out, never the record.
-                final Integer held = TaskInventory.held(holds, task, System.err::println);
-                if (held != null) {
-                    record.put("held", Long.valueOf(held));
-                } else {
-                    record.remove("held");
-                }
+                live(record, task, holds);
             }
             found.add(record);
         }
@@ -361,8 +354,22 @@ public record TaskWorkRecords(PoreloContext context) {
         return found;
     }
 
+    /** Overlays what a task that is still there counts now: its totals and its held items. */
+    private void live(
+            final Map<String, Object> record, final String task, final ReviewHolds holds) {
+        record.put("totals", totals(task));
+        // A journal that cannot be read leaves this record's count out, never the record.
+        final Integer held = TaskInventory.held(holds, task, System.err::println);
+        if (held != null) {
+            record.put("held", Long.valueOf(held));
+        } else {
+            record.remove("held");
+        }
+    }
+
     /**
-     * Answers one record of a project, a removed task's among them, as it is stored now.
+     * Answers one record of a project, a removed task's among them, as it is stored now; a task
+     * that is still there with its totals and held items as they are now.
      *
      * @param project The project.
      * @param task The task's container name.
@@ -407,6 +414,12 @@ public record TaskWorkRecords(PoreloContext context) {
                         if (project.equals(record.get("project"))
                                 && task.equals(record.get("task"))
                                 && startedAt.equals(record.get("startedAt"))) {
+                            if (!file.getFileName().toString().contains(RETAINED)) {
+                                live(
+                                        record,
+                                        task,
+                                        new HoldJournal(context.paths().gate().reviewHolds()));
+                            }
                             return java.util.Optional.of(record);
                         }
                     }

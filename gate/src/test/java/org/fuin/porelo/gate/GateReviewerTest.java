@@ -26,7 +26,7 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * A reviewer's gate shows exactly one pinned state and takes nothing: every {@code receive-pack}
  * request is refused, at service discovery and at its call alike, its own ref included, and no
- * other ref is advertised or fetched.
+ * other ref is advertised or fetched: it serves a repository of its own, built from the mirror.
  */
 class GateReviewerTest {
 
@@ -42,6 +42,8 @@ class GateReviewerTest {
 
     private Path mirror;
 
+    private Path served;
+
     private String base;
 
     private String reviewed;
@@ -55,7 +57,7 @@ class GateReviewerTest {
     private String url;
 
     @BeforeEach
-    void anotherTasksPushWaitsAndTheReviewerIsPinnedToIt() {
+    void anotherTasksPushWaitsAndTheReviewerIsPinnedToIt() throws java.io.IOException {
         final Path upstream = dir.resolve("upstream.git");
         work = dir.resolve("work");
         mirror = dir.resolve("mirror.git");
@@ -80,12 +82,14 @@ class GateReviewerTest {
                 later + ":" + GitGate.INCOMING + "foo-1");
         git(mirror, "update-ref", OWN, base);
         git(mirror, "update-ref", PINNED, reviewed);
+        served = PinnedRepository.in(dir);
+        PinnedRepository.replace(runner, mirror, served, "reviewer", reviewed, base).keep();
 
         token = TaskToken.mint();
         server =
                 GitHttpServer.reviewing(
                         new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
-                        mirror,
+                        served,
                         token,
                         new GitSubprocess(),
                         PINNED);
@@ -169,8 +173,9 @@ class GateReviewerTest {
     }
 
     @Test
-    void pinningAfreshReplacesWhatTheRunningGateShows() {
+    void pinningAfreshReplacesWhatTheRunningGateShows() throws java.io.IOException {
         git(mirror, "update-ref", PINNED, later);
+        PinnedRepository.replace(runner, mirror, served, "reviewer", later, base).keep();
         assertThat(lsRemote())
                 .as("what the running gate lists once pinned afresh")
                 .containsExactly(Map.entry(PINNED, later));

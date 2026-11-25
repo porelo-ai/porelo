@@ -73,6 +73,15 @@ class TaskReviewRoleTest {
 
     private boolean endUnreadable;
 
+    private static final String UPSTREAM = "https://github.com/shop/app.git";
+
+    private static final String BRANCH = "porelo/shop-2";
+
+    /** What each task's gate last forwarded, by task, upstream and branch. */
+    private final Map<String, String> forwarded = new HashMap<>();
+
+    private boolean forwardedUnreadable;
+
     private final List<ForgeInstance> forges =
             new ArrayList<>(
                     List.of(new ForgeInstance(FORGE, "github", CommentReading.EXTENDED, null)));
@@ -137,6 +146,47 @@ class TaskReviewRoleTest {
         assertThat(role().mayPin(TASK, HEAD))
                 .as("author at its rejected head, whose threads it answers")
                 .isTrue();
+    }
+
+    @Test
+    void anAuthorAtAPullRequestIsPinnedOnlyToTheCommitItsGateForwardedToThatBranch() {
+        // Taken at its gate but never forwarded: not the pull request's head.
+        ends.put(TASK, PushEnd.waiting(TASK, HEAD, Instant.EPOCH));
+        assertPinRefused(HEAD, BRANCH, "a head its gate took and did not forward");
+
+        forwarded.put(TASK + " " + UPSTREAM + " " + BRANCH, HEAD);
+        assertThat(role().mayPinAtPullRequest(TASK, UPSTREAM, BRANCH, HEAD))
+                .as("the commit its gate forwarded to the branch")
+                .isTrue();
+        assertPinRefused(OTHER_HEAD, BRANCH, "another head");
+        assertPinRefused(HEAD, "porelo/other", "its head at another branch");
+    }
+
+    @Test
+    void anAuthorWhoseForwardedRecordCannotBeReadIsPinnedAtNoPullRequest() {
+        forwarded.put(TASK + " " + UPSTREAM + " " + BRANCH, HEAD);
+        forwardedUnreadable = true;
+        assertPinRefused(HEAD, BRANCH, "an unreadable record");
+    }
+
+    @Test
+    void aReviewerMayBePinnedAtAPullRequestToAnyHead() throws IOException {
+        recorded(RunPlace.REVIEWER);
+        assertThat(role().mayPinAtPullRequest(TASK, UPSTREAM, BRANCH, OTHER_HEAD))
+                .as("reviewer at any head")
+                .isTrue();
+    }
+
+    private void assertPinRefused(final String head, final String branch, final String what) {
+        final RunPlaceCheck.Refused refused =
+                catchThrowableOfType(
+                        () -> role().mayPinAtPullRequest(TASK, UPSTREAM, branch, head),
+                        RunPlaceCheck.Refused.class);
+        assertThat(refused).as("refused: %s", what).isNotNull();
+        assertThat(refused.refusal().name()).as("by name: %s", what).isEqualTo("NotTheTasksPush");
+        assertThat(refused.refusal().fields())
+                .as("the head refused: %s", what)
+                .isEqualTo(Map.of("head", head));
     }
 
     @Test
@@ -413,6 +463,12 @@ class TaskReviewRoleTest {
                         throw new IOException("cut off");
                     }
                     return Optional.ofNullable(ends.get(task));
+                },
+                (task, upstream, branch) -> {
+                    if (forwardedUnreadable) {
+                        throw new IOException("cut off");
+                    }
+                    return Optional.ofNullable(forwarded.get(task + " " + upstream + " " + branch));
                 });
     }
 

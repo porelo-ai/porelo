@@ -1,0 +1,2 @@
+title: "Review profile 1's artifact URI pattern admits the same URIs without a repeated group, so a URI of up to 2048 characters no longer exhausts a reading thread's stack; a test runs every pattern of both profiles' schemas on a small stack"
+type: fixed

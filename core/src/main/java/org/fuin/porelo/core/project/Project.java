@@ -1338,6 +1338,41 @@ public record Project(
     }
 
     /**
+     * Returns this project with another egress, as a run that may reach less is started with.
+     *
+     * @param each The egress.
+     * @return The project.
+     */
+    public Project withEgress(final Egress each) {
+        return new Project(
+                name,
+                description,
+                securityClass,
+                baseImage,
+                imageSnippet,
+                upstream,
+                limits,
+                each,
+                packageSources,
+                mail,
+                repositories,
+                credentials,
+                builds,
+                imageVariant,
+                parameters,
+                nickname,
+                branch,
+                review,
+                imageEnv,
+                baseBranch,
+                providers,
+                shortName,
+                toolRepositories,
+                extensions,
+                secrets);
+    }
+
+    /**
      * Returns this project with other providers' models, as a repository's own file names them.
      *
      * @param each The models by provider.

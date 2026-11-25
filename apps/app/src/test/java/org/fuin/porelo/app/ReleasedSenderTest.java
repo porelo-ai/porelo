@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -46,8 +47,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Guards the pass that hands released items to their places: each is written once and its answer
- * marked, a rate limit is waited out, an unknown outcome is never sent again, a missing place or
- * credential is marked with its reason, and one item's failure never keeps the others back.
+ * marked, a rate limit is waited out from its answer, an unknown outcome is never sent again, a
+ * missing place is marked with its reason, a credential that cannot be lent keeps the item due, and
+ * one item's failure never keeps the others back.
  */
 class ReleasedSenderTest {
 
@@ -158,9 +160,25 @@ class ReleasedSenderTest {
     }
 
     @Test
-    void aMissingPlaceOrCredentialIsMarkedWithItsReasonAndTheNextItemStillGoes() {
+    void aMissingPlaceIsMarkedWithItsReasonAndTheNextItemStillGoes() {
         final Fixture fixture = new Fixture();
         fixture.holds.add(held("gone", GONE_PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.add(held("goes", PLACE, HeldState.RELEASED, null, null));
+
+        assertThat(fixture.sender().send()).as("items written").isEqualTo(1);
+
+        assertThat(fixture.holds.get("gone"))
+                .as("the item whose place cannot be found")
+                .extracting(Held::state, Held::reason)
+                .containsExactly(HeldState.NOT_DELIVERED, "PlaceUnreachable");
+        assertThat(fixture.holds.state("goes"))
+                .as("the item after it")
+                .isEqualTo(HeldState.DELIVERED);
+    }
+
+    @Test
+    void aCredentialThatCannotBeLentKeepsTheItemDueLetsTheOthersGoAndIsThrownAfterThePass() {
+        final Fixture fixture = new Fixture();
         fixture.holds.add(held("no entry", OTHER_PLACE, HeldState.RELEASED, null, null));
         fixture.holds.add(held("no token", EMPTY_PLACE, HeldState.RELEASED, null, null));
         fixture.holds.add(held("goes", PLACE, HeldState.RELEASED, null, null));
@@ -175,20 +193,19 @@ class ReleasedSenderTest {
                     return new ForgeCredential(entry, "secret");
                 };
 
-        assertThat(fixture.sender().send()).as("items written").isEqualTo(1);
+        assertThatThrownBy(() -> fixture.sender().send())
+                .as("the pass with a role and a vault that could not lend")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stays due");
 
-        assertThat(fixture.holds.get("gone"))
-                .as("the item whose place cannot be found")
-                .extracting(Held::state, Held::reason)
-                .containsExactly(HeldState.NOT_DELIVERED, "PlaceUnreachable");
         assertThat(fixture.holds.get("no entry"))
-                .as("the item whose account has no entry")
+                .as("the item whose account has no entry, never marked")
                 .extracting(Held::state, Held::reason)
-                .containsExactly(HeldState.NOT_DELIVERED, "MissingForgeToken");
+                .containsExactly(HeldState.RELEASED, null);
         assertThat(fixture.holds.get("no token"))
-                .as("the item whose token the vault lacks")
+                .as("the item whose token the vault lacks, never marked")
                 .extracting(Held::state, Held::reason)
-                .containsExactly(HeldState.NOT_DELIVERED, "MissingForgeToken");
+                .containsExactly(HeldState.RELEASED, null);
         assertThat(fixture.holds.state("goes"))
                 .as("the item after them")
                 .isEqualTo(HeldState.DELIVERED);
@@ -197,6 +214,67 @@ class ReleasedSenderTest {
                 .extracting(write -> write.held().id())
                 .containsExactly("goes");
         assertThat(fixture.holds.sent).as("items recorded as being sent").containsExactly("goes");
+    }
+
+    @Test
+    void aFailureToLendNamesItsClassAndNeverCarriesItsMessage() {
+        final String secret = "ghp-planted-9c1e";
+        for (final Lent failing :
+                List.<Lent>of(
+                        entry -> {
+                            throw new PlaceUnreadable(
+                                    PlaceUnreadable.Reason.MISSING_FORGE_TOKEN, "held " + secret);
+                        },
+                        entry -> {
+                            throw new IllegalStateException("vault said " + secret);
+                        })) {
+            final Fixture fixture = new Fixture();
+            fixture.holds.add(held("a", PLACE, HeldState.RELEASED, null, null));
+            fixture.lent = failing;
+
+            final Throwable thrown = catchThrowable(() -> fixture.sender().send());
+
+            assertThat(thrown).as("the pass's failure").isInstanceOf(IllegalStateException.class);
+            final java.io.StringWriter trace = new java.io.StringWriter();
+            thrown.printStackTrace(new java.io.PrintWriter(trace));
+            assertThat(trace.toString())
+                    .as("the failure as a log would print it, causes included")
+                    .doesNotContain(secret);
+            assertThat(thrown.getMessage())
+                    .as("the failure names what was thrown")
+                    .containsAnyOf(
+                            PlaceUnreadable.class.getSimpleName(),
+                            IllegalStateException.class.getSimpleName());
+        }
+    }
+
+    @Test
+    void aRetryTimeCountsFromTheAnswerWhenTheWriteTakesTime() {
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(held("a", PLACE, HeldState.RELEASED, null, null));
+        fixture.place.answer("a", new WriteOutcome.RateLimited(Duration.ofSeconds(30)));
+        fixture.place.during = () -> fixture.now = fixture.now.plusSeconds(10);
+
+        fixture.sender().send();
+
+        assertThat(fixture.holds.get("a").retryAt())
+                .as("thirty seconds from the answer, which came ten seconds into the pass")
+                .isEqualTo(START.plusSeconds(40));
+    }
+
+    @Test
+    void anItemWhoseRetryTimePassesDuringThePassIsWrittenInIt() {
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(held("slow", PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.add(held("waiting", PLACE, HeldState.RETRY, null, START.plusSeconds(5)));
+        // The hold lists both, as one read a moment later would.
+        fixture.holds.everything = true;
+        fixture.place.during = () -> fixture.now = fixture.now.plusSeconds(10);
+
+        assertThat(fixture.sender().send()).as("items written").isEqualTo(2);
+        assertThat(fixture.holds.state("waiting"))
+                .as("the item due by the time its turn came")
+                .isEqualTo(HeldState.DELIVERED);
     }
 
     @Test
@@ -497,6 +575,8 @@ class ReleasedSenderTest {
 
         final Set<String> failing = new HashSet<>();
 
+        Runnable during = () -> {};
+
         FakePlace(final String name) {
             this.name = name;
         }
@@ -513,6 +593,7 @@ class ReleasedSenderTest {
         @Override
         public WriteOutcome write(final Held held, final ForgeCredential credential) {
             written.add(new Write(held, credential.entry()));
+            during.run();
             if (failing.contains(held.id())) {
                 throw new IllegalStateException("the connection broke mid-write");
             }

@@ -6,7 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-/** Watch sends a task's row again when the number of its held items changes. */
+/**
+ * Watch sends a task's row again when the number of its held items changes. What the row holds is
+ * guarded by TaskRunPlaceTest; this guards only that Watch takes a change of it as a change.
+ */
 class WatchHeldTest {
 
     @Test

@@ -80,6 +80,7 @@ public final class FakeReviewReader implements BuildReader, ReviewReader {
                     ReviewFacts.State.OPEN,
                     true,
                     null,
+                    null,
                     null);
         }
         if (url.endsWith("/2")) {
@@ -91,7 +92,8 @@ public final class FakeReviewReader implements BuildReader, ReviewReader {
                     ReviewFacts.State.MERGED,
                     false,
                     "d".repeat(40),
-                    "main");
+                    "main",
+                    java.time.Instant.parse("2026-11-20T10:15:30Z"));
         }
         throw new ForgeReviewRefused(ForgeReviewRefused.Reason.NO_SUCH_PULL_REQUEST);
     }

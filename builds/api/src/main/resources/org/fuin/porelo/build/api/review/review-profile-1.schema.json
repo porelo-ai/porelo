@@ -23,10 +23,11 @@
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])"
     },
     "uri": {
+      "$comment": "Lookaheads and one character class, never a repeated group: the JDK's engine recurses once per repetition of a group and overflows its stack on a long value.",
       "type": "string",
       "minLength": 1,
       "maxLength": 12288,
-      "pattern": "^([A-Za-z0-9._~-]|%[0-9A-F]{2})+(/([A-Za-z0-9._~-]|%[0-9A-F]{2})+)*(?![\\s\\S])",
+      "pattern": "^(?!/)(?![\\s\\S]*//)(?![\\s\\S]*/(?![\\s\\S]))(?![\\s\\S]*%(?![0-9A-F]{2}))[A-Za-z0-9._~%/-]+(?![\\s\\S])",
       "not": { "pattern": "(^|/)\\.{1,2}(/|(?![\\s\\S]))" }
     },
     "line": { "type": "integer", "minimum": 1 },

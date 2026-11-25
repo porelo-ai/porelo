@@ -1,5 +1,6 @@
 package org.fuin.porelo.gate.review;
 
+import java.time.Instant;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
@@ -12,8 +13,11 @@ import org.jspecify.annotations.Nullable;
  * @param base The base branch's commit it is compared with.
  * @param mergeBase The merge base of head and base, against which its changes are shown.
  * @param state Open, merged or closed.
+ * @param approved Whether the forge shows it approved at its head, as the forge says; never a
+ *     verdict of Porelo's.
  * @param mergeCommit The merge commit when merged, else null.
  * @param mergedHead The branch the merge commit went onto when merged, else null.
+ * @param decidedAt When the forge merged or closed it, exactly when merged or closed, else null.
  */
 public record PullRequestFacts(
         PullRequestRef ref,
@@ -22,14 +26,17 @@ public record PullRequestFacts(
         String base,
         String mergeBase,
         PullRequestState state,
+        boolean approved,
         @Nullable String mergeCommit,
-        @Nullable String mergedHead) {
+        @Nullable String mergedHead,
+        @Nullable Instant decidedAt) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
 
     /**
      * Refuses a repository not on https, a commit not written in full, and a merge commit or branch
-     * on a pull request that is not merged, or missing on one that is.
+     * on a pull request that is not merged, or missing on one that is, and a decision time on an
+     * open pull request, or missing on a merged or closed one.
      */
     public PullRequestFacts {
         Objects.requireNonNull(ref, "ref");
@@ -50,6 +57,10 @@ public record PullRequestFacts(
         if (merged != (mergeCommit != null) || merged != (mergedHead != null)) {
             throw new IllegalArgumentException(
                     "a merge commit and its branch are given exactly when merged");
+        }
+        if ((state == PullRequestState.OPEN) != (decidedAt == null)) {
+            throw new IllegalArgumentException(
+                    "a decision time is given exactly when merged or closed");
         }
         if (mergeCommit != null && !mergeCommit.matches(COMMIT)) {
             throw new IllegalArgumentException("the merge commit is not a full commit id");

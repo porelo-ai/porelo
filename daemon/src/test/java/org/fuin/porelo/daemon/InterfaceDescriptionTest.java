@@ -510,7 +510,8 @@ class InterfaceDescriptionTest {
                 .containsPattern(
                         "error PlaceUnreadable\\(\\s*reason: \\(NoSuchPush, NotInProject,"
                                 + " MovedSinceReview, MissingForgeToken, ForgeAdapterMissing,"
-                                + " Unreachable, HeadNotFetched\\),\\s*detail: string\\s*\\)");
+                                + " Unreachable, HeadNotFetched,\\s*ForgeFileUnreadable\\),\\s*detail:"
+                                + " string\\s*\\)");
     }
 
     @Test
@@ -522,8 +523,8 @@ class InterfaceDescriptionTest {
                 .as("held items are listed by task or for the whole machine, in pages")
                 .containsPattern(
                         "method HeldItems\\(\\s*(?s:.*?)task: \\?string,(?s:.*?)cursor: \\?string"
-                                + "\\s*\\) -> \\(\\s*items: \\[\\]HeldItem,(?s:.*?)cursor: \\?string"
-                                + "\\s*\\)")
+                                + "\\s*\\) -> \\(\\s*items: \\[\\]HeldItem,(?s:.*?)cursor: \\?string,"
+                                + "(?s:.*?)unreadable: \\?\\[\\]string\\s*\\)")
                 .containsPattern(
                         "type HeldItem \\(\\s*(?s:.*?)id: string,(?s:.*?)task: string,(?s:.*?)place:"
                                 + " string,\\s*direction: \\(outgoing, incoming\\),(?s:.*?)destination:"

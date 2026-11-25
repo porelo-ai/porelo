@@ -87,7 +87,9 @@ class GateReviewOpenMethodTest {
                                 },
                                 journal,
                                 journal,
-                                ends::read)));
+                                ends::read,
+                                url -> java.util.Optional.empty(),
+                                instance -> java.util.Optional.empty())));
         Thread.ofVirtual().start(server);
         client = new VarlinkClient(server.socketPath());
     }
@@ -208,14 +210,23 @@ class GateReviewOpenMethodTest {
                         () ->
                                 client.call(
                                         method("ReviewOpen"),
-                                        asked(Map.of("pullRequest", "feature"))))
-                .as("a pull request is not read yet")
+                                        asked(
+                                                Map.of(
+                                                        "pullRequest",
+                                                        "https://forge.example.org/uc/shop/pull/7"),
+                                                "task",
+                                                "shop-2")))
+                .as("a pull request at a host this machine knows no forge of")
                 .isInstanceOfSatisfying(
                         VarlinkException.class,
-                        ex ->
-                                assertThat(ex.getParameters())
-                                        .as("its reason")
-                                        .containsEntry("reason", "ForgeAdapterMissing"));
+                        ex -> {
+                            assertThat(ex.getErrorName())
+                                    .as("the error")
+                                    .isEqualTo(method("UnknownForge"));
+                            assertThat(ex.getParameters())
+                                    .as("the host named")
+                                    .isEqualTo(Map.of("host", "forge.example.org"));
+                        });
     }
 
     @Test
@@ -244,6 +255,8 @@ class GateReviewOpenMethodTest {
     @Test
     void theOwnPullRequestWithoutATaskAndAPlaceOfNoneOrTwoFieldsAreInvalidParameters() {
         invalid(asked(Map.of("ownPullRequest", true)), "task");
+        invalid(asked(Map.of("pullRequest", "https://github.com/uc/shop/pull/7")), "task");
+        invalid(asked(Map.of("pullRequest", "feature"), "task", "shop-2"), "place");
         invalid(asked(Map.of()), "place");
         invalid(
                 asked(Map.of("gatePush", Map.of("name", "shop-2"), "pullRequest", "feature")),

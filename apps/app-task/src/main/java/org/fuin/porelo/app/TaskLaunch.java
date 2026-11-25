@@ -3567,7 +3567,7 @@ public final class TaskLaunch {
                         ReviewerStart.reachable(runPlace, selected, serving, projectOrigins)
                                 .origins(),
                         EgressReport.refusals(selected, project),
-                        project.egress().hostServices(),
+                        ReviewerStart.started(runPlace, project).egress().hostServices(),
                         out);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
                 err.println("porelo: " + ex.getMessage());
@@ -4395,8 +4395,11 @@ public final class TaskLaunch {
             }
 
             final java.util.Map<String, String> refusals = EgressReport.refusals(selected, project);
+            // A reviewer's container gets no host service of the project, as no other host of it.
+            final org.fuin.porelo.core.project.Project started =
+                    ReviewerStart.started(runPlace, project);
             EgressReport.reportReachable(
-                    project, origins, refusals, project.egress().hostServices(), out);
+                    project, origins, refusals, started.egress().hostServices(), out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
 
             // What only this start knows: which agent, how somebody is meant to be involved, what
@@ -4407,7 +4410,7 @@ public final class TaskLaunch {
             // starts afterwards, because its log lives in the state directory that start() creates.
             // Starting it first silently failed to spawn at all.
             runner.start(
-                    project,
+                    started,
                     repository,
                     verifiedAt,
                     container,

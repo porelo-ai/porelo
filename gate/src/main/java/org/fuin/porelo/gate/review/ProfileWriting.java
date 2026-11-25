@@ -24,9 +24,11 @@ public interface ProfileWriting {
      *
      * @param facts The pull request as the run pinned it.
      * @param item The item with its producer.
+     * @param root Its thread's opening comment, whose place a reply stands at; for a comment, the
+     *     comment itself.
      * @return The document.
      */
-    byte[] one(PullRequestFacts facts, Kept item);
+    byte[] one(PullRequestFacts facts, Kept item, Kept root);
 
     /**
      * Writes one item as a one-result submission, without a producer, for a forge to post.
@@ -34,7 +36,9 @@ public interface ProfileWriting {
      * @param facts The pull request as the run pinned it, whose head is the commit the item was
      *     held for.
      * @param item The comment or reply.
+     * @param place Its thread's place as the producer read it, which a reply is written at; for a
+     *     comment, its own anchor.
      * @return The submission.
      */
-    byte[] submission(PullRequestFacts facts, ReviewItem item);
+    byte[] submission(PullRequestFacts facts, ReviewItem item, LineAnchor place);
 }

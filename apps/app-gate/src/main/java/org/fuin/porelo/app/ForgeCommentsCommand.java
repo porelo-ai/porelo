@@ -2,11 +2,9 @@ package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.ForgeFileUnreadable;
-import org.fuin.porelo.gate.review.ForgeInstance;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Parameters;
@@ -50,25 +48,9 @@ public class ForgeCommentsCommand implements Callable<Integer>, PoreloFactory.Co
             return 2;
         }
         try {
-            final Optional<ForgeInstance> known =
-                    forges.all().stream()
-                            .filter(instance -> instance.host().equals(named))
-                            .findFirst();
-            if (known.isEmpty() || known.get().adapter() == null) {
-                err.println(
-                        "porelo: "
-                                + (known.isEmpty()
-                                        ? "no forge " + named + " is known"
-                                        : "the record of " + named + " cannot be read")
-                                + "; 'porelo forge add "
-                                + named
-                                + " --adapter <name>' adds it");
-                err.flush();
-                return 2;
-            }
-            forges.set(
+            // Looked up under the file's lock: a host taken out meanwhile is refused, never added.
+            forges.comments(
                     named,
-                    java.util.Objects.requireNonNull(known.get().adapter(), "checked above"),
                     "trusted".equals(reading) ? CommentReading.TRUSTED : CommentReading.EXTENDED);
         } catch (IllegalArgumentException ex) {
             err.println("porelo: " + ex.getMessage());

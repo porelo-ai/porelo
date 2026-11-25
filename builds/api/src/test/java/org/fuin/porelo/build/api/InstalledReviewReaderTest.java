@@ -55,6 +55,7 @@ class InstalledReviewReaderTest {
                                     ReviewFacts.State.OPEN,
                                     true,
                                     null,
+                                    null,
                                     null));
             assertThat(reader.pullRequest(ACCESS, "https://forge.example/owner/name/pull/2"))
                     .as("a merged one names its merge commit and the branch it went onto")
@@ -67,6 +68,9 @@ class InstalledReviewReaderTest {
                                         .as("merge commit")
                                         .isEqualTo("d".repeat(40));
                                 assertThat(facts.mergedHead()).as("merged head").isEqualTo("main");
+                                assertThat(facts.decidedAt())
+                                        .as("when the forge merged it")
+                                        .isEqualTo(java.time.Instant.parse("2026-11-20T10:15:30Z"));
                             });
             assertThat(reader.pullRequestOf(ACCESS, "git@forge.example:owner/name.git", "porelo/t"))
                     .as("the open pull request from the branch")
@@ -421,7 +425,7 @@ class InstalledReviewReaderTest {
                         .as("the address answered for %s", branch)
                         .isInstanceOf(BuildReaderException.class);
             }
-            for (int pull = 1; pull <= 5; pull++) {
+            for (int pull = 1; pull <= 8; pull++) {
                 final String url = "https://forge.example/o/n/pull/" + pull;
                 assertThatThrownBy(() -> raw.pullRequest(ACCESS, url))
                         .as("the facts answered for %s", url)

@@ -59,6 +59,15 @@ class MailboxGuideTest {
     }
 
     @Test
+    void anAuthorAtItsOwnPullRequestIsToldItRepliesOnlyAndItsWorkGoesThroughTheGate() {
+        assertThat(MailboxGuide.text())
+                .as("what an author at its own pull request is told")
+                .contains("the one\nopen from your task's branch, found anew at each start")
+                .contains("open none of your own")
+                .contains("travel by commit through your\ntask's gate");
+    }
+
+    @Test
     void sendingUsesTheNamesThePeerCardAllows() {
         // An agent following the guide must not choose an alias that dispatch will hold.
         assertThat(MailboxGuide.text())

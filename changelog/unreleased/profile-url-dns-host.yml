@@ -1,0 +1,2 @@
+title: "The review profile check refuses a forge URL whose host is no DNS name (an empty label, a label starting or ending with '-', a label over 63 or a name over 253 characters, a trailing dot) or whose port is outside 1 to 65535 or written with a leading zero"
+type: security

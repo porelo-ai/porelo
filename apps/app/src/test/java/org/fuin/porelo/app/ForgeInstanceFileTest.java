@@ -143,6 +143,158 @@ class ForgeInstanceFileTest {
     }
 
     @Test
+    void anAddressWhoseAuthorityEndsBeforeAnAtSignIsNeverReadAsTheHostAfterIt() throws Exception {
+        write("forges:\n  - host: github.com\n    adapter: github\n    comments: trusted\n");
+        final ForgeInstanceFile forges = forges();
+
+        assertThat(forges.of(URI.create("https://evil.example#@github.com/shop/app/pull/1")))
+                .as("a fragment ends the authority, so the host is evil.example")
+                .isEmpty();
+        assertThat(forges.of(URI.create("https://evil.example?@github.com/shop/app/pull/1")))
+                .as("a query ends the authority, so the host is evil.example")
+                .isEmpty();
+        assertThat(
+                        forges.of(
+                                new URI(
+                                        "https",
+                                        "evil.example\\@github.com",
+                                        "/shop/app/pull/1",
+                                        null,
+                                        null)))
+                .as("a backslash, which some clients read as a path, before an at sign")
+                .isEmpty();
+    }
+
+    @Test
+    void anAddressWithUserInfoIsRefused() throws Exception {
+        write("forges:\n  - host: github.com\n    adapter: github\n    comments: trusted\n");
+
+        assertThat(forges().of(URI.create("https://octo@github.com/shop/app/pull/1")))
+                .as("an address that names a user")
+                .isEmpty();
+        assertThat(forges().of(URI.create("https://octo:pw@github.com/shop/app/pull/1")))
+                .as("an address that names a user and a password")
+                .isEmpty();
+    }
+
+    @Test
+    void anUpperCaseHostOrOneEndingInADotIsTheSameHost() throws Exception {
+        write("forges:\n  - host: github.com\n    adapter: github\n");
+        final ForgeInstanceFile forges = forges();
+
+        assertThat(forges.of(URI.create("https://GitHub.COM/shop/app/pull/1")))
+                .as("upper case")
+                .map(ForgeInstance::host)
+                .contains("github.com");
+        assertThat(forges.of(URI.create("https://github.com./shop/app/pull/1")))
+                .as("a trailing dot, the same name to the resolver")
+                .map(ForgeInstance::host)
+                .contains("github.com");
+    }
+
+    @Test
+    void aSymlinkedFileIsReadExtendedAndLoosenedNamesIt() throws Exception {
+        final Path real = dir.resolve("elsewhere.yml");
+        Files.writeString(
+                real,
+                "forges:\n  - host: github.com\n    adapter: github\n    comments: trusted\n",
+                StandardCharsets.UTF_8);
+        Files.setPosixFilePermissions(real, PosixFilePermissions.fromString("rw-------"));
+        Files.createSymbolicLink(file(), real);
+
+        assertThat(forges().of(PULL).map(ForgeInstance::reading))
+                .as("whoever can change the link chooses the file, so nothing is trusted")
+                .contains(CommentReading.EXTENDED);
+        assertThat(forges().loosened())
+                .as("the reason names the file and says it is a link")
+                .hasValueSatisfying(
+                        why -> assertThat(why).contains(file().toString(), "symbolic link"));
+    }
+
+    @Test
+    void anUnreadableRecordKeptBySettingIsWrittenExtendedNeverWithAPlantedTrusted()
+            throws Exception {
+        installed("github", "gitlab");
+        write(
+                """
+                forges:
+                  - host: forge.example
+                    adapter: Not An Adapter
+                    comments: trusted
+                """);
+        Files.setPosixFilePermissions(file(), PosixFilePermissions.fromString("rw-rw-rw-"));
+
+        forges().set("gitlab.com", "gitlab", CommentReading.EXTENDED);
+        // The owner mends the adapter of the record kept for them, in the now owner-only file.
+        final String kept = Files.readString(file(), StandardCharsets.UTF_8);
+        write(kept.replace("Not An Adapter", "gitlab"));
+
+        assertThat(forges().all())
+                .as("the mended record")
+                .filteredOn(instance -> instance.host().equals("forge.example"))
+                .extracting(ForgeInstance::adapter, ForgeInstance::reading)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("gitlab", CommentReading.EXTENDED));
+    }
+
+    @Test
+    void changingTheReadingRefusesAHostNotInTheFileAndAddsNothing() throws Exception {
+        installed("github");
+        write(
+                """
+                forges:
+                  - host: github.com
+                    adapter: github
+                  - host: forge.example
+                    adapter: Not An Adapter
+                """);
+        final ForgeInstanceFile forges = forges();
+        final String before = Files.readString(file(), StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> forges.comments("codeberg.org", CommentReading.TRUSTED))
+                .as("a host never added")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no forge codeberg.org is known");
+        assertThatThrownBy(() -> forges.comments("forge.example", CommentReading.TRUSTED))
+                .as("a host whose record cannot be read")
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cannot be read");
+        assertThat(Files.readString(file(), StandardCharsets.UTF_8))
+                .as("nothing was written")
+                .isEqualTo(before);
+
+        forges.comments("GitHub.com", CommentReading.TRUSTED);
+
+        assertThat(forges.of(PULL))
+                .as("a known host's reading changed, its adapter kept")
+                .contains(new ForgeInstance("github.com", "github", CommentReading.TRUSTED, null));
+    }
+
+    @Test
+    void theLockFileIsOwnerOnly() throws Exception {
+        installed("github");
+
+        forges().set("github.com", "github", CommentReading.EXTENDED);
+
+        assertThat(Files.getPosixFilePermissions(dir.resolve(ForgeInstanceFile.NAME + ".lock")))
+                .as("the lock, created owner-only whatever the umask")
+                .isEqualTo(PosixFilePermissions.fromString("rw-------"));
+    }
+
+    @Test
+    void aLockFileThatIsASymbolicLinkIsNotFollowed() throws Exception {
+        installed("github");
+        final Path target = dir.resolve("target-of-the-link");
+        Files.createSymbolicLink(dir.resolve(ForgeInstanceFile.NAME + ".lock"), target);
+
+        assertThatThrownBy(() -> forges().set("github.com", "github", CommentReading.EXTENDED))
+                .as("the lock is refused rather than followed")
+                .isInstanceOf(ForgeFileUnreadable.class);
+        assertThat(target).as("nothing was created where the link points").doesNotExist();
+        assertThat(file()).as("nothing was written").doesNotExist();
+    }
+
+    @Test
     void theCredentialIsTheHostsOwnEntryNeverThePlainGitToken() throws Exception {
         write("forges:\n  - host: github.com\n    adapter: github\n");
 

@@ -71,6 +71,33 @@ public interface ReviewHolds {
     List<Held> undecided(@Nullable String task);
 
     /**
+     * The undecided items of every task whose journal can be read, and what cannot be read.
+     *
+     * @param items The items, oldest first; a tie in time keeps the tasks in name order and each
+     *     task's items in the order they were held.
+     * @param unreadable The store's entries whose journal cannot be read, or that are no task's, by
+     *     name and in name order.
+     */
+    record Undecided(List<Held> items, List<String> unreadable) {
+
+        /** Keeps both lists as given, unchangeable. */
+        public Undecided {
+            items = List.copyOf(items);
+            unreadable = List.copyOf(unreadable);
+        }
+    }
+
+    /**
+     * Lists the undecided items of every task of the machine, past a task whose journal cannot be
+     * read: one damaged journal never hides every other task's items.
+     *
+     * @return The items, and the entries that could not be read.
+     */
+    default Undecided everyUndecided() {
+        return new Undecided(undecided(null), List.of());
+    }
+
+    /**
      * Finds a held item by its id, in any state.
      *
      * @param task The task's name.

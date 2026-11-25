@@ -101,6 +101,7 @@ class StubReviewTest {
                                     ReviewFacts.State.OPEN,
                                     false,
                                     null,
+                                    null,
                                     null));
             assertThat(
                             reader.pullRequestOf(
@@ -339,6 +340,31 @@ class StubReviewTest {
                         .asString()
                         .contains(THREAD);
             }
+        }
+    }
+
+    @Test
+    void aMergedPullRequestsFactsCarryWhenTheForgeMergedItAndItsApproval() throws IOException {
+        final Path answers = answers();
+        Files.writeString(
+                answers,
+                Files.readString(answers, StandardCharsets.UTF_8)
+                        .replace(
+                                "\"state\": \"open\", \"approved\": false",
+                                "\"state\": \"merged\", \"approved\": true, \"mergeCommit\": \""
+                                        + HEAD
+                                        + "\", \"mergedHead\": \"main\","
+                                        + " \"decidedAt\": \"2026-11-20T10:15:30Z\""),
+                StandardCharsets.UTF_8);
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(stub(answers), StubReader.FORGE, socket())) {
+
+            final ReviewFacts facts = reader.pullRequest(ACCESS, PR);
+
+            assertThat(facts.decidedAt())
+                    .as("the time the answers give for the merge")
+                    .isEqualTo(java.time.Instant.parse("2026-11-20T10:15:30Z"));
+            assertThat(facts.approved()).as("the approval the answers give").isTrue();
         }
     }
 

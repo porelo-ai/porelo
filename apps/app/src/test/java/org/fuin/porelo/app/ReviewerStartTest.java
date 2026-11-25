@@ -12,6 +12,7 @@ import org.fuin.porelo.agent.api.ProviderRoute;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.PinnedRepository;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -83,7 +84,7 @@ class ReviewerStartTest {
     }
 
     @Test
-    void aReviewersGateShowsItsPinnedRefAndPassesNothingOn() {
+    void aReviewersGateServesItsOwnRepositoryShowsItsPinnedRefAndPassesNothingOn() {
         final List<String> command =
                 GateWiring.reviewing(
                         project(), "127.0.0.1", 9418, Path.of("/run/porelo/state"), TASK, "uc");
@@ -91,8 +92,43 @@ class ReviewerStartTest {
                 .as("a reviewer's gate")
                 .containsSequence("gate", "serve")
                 .containsSequence("--pinned", GitGate.PINNED + TASK)
+                .containsSequence(
+                        "--pinned-repository",
+                        PinnedRepository.in(Path.of("/run/porelo/state")).toString())
                 .containsSequence("--repository", "uc")
                 .doesNotContain("--ref", "--pass-on", "--host-push", "--branch", "--reads");
+    }
+
+    @Test
+    void aReviewersContainerIsStartedWithoutTheProjectsHostServices() {
+        final Project project =
+                ProjectReader.read(
+                        new StringReader(
+                                """
+                project:
+                  name: "uc"
+                  security_class: "online"
+                  upstream: "https://forge.example/uc.git"
+                image:
+                  from: "ubuntu:24.04"
+                egress:
+                  domains: [nexus.example]
+                  refused: [telemetry.example]
+                  host_services: [registry.example]
+                """),
+                        "test");
+        final Project reviewing = ReviewerStart.started(REVIEWER, project);
+        assertThat(reviewing.egress().hostServices()).as("a reviewer's host services").isEmpty();
+        assertThat(reviewing.egress().domains()).as("a reviewer's own hosts").isEmpty();
+        assertThat(reviewing.egress().refused())
+                .as("what a reviewer is refused")
+                .containsExactly("telemetry.example");
+        assertThat(ReviewerStart.started(AUTHOR, project).egress().hostServices())
+                .as("an author's host services")
+                .containsExactly("registry.example");
+        assertThat(ReviewerStart.started(null, project).egress().hostServices())
+                .as("host services of a task without a gate")
+                .containsExactly("registry.example");
     }
 
     private static Project project() {

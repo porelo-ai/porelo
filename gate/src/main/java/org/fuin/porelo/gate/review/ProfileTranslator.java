@@ -57,8 +57,8 @@ public final class ProfileTranslator implements ProfileReading {
             for (int j = 0; j < results.size(); j++) {
                 try {
                     items.add(item(results.get(j), channel));
-                } catch (final IllegalArgumentException e) {
-                    // A record's own bounds: its message is fixed, yet only a rule leaves here.
+                } catch (final RuntimeException e) {
+                    // A record's own bounds or a field the check let pass: only a rule leaves here.
                     throw new ProfileRefused(
                             "record: "
                                     + recordOf(results.get(j), channel)

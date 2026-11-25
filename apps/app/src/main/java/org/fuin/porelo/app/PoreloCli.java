@@ -90,6 +90,18 @@ public class PoreloCli implements Callable<Integer> {
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("talk"), "the talk group is named above")
                 .addSubcommand(pass);
+        // A start's role and place are checked against this machine's forges, which the task's
+        // area does not depend on.
+        ((TaskRunCommand)
+                        java.util.Objects.requireNonNull(
+                                        java.util.Objects.requireNonNull(
+                                                        line.getSubcommands().get("task"),
+                                                        "the task group is named above")
+                                                .getSubcommands()
+                                                .get("start"),
+                                        "task start is named in its group")
+                                .getCommand())
+                .placedBy(new TaskStartPlaces());
         // And the account a tunnel reaches asks its daemon as doctor does.
         java.util.Objects.requireNonNull(
                         line.getSubcommands().get("host"), "the host group is named above")

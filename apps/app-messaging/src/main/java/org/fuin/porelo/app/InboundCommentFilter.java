@@ -4,12 +4,15 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.UserPrincipal;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.process.CommandResult;
@@ -28,18 +32,26 @@ import org.jspecify.annotations.Nullable;
 /**
  * Puts a forge's comment through the message filter as an external peer's message: its profile 2
  * page becomes the one data part of a host-built inbound {@code comment} message from the forge's
- * host, written into a check area only the owner reaches, and the filter is run on it as {@link
- * InboundCheck} runs it, with {@code --inbound}.
+ * host, written into a check area only the owner reaches. The filter is run on it with the
+ * arguments every inbound check shares, blocking on the check area, and with {@code --inbound}
+ * added, which {@link InboundCheck} does not pass: it marks the message as one no task sent.
  *
  * <p>Fail closed: no filter, one that cannot be run, stops with anything but its two ordinary
- * outcomes, times out, or cannot read the message gives no verdict, and that throws. One message is
- * checked at a time, in this process and across processes, since the area is emptied before and
- * after each.
+ * outcomes, times out, or cannot read the message gives no verdict, and that throws, as does any
+ * other failure while checking. One message is checked at a time per area, across the threads of
+ * this process by one lock per area and across processes by the area's file lock, since the area is
+ * emptied before and after each.
  */
 public final class InboundCommentFilter implements InboundFilter {
 
     /** The kind of message a comment goes as. */
     static final String KIND = "comment";
+
+    private static final Set<PosixFilePermission> OWNER_FILE =
+            PosixFilePermissions.fromString("rw-------");
+
+    private static final Set<PosixFilePermission> OWNER_DIRECTORY =
+            PosixFilePermissions.fromString("rwx------");
 
     /** A rule id the filter names, as it may be shown and kept. */
     private static final Pattern SHOWN_RULE = Pattern.compile("[A-Za-z0-9_./:-]{1,128}");
@@ -48,7 +60,9 @@ public final class InboundCommentFilter implements InboundFilter {
     private final @Nullable Path filter;
     private final LimitFactors limits;
     private final Path area;
-    private final Object lock = new Object();
+
+    /** One lock per check area for this whole process, since a file lock is held per process. */
+    private static final ConcurrentHashMap<Path, Object> LOCKS = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -77,21 +91,29 @@ public final class InboundCommentFilter implements InboundFilter {
             throw new IOException("no message filter is installed to check it");
         }
         final Map<?, ?> page = page(data);
-        final Mailbox mailbox = new Mailbox(area);
-        synchronized (lock) {
-            prepare(mailbox);
-            try (FileChannel channel =
-                            FileChannel.open(
-                                    area.resolve("lock"),
-                                    Set.of(
-                                            StandardOpenOption.CREATE,
-                                            StandardOpenOption.WRITE,
-                                            LinkOption.NOFOLLOW_LINKS),
-                                    PosixFilePermissions.asFileAttribute(
-                                            PosixFilePermissions.fromString("rw-------")));
-                    FileLock held = channel.lock()) {
-                return check(program, mailbox, peer, page);
+        try {
+            directory(area);
+            final Mailbox mailbox = new Mailbox(area);
+            synchronized (LOCKS.computeIfAbsent(area.toRealPath(), each -> new Object())) {
+                try (FileChannel channel =
+                                FileChannel.open(
+                                        area.resolve("lock"),
+                                        Set.of(
+                                                StandardOpenOption.CREATE,
+                                                StandardOpenOption.WRITE,
+                                                LinkOption.NOFOLLOW_LINKS),
+                                        PosixFilePermissions.asFileAttribute(OWNER_FILE));
+                        FileLock held = channel.lock()) {
+                    for (final Path directory : mailbox.checkLayout()) {
+                        directory(directory);
+                    }
+                    return check(program, mailbox, peer, page);
+                }
             }
+        } catch (final RuntimeException e) {
+            // Any failure while checking is no verdict; only its class is said.
+            throw new IOException(
+                    "the comment could not be checked: " + e.getClass().getSimpleName(), e);
         }
     }
 
@@ -159,37 +181,51 @@ public final class InboundCommentFilter implements InboundFilter {
             final Mailbox mailbox, final String name, final Map<String, Object> message)
             throws IOException {
         final Path staged = mailbox.check().resolve("." + name);
-        Files.deleteIfExists(staged);
-        Files.createFile(
-                staged,
-                PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
-        Files.writeString(staged, Json.write(message), StandardCharsets.UTF_8);
-        Files.move(staged, mailbox.checkIncoming().resolve(name), StandardCopyOption.ATOMIC_MOVE);
+        boolean moved = false;
+        try {
+            Files.deleteIfExists(staged);
+            Files.createFile(staged, PosixFilePermissions.asFileAttribute(OWNER_FILE));
+            Files.writeString(staged, Json.write(message), StandardCharsets.UTF_8);
+            Files.move(
+                    staged, mailbox.checkIncoming().resolve(name), StandardCopyOption.ATOMIC_MOVE);
+            moved = true;
+        } finally {
+            if (!moved) {
+                Files.deleteIfExists(staged);
+            }
+        }
     }
 
-    /** Makes the check area owner-only, refusing one reached through a symbolic link. */
-    private void prepare(final Mailbox mailbox) throws IOException {
-        final Path parent = area.toAbsolutePath().getParent();
-        if (parent != null) {
+    /**
+     * Makes a directory of the check area owner-only at its creation, or takes one another process
+     * made meanwhile; either way it must be a directory, not a link, the owner's and owner-only.
+     */
+    private static void directory(final Path directory) throws IOException {
+        final Path parent = directory.toAbsolutePath().getParent();
+        if (parent != null && !Files.exists(parent, LinkOption.NOFOLLOW_LINKS)) {
             Files.createDirectories(parent);
         }
-        for (final Path directory :
-                List.of(
-                        area,
-                        mailbox.check(),
-                        mailbox.checkIncoming(),
-                        mailbox.checkAccepted().getParent(),
-                        mailbox.checkAccepted(),
-                        mailbox.checkRejected(),
-                        mailbox.checkFeedback(),
-                        mailbox.checkError())) {
-            if (Files.isSymbolicLink(directory)) {
-                throw new IOException("the comment check area is a symbolic link: " + directory);
-            }
-            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-                Files.createDirectory(directory);
-            }
-            Files.setPosixFilePermissions(directory, PosixFilePermissions.fromString("rwx------"));
+        try {
+            Files.createDirectory(directory, PosixFilePermissions.asFileAttribute(OWNER_DIRECTORY));
+        } catch (final FileAlreadyExistsException madeMeanwhile) {
+            // Made before or by a racing process; what is there is checked below.
+        }
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException(
+                    "the comment check area holds a link or a file: " + directory.getFileName());
+        }
+        final UserPrincipal account =
+                directory
+                        .getFileSystem()
+                        .getUserPrincipalLookupService()
+                        .lookupPrincipalByName(System.getProperty("user.name"));
+        if (!Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS).equals(account)) {
+            throw new IOException(
+                    "the comment check area is not this account's: " + directory.getFileName());
+        }
+        if (!Files.getPosixFilePermissions(directory, LinkOption.NOFOLLOW_LINKS)
+                .equals(OWNER_DIRECTORY)) {
+            Files.setPosixFilePermissions(directory, OWNER_DIRECTORY);
         }
     }
 
@@ -197,10 +233,13 @@ public final class InboundCommentFilter implements InboundFilter {
      * Returns the rule the filter's answer about the message names: its deciding rule, else its
      * first finding's, else {@link InboundFilter#UNNAMED_RULE}.
      */
-    private static String rule(final Mailbox mailbox, final String id) throws IOException {
+    private static String rule(final Mailbox mailbox, final String id) {
         final List<Path> answers;
         try (Stream<Path> listed = Files.list(mailbox.checkFeedback())) {
             answers = listed.filter(Files::isRegularFile).sorted().toList();
+        } catch (final IOException unlisted) {
+            // The refusal stands; only its rule cannot be told.
+            return UNNAMED_RULE;
         }
         for (final Path answer : answers) {
             final String named = named(answer, id);

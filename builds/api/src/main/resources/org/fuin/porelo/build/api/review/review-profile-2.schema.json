@@ -49,6 +49,7 @@
       "pattern": "^urn:porelo:repository:[A-Za-z0-9._~%-]+:[A-Za-z0-9._~%-]+(?![\\s\\S])"
     },
     "uri": {
+      "$comment": "Lookaheads and one character class, never a repeated group: the JDK's engine recurses once per repetition of a group and overflows its stack on a long value.",
       "type": "string",
       "minLength": 1,
       "maxLength": 12288,

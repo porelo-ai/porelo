@@ -2,10 +2,12 @@ package org.fuin.porelo.app;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -17,14 +19,30 @@ import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.CommentCheck;
+import org.fuin.porelo.gate.review.Conversation;
+import org.fuin.porelo.gate.review.ForgeAccount;
+import org.fuin.porelo.gate.review.ForgeCredential;
+import org.fuin.porelo.gate.review.ForgeFileUnreadable;
+import org.fuin.porelo.gate.review.ForgeInstance;
+import org.fuin.porelo.gate.review.ForgeReview;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
+import org.fuin.porelo.gate.review.Pinned;
+import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.Producer;
+import org.fuin.porelo.gate.review.ProfileReading;
+import org.fuin.porelo.gate.review.PullRequestFacts;
+import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.PushEnd;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewCounts;
+import org.fuin.porelo.gate.review.ReviewHolds;
+import org.fuin.porelo.gate.review.ReviewPlace;
+import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewRefused;
+import org.fuin.porelo.gate.review.ReviewRole;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewThread;
 import org.fuin.porelo.gate.review.Task;
@@ -38,8 +56,8 @@ import org.jspecify.annotations.Nullable;
  * Nothing is stored for the answer and nothing is started.
  *
  * <p>The one implementation for the daemon's {@code ReviewOpen} and {@code porelo review open}, so
- * both answer alike. Only a gate push is read; a pull request place is refused until a forge
- * adapter reads one.
+ * both answer alike. A pull request is read through its forge's adapter for the task whose run
+ * asks; the task's own pull request is refused until it is found by its branch.
  */
 public final class ReviewOpen {
 
@@ -79,10 +97,13 @@ public final class ReviewOpen {
      * @param project The project's name.
      * @param place Where.
      * @param role Who asks; null means the author.
-     * @param task The task whose run asks, or null; required for the own pull request.
+     * @param task The task whose run asks, or null; required at a pull request, whose side and held
+     *     items are the task's.
      * @return The answer.
-     * @throws Refused As {@code PlaceUnreadable} when the place cannot be read.
-     * @throws IllegalArgumentException For the own pull request of no task.
+     * @throws Refused As {@code PlaceUnreadable} when the place cannot be read, as {@code
+     *     UnknownForge} for a host no forge of this machine is, as {@code NoSuchPullRequest} for an
+     *     address the forge does not know.
+     * @throws IllegalArgumentException For a pull request of no task.
      */
     public Answer answer(
             final String project,
@@ -94,9 +115,12 @@ public final class ReviewOpen {
         Objects.requireNonNull(place, "place");
         return switch (place) {
             case GatePush push -> atGate(project, push, role == null ? Role.AUTHOR : role);
-            case PullRequest _ ->
-                    throw Refused.placeUnreadable(
-                            "ForgeAdapterMissing", "a pull request place is not read yet");
+            case PullRequest pullRequest -> {
+                if (task == null || task.isBlank()) {
+                    throw new IllegalArgumentException("task");
+                }
+                yield atPullRequest(project, pullRequest.ref(), task);
+            }
             case OwnPullRequest _ -> {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
@@ -204,6 +228,195 @@ public final class ReviewOpen {
                 findings,
                 0,
                 reading.reason);
+    }
+
+    /**
+     * Reads a pull request whole: its forge instance, the read credential lent for this answer, its
+     * facts, its conversation through the one input path, and the asking task's side and held
+     * items. Nothing is pinned, fetched or kept.
+     */
+    private Answer atPullRequest(final String project, final PullRequestRef ref, final String task)
+            throws Refused {
+        final ForgeInstance instance;
+        try {
+            instance =
+                    parts.forges()
+                            .of(ref.url())
+                            .orElseThrow(
+                                    () -> new Refused("UnknownForge", Map.of("host", ref.forge())));
+        } catch (ForgeFileUnreadable ex) {
+            throw Refused.placeUnreadable(
+                    "ForgeAdapterMissing", "this machine's forge file cannot be read");
+        }
+        final String adapter = instance.adapter();
+        if (adapter == null) {
+            throw Refused.placeUnreadable(
+                    "ForgeAdapterMissing", "the forge entry of " + ref.forge() + " does not read");
+        }
+        final PullRequestParts reader =
+                parts.adapters()
+                        .of(instance)
+                        .orElseThrow(
+                                () ->
+                                        Refused.placeUnreadable(
+                                                "ForgeAdapterMissing",
+                                                "no client of the forge adapter "
+                                                        + adapter
+                                                        + " is called on this machine"));
+        final String container =
+                reader.containers()
+                        .recorded(project, task)
+                        .orElseThrow(
+                                () ->
+                                        Refused.placeUnreadable(
+                                                "NoSuchPush", "no task is recorded for " + task));
+        final String address = ref.url().toString();
+        final Producer side;
+        final ForgeCredential credential;
+        final PullRequestFacts facts;
+        try {
+            credential = reader.credentials().lend(instance.credential());
+            facts = reader.forge().facts(ref, credential);
+            // Asked only of a pull request the forge knows.
+            final ReviewPlace place =
+                    reader.places()
+                            .named(address)
+                            .orElseThrow(
+                                    () ->
+                                            new PlaceUnreadable(
+                                                    PlaceUnreadable.Reason.UNREACHABLE,
+                                                    "the pull request cannot be reached"));
+            side = side(reader.role(), task, place);
+        } catch (PlaceUnreadable ex) {
+            throw refused(ex, ref);
+        }
+        final Reading reading = new Reading();
+        final Pinned pinned =
+                new Pinned(
+                        new Push(
+                                project,
+                                facts.repository(),
+                                task,
+                                facts.head(),
+                                facts.mergeBase(),
+                                container),
+                        facts);
+        List<Kept> items;
+        try {
+            final Conversation conversation =
+                    new ConversationRead(reader.forge(), reader.reading(), reader.check())
+                            .read(ref, pinned, credential);
+            items = conversation.items();
+            if (conversation.reason() != null) {
+                reading.incomplete(conversation.reason());
+            }
+        } catch (PlaceUnreadable ex) {
+            if (ex.reason() != PlaceUnreadable.Reason.UNREACHABLE) {
+                throw refused(ex, ref);
+            }
+            // The facts were read, so the decision stands; the threads are what is missing.
+            items = List.of();
+            reading.incomplete("Unreachable");
+        }
+        final List<Point> points = forgePoints(items, side, reading);
+        final int held =
+                (int)
+                        reader.holds().undecided(task).stream()
+                                .filter(each -> each.place().equals(address))
+                                .count();
+        // An open pull request's decision has no time to miss; a merge or a close carries the
+        // forge's own.
+        final Instant decided = facts.decidedAt();
+        return Answer.of(
+                facts.head(),
+                switch (facts.state()) {
+                    case OPEN -> facts.approved() ? Decision.APPROVED : Decision.OPEN;
+                    case MERGED -> Decision.MERGED;
+                    case CLOSED -> Decision.CLOSED;
+                },
+                facts.mergeCommit(),
+                facts.mergedHead(),
+                decided == null ? null : decided.truncatedTo(ChronoUnit.SECONDS).toString(),
+                points,
+                0,
+                held,
+                reading.reason);
+    }
+
+    /** The account the asking task's side writes as; a refusal the role carries is passed on. */
+    private static Producer side(final ReviewRole role, final String task, final ReviewPlace place)
+            throws PlaceUnreadable {
+        try {
+            return role.postingAccount(task, place);
+        } catch (IllegalStateException ex) {
+            if (ex.getCause() instanceof PlaceUnreadable unreadable) {
+                throw unreadable;
+            }
+            throw ex;
+        }
+    }
+
+    /** A forge's refusal by the contract's error: an unknown pull request names its address. */
+    private static Refused refused(final PlaceUnreadable ex, final PullRequestRef ref) {
+        return switch (ex.reason()) {
+            case NO_SUCH_PULL_REQUEST ->
+                    new Refused("NoSuchPullRequest", Map.of("url", ref.url().toString()));
+            case UNKNOWN_FORGE -> new Refused("UnknownForge", Map.of("host", ref.forge()));
+            case FORGE_FILE_UNREADABLE ->
+                    Refused.placeUnreadable(
+                            "ForgeAdapterMissing", "this machine's forge file cannot be read");
+            default ->
+                    Refused.placeUnreadable(
+                            ex.reason().wireName(), String.valueOf(ex.getMessage()));
+        };
+    }
+
+    /**
+     * The open points of a pull request's conversation: each thread, in the order it was read,
+     * whose last item is not the asking side's.
+     */
+    private static List<Point> forgePoints(
+            final List<Kept> items, final Producer side, final Reading reading) {
+        final Map<String, List<Kept>> threads = new LinkedHashMap<>();
+        for (final Kept item : items) {
+            threads.computeIfAbsent(item.thread(), id -> new ArrayList<>()).add(item);
+        }
+        final List<Point> points = new ArrayList<>();
+        for (final Map.Entry<String, List<Kept>> thread : threads.entrySet()) {
+            final Kept last = thread.getValue().getLast();
+            final Producer by = last.origin().producer();
+            if (same(by, side)) {
+                continue;
+            }
+            Instant at = last.at();
+            if (at == null) {
+                reading.incomplete(TIME_MISSING);
+                at = Instant.EPOCH;
+            }
+            @Nullable String path = null;
+            @Nullable Integer line = null;
+            if (thread.getValue().getFirst().item() instanceof ReviewComment comment
+                    && comment.anchor() instanceof LineAnchor anchor) {
+                path = anchor.path();
+                line = anchor.startLine();
+            }
+            points.add(
+                    new Point(
+                            thread.getKey(),
+                            path,
+                            line,
+                            by instanceof ForgeAccount account ? account.name() : by.words(),
+                            at.toString()));
+        }
+        return points;
+    }
+
+    /** Whether two producers are one: a forge account by its forge and id, its name may change. */
+    private static boolean same(final Producer one, final Producer other) {
+        if (one instanceof ForgeAccount a && other instanceof ForgeAccount b) {
+            return a.forge().equals(b.forge()) && a.id().equals(b.id());
+        }
+        return one.equals(other);
     }
 
     /** The task container's record of its last push: waiting, or how it ended; null for none. */
@@ -338,15 +551,15 @@ public final class ReviewOpen {
     }
 
     /**
-     * A pull request at the forge, by the branch it comes from.
+     * A pull request at a forge, by its https address.
      *
-     * @param branch The branch.
+     * @param ref The pull request.
      */
-    public record PullRequest(String branch) implements Place {
+    public record PullRequest(PullRequestRef ref) implements Place {
 
-        /** Refuses a missing branch. */
+        /** Refuses a missing reference. */
         public PullRequest {
-            Objects.requireNonNull(branch, "branch");
+            Objects.requireNonNull(ref, "ref");
         }
     }
 
@@ -514,8 +727,8 @@ public final class ReviewOpen {
     /**
      * A typed refusal of the contract: its error's name and fields.
      *
-     * <p>Only {@code PlaceUnreadable} is raised while a gate push is the one place read; {@code
-     * UnknownForge} and {@code NoPullRequest} come with the pull request places.
+     * <p>{@code PlaceUnreadable} at either place; {@code UnknownForge} and {@code
+     * NoSuchPullRequest} at a pull request.
      */
     public static final class Refused extends Exception {
 
@@ -635,6 +848,84 @@ public final class ReviewOpen {
         Optional<PushEnd> read(String task) throws IOException;
     }
 
+    /** Finds the forge instance a pull request's address belongs to. */
+    @FunctionalInterface
+    public interface Forges {
+
+        /**
+         * Finds the instance of an address's host.
+         *
+         * @param url The pull request's address.
+         * @return The instance, an unreadable entry included, or empty for a host this machine
+         *     knows no forge of.
+         * @throws ForgeFileUnreadable When the machine's forge file cannot be read.
+         */
+        Optional<ForgeInstance> of(URI url) throws ForgeFileUnreadable;
+    }
+
+    /** Finds what reads pull requests through a forge instance's adapter. */
+    @FunctionalInterface
+    public interface Adapters {
+
+        /**
+         * Returns what reads pull requests at an instance.
+         *
+         * @param instance A readable instance, which names its adapter.
+         * @return The parts, or empty when no client of its adapter is called on this machine.
+         */
+        Optional<PullRequestParts> of(ForgeInstance instance);
+    }
+
+    /** Finds the container recorded for a task, which keys its push and its checks. */
+    @FunctionalInterface
+    public interface Containers {
+
+        /**
+         * Returns the container recorded for a task.
+         *
+         * @param project The project's name.
+         * @param task The task's name.
+         * @return Its recorded container id, or empty when none is recorded.
+         */
+        Optional<String> recorded(String project, String task);
+    }
+
+    /**
+     * What a pull request is read with: its adapter's review calls, the one input path, the check
+     * of each comment, the read credential's lender, and the run's side, task and held items.
+     *
+     * @param forge The adapter's review calls.
+     * @param reading The one input path for profile documents.
+     * @param check The check of each comment against the pinned push.
+     * @param credentials Lends the forge's read credential for one call.
+     * @param places Finds the place a pull request's address names.
+     * @param role Whose account the asking task's side writes as.
+     * @param containers The container recorded for a task.
+     * @param holds The items held for the owner account's decision.
+     */
+    public record PullRequestParts(
+            ForgeReview forge,
+            ProfileReading reading,
+            CommentCheck check,
+            ReleasedSender.Credentials credentials,
+            ReviewPlaces places,
+            ReviewRole role,
+            Containers containers,
+            ReviewHolds holds) {
+
+        /** Refuses a missing part. */
+        public PullRequestParts {
+            Objects.requireNonNull(forge, "forge");
+            Objects.requireNonNull(reading, "reading");
+            Objects.requireNonNull(check, "check");
+            Objects.requireNonNull(credentials, "credentials");
+            Objects.requireNonNull(places, "places");
+            Objects.requireNonNull(role, "role");
+            Objects.requireNonNull(containers, "containers");
+            Objects.requireNonNull(holds, "holds");
+        }
+    }
+
     /**
      * What the answer is read from.
      *
@@ -642,8 +933,16 @@ public final class ReviewOpen {
      * @param store The review's threads.
      * @param counts The review's counts.
      * @param ends The kept ends.
+     * @param forges The forge instances this machine knows.
+     * @param adapters What reads pull requests at an instance.
      */
-    public record Parts(Gate gate, ReviewStore store, ReviewCounts counts, Ends ends) {
+    public record Parts(
+            Gate gate,
+            ReviewStore store,
+            ReviewCounts counts,
+            Ends ends,
+            Forges forges,
+            Adapters adapters) {
 
         /** Refuses a missing part. */
         public Parts {
@@ -651,11 +950,14 @@ public final class ReviewOpen {
             Objects.requireNonNull(store, "store");
             Objects.requireNonNull(counts, "counts");
             Objects.requireNonNull(ends, "ends");
+            Objects.requireNonNull(forges, "forges");
+            Objects.requireNonNull(adapters, "adapters");
         }
 
         /**
-         * Returns a machine's parts: its gates, the owner account's journals and the ends kept
-         * beside them.
+         * Returns a machine's parts: its gates, the owner account's journals, the ends kept beside
+         * them and its forge file. No adapter's client is called on this machine yet, so a pull
+         * request at a known forge is refused as its adapter missing.
          *
          * @param context The machine.
          * @return The parts.
@@ -666,7 +968,9 @@ public final class ReviewOpen {
                     gateAt(context),
                     comments.store(),
                     comments.counts(),
-                    new GateEnds(context).store()::read);
+                    new GateEnds(context).store()::read,
+                    ForgeInstanceFile.of(context)::of,
+                    instance -> Optional.empty());
         }
     }
 

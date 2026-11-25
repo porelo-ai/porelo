@@ -1803,7 +1803,9 @@ public final class TaskInventory {
             ReviewHolds holds, String task, java.util.function.Consumer<String> unreadable) {
         try {
             return holds.count(task);
-        } catch (java.io.UncheckedIOException ex) {
+        } catch (java.io.UncheckedIOException
+                | IllegalStateException
+                | IllegalArgumentException ex) {
             unreadable.accept(
                     "the hold journal of task " + task + " cannot be read: " + ex.getMessage());
             return null;
@@ -1811,7 +1813,9 @@ public final class TaskInventory {
     }
 
     /**
-     * Returns one task as a client is sent it: its own fields, and where its work landed.
+     * Returns one task as a client is sent it: its own fields, where its work landed, its run's
+     * role and place, and how many of its items are held, absent while its hold journal cannot be
+     * read.
      *
      * <p>Where work landed is the gate's, not the container's, so it is read from the project's
      * mirror here rather than carried on the task: {@code []} while the work waits, for a task that

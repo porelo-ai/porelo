@@ -9,7 +9,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
@@ -37,6 +39,16 @@ import org.fuin.porelo.runtime.ContainerSummary;
  * pins afresh; nothing of an earlier run is read.
  */
 public final class PullRequestPins implements PullRequestPinning {
+
+    /** The one variable added trust may set. */
+    private static final String CERTIFICATES = "GIT_SSL_CAINFO";
+
+    // A repository's path as PullRequestRef takes it: 2 to 8 segments of unreserved characters.
+    private static final Pattern REPOSITORY_PATH =
+            Pattern.compile("(/[A-Za-z0-9._~-]{1,100}){2,8}");
+
+    // A dot segment, which a reader would resolve to another place.
+    private static final Pattern DOTS = Pattern.compile("/\\.{1,2}(?=/|$)");
 
     /** The variable of git's environment the lent read token is in for the fetch. */
     static final String TOKEN_VARIABLE = "PORELO_FORGE_READ_TOKEN";
@@ -146,16 +158,19 @@ public final class PullRequestPins implements PullRequestPinning {
     @Override
     public Push pin(final PullRequestRef ref, final String task) throws PlaceUnreadable {
         final TaskGate gate = gates.locate(task);
+        final RunPlace recorded = RunPlace.readFrom(gate.state());
+        if (recorded == null || !RunPlace.REVIEWER.equals(recorded.role())) {
+            // Checked before any token is lent: no object is fetched for a task never pinned.
+            throw new PlaceUnreadable(
+                    PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                    "task " + task + " is no reviewer's run");
+        }
         final String entry = ForgeInstance.CREDENTIAL_PREFIX + ref.forge();
         final PullRequestFacts facts = forge.facts(ref, credentials.lend(entry));
-        final String scope = GitCredentialNames.helperScopeOf(facts.repository());
-        if (scope == null || !scope.equals("https://" + ref.url().getRawAuthority())) {
-            // The owner's token is the forge's: never sent to a repository elsewhere.
-            throw new PlaceUnreadable(
-                    PlaceUnreadable.Reason.UNREACHABLE,
-                    "the forge's adapter named a repository that is not on " + ref.forge());
-        }
-        fetch(gate.mirror(), facts, scope, credentials.lend(entry));
+        final String scope = "https://" + ref.url().getRawAuthority();
+        plain(facts.repository(), scope);
+        final Map<String, String> added = trusted(trust.apply(facts.repository()));
+        fetch(gate.mirror(), facts, scope, added, credentials.lend(entry), ref.forge());
         if (!holds(gate.mirror(), "rev-parse", "--verify", "--quiet", facts.head() + "^{commit}")) {
             throw headNotFetched(facts.head());
         }
@@ -184,6 +199,44 @@ public final class PullRequestPins implements PullRequestPinning {
     }
 
     /**
+     * Refuses a repository the forge's adapter named in any but its plain form on the pull
+     * request's own forge; the detail says what was wrong, never the value, which may hold a
+     * secret.
+     */
+    private static void plain(final String repository, final String scope) throws PlaceUnreadable {
+        final String wrong;
+        if (repository.length() > PullRequestRef.LIMIT
+                || !repository.chars().allMatch(c -> c > 0x20 && c < 0x7f)) {
+            wrong = "is over " + PullRequestRef.LIMIT + " characters or not printable ASCII";
+        } else if (!repository.startsWith("https://")) {
+            wrong = "is not https";
+        } else if (repository.substring("https://".length()).split("/", 2)[0].contains("@")) {
+            wrong = "carries user info";
+        } else if (repository.contains("?") || repository.contains("#")) {
+            wrong = "carries a query or fragment";
+        } else if (!repository.startsWith(scope + "/")) {
+            wrong = "is not on the pull request's forge, its host and port as written";
+        } else if (!REPOSITORY_PATH.matcher(repository.substring(scope.length())).matches()
+                || DOTS.matcher(repository.substring(scope.length())).find()) {
+            wrong = "has no repository's path";
+        } else {
+            return;
+        }
+        // The owner's token is the forge's: never sent to a repository elsewhere.
+        throw new PlaceUnreadable(
+                PlaceUnreadable.Reason.UNREACHABLE,
+                "the forge's adapter named a repository address that " + wrong);
+    }
+
+    /** Takes added trust that names the certificate bundle alone, which steers nothing else. */
+    private static Map<String, String> trusted(final Map<String, String> given) {
+        if (!Set.of(CERTIFICATES).containsAll(given.keySet())) {
+            throw new IllegalArgumentException("added trust sets only " + CERTIFICATES);
+        }
+        return given;
+    }
+
+    /**
      * Fetches the head, and with it its merge base, into the mirror without writing a ref: the pin
      * right after makes it reachable, and git prunes nothing that young.
      *
@@ -194,10 +247,26 @@ public final class PullRequestPins implements PullRequestPinning {
             final Path mirror,
             final PullRequestFacts facts,
             final String scope,
-            final ForgeCredential lent)
+            final Map<String, String> trusted,
+            final ForgeCredential lent,
+            final String host)
             throws PlaceUnreadable {
         final List<String> arguments =
                 new ArrayList<>(HostGitTransport.arguments("https", scope, TOKEN_VARIABLE, mirror));
+        // No redirect to another host, no maintenance in a mirror the gate serves, and every
+        // object the forge sends checked as it arrives.
+        arguments.addAll(
+                List.of(
+                        "-c",
+                        "http.followRedirects=false",
+                        "-c",
+                        "gc.auto=0",
+                        "-c",
+                        "maintenance.auto=false",
+                        "-c",
+                        "fetch.fsckObjects=true",
+                        "-c",
+                        "transfer.fsckObjects=true"));
         arguments.addAll(
                 List.of(
                         "fetch",
@@ -205,10 +274,11 @@ public final class PullRequestPins implements PullRequestPinning {
                         "--no-tags",
                         "--no-recurse-submodules",
                         "--no-write-fetch-head",
+                        "--no-auto-maintenance",
                         "--end-of-options",
                         facts.repository(),
                         facts.head()));
-        final Map<String, String> added = new LinkedHashMap<>(trust.apply(facts.repository()));
+        final Map<String, String> added = new LinkedHashMap<>(trusted);
         added.put(TOKEN_VARIABLE, lent.token());
         final CommandResult fetched;
         try {
@@ -219,9 +289,16 @@ public final class PullRequestPins implements PullRequestPinning {
                                     .withChosenEnvironment(HostGitTransport.environment())
                                     .withTimeout(fetchLimit));
         } catch (CommandException ex) {
-            throw new PlaceUnreadable(
-                    PlaceUnreadable.Reason.UNREACHABLE,
-                    "the fetch from " + facts.repository() + " did not end in time");
+            final String why;
+            if (ex.timedOut()) {
+                why = "the fetch from " + host + " did not end in time";
+            } else if (ex.cancelled()) {
+                Thread.currentThread().interrupt();
+                why = "the fetch from " + host + " was called off";
+            } else {
+                why = "git could not be started for the fetch from " + host;
+            }
+            throw new PlaceUnreadable(PlaceUnreadable.Reason.UNREACHABLE, why);
         }
         if (!fetched.successful()) {
             final String said = fetched.standardError();
@@ -231,10 +308,7 @@ public final class PullRequestPins implements PullRequestPinning {
             }
             throw new PlaceUnreadable(
                     PlaceUnreadable.Reason.UNREACHABLE,
-                    "the fetch from "
-                            + facts.repository()
-                            + " failed with exit code "
-                            + fetched.exitCode());
+                    "the fetch from " + host + " failed with exit code " + fetched.exitCode());
         }
     }
 

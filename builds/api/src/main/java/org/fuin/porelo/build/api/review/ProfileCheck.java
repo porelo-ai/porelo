@@ -77,11 +77,18 @@ public final class ProfileCheck {
     /** The most characters of one path segment of a forge URL. */
     public static final int MAX_URL_SEGMENT = 100;
 
+    /** The most characters of a DNS name, and of one label in it. */
+    private static final int MAX_DNS_NAME = 253;
+
+    private static final int MAX_DNS_LABEL = 63;
+
+    private static final int MAX_PORT = 65_535;
+
     private static final String SEGMENT = "[A-Za-z0-9._~-]{1," + MAX_URL_SEGMENT + "}";
 
     private static final Pattern REPOSITORY =
             Pattern.compile(
-                    "https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?((?:/"
+                    "https://([A-Za-z0-9.-]+)(?::([0-9]{1,5}))?((?:/"
                             + SEGMENT
                             + "){"
                             + MIN_REPOSITORY_SEGMENTS
@@ -215,7 +222,10 @@ public final class ProfileCheck {
                         .map(Object::toString)
                         .orElse("");
         final Matcher matcher = REPOSITORY.matcher(repository);
-        if (!matcher.matches() || dotSegment(matcher.group(1))) {
+        if (!matcher.matches()
+                || !dnsName(matcher.group(1))
+                || !port(matcher.group(2))
+                || dotSegment(matcher.group(3))) {
             refuse(Rule.URL_SHAPE, at + "/versionControlProvenance/0/repositoryUri");
             return;
         }
@@ -227,6 +237,31 @@ public final class ProfileCheck {
         if (!rest.matches() || dotSegment(rest.group(1))) {
             refuse(Rule.URL_SHAPE, at + "/properties/porelo~1pullRequest");
         }
+    }
+
+    /**
+     * Whether a host is a DNS name: at most 253 characters, its labels 1 to 63 characters, none
+     * starting or ending with {@code -}, no trailing dot; checked by splitting, since a repeated
+     * group in a pattern recurses per label.
+     */
+    private static boolean dnsName(final String host) {
+        if (host.length() > MAX_DNS_NAME) {
+            return false;
+        }
+        for (final String label : host.split("\\.", -1)) {
+            if (label.isEmpty()
+                    || label.length() > MAX_DNS_LABEL
+                    || label.startsWith("-")
+                    || label.endsWith("-")) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Whether a port, when given, is 1 to 65535 without a leading zero. */
+    private static boolean port(final @Nullable String port) {
+        return port == null || !port.startsWith("0") && Integer.parseInt(port) <= MAX_PORT;
     }
 
     /** Whether a path holds a {@code .} or {@code ..} segment, which the segments' set admits. */

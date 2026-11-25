@@ -64,8 +64,26 @@ class GateReviewerRequestsTest {
                             "-c",
                             "transfer.hideRefs=refs/",
                             "-c",
-                            "transfer.hideRefs=!" + PINNED,
-                            "upload-pack");
+                            "transfer.hideRefs=!" + PINNED)
+                    .contains("upload-pack");
+        }
+    }
+
+    @Test
+    void everyFetchRunsWithWantsOfUnadvertisedCommitsPinnedOffOnItsCommandLine() throws Exception {
+        try (GitHttpServer server = started()) {
+            get(server, "/repo.git/info/refs?service=git-upload-pack");
+            post(server, "/repo.git/git-upload-pack");
+        }
+        assertThat(asked).as("what git was asked").hasSize(2);
+        for (final List<String> arguments : asked) {
+            final List<String> before =
+                    arguments.subList(0, Math.max(0, arguments.indexOf("upload-pack")));
+            assertThat(before)
+                    .as("the configuration a fetch's git runs with")
+                    .containsSequence("-c", "uploadpack.allowAnySHA1InWant=false")
+                    .containsSequence("-c", "uploadpack.allowReachableSHA1InWant=false")
+                    .containsSequence("-c", "uploadpack.allowTipSHA1InWant=false");
         }
     }
 

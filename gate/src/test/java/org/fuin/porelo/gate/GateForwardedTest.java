@@ -46,6 +46,26 @@ class GateForwardedTest {
         waiting("fix", amended);
     }
 
+    // An author's pull request may be pinned only to what its gate passed on to that branch.
+    @Test
+    void theLastCommitForwardedForATaskToOneBranchIsAnsweredAndNoOtherTasksOrBranches() {
+        assertThat(gate(runner).forwarded("fix", "porelo/fix"))
+                .as("the first approval's commit")
+                .contains(first);
+
+        gate(runner).approve("fix", "porelo/fix", amended);
+
+        assertThat(gate(runner).forwarded("fix", "porelo/fix"))
+                .as("the amended approval's commit, the last forwarded")
+                .contains(amended);
+        assertThat(gate(runner).forwarded("fix", "review/other"))
+                .as("a branch nothing was forwarded to")
+                .isEmpty();
+        assertThat(gate(runner).forwarded("other", "porelo/fix"))
+                .as("another task, which forwarded nothing")
+                .isEmpty();
+    }
+
     // Rejecting every amendment forces duplicate branches and reviews for the same task.
     @Test
     void aNewGateInstanceCanReplaceWhatItLastForwardedForThisTask() {

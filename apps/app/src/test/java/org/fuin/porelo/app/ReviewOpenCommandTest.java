@@ -61,6 +61,9 @@ class ReviewOpenCommandTest {
 
     private StringWriter out;
 
+    /** The reader answering instead of the gate's, or null for the gate's. */
+    private @Nullable ReviewOpen using;
+
     private StringWriter err;
 
     @BeforeEach
@@ -92,7 +95,9 @@ class ReviewOpenCommandTest {
                         },
                         journal,
                         journal,
-                        ends::read));
+                        ends::read,
+                        url -> java.util.Optional.empty(),
+                        instance -> java.util.Optional.empty()));
     }
 
     private int run(final String... arguments) {
@@ -100,7 +105,7 @@ class ReviewOpenCommandTest {
         err = new StringWriter();
         final ReviewOpenCommand command = new ReviewOpenCommand();
         command.setContext(NoAccount.context());
-        command.use(open());
+        command.use(using != null ? using : open());
         return new CommandLine(command)
                 .setOut(new PrintWriter(out))
                 .setErr(new PrintWriter(err))
@@ -170,7 +175,9 @@ class ReviewOpenCommandTest {
                 "--gate-push shop-2 --own-pull-request --task shop-2",
                 "--own-pull-request",
                 "--gate-push shop-2 --role OWNER",
-                "--pull-request feature --repository shop"
+                "--pull-request feature --repository shop",
+                "--pull-request feature --task shop-2",
+                "--pull-request https://github.com/uc/shop/pull/7"
             })
     void aRefusedArgumentExitsSixtyFourWithASentenceAndNothingOnStandardOutput(
             final String arguments) {
@@ -202,11 +209,57 @@ class ReviewOpenCommandTest {
     }
 
     @Test
-    void aPullRequestPlaceIsATypedRefusalUntilAForgeAdapterReadsIt() {
-        final int code = run("-p", "uc", "--pull-request", "feature");
+    void aPullRequestsAnswerIsTheDaemonsShapeAsJson() throws Exception {
+        final ReviewOpenPullRequestTest forge = new ReviewOpenPullRequestTest();
+        forge.page(
+                org.fuin.porelo.gate.review.Completeness.COMPLETE,
+                ReviewOpenPullRequestTest.opening(
+                        "101", ReviewOpenPullRequestTest.OCTOCAT, ReviewOpenPullRequestTest.AT));
+        using = forge.open;
+
+        final int code =
+                run(
+                        "-p",
+                        "uc",
+                        "--pull-request",
+                        ReviewOpenPullRequestTest.ADDRESS,
+                        "--task",
+                        ReviewOpenPullRequestTest.TASK,
+                        "--json");
+
+        assertThat(code).as("answered").isZero();
+        assertThat(Json.parse(out.toString()))
+                .as("the fields the daemon writes for the same call")
+                .isEqualTo(
+                        Json.parse(
+                                Json.write(
+                                        forge.open
+                                                .answer(
+                                                        "uc",
+                                                        ReviewOpenPullRequestTest.PLACE,
+                                                        null,
+                                                        ReviewOpenPullRequestTest.TASK)
+                                                .fields())));
+    }
+
+    @Test
+    void aPullRequestAtAnUnknownHostIsATypedRefusalNamingTheHost() {
+        using = new ReviewOpenPullRequestTest().open;
+
+        final int code =
+                run(
+                        "-p",
+                        "uc",
+                        "--pull-request",
+                        "https://forge.example.org/uc/shop/pull/7",
+                        "--task",
+                        "shop-2",
+                        "--json");
 
         assertThat(code).as("a typed refusal").isEqualTo(69);
-        assertThat(out.toString()).as("its reason").contains("ForgeAdapterMissing");
+        assertThat(Json.parse(out.toString()))
+                .as("the error and its host")
+                .isEqualTo(Map.of("refused", "UnknownForge", "host", "forge.example.org"));
     }
 
     @Test

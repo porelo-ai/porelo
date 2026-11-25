@@ -542,41 +542,31 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      */
     static Probe holds(final java.nio.file.Path root) {
         final String name = "holds";
-        if (!java.nio.file.Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-            return Probe.ok(name, "nothing held");
+        final org.fuin.porelo.gate.review.ReviewHolds.Undecided found;
+        try {
+            found = new org.fuin.porelo.gate.review.HoldJournal(root).everyUndecided();
+        } catch (final java.io.UncheckedIOException ex) {
+            return Probe.degraded(
+                    name,
+                    "the hold store cannot be listed: "
+                            + TerminalText.line(String.valueOf(ex.getMessage())),
+                    "ls -ld " + root);
         }
-        final java.util.List<String> tasks = new java.util.ArrayList<>();
-        try (java.util.stream.Stream<java.nio.file.Path> entries = java.nio.file.Files.list(root)) {
-            entries.map(entry -> String.valueOf(entry.getFileName())).sorted().forEach(tasks::add);
-        } catch (final java.io.IOException ex) {
-            return Probe.degraded(name, "the hold store cannot be listed: " + ex, "ls -l " + root);
-        }
-        final org.fuin.porelo.gate.review.HoldJournal journal =
-                new org.fuin.porelo.gate.review.HoldJournal(root);
-        final java.util.List<String> unreadable = new java.util.ArrayList<>();
-        final java.util.List<String> where = new java.util.ArrayList<>();
-        int held = 0;
-        for (final String task : tasks) {
-            Integer count;
-            try {
-                count = TaskInventory.held(journal, task, unreadable::add);
-            } catch (final IllegalArgumentException ex) {
-                unreadable.add(task + " is no task's name");
-                count = null;
-            }
-            if (count == null) {
-                where.add(root.resolve(task).toString());
-            } else {
-                held += count;
-            }
-        }
+        final java.util.List<String> unreadable = found.unreadable();
         if (!unreadable.isEmpty()) {
             return Probe.degraded(
                     name,
-                    String.join("; ", unreadable)
-                            + "; such a task is listed without its held count",
-                    "look at " + String.join(" ", where));
+                    "the hold journal of "
+                            + unreadable.stream()
+                                    .map(TerminalText::line)
+                                    .collect(java.util.stream.Collectors.joining(", "))
+                            + " cannot be read; such a task is listed without its held count",
+                    "look at "
+                            + unreadable.stream()
+                                    .map(entry -> TerminalText.line(root.resolve(entry).toString()))
+                                    .collect(java.util.stream.Collectors.joining(" ")));
         }
+        final int held = found.items().size();
         return Probe.ok(name, held == 0 ? "nothing held" : held + " held");
     }
 

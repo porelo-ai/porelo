@@ -237,8 +237,8 @@ class RunStartTest {
                                         .as("the step")
                                         .isEqualTo(RunRefused.Step.PIN));
         assertThat(events)
-                .as("the earlier items lapsed, as a new run had started; no run began")
-                .containsExactly("startRun", "pin");
+                .as("the earlier items lapsed and any earlier run ended, as a new run had started")
+                .containsExactly("startRun", "pin", "end");
     }
 
     @Test
@@ -256,6 +256,76 @@ class RunStartTest {
                                         .as("the step")
                                         .isEqualTo(RunRefused.Step.DELIVER));
         assertThat(runs.current).as("no run is current").isNull();
+    }
+
+    @Test
+    void theGatesHeldCommentsAndTheUnreadOnesAreDeliveredAsTwoCounts() throws Exception {
+        place.items = List.of(comment("101", OCTOCAT, "Fine."), comment("102", OCTOCAT, "Bad."));
+        place.withheld = List.of(new Withheld("103", "103", "TextRefused: format character"));
+        gate.refuse.add("102");
+
+        start.start(TASK, Role.REVIEWER, place);
+
+        assertThat(delivery.held).as("the gate's, held for the owner account").containsExactly(1);
+        assertThat(delivery.unread).as("the input path's, held nowhere").containsExactly(1);
+    }
+
+    @Test
+    void aJudgeThatThrowsStopsTheStartAtTheJudgingAndLeavesNoRun() {
+        place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
+        gate.failure = new IllegalStateException("the filter's area at /home/someone is odd");
+
+        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+                .as("refused at the judging")
+                .isInstanceOfSatisfying(
+                        RunRefused.class,
+                        refused -> {
+                            assertThat(refused.step())
+                                    .as("the step")
+                                    .isEqualTo(RunRefused.Step.JUDGE);
+                            assertThat(refused.getMessage())
+                                    .as("the class named, never its message")
+                                    .contains("IllegalStateException")
+                                    .doesNotContain("/home/someone");
+                        });
+        assertThat(runs.current).as("no run is current").isNull();
+    }
+
+    @Test
+    void aCountThatThrowsStopsTheStartAtTheCountAndLeavesNoRun() {
+        place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
+        holds.countFailure = new IllegalStateException("the journal is cut");
+
+        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+                .as("refused at the count")
+                .isInstanceOfSatisfying(
+                        RunRefused.class,
+                        refused ->
+                                assertThat(refused.step())
+                                        .as("the step")
+                                        .isEqualTo(RunRefused.Step.COUNT));
+        assertThat(runs.current).as("no run is current").isNull();
+    }
+
+    @Test
+    void aPinThatFailsEndsAnEarlierRunToo() throws Exception {
+        start.start(TASK, Role.REVIEWER, place);
+        place.unpinnable = new PlaceUnreadable(PlaceUnreadable.Reason.UNREACHABLE, "unreachable");
+
+        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+                .as("refused at the pin")
+                .isInstanceOfSatisfying(
+                        RunRefused.class,
+                        refused -> {
+                            assertThat(refused.step())
+                                    .as("the step")
+                                    .isEqualTo(RunRefused.Step.PIN);
+                            assertThat(refused.getMessage())
+                                    .as("the place's reason and its fixed detail kept")
+                                    .contains("Unreachable")
+                                    .contains("unreachable");
+                        });
+        assertThat(runs.current).as("the earlier run is over too").isNull();
     }
 
     @Test
@@ -301,8 +371,13 @@ class RunStartTest {
             throw new UnsupportedOperationException("the gate holds, never the start");
         }
 
+        @Nullable RuntimeException countFailure;
+
         @Override
         public int count(final String task) {
+            if (countFailure != null) {
+                throw countFailure;
+            }
             return waiting;
         }
 
@@ -369,10 +444,15 @@ class RunStartTest {
     /** Withholds the comments named; it would hold them itself. */
     private final class Gate implements org.fuin.porelo.gate.review.CommentGate {
         final Set<String> refuse = new java.util.HashSet<>();
+        @Nullable RuntimeException failure;
 
         @Override
-        public Optional<String> judge(final ReviewPlace where, final Run run, final Kept item) {
+        public Optional<String> judge(
+                final ReviewPlace where, final Run run, final Kept item, final Kept root) {
             events.add("judge " + item.guid());
+            if (failure != null) {
+                throw failure;
+            }
             return refuse.contains(item.guid()) ? Optional.of("zero-width") : Optional.empty();
         }
     }
@@ -381,6 +461,8 @@ class RunStartTest {
     private final class Delivery implements ConversationDelivery {
         final List<Integer> runs = new ArrayList<>();
         final List<Integer> withheld = new ArrayList<>();
+        final List<Integer> held = new ArrayList<>();
+        final List<Integer> unread = new ArrayList<>();
         @Nullable RuntimeException failure;
 
         @Override
@@ -389,13 +471,16 @@ class RunStartTest {
                 final int run,
                 final String where,
                 final List<byte[]> pages,
-                final int count) {
+                final int heldCount,
+                final int unreadCount) {
             events.add("deliver");
             if (failure != null) {
                 throw failure;
             }
             runs.add(run);
-            withheld.add(count);
+            withheld.add(heldCount + unreadCount);
+            held.add(heldCount);
+            unread.add(unreadCount);
         }
     }
 

@@ -13,6 +13,7 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import org.fuin.porelo.gate.review.ForgeCredential;
 import org.fuin.porelo.gate.review.ForgeReview;
+import org.fuin.porelo.gate.review.ProfileTranslator;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.junit.jupiter.api.Test;
@@ -38,16 +39,23 @@ class ForgePostCallerTest {
                                     || type.getName().startsWith(ForgeWrite.class.getName() + "$"));
 
     @Test
-    void noClassOfTheAppsButForgeWritePostsToAForge() {
-        rule().check(apps());
+    void noClassOfPoreloButForgeWritePostsToAForge() {
+        rule().check(porelo());
+    }
+
+    @Test
+    void theScanCoversPoreloBeyondTheApps() {
+        assertThat(porelo().contain(ProfileTranslator.class))
+                .as("a class of the gate, outside the apps' package, is imported")
+                .isTrue();
     }
 
     @Test
     void theRuleFindsTheOneClassThatDoesPost() {
-        final JavaClasses apps = apps();
-        assertThat(apps.contain(ForgeWrite.class)).as("ForgeWrite is imported").isTrue();
-        assertThatThrownBy(() -> anywhere().check(apps))
-                .as("the rule without its one exemption, on the apps")
+        final JavaClasses porelo = porelo();
+        assertThat(porelo.contain(ForgeWrite.class)).as("ForgeWrite is imported").isTrue();
+        assertThatThrownBy(() -> anywhere().check(porelo))
+                .as("the rule without its one exemption, on every Porelo class")
                 .hasMessageContaining(ForgeWrite.class.getName());
     }
 
@@ -59,10 +67,10 @@ class ForgePostCallerTest {
                 .hasMessageContaining(Posts.class.getSimpleName());
     }
 
-    private static JavaClasses apps() {
+    private static JavaClasses porelo() {
         return new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("org.fuin.porelo.app");
+                .importPackages("org.fuin.porelo");
     }
 
     private static ArchRule rule() {

@@ -68,7 +68,16 @@ class ProfileCheckTest {
         "url-percent-encoded-segment, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
         "url-pull-request-elsewhere, TASK, URL_SHAPE, /runs/0/properties/porelo~1pullRequest",
         "url-repository-dot-segment, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
-        "url-pull-request-dot-segment, TASK, URL_SHAPE, /runs/0/properties/porelo~1pullRequest"
+        "url-pull-request-dot-segment, TASK, URL_SHAPE, /runs/0/properties/porelo~1pullRequest",
+        "url-host-empty-label, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-host-label-leading-hyphen, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-host-label-trailing-hyphen, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-host-trailing-dot, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-port-zero, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-port-too-high, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-port-leading-zero, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-host-label-too-long, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri",
+        "url-host-too-long, TASK, URL_SHAPE, /runs/0/versionControlProvenance/0/repositoryUri"
     })
     void anAdversarialFixtureIsRefusedByItsRuleAtItsPathAndPassesWithoutIt(
             final String fixture, final Channel channel, final Rule rule, final String path)

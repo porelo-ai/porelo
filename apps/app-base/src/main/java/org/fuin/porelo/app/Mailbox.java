@@ -761,11 +761,23 @@ public final class Mailbox {
                 person(),
                 check(),
                 checkIncoming(),
+                check().resolve("filter"),
                 checkAccepted(),
                 checkRejected(),
                 checkFeedback(),
                 checkError(),
                 check().resolve("sent"),
                 check().resolve("filter").resolve("index"));
+    }
+
+    /**
+     * Returns every directory of the check area, each after its parent, as {@link #create()} makes
+     * them: what a check area made outside a mailbox needs as well.
+     *
+     * @return The directories, {@link #check()} first.
+     */
+    public java.util.List<Path> checkLayout() {
+        final java.util.List<Path> all = layout();
+        return all.subList(all.indexOf(check()), all.size());
     }
 }

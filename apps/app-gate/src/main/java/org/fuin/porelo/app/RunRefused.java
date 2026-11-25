@@ -15,8 +15,12 @@ public final class RunRefused extends Exception {
         PIN,
         /** Reading the place's whole conversation, its credential included. */
         READ,
-        /** Delivering the conversation to the task. */
-        DELIVER
+        /** Judging each comment by the place's reading setting. */
+        JUDGE,
+        /** Delivering the conversation to the task, its pages written. */
+        DELIVER,
+        /** Counting the task's items that wait for the owner account. */
+        COUNT
     }
 
     private final Step step;
@@ -27,7 +31,8 @@ public final class RunRefused extends Exception {
      * Constructor with the step and what stopped it.
      *
      * @param step Where it stopped.
-     * @param cause Why; a {@link PlaceUnreadable} names its reason.
+     * @param cause Why; a {@link PlaceUnreadable} names its reason and detail, anything else only
+     *     its class.
      */
     public RunRefused(final Step step, final Exception cause) {
         super(
@@ -36,10 +41,21 @@ public final class RunRefused extends Exception {
                                 .name()
                                 .toLowerCase(java.util.Locale.ROOT)
                         + " failed: "
-                        + Objects.requireNonNull(cause, "cause").getMessage(),
+                        + said(Objects.requireNonNull(cause, "cause")),
                 cause);
         this.step = step;
         this.reason = cause instanceof PlaceUnreadable unreadable ? unreadable.reason() : null;
+    }
+
+    /**
+     * What the message says of the cause: a place's reason and its fixed detail, otherwise only the
+     * failure's class, since its message may name local paths.
+     */
+    private static String said(final Exception cause) {
+        if (cause instanceof PlaceUnreadable unreadable) {
+            return unreadable.reason().wireName() + ": " + unreadable.getMessage();
+        }
+        return cause.getClass().getSimpleName();
     }
 
     /**

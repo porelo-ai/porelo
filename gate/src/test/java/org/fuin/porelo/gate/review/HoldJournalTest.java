@@ -365,6 +365,44 @@ class HoldJournalTest {
     }
 
     @Test
+    void everyTasksUndecidedItemsAreListedPastAnUnreadableJournalAndAStrayEntry() throws Exception {
+        final Path root = dir.resolve("holds");
+        final HoldJournal holds = new HoldJournal(root, ticking());
+        final Run run = run(holds, PLACE, FIRST_HEAD);
+        holds.hold(run, TASK, Direction.OUTGOING, comment("broken"), null, null);
+        final Run theirs = new Run(PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), 1);
+        holds.startRun(OTHER_TASK, PLACE);
+        final Held healthy =
+                holds.hold(theirs, OTHER_TASK, Direction.OUTGOING, comment("o"), null, null);
+        Files.writeString(root.resolve(TASK).resolve("holds"), "not json\n");
+        Files.createDirectory(root.resolve(".stray"), ownerOnly());
+
+        final ReviewHolds.Undecided found = holds.everyUndecided();
+
+        assertThat(found.items()).as("the readable task's items").containsExactly(healthy);
+        assertThat(found.unreadable())
+                .as("the task whose journal cannot be read and the entry that is no task's")
+                .containsExactly(".stray", TASK);
+        assertThatThrownBy(() -> holds.undecided(null))
+                .as("the plain listing of every task still refuses")
+                .isInstanceOf(UncheckedIOException.class);
+    }
+
+    @Test
+    void itemsHeldInTheSameSecondKeepTheOrderTheyWereHeldIn() throws Exception {
+        final Instant[] now = {Instant.ofEpochSecond(1_800_000_000L)};
+        final HoldJournal holds = new HoldJournal(dir.resolve("holds"), settable(now));
+        final Run run = run(holds, PLACE, FIRST_HEAD);
+        final List<Held> held = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            held.add(holds.hold(run, TASK, Direction.OUTGOING, comment("n" + i), null, null));
+            assertThat(holds.everyUndecided().items())
+                    .as("after %d items held in one second, each earlier one in its place", i + 1)
+                    .containsExactlyElementsOf(held);
+        }
+    }
+
+    @Test
     void aBrokenOrNewerJournalIsRefusedNeverReadAsEmpty() throws Exception {
         final Path root = dir.resolve("holds");
         final HoldJournal holds = new HoldJournal(root, ticking());

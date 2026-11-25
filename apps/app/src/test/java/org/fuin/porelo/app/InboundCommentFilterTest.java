@@ -265,6 +265,101 @@ class InboundCommentFilterTest {
     }
 
     @Test
+    void twoFiltersOnOneAreaCheckAtOnceAndBothAnswer() throws Exception {
+        // Each instance alone in its process is not enough: two in one JVM share the area's lock.
+        final CommandRunner slow =
+                command -> {
+                    try {
+                        Thread.sleep(200);
+                    } catch (final InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    return filterThat("accepted", null).run(command);
+                };
+        final InboundCommentFilter one = filter(slow);
+        final InboundCommentFilter two = filter(slow);
+        final java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+        final List<java.util.concurrent.Future<Optional<String>>> answers = new ArrayList<>();
+
+        try (java.util.concurrent.ExecutorService pool =
+                java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            for (final InboundCommentFilter each : List.of(one, two)) {
+                answers.add(
+                        pool.submit(
+                                () -> {
+                                    go.await();
+                                    return each.refuse("github.com", PAGE);
+                                }));
+            }
+            go.countDown();
+            for (final java.util.concurrent.Future<Optional<String>> answer : answers) {
+                assertThat(answer.get()).as("each check answers, one after the other").isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void everyDirectoryOfTheCheckLayoutIsMadeOwnerOnly() throws IOException {
+        filter(filterThat("accepted", null)).refuse("github.com", PAGE);
+
+        for (final Path each : new Mailbox(area()).checkLayout()) {
+            assertThat(Files.isDirectory(each, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                    .as("%s made", area().relativize(each))
+                    .isTrue();
+            assertThat(PosixFilePermissions.toString(Files.getPosixFilePermissions(each)))
+                    .as("%s owner-only", area().relativize(each))
+                    .isEqualTo("rwx------");
+        }
+    }
+
+    @Test
+    void aSymlinkedAreaIsRefused() throws IOException {
+        final Path elsewhere = Files.createDirectory(dir.resolve("elsewhere"));
+        Files.createSymbolicLink(area(), elsewhere);
+
+        assertThatThrownBy(() -> filter(filterThat("accepted", null)).refuse("github.com", PAGE))
+                .as("an area reached through a link")
+                .isInstanceOf(IOException.class);
+        assertThat(Files.list(elsewhere).toList()).as("nothing written through it").isEmpty();
+    }
+
+    @Test
+    void aSymlinkedSubdirectoryIsRefused() throws IOException {
+        final Path elsewhere = Files.createDirectory(dir.resolve("elsewhere"));
+        Files.createDirectories(check());
+        Files.createSymbolicLink(check().resolve("sent"), elsewhere);
+
+        assertThatThrownBy(() -> filter(filterThat("accepted", null)).refuse("github.com", PAGE))
+                .as("a directory of the area reached through a link")
+                .isInstanceOf(IOException.class);
+        assertThat(Files.list(elsewhere).toList()).as("nothing written through it").isEmpty();
+    }
+
+    @Test
+    void aRefusalWhoseAnswersCannotBeListedStandsWithTheUnnamedRule() throws IOException {
+        final CommandRunner rejecting = filterThat("rejected", null);
+        final Mailbox mailbox = new Mailbox(area());
+        final CommandRunner unlistable =
+                command -> {
+                    final CommandResult result = rejecting.run(command);
+                    try {
+                        // Its answers are no directory any more, so they cannot be listed.
+                        Files.delete(mailbox.checkFeedback());
+                        Files.writeString(mailbox.checkFeedback(), "not a directory");
+                    } catch (final IOException e) {
+                        throw new IllegalStateException(e);
+                    }
+                    return result;
+                };
+
+        final Optional<String> rule = filter(unlistable).refuse("github.com", PAGE);
+
+        assertThat(rule)
+                .as("the refusal stands, its rule unnamed")
+                .contains(InboundFilter.UNNAMED_RULE);
+    }
+
+    @Test
     void aMessageTheFilterCouldNotReadThrows() {
         assertThatThrownBy(() -> filter(filterThat("error", null)).refuse("github.com", PAGE))
                 .as("an unread message is no verdict")

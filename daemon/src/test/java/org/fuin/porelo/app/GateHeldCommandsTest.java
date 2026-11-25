@@ -70,6 +70,49 @@ class GateHeldCommandsTest {
     }
 
     @Test
+    void everyTasksHeldItemsArePrintedAndEachEntryThatCannotBeReadIsNamedOnceEscaped(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path root = dir.resolve("holds");
+        final org.fuin.porelo.gate.review.HoldJournal journal =
+                new org.fuin.porelo.gate.review.HoldJournal(root);
+        final String broken = "porelo-uc_shop-3";
+        final Held healthy = HeldStandIns.heldIn(journal, TASK);
+        HeldStandIns.heldIn(journal, broken);
+        java.nio.file.Files.writeString(root.resolve(broken).resolve("holds"), "not json\n");
+        java.nio.file.Files.createDirectory(root.resolve("stray\u001b[2J"));
+
+        final HeldStandIns.Ran ran = HeldStandIns.held(journal);
+        final HeldStandIns.Ran json = HeldStandIns.held(journal, "--json");
+
+        assertThat(ran.code()).as(ran.err()).isZero();
+        assertThat(ran.out()).as("the readable task's item").contains(healthy.id());
+        assertThat(ran.err().lines().toList())
+                .as("one line for each entry that cannot be read")
+                .hasSize(2)
+                .anySatisfy(line -> assertThat(line).as("the task").contains(broken))
+                .anySatisfy(line -> assertThat(line).as("the stray entry").contains("stray"));
+        assertThat(ran.err()).as("escaped").doesNotContain("\u001b");
+        assertThat(json.code()).as(json.err()).isZero();
+        assertThat((List<?>) Json.parse(json.out())).as("the readable item as JSON").hasSize(1);
+        assertThat(json.err().lines().count()).as("named as JSON too").isEqualTo(2);
+    }
+
+    @Test
+    void nothingListedAndAnEntryThatCannotBeReadFailsTheListing(
+            @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws Exception {
+        final java.nio.file.Path root = dir.resolve("holds");
+        final org.fuin.porelo.gate.review.HoldJournal journal =
+                new org.fuin.porelo.gate.review.HoldJournal(root);
+        HeldStandIns.heldIn(journal, TASK);
+        java.nio.file.Files.writeString(root.resolve(TASK).resolve("holds"), "not json\n");
+
+        final HeldStandIns.Ran ran = HeldStandIns.held(journal);
+
+        assertThat(ran.code()).as("nothing could be listed").isEqualTo(70);
+        assertThat(ran.err()).as("names the task").contains(TASK);
+    }
+
+    @Test
     void aDecisionAnswersNothingAndARefusalIsNamedWithItsExitCode() {
         final Held out = outgoing("h1", "Keep the order.", 1);
         holds.with(out);

@@ -15,6 +15,8 @@ import java.util.Map;
 import org.fuin.porelo.app.HeldStandIns;
 import org.fuin.porelo.gate.review.Held;
 import org.fuin.porelo.gate.review.HeldState;
+import org.fuin.porelo.gate.review.HoldJournal;
+import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
@@ -33,8 +35,12 @@ class GateHeldMethodsTest {
     private @Nullable VarlinkClient client;
 
     private VarlinkClient serving() throws Exception {
+        return serving(holds);
+    }
+
+    private VarlinkClient serving(final ReviewHolds store) throws Exception {
         server = new VarlinkServer(dir.resolve("h.sock"), PoreloDaemon.INTERFACE);
-        GateMethods.registerHolds(server, holds);
+        GateMethods.registerHolds(server, store);
         Thread.ofVirtual().start(server);
         client = new VarlinkClient(server.socketPath());
         return client;
@@ -143,6 +149,74 @@ class GateHeldMethodsTest {
                                 assertThat(ex.getErrorName())
                                         .as("the error")
                                         .isEqualTo(PoreloDaemon.INTERFACE + ".CursorRefused"));
+    }
+
+    @Test
+    void aCursorIsRefusedOnceAnEarlierItemWasDecided() throws Exception {
+        for (int i = 0; i < 30; i++) {
+            holds.with(outgoing("h" + i, "Item " + i, i));
+        }
+        final VarlinkClient client = serving();
+        final String method = PoreloDaemon.INTERFACE + ".HeldItems";
+        final String cursor = (String) client.call(method, call("task", TASK)).get("cursor");
+        final Held third = holds.items.get("h3");
+
+        client.call(PoreloDaemon.INTERFACE + ".DecideItem", decide(third, "release"));
+
+        assertThatThrownBy(() -> client.call(method, call("task", TASK, "cursor", cursor)))
+                .as("the cursor after a decision among the items before it")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex ->
+                                assertThat(ex.getErrorName())
+                                        .as("the error")
+                                        .isEqualTo(PoreloDaemon.INTERFACE + ".CursorRefused"));
+    }
+
+    @Test
+    void aCursorOfOneTasksListingIsRefusedForAnotherTaskAndForEveryTask() throws Exception {
+        final String other = "porelo-uc_shop-3";
+        for (int i = 0; i < 30; i++) {
+            holds.with(outgoing("a" + i, "Item " + i, i));
+        }
+        for (int i = 0; i < 30; i++) {
+            holds.with(outgoing(other, "b" + i, "Item " + i, 100 + i));
+        }
+        final VarlinkClient client = serving();
+        final String method = PoreloDaemon.INTERFACE + ".HeldItems";
+        final String cursor = (String) client.call(method, call("task", TASK)).get("cursor");
+
+        for (final Map<String, Object> asked :
+                List.of(call("task", other, "cursor", cursor), call("cursor", cursor))) {
+            assertThatThrownBy(() -> client.call(method, asked))
+                    .as("task %s's cursor in %s", TASK, asked)
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            ex ->
+                                    assertThat(ex.getErrorName())
+                                            .as("the error")
+                                            .isEqualTo(PoreloDaemon.INTERFACE + ".CursorRefused"));
+        }
+    }
+
+    @Test
+    void everyTasksHeldItemsAreListedAndATaskWhoseJournalCannotBeReadIsNamed() throws Exception {
+        final Path root = dir.resolve("holds");
+        final HoldJournal journal = new HoldJournal(root);
+        final String broken = "porelo-uc_shop-3";
+        final Held healthy = HeldStandIns.heldIn(journal, TASK);
+        HeldStandIns.heldIn(journal, broken);
+        java.nio.file.Files.writeString(root.resolve(broken).resolve("holds"), "not json\n");
+
+        final Map<String, Object> answer =
+                serving(journal).call(PoreloDaemon.INTERFACE + ".HeldItems", Map.of());
+
+        final List<?> items = (List<?>) answer.get("items");
+        assertThat(items).as("the readable task's item").hasSize(1);
+        assertThat(fields(items.getFirst())).as("that item").containsEntry("id", healthy.id());
+        assertThat(answer.get("unreadable"))
+                .as("the task whose journal cannot be read")
+                .isEqualTo(List.of(broken));
     }
 
     @Test

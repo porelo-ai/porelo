@@ -1,7 +1,9 @@
 package org.fuin.porelo.app;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.fuin.porelo.gate.review.CommentGate;
 import org.fuin.porelo.gate.review.Completeness;
@@ -11,6 +13,7 @@ import org.fuin.porelo.gate.review.ForgeCredential;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.PlaceUnreadable;
+import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.Role;
@@ -24,9 +27,9 @@ import org.jspecify.annotations.Nullable;
  * reading setting, and the comments that passed are delivered to the task as untrusted input with
  * how many were withheld. Nothing of an earlier run is kept: each run reads all of it again.
  *
- * <p>A start that cannot pin, read or deliver stops with {@link RunRefused} naming the step, and no
- * run of the task is current then: never a run without its conversation. The run ends when the task
- * ends; that is the caller's.
+ * <p>A start that cannot pin, read, judge, deliver or count stops with {@link RunRefused} naming
+ * the step, and no run of the task is current then, an earlier one included: never a run without
+ * its conversation. The run ends when the task ends; that is the caller's.
  */
 public final class RunStart {
 
@@ -99,8 +102,9 @@ public final class RunStart {
      * @param role The task's role there.
      * @param place The place.
      * @return What the run was given.
-     * @throws RunRefused When the place could not be pinned or read, or the conversation not
-     *     delivered; no run of the task is current then.
+     * @throws RunRefused When the place could not be pinned or read, a comment not judged, the
+     *     conversation not delivered or the waiting items not counted; no run of the task is
+     *     current then.
      */
     public Outcome start(final String task, final Role role, final ReviewPlace place)
             throws RunRefused {
@@ -108,8 +112,9 @@ public final class RunStart {
         final Pinned pinned;
         try {
             pinned = place.pin(task);
-        } catch (final PlaceUnreadable unpinned) {
-            // The earlier run's undecided items stay lapsed: a new run had started.
+        } catch (final PlaceUnreadable | RuntimeException unpinned) {
+            // A new run had started, so the earlier one is over and its undecided items lapsed.
+            runs.end(task);
             throw new RunRefused(RunRefused.Step.PIN, unpinned);
         }
         final Run run = new Run(place.name(), role, pinned, number);
@@ -123,31 +128,57 @@ public final class RunStart {
         }
         final List<Kept> passed = new ArrayList<>();
         int gated = 0;
-        for (final Kept item : read.items()) {
-            // The gate holds what it withholds, so the start never holds it twice.
-            if (gate.judge(place, run, item).isPresent()) {
-                gated++;
-            } else {
-                passed.add(item);
+        try {
+            final Map<String, Kept> roots = new HashMap<>();
+            for (final Kept item : read.items()) {
+                if (item.item() instanceof ReviewComment) {
+                    roots.putIfAbsent(item.thread(), item);
+                }
             }
+            for (final Kept item : read.items()) {
+                // A reply without its opening comment is judged against itself, which the gate
+                // holds.
+                final Kept root = roots.getOrDefault(item.thread(), item);
+                // The gate holds what it withholds, so the start never holds it twice.
+                if (gate.judge(place, run, item, root).isPresent()) {
+                    gated++;
+                } else {
+                    passed.add(item);
+                }
+            }
+        } catch (final RuntimeException unjudged) {
+            runs.end(task);
+            throw new RunRefused(RunRefused.Step.JUDGE, unjudged);
         }
         final Conversation delivered =
                 new Conversation(passed, read.withheld(), read.completeness(), read.reason());
-        final int withheld = read.withheld().size() + gated;
         try {
-            delivery.deliver(task, number, place.name(), place.pages(pinned, delivered), withheld);
+            delivery.deliver(
+                    task,
+                    number,
+                    place.name(),
+                    place.pages(pinned, delivered),
+                    gated,
+                    read.withheld().size());
         } catch (final RuntimeException undelivered) {
             // Never a run without its conversation.
             runs.end(task);
             throw new RunRefused(RunRefused.Step.DELIVER, undelivered);
         }
+        final int waiting;
+        try {
+            waiting = holds.count(task);
+        } catch (final RuntimeException uncounted) {
+            runs.end(task);
+            throw new RunRefused(RunRefused.Step.COUNT, uncounted);
+        }
         return new Outcome(
                 number,
                 passed.size(),
-                withheld,
+                read.withheld().size() + gated,
                 read.completeness(),
                 read.reason(),
                 pinned.push().head(),
-                holds.count(task));
+                waiting);
     }
 }

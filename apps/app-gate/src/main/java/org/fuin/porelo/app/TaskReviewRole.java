@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -54,6 +55,8 @@ public final class TaskReviewRole implements ReviewRole {
     private final Accounts accounts;
 
     private final Ends ends;
+
+    private final Forwarded forwarded;
 
     /**
      * The vault entries a task's items may go out under, by name; never a credential.
@@ -123,7 +126,28 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
-     * Constructor.
+     * Reads what a task's gate last forwarded to one branch of an upstream, as the gate kept it.
+     */
+    @FunctionalInterface
+    public interface Forwarded {
+
+        /** Answers nothing: no run at a pull request is pinned. */
+        Forwarded NONE = (task, upstream, branch) -> Optional.empty();
+
+        /**
+         * Returns the last commit the task's gate forwarded there.
+         *
+         * @param task The task's name.
+         * @param upstream The upstream repository, as the project names it.
+         * @param branch The upstream branch.
+         * @return The commit in full, or empty when the gate forwarded nothing of the task there.
+         * @throws IOException When the record cannot be read.
+         */
+        Optional<String> of(String task, String upstream, String branch) throws IOException;
+    }
+
+    /**
+     * Constructor without the gates' forwarded record: an author is pinned at no pull request.
      *
      * @param states A task's state directory, by the task's name, where its run's role is kept.
      * @param entries The vault entries a task's items may go out under.
@@ -137,6 +161,27 @@ public final class TaskReviewRole implements ReviewRole {
             final ForgeInstances forges,
             final Accounts accounts,
             final Ends ends) {
+        this(states, entries, forges, accounts, ends, Forwarded.NONE);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param states A task's state directory, by the task's name, where its run's role is kept.
+     * @param entries The vault entries a task's items may go out under.
+     * @param forges The forges this machine knows, whose credential is the owner account's there.
+     * @param accounts The forge account an entry's token is.
+     * @param ends Where a task's last push stands at its gate.
+     * @param forwarded What a task's gate last forwarded to an upstream branch.
+     */
+    public TaskReviewRole(
+            final Function<String, Path> states,
+            final Entries entries,
+            final ForgeInstances forges,
+            final Accounts accounts,
+            final Ends ends,
+            final Forwarded forwarded) {
+        this.forwarded = Objects.requireNonNull(forwarded, "forwarded");
         this.states = Objects.requireNonNull(states, "states");
         this.entries = Objects.requireNonNull(entries, "entries");
         this.forges = Objects.requireNonNull(forges, "forges");
@@ -228,6 +273,40 @@ public final class TaskReviewRole implements ReviewRole {
             case REVIEWER -> true;
             case AUTHOR -> tookAtGate(task, head);
         };
+    }
+
+    /**
+     * Whether a run at a pull request may be pinned to a head: a reviewer to any, an author only to
+     * the commit its own gate last forwarded to that upstream branch, which is what the pull
+     * request shows of its work. A record that cannot be read pins nothing.
+     *
+     * @param task The task's name.
+     * @param upstream The upstream repository the pull request is at, as the project names it.
+     * @param branch The upstream branch the pull request is open from.
+     * @param head The pull request's head, to be pinned.
+     * @return True when it may be pinned there.
+     * @throws RunPlaceCheck.Refused As {@code NotTheTasksPush} with the head, when it may not.
+     */
+    public boolean mayPinAtPullRequest(
+            final String task, final String upstream, final String branch, final String head) {
+        if (role(task) == Role.REVIEWER) {
+            return true;
+        }
+        Optional<String> passed;
+        try {
+            passed = forwarded.of(task, upstream, branch);
+        } catch (IOException ex) {
+            passed = Optional.empty();
+        }
+        if (passed.filter(head::equals).isPresent()) {
+            return true;
+        }
+        throw new RunPlaceCheck.Refused(
+                RunPlaceCheck.Refusal.unavailable(
+                        "NotTheTasksPush",
+                        Map.of("head", head),
+                        "the pull request's head is not what this task's gate passed on to "
+                                + branch));
     }
 
     /** Names no entry, credential or token. */

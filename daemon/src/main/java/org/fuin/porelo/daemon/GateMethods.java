@@ -1065,7 +1065,9 @@ final class GateMethods {
                 (parameters, replies) -> {
                     final org.fuin.porelo.app.ReviewOpen.Place place = place(parameters);
                     final String task = optionalName(parameters, "task");
-                    if (place instanceof org.fuin.porelo.app.ReviewOpen.OwnPullRequest
+                    // A pull request's open points are its asking task's: its side and its held
+                    // items.
+                    if (!(place instanceof org.fuin.porelo.app.ReviewOpen.GatePush)
                             && task == null) {
                         throw new VarlinkException(
                                 "org.varlink.service.InvalidParameter",
@@ -1111,11 +1113,18 @@ final class GateMethods {
                     if (task != null && !task.matches(org.fuin.porelo.gate.review.Task.NAME)) {
                         throw invalid("task");
                     }
+                    // Every task's listing passes a journal that cannot be read and names it, so
+                    // one damaged journal never hides every other task's items.
+                    final org.fuin.porelo.gate.review.ReviewHolds.Undecided undecided =
+                            task == null
+                                    ? holds.everyUndecided()
+                                    : new org.fuin.porelo.gate.review.ReviewHolds.Undecided(
+                                            holds.undecided(task), List.of());
                     final org.fuin.porelo.app.HeldItemRows.Page page;
                     try {
                         page =
                                 org.fuin.porelo.app.HeldItemRows.page(
-                                        holds.undecided(task),
+                                        undecided.items(),
                                         task,
                                         optionalName(parameters, "cursor"));
                     } catch (ReviewRefused ex) {
@@ -1125,6 +1134,9 @@ final class GateMethods {
                     reply.put("items", page.items());
                     if (page.next() != null) {
                         reply.put("cursor", page.next());
+                    }
+                    if (!undecided.unreadable().isEmpty()) {
+                        reply.put("unreadable", undecided.unreadable());
                     }
                     replies.last(reply);
                 });
@@ -1269,8 +1281,13 @@ final class GateMethods {
             return new org.fuin.porelo.app.ReviewOpen.GatePush(
                     named == null || named.isBlank() ? null : named, name);
         }
-        if (pullRequest instanceof String branch && !branch.isBlank()) {
-            return new org.fuin.porelo.app.ReviewOpen.PullRequest(branch);
+        if (pullRequest instanceof String address) {
+            try {
+                return new org.fuin.porelo.app.ReviewOpen.PullRequest(
+                        org.fuin.porelo.gate.review.PullRequestRef.of(new java.net.URI(address)));
+            } catch (java.net.URISyntaxException | IllegalArgumentException ex) {
+                throw invalid("place");
+            }
         }
         if (Boolean.TRUE.equals(ownPullRequest)) {
             return new org.fuin.porelo.app.ReviewOpen.OwnPullRequest();

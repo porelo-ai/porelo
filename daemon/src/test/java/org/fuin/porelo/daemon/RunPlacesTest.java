@@ -10,11 +10,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.fuin.porelo.app.OwnPullRequests;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.app.RunPlace;
+import org.fuin.porelo.app.RunPlaceCheck;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.gate.review.CommentReading;
+import org.fuin.porelo.gate.review.ForgeCredential;
 import org.fuin.porelo.gate.review.ForgeFileUnreadable;
 import org.fuin.porelo.gate.review.ForgeInstance;
 import org.fuin.porelo.testing.FakeCommandRunner;
@@ -34,6 +37,10 @@ class RunPlacesTest {
     private static final String PULL_REQUEST = "https://forge.example.org/uc/web-app/pull/7";
 
     private static final String ENTRY = "git.token.forge.example.org";
+
+    private static final Map<String, Object> OWN = Map.of("ownPullRequest", true);
+
+    private final StandInAdapter adapter = new StandInAdapter();
 
     private final StandInForges forges = new StandInForges();
 
@@ -166,20 +173,65 @@ class RunPlacesTest {
     }
 
     @Test
-    void ownPullRequestIsUnreadableForWantOfItsForgeAdapter() {
-        final VarlinkException refused = refused(Map.of("place", Map.of("ownPullRequest", true)));
+    void anAuthorAtItsOwnPullRequestIsTakenAtTheOneOpenFromItsBranchAndReachesTheStart() {
+        final RunPlace taken = ownAt(Map.of("place", OWN));
+
+        assertThat(taken)
+                .as("an author at the pull request open from its branch")
+                .isEqualTo(RunPlace.atPullRequest(RunPlace.AUTHOR, "fix", PULL_REQUEST));
+        assertThat(started).as("the start is told of it").containsExactly(taken);
+        assertThat(adapter.asked)
+                .as("the forge's adapter, asked with its lent credential about the task's branch")
+                .containsExactly(
+                        "forgejo "
+                                + ENTRY
+                                + " https://forge.example.org/uc/web-app.git porelo/fix");
+    }
+
+    @Test
+    void noPullRequestOpenFromItsBranchIsNoPullRequestNamingTheBranch() {
+        adapter.open = Optional.empty();
+
+        final VarlinkException refused = ownRefused(Map.of("place", OWN));
 
         assertThat(refused.getErrorName())
-                .as("the task's own pull request")
-                .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+                .as("none open")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".NoPullRequest");
         assertThat(refused.getParameters())
-                .as("the reason, and a detail for a person")
-                .containsEntry("reason", "ForgeAdapterMissing")
-                .containsKey("detail");
-        assertThat(String.valueOf(refused.getParameters().get("detail")))
-                .as("says the task's own pull request is not read yet")
-                .contains("pull request")
-                .contains("not read yet");
+                .as("the branch it was looked for from")
+                .isEqualTo(Map.of("branch", "porelo/fix"));
+        assertThat(started).as("nothing is started").isEmpty();
+    }
+
+    @Test
+    void aReviewerAtItsOwnPullRequestIsRoleNotAllowedAndTheForgeIsNotAsked() {
+        final VarlinkException refused = ownRefused(Map.of("role", "REVIEWER", "place", OWN));
+
+        assertThat(refused.getErrorName())
+                .as("a reviewer of its own work")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".RoleNotAllowed");
+        assertThat(refused.getParameters())
+                .as("the role and the place")
+                .isEqualTo(Map.of("role", "REVIEWER", "place", OWN));
+        assertThat(adapter.asked).as("the forge is not asked").isEmpty();
+    }
+
+    @Test
+    void anOwnPullRequestAtAForgeUnknownOrWithoutItsTokenIsRefusedBeforeTheForgeIsAsked() {
+        forges.holds = Optional.of(false);
+        assertThat(ownRefused(Map.of("place", OWN)).getParameters())
+                .as("no token for the upstream's forge")
+                .containsEntry("reason", "MissingForgeToken");
+
+        forges.known.clear();
+        final VarlinkException unknown = ownRefused(Map.of("place", OWN));
+        assertThat(unknown.getErrorName())
+                .as("an upstream at a forge this machine does not know")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".UnknownForge");
+        assertThat(unknown.getParameters())
+                .as("its host")
+                .isEqualTo(Map.of("host", "forge.example.org"));
+        assertThat(adapter.asked).as("the forge is not asked").isEmpty();
     }
 
     @Test
@@ -389,10 +441,10 @@ class RunPlacesTest {
                 .as("another task's push")
                 .isEqualTo(PoreloDaemon.INTERFACE + ".NotTheTasksPush");
 
-        asked.put("place", Map.of("ownPullRequest", true));
+        asked.put("place", OWN);
         assertThat(canStartRefused(asked).getErrorName())
-                .as("the task's own pull request")
-                .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+                .as("the own pull request of a task whose repository names no upstream")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".NoPullRequest");
 
         asked.put("place", Map.of("pullRequest", PULL_REQUEST));
         assertThat(canStartRefused(asked).getErrorName())
@@ -458,6 +510,48 @@ class RunPlacesTest {
         return taken;
     }
 
+    /** Taken for the task of the repository with an upstream, its own pull request found. */
+    private RunPlace ownAt(final Map<String, Object> parameters) {
+        final RunPlace taken =
+                RunPlaces.taken(
+                        context,
+                        parameters,
+                        projectFile,
+                        "fix",
+                        "web",
+                        true,
+                        forges,
+                        new OwnPullRequests(adapter, entry -> new ForgeCredential(entry, "lent")),
+                        (task, place, ref) -> started.add(place));
+        assertThat(taken).as("taken: %s", parameters).isNotNull();
+        return taken;
+    }
+
+    private VarlinkException ownRefused(final Map<String, Object> parameters) {
+        final VarlinkException refused =
+                catchThrowableOfType(() -> ownAt(parameters), VarlinkException.class);
+        assertThat(refused).as("refused: %s", parameters).isNotNull();
+        return refused;
+    }
+
+    /** A forge adapter that answers one open pull request, and records what it was asked. */
+    private static final class StandInAdapter implements OwnPullRequests.Adapter {
+
+        Optional<String> open = Optional.of(PULL_REQUEST);
+
+        final List<String> asked = new java.util.ArrayList<>();
+
+        @Override
+        public Optional<String> pullRequestOf(
+                final String name,
+                final ForgeCredential credential,
+                final String upstream,
+                final String branch) {
+            asked.add(name + " " + credential.entry() + " " + upstream + " " + branch);
+            return open;
+        }
+    }
+
     private VarlinkException refusedAt(final Map<String, Object> parameters) {
         final VarlinkException refused =
                 catchThrowableOfType(() -> takenAt(parameters), VarlinkException.class);
@@ -466,7 +560,7 @@ class RunPlacesTest {
     }
 
     /** The forges this machine knows, its adapters and whether the vault holds an entry. */
-    private static final class StandInForges implements RunPlaces.Forges {
+    private static final class StandInForges implements RunPlaceCheck.Forges {
 
         final Map<String, ForgeInstance> known =
                 new HashMap<>(

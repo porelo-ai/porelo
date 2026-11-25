@@ -58,26 +58,28 @@ public final class CommentGateCheck implements CommentGate {
     }
 
     @Override
-    public Optional<String> judge(final ReviewPlace place, final Run run, final Kept item) {
+    public Optional<String> judge(
+            final ReviewPlace place, final Run run, final Kept item, final Kept root) {
         if (place.reading() == CommentReading.TRUSTED) {
             // The format and size checks already ran on the input path.
             return Optional.empty();
         }
-        final Optional<String> rule = filtered(run, item);
+        final Optional<String> rule = filtered(run, item, root);
         rule.ifPresent(each -> holds.hold(run, task, Direction.INCOMING, item.item(), item, each));
         return rule;
     }
 
     /** Puts the comment through the filter as an external peer's message, failing closed. */
-    private Optional<String> filtered(final Run run, final Kept item) {
+    private Optional<String> filtered(final Run run, final Kept item, final Kept root) {
         final PullRequestFacts facts = run.pinned().facts();
         if (facts == null) {
             return Optional.of(NO_PAGE);
         }
         final Optional<String> rule;
         try {
-            rule = filter.refuse(facts.ref().forge(), writing.one(facts, item));
-        } catch (final IOException cannotRun) {
+            rule = filter.refuse(facts.ref().forge(), writing.one(facts, item, root));
+        } catch (final IOException | RuntimeException cannotRun) {
+            // No page or no verdict: never a comment let through unchecked.
             return Optional.of(FILTER_UNAVAILABLE);
         }
         // A blank rule id is still a refusal, and a hold names its rule.

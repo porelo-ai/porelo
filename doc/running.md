@@ -395,9 +395,19 @@ window, hands it over as the definition says; without one nothing is passed and 
 A task with a gate runs in a role, `AUTHOR` or `REVIEWER`, at a place: the gate push it works at. A start that
 names neither, as `porelo task start` and the window do, is an author at the task's own gate push, named by the
 task's name and, for a repository other than the project's own, by that repository. The daemon's `Start` and
-`CanStart` take `role` and `place`; before anything is made they refuse a reviewer at its own task's work
-(`RoleNotAllowed`), another task's push (`NotTheTasksPush`, with the head that waits there), and a pull request's
-place, which is not read yet (`PlaceUnreadable`, `ForgeAdapterMissing`), whether the task runs or not. A
+`CanStart` take `role` and `place`, as `porelo task start` takes `--role` and `--place`; before anything is made,
+whether the task runs or not, they refuse a reviewer at its own task's work (`RoleNotAllowed`), another task's
+push (`NotTheTasksPush`, with the head that waits there), and a reviewer at its own pull request. A pull request
+named by its https address is refused for a task without a gate, at a host whose forge this machine does not know
+(`UnknownForge`), and as `PlaceUnreadable` when the machine's forge file cannot be read (`ForgeFileUnreadable`),
+its forge adapter is not installed (`ForgeAdapterMissing`), or the vault does not hold its forge's token or is
+shut (`MissingForgeToken`); the vault is asked only whether it holds the token. A run at a pull request is an
+author's unless it names its role. The task's own pull request (`ownPullRequest`, `--place own`) is an author's
+run at the pull request open from the task's branch, the one its builds are read from, at the upstream of its
+repository: the forge's adapter is asked at each start, with the forge's token lent for that call alone, and the
+answer is never kept. A task whose repository names no upstream, or from whose branch none is open, is refused
+as `NoPullRequest` with the branch; an adapter or a forge that does not answer as `PlaceUnreadable`
+(`Unreachable`), and a token the forge refuses as `PlaceUnreadable` (`MissingForgeToken`). A
 repository is named by its key or its full name. The task keeps its role and place through a stop and a reboot, and starting it again keeps them. Its
 row in `List` and `Watch` and its record in `porelo task records --json` carry `role`, `place` and `held`, the
 number of review items held back from the run; a task without a gate has no role and no place. A task whose

@@ -1,10 +1,14 @@
 package org.fuin.porelo.app;
 
 import java.io.PrintWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
+import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -44,8 +48,10 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
 
     @Option(
             names = "--pull-request",
-            paramLabel = "<branch>",
-            description = "A pull request at the forge, by the branch it comes from.")
+            paramLabel = "<url>",
+            description =
+                    "A pull request at a forge this machine knows, by its https address; needs"
+                            + " --task.")
     private @Nullable String pullRequest;
 
     @Option(
@@ -145,6 +151,13 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
         if (ownPullRequest && (task == null || task.isBlank())) {
             return "--own-pull-request needs --task, the task whose pull request it is";
         }
+        if (pullRequest != null && (task == null || task.isBlank())) {
+            return "--pull-request needs --task, the task whose run asks";
+        }
+        if (pullRequest != null && ref(pullRequest) == null) {
+            return "--pull-request is a pull request's https address, not "
+                    + TerminalText.line(pullRequest);
+        }
         if (gatePush != null && gatePush.isBlank()) {
             return "--gate-push needs the push's name";
         }
@@ -161,9 +174,18 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
             return new ReviewOpen.GatePush(repository, gatePush);
         }
         if (pullRequest != null) {
-            return new ReviewOpen.PullRequest(pullRequest);
+            return new ReviewOpen.PullRequest(Objects.requireNonNull(ref(pullRequest), "ref"));
         }
         return new ReviewOpen.OwnPullRequest();
+    }
+
+    /** The pull request an address names, or null when it is none. */
+    private static @Nullable PullRequestRef ref(final String address) {
+        try {
+            return PullRequestRef.of(new URI(address));
+        } catch (URISyntaxException | IllegalArgumentException ex) {
+            return null;
+        }
     }
 
     private static String sentence(final ReviewOpen.Refused refused) {

@@ -84,6 +84,14 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private @Nullable String pinned;
 
     @Option(
+            names = "--pinned-repository",
+            paramLabel = "<dir>",
+            description =
+                    "The reviewer's own repository, holding only what its pin reaches, which a"
+                            + " reviewer's gate serves in place of the mirror. Needed with --pinned.")
+    private @Nullable Path pinnedRepository;
+
+    @Option(
             names = "--pass-on",
             description =
                     "Passes a push to the task's own ref on to the upstream at once, as its branch, and fetches"
@@ -462,11 +470,16 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                 err.flush();
                 return 2;
             }
+            if ((pinned == null) != (pinnedRepository == null)) {
+                err.println("porelo: --pinned and --pinned-repository are given together");
+                err.flush();
+                return 2;
+            }
             try (GitHttpServer server =
                     pinned != null
                             ? GitHttpServer.reviewing(
                                     new InetSocketAddress(InetAddress.getByName(address), port),
-                                    gate.mirror(),
+                                    java.util.Objects.requireNonNull(pinnedRepository),
                                     token,
                                     new GitSubprocess(context.limits()),
                                     pinned)

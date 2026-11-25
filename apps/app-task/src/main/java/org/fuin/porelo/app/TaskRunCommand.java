@@ -369,6 +369,26 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             + " all, without naming them; a task started with a prompt stays stopped, its session kept.")
     private boolean restarted;
 
+    @Option(
+            names = "--role",
+            paramLabel = "author|reviewer",
+            description =
+                    "The role the task's run takes: author, the default, or reviewer. A reviewer is"
+                            + " never one of its own task's gate push.")
+    private @Nullable String role;
+
+    @Option(
+            names = "--place",
+            paramLabel = "<url>|own|push:<name>",
+            description =
+                    "Where the task's run works: a pull request by its https address, own for the"
+                            + " pull request from the task's own branch, or push:<name> for the task's"
+                            + " own gate push, the default.")
+    private @Nullable String place;
+
+    /** Checks the role and place; refuses both until the binary plugs its check in. */
+    private StartPlaces places = StartPlaces.NONE;
+
     @Spec private CommandSpec spec;
 
     /** Whether a person is at a terminal; a test says so, since it has none. */
@@ -429,6 +449,17 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     @Override
     public void setContext(PoreloContext context) {
         this.context = context;
+    }
+
+    /**
+     * Checks the role and place a start names with this check.
+     *
+     * @param check The check.
+     * @return This command.
+     */
+    public TaskRunCommand placedBy(final StartPlaces check) {
+        this.places = java.util.Objects.requireNonNull(check, "check");
+        return this;
     }
 
     /**
@@ -1258,6 +1289,25 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
 
+        // Before anything is made, whether the task runs or not, as the daemon's Start checks them.
+        final RunPlace runPlace;
+        try {
+            runPlace =
+                    places.taken(
+                            context,
+                            projectFile,
+                            task,
+                            repository,
+                            !noGate && !readOnly && !allRepositories,
+                            role,
+                            place,
+                            () -> TaskBranch.of(projectFile, repository, task, given, branch));
+        } catch (StartPlaces.Refused refused) {
+            err.println("porelo: " + refused.getMessage());
+            err.flush();
+            return refused.exit();
+        }
+
         // Starting the task is the domain's job; what this class adds is the terminal. The daemon
         // builds the same request and gets the same behavior without running a CLI.
         final TaskLaunch launch =
@@ -1314,6 +1364,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                         : uncertifiedAsker)
                         .reading(reads)
                         .keyedBy(callerKey)
+                        .at(runPlace)
                         .configuringWith(detector)
                         // Asked at a terminal only; unattended the start only says it.
                         .askingToLeaveDefault(

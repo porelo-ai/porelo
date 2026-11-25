@@ -28,6 +28,9 @@ import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * A run of a reviewer at a pull request fetches the pull request's head with the lent read token in
@@ -68,7 +71,8 @@ class PullRequestPinsTest {
 
     private int ancestorExit;
 
-    private boolean fetchTimesOut;
+    /** How the fetch fails to end by itself: timeout, cancel or start; null when it ends. */
+    private @Nullable String fetchThrows;
 
     private String fetchSaid = "fatal: Authorization: Bearer " + TOKEN;
 
@@ -77,8 +81,14 @@ class PullRequestPinsTest {
                 ran.add(command);
                 final List<String> arguments = command.arguments();
                 if (arguments.contains("fetch")) {
-                    if (fetchTimesOut) {
+                    if ("timeout".equals(fetchThrows)) {
                         throw CommandException.timedOut(command, Duration.ofSeconds(1), "");
+                    }
+                    if ("cancel".equals(fetchThrows)) {
+                        throw CommandException.cancelled(command, "");
+                    }
+                    if ("start".equals(fetchThrows)) {
+                        throw new CommandException(command, new IOException("no git"));
                     }
                     return new CommandResult(command, fetchExit, "", fetchSaid);
                 }
@@ -131,10 +141,19 @@ class PullRequestPinsTest {
                         "--no-tags",
                         "--no-recurse-submodules",
                         "--no-write-fetch-head",
+                        "--no-auto-maintenance",
                         "--end-of-options",
                         REPOSITORY,
                         HEAD)
-                .contains("protocol.https.allow=always", "--git-dir", mirror.toString());
+                .contains(
+                        "protocol.https.allow=always",
+                        "--git-dir",
+                        mirror.toString(),
+                        "http.followRedirects=false",
+                        "gc.auto=0",
+                        "maintenance.auto=false",
+                        "fetch.fsckObjects=true",
+                        "transfer.fsckObjects=true");
         assertThat(String.join(" ", fetch.arguments()))
                 .as("the token in no argument, the helper named by its variable")
                 .doesNotContain(TOKEN)
@@ -170,18 +189,110 @@ class PullRequestPinsTest {
                 .isEqualTo(new RunPlace.Pin(HEAD, MERGE_BASE, REPOSITORY));
     }
 
-    @Test
-    void aRepositoryOnAnotherHostIsRefusedBeforeAnyFetch() {
-        adapter.repository = "https://elsewhere.example/shop/app";
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://elsewhere.example/shop/app",
+                "https://u:secret-in-userinfo@forge.example/shop/app",
+                "https://forge.example:8443/shop/app",
+                "https://FORGE.example/shop/app",
+                "https://forge.example%2f@other.example/x/y",
+                "https://forge.example/shop/app?private_token=secret-in-query",
+                "https://forge.example/shop/app#secret-in-fragment",
+                "https://forge.example/shop/äpp",
+                "https://forge.example/app",
+                "https://forge.example/shop/../app",
+                "https://forge.example/shop/app/"
+            })
+    void aRepositoryNotPlainlyOnThePullRequestsForgeIsRefusedBeforeAnyFetch(
+            final String repository) {
+        adapter.repository = repository;
 
         assertThatThrownBy(() -> pins.pin(REF, TASK))
-                .as("the owner's token is never sent to another host")
+                .as("the owner's token is never sent to %s", repository)
+                .isInstanceOfSatisfying(
+                        PlaceUnreadable.class,
+                        refused -> {
+                            assertThat(refused.reason())
+                                    .as("reason")
+                                    .isEqualTo(PlaceUnreadable.Reason.UNREACHABLE);
+                            assertThat(refused.getMessage())
+                                    .as("the detail says what was wrong, never the value")
+                                    .doesNotContain(repository)
+                                    .doesNotContain("secret");
+                        });
+        assertThat(ran).as("no git run").isEmpty();
+        assertThat(lent).as("lent for the facts alone, never for a fetch").containsExactly(ENTRY);
+    }
+
+    @Test
+    void aRepositoryOverPlainHttpNeverReachesAPinSinceTheFactsRefuseIt() {
+        assertThatThrownBy(
+                        () ->
+                                new PullRequestFacts(
+                                        REF,
+                                        "http://forge.example/shop/app",
+                                        HEAD,
+                                        BASE,
+                                        MERGE_BASE,
+                                        PullRequestState.OPEN,
+                                        false,
+                                        null,
+                                        null,
+                                        null))
+                .as("an adapter cannot answer facts on http")
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void aTaskThatIsNoReviewerIsRefusedBeforeAnyTokenIsLent() throws IOException {
+        new RunPlace(RunPlace.AUTHOR, null, "shop-2").writeTo(state);
+
+        assertThatThrownBy(() -> pins.pin(REF, TASK))
+                .as("an author's task is never pinned")
                 .isInstanceOfSatisfying(
                         PlaceUnreadable.class,
                         refused ->
                                 assertThat(refused.reason())
                                         .as("reason")
-                                        .isEqualTo(PlaceUnreadable.Reason.UNREACHABLE));
+                                        .isEqualTo(PlaceUnreadable.Reason.NOT_IN_PROJECT));
+        assertThat(lent).as("no token lent").isEmpty();
+        assertThat(adapter.asked).as("the forge not asked").isEmpty();
+        assertThat(ran).as("no git run").isEmpty();
+    }
+
+    @Test
+    void aTaskWithoutARecordedRunIsRefusedBeforeAnyTokenIsLent() throws IOException {
+        RunPlace.clear(state);
+
+        assertThatThrownBy(() -> pins.pin(REF, TASK))
+                .as("a task with no recorded role")
+                .isInstanceOfSatisfying(
+                        PlaceUnreadable.class,
+                        refused ->
+                                assertThat(refused.reason())
+                                        .as("reason")
+                                        .isEqualTo(PlaceUnreadable.Reason.NOT_IN_PROJECT));
+        assertThat(lent).as("no token lent").isEmpty();
+        assertThat(ran).as("no git run").isEmpty();
+    }
+
+    @Test
+    void addedTrustMaySetOnlyTheCertificateBundle() {
+        final PullRequestPins steered =
+                new PullRequestPins(
+                        adapter,
+                        entry -> new ForgeCredential(entry, TOKEN),
+                        task ->
+                                new PullRequestPins.TaskGate(
+                                        mirror, state, "review-shop", "shop", "app", "shop-2"),
+                        git,
+                        url -> Map.of("GIT_CONFIG_GLOBAL", "/home/someone/.gitconfig"),
+                        Duration.ofMinutes(2));
+
+        assertThatThrownBy(() -> steered.pin(REF, TASK))
+                .as("trust that would steer git's configuration")
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(ran).as("no git run").isEmpty();
     }
 
@@ -205,18 +316,26 @@ class PullRequestPinsTest {
         assertThat(RunPlace.readFrom(state).pinned()).as("nothing pinned").isNull();
     }
 
-    @Test
-    void aFetchThatTimesOutIsUnreachable() {
-        fetchTimesOut = true;
+    @ParameterizedTest
+    @CsvSource({
+        "timeout, did not end in time",
+        "cancel, was called off",
+        "start, could not be started"
+    })
+    void aFetchThatDidNotEndByItselfIsUnreachableAndSaysWhy(final String how, final String detail) {
+        fetchThrows = how;
 
         assertThatThrownBy(() -> pins.pin(REF, TASK))
-                .as("the forge did not answer in time")
+                .as("the fetch did not end by itself: %s", how)
                 .isInstanceOfSatisfying(
                         PlaceUnreadable.class,
-                        refused ->
-                                assertThat(refused.reason())
-                                        .as("reason")
-                                        .isEqualTo(PlaceUnreadable.Reason.UNREACHABLE));
+                        refused -> {
+                            assertThat(refused.reason())
+                                    .as("reason")
+                                    .isEqualTo(PlaceUnreadable.Reason.UNREACHABLE);
+                            assertThat(refused.getMessage()).as("detail").contains(detail);
+                        });
+        Thread.interrupted();
     }
 
     @Test
@@ -312,7 +431,16 @@ class PullRequestPinsTest {
                 throw refusal;
             }
             return new PullRequestFacts(
-                    ref, repository, HEAD, BASE, MERGE_BASE, PullRequestState.OPEN, null, null);
+                    ref,
+                    repository,
+                    HEAD,
+                    BASE,
+                    MERGE_BASE,
+                    PullRequestState.OPEN,
+                    false,
+                    null,
+                    null,
+                    null);
         }
 
         @Override

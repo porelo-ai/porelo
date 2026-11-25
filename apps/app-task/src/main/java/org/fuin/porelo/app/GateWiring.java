@@ -458,8 +458,8 @@ final class GateWiring {
     }
 
     /**
-     * Returns the command that serves a reviewer's gate: its pinned ref alone, read only, and
-     * nothing passed on, judged or read beside it.
+     * Returns the command that serves a reviewer's gate: its pinned ref alone, from its own
+     * repository in its state, read only, and nothing passed on, judged or read beside it.
      *
      * @param project The task's project.
      * @param bind Where the gate listens.
@@ -491,7 +491,11 @@ final class GateWiring {
                                 "--pid-file",
                                 state.resolve("gate.pid").toString(),
                                 "--pinned",
-                                org.fuin.porelo.gate.GitGate.PINNED + taskName));
+                                org.fuin.porelo.gate.GitGate.PINNED + taskName,
+                                // Its own repository, never the shared mirror the pin is taken
+                                // from.
+                                "--pinned-repository",
+                                org.fuin.porelo.gate.PinnedRepository.in(state).toString()));
         if (repository != null) {
             // On the recorded command line, so a resumed reviewer reads the same mirror.
             command.add("--repository");

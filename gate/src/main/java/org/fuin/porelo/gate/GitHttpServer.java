@@ -336,11 +336,13 @@ public class GitHttpServer implements AutoCloseable {
      *
      * <p>Every {@code receive-pack} request is refused, at service discovery and at its call, so no
      * ref moves, the task's own included. A fetch is shown the pinned ref alone, not even {@code
-     * HEAD}; git serves no commit by its id that no shown ref reaches. Pinning afresh moves the ref
-     * in the mirror, and the running gate shows where it points then.
+     * HEAD}, and a want of any commit it does not name is refused whatever git is configured with.
+     * The repository served is the reviewer's own, {@link PinnedRepository}, never the shared
+     * mirror: hidden refs do not keep git from acknowledging or packing what the repository holds.
+     * Pinning afresh replaces that repository, and the running gate serves the new one.
      *
      * @param address Where to listen.
-     * @param mirror The bare mirror.
+     * @param mirror The reviewer's own repository.
      * @param token What a request must present.
      * @param git How git is run.
      * @param pinned The ref that holds the pinned state.
@@ -1011,7 +1013,9 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
-     * Returns git's arguments hiding every ref and {@code HEAD} but one; later entries win.
+     * Returns git's arguments hiding every ref and {@code HEAD} but one, with every want of a
+     * commit no shown ref names refused; later entries win, and the command line wins over the
+     * host's and the repository's own configuration.
      *
      * @param pinned The one ref shown.
      * @param arguments Arguments after these.
@@ -1026,7 +1030,13 @@ public class GitHttpServer implements AutoCloseable {
                                 "-c",
                                 "transfer.hideRefs=refs/",
                                 "-c",
-                                "transfer.hideRefs=!" + pinned));
+                                "transfer.hideRefs=!" + pinned,
+                                "-c",
+                                "uploadpack.allowAnySHA1InWant=false",
+                                "-c",
+                                "uploadpack.allowReachableSHA1InWant=false",
+                                "-c",
+                                "uploadpack.allowTipSHA1InWant=false"));
         command.addAll(List.of(arguments));
         return command;
     }

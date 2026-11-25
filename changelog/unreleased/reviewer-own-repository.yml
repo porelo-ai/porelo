@@ -1,0 +1,2 @@
+title: A reviewer's gate serves a repository of its own holding only the pinned head and base, so no request reaches another task's work, a hidden tag or a hidden ref; a reviewer gets no host service of the project, its record is replaced whole, and a pin of a tag is refused
+type: fixed

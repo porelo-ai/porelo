@@ -2,14 +2,18 @@ package org.fuin.porelo.app;
 
 import java.util.Objects;
 import org.fuin.porelo.gate.review.ForgeCredential;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.ForgeReview;
 import org.fuin.porelo.gate.review.Held;
+import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.ProfileWriting;
 import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
+import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewReply;
 import org.fuin.porelo.gate.review.WriteOutcome;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Writes one released item to its pull request: as a one-result profile 2 submission, posted once
@@ -52,34 +56,54 @@ public final class ForgeWrite {
      * @param facts The pull request as the item's run pinned it.
      * @param held The released item.
      * @param credential The write credential, lent for this write.
+     * @param threadPlace The anchor of the opening comment of the forge thread a reply answers, as
+     *     a fresh read of the conversation gives it; null when that thread was not found. A comment
+     *     is written at its own anchor.
      * @return What became of it: {@link WriteOutcome.Refused}, unposted, for an item held for
      *     another commit than the pinned head ({@value #MOVED_SINCE_REVIEW}), a reply in one of
-     *     Porelo's own threads ({@value #NO_SUCH_THREAD}) or one profile 2 cannot carry ({@value
-     *     #NOT_IN_PROFILE}); otherwise the forge's answer, and {@link WriteOutcome.OutcomeUnknown}
-     *     when the post failed.
+     *     Porelo's own threads or a forge reply whose thread's place is not given ({@value
+     *     #NO_SUCH_THREAD}) or one profile 2 cannot carry ({@value #NOT_IN_PROFILE}); otherwise the
+     *     forge's answer, and {@link WriteOutcome.OutcomeUnknown} when the post failed.
      */
     public WriteOutcome write(
             final PullRequestRef ref,
             final PullRequestFacts facts,
             final Held held,
-            final ForgeCredential credential) {
+            final ForgeCredential credential,
+            final @Nullable LineAnchor threadPlace) {
         if (!held.commit().equals(facts.head())) {
             return new WriteOutcome.Refused(MOVED_SINCE_REVIEW);
         }
-        if (held.item() instanceof ReviewReply) {
-            return new WriteOutcome.Refused(NO_SUCH_THREAD);
+        final LineAnchor place;
+        switch (held.item()) {
+            case ReviewReply _ -> {
+                return new WriteOutcome.Refused(NO_SUCH_THREAD);
+            }
+            case ForgeReply _ -> {
+                if (threadPlace == null) {
+                    // A reply is written at its thread's place, which a fresh read did not find.
+                    return new WriteOutcome.Refused(NO_SUCH_THREAD);
+                }
+                place = threadPlace;
+            }
+            case ReviewComment comment -> {
+                switch (comment.anchor()) {
+                    case LineAnchor own -> place = own;
+                }
+            }
         }
         final byte[] submission;
         try {
-            submission = writing.submission(facts, held.item());
+            submission = writing.submission(facts, held.item(), place);
         } catch (IllegalArgumentException ex) {
             return new WriteOutcome.Refused(NOT_IN_PROFILE);
         }
         try {
-            return forge.post(ref, submission, credential);
+            return java.util.Objects.requireNonNull(
+                    forge.post(ref, submission, credential), "an adapter's post answers");
         } catch (RuntimeException ex) {
-            // It may have gone out; sending it again could write it twice, and the failure's text
-            // is the adapter's, which is neither kept nor shown.
+            // It may have gone out, a post that answered nothing too; sending it again could write
+            // it twice, and the failure's text is the adapter's, which is neither kept nor shown.
             return new WriteOutcome.OutcomeUnknown();
         }
     }

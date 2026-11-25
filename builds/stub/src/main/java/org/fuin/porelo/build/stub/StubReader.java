@@ -57,21 +57,27 @@ import org.jspecify.annotations.Nullable;
  *     "facts": {"repository": "https://forge.example/o/n", "head": "4f2a…", "base": "…", "mergeBase": "…",
  *               "state": "open", "approved": false},
  *     "pages": [{… a profile 2 page …}, …],
- *     "postedAs": {"porelo/forgeAccountId": "77", "porelo/forgeAccountName": "reviewer"}}},
+ *     "postedAs": {"porelo/forgeAccountId": "77", "porelo/forgeAccountName": "reviewer"}},
+ *   "https://forge.example/o/n/pull/2": {
+ *     "facts": {"repository": "https://forge.example/o/n", "head": "4f2a…", "base": "…", "mergeBase": "…",
+ *               "state": "merged", "approved": true, "mergeCommit": "…", "mergedHead": "main",
+ *               "decidedAt": "2026-11-20T10:15:30Z"},
+ *     "pages": [{… a profile 2 page …}, …]}},
  *  "openPullRequests": {"porelo/fix-login": "https://forge.example/o/n/pull/1"},
  *  "reviewRefuse": {"reason": "RATE_LIMITED", "retryAfter": 30}}
  * </pre>
  *
- * {@code facts} are a pull request's as the contract answers them, and {@code pages} its
- * conversation, one profile 2 page each, the cursor of the next being its index; a page past 100
- * results or 1 MiB spills onto pages of its own. Each {@code Post} is written as one line to {@link
- * #POSTS} beside the answers - its address, its thread, the guid it is given then, and its
- * document, never the token - and its result joins the last page of that conversation with that
- * guid, its thread, and as {@code forge-account}: the stub's own account ({@link #ACCOUNT_ID},
- * {@link #ACCOUNT_NAME}), or what {@code postedAs} names over it. A reply names a thread the
- * conversation holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse}
- * refuses every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code
- * retryAfter} or {@code field}; the {@code token} holds for the review calls too.
+ * {@code facts} are a pull request's as the contract answers them, {@code approved} and, for a
+ * merged or closed one, {@code decidedAt} among them, and {@code pages} its conversation, one
+ * profile 2 page each, the cursor of the next being its index; a page past 100 results or 1 MiB
+ * spills onto pages of its own. Each {@code Post} is written as one line to {@link #POSTS} beside
+ * the answers - its address, its thread, the guid it is given then, and its document, never the
+ * token - and its result joins the last page of that conversation with that guid, its thread, and
+ * as {@code forge-account}: the stub's own account ({@link #ACCOUNT_ID}, {@link #ACCOUNT_NAME}), or
+ * what {@code postedAs} names over it. A reply names a thread the conversation holds or is refused;
+ * a new comment opens a thread of its own. A {@code reviewRefuse} refuses every review call, a
+ * reason of {@link ForgeReviewRefused.Reason} with its {@code retryAfter} or {@code field}; the
+ * {@code token} holds for the review calls too.
  */
 public final class StubReader implements BuildReader, ReviewReader {
 

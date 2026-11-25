@@ -11405,4 +11405,161 @@ class TaskRunCommandTest {
         assertThat(code).as("acknowledged: %s", err).isZero();
         assertThat(out.toString()).doesNotContain("deploy/key");
     }
+
+    private static final String PULL_REQUEST = "https://forge.example.org/uc/web/pull/7";
+
+    @Test
+    void aStartAtAPullRequestOfAForgeThisMachineDoesNotKnowIsRefusedByNameBeforeAnythingIsMade(
+            @TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--role",
+                        "reviewer",
+                        "--place",
+                        PULL_REQUEST,
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("an unknown forge is unavailable here: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("the refusal's name and the host")
+                .contains("UnknownForge")
+                .contains("forge.example.org");
+        assertThat(runner.lines())
+                .as("a refused place makes no image or container")
+                .noneMatch(line -> line.contains("podman build") || line.contains("podman create"));
+    }
+
+    @Test
+    void theTasksOwnPullRequestWhenNoneIsOpenFromItsBranchIsRefusedByName(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--place",
+                        "own",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("no pull request of its own: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("the refusal's name and the task's branch")
+                .contains("NoPullRequest")
+                .contains("porelo/shell");
+        assertThat(runner.lines())
+                .as("nothing is made")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aRoleOrPlaceOfAnotherShapeIsRefusedAsTypedBeforeAnythingIsMade(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final String project = projectFile(dir, MINIMAL);
+        for (final List<String> typed :
+                List.of(
+                        List.of("--role", "owner"),
+                        List.of("--place", "elsewhere"),
+                        List.of("--place", "push:"),
+                        List.of("--place", "push:Not A Name"),
+                        List.of("--place", "http://forge.example.org/uc/web/pull/7"),
+                        List.of("--place", PULL_REQUEST + "?x=1"),
+                        List.of("--place", PULL_REQUEST, "--no-gate"))) {
+            final List<String> args =
+                    new ArrayList<>(List.of("task", "start", "--detach", "-p", project));
+            args.addAll(typed);
+
+            assertThat(execute(context, args.toArray(new String[0])))
+                    .as("%s is refused as typed: %s", typed, err)
+                    .isEqualTo(64);
+        }
+        assertThat(err.toString()).as("each names its option").contains("--role", "--place");
+        assertThat(runner.lines())
+                .as("nothing is made")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void aReviewerAtItsOwnPushIsRefusedAsTyped(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--role",
+                        "reviewer",
+                        "--place",
+                        "push:shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a reviewer of its own work: %s", err).isEqualTo(64);
+        assertThat(err.toString()).as("the refusal's name").contains("RoleNotAllowed");
+        assertThat(runner.lines())
+                .as("nothing is made")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void anotherTasksPushIsRefusedAsUnavailable(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--place",
+                        "push:other",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("a push not the task's own: %s", err).isEqualTo(69);
+        assertThat(err.toString()).as("the refusal's name").contains("NotTheTasksPush");
+        assertThat(runner.lines())
+                .as("nothing is made")
+                .noneMatch(line -> line.contains("podman create"));
+    }
+
+    @Test
+    void anAuthorNamingItsOwnPushStartsThereAndRecordsIt(@TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "--role",
+                        "author",
+                        "--place",
+                        "push:shell",
+                        "--attach",
+                        "shell",
+                        "--detach",
+                        "-p",
+                        projectFile(dir, MINIMAL));
+
+        assertThat(code).as("an author at its own push starts: %s", err).isZero();
+        final RunPlace recorded =
+                RunPlace.readFrom(context.paths().tasks().containerState("porelo-uc_shell"));
+        assertThat(recorded).as("the recorded place").isNotNull();
+        assertThat(recorded.role()).as("its role").isEqualTo(RunPlace.AUTHOR);
+        assertThat(recorded.name()).as("its own push").isEqualTo("shell");
+    }
 }

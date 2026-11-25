@@ -63,7 +63,8 @@ that serves no review, or another review version, before it asks it anything. Th
 
 - **`pullRequest(access, url)`**: a pull request's facts - the repository its head is read from, the head reviewed,
   the base, the merge base, its state, whether the forge shows it approved at the head, and the merge commit and the
-  branch it went onto exactly when merged.
+  branch it went onto exactly when merged, and when the forge merged or closed it (an RFC 3339 time in UTC) exactly
+  when merged or closed.
 - **`pullRequestOf(access, upstream, branch)`**: the open pull request from a branch, or none; it opens none.
 - **`comments(access, url, cursor)`**: one page of the whole conversation, one [review profile 2](review-profile.md)
   document of kind `page` that states its own completeness, at most 100 results and 1 MiB, and the cursor of the

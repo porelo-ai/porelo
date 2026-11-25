@@ -121,13 +121,21 @@ public final class ForgeInstanceFile implements ForgeInstances {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The host is the parsed address's own, lower case and without a trailing dot; an address
+     * that names a user, or no host, belongs to no instance.
+     */
     @Override
     public Optional<ForgeInstance> of(final URI url) throws ForgeFileUnreadable {
-        final String host = GitCredentialNames.hostOf(url.toString());
-        if (host == null) {
+        // The parser's authority, never a search for '@': '#' or '?' ends it before any '@'.
+        final String host = url.getHost();
+        if (host == null || url.getRawUserInfo() != null) {
             return Optional.empty();
         }
-        final String wanted = host.toLowerCase(Locale.ROOT);
+        final String lower = host.toLowerCase(Locale.ROOT);
+        final String wanted = lower.endsWith(".") ? lower.substring(0, lower.length() - 1) : lower;
         return all().stream().filter(instance -> instance.host().equals(wanted)).findFirst();
     }
 
@@ -139,23 +147,76 @@ public final class ForgeInstanceFile implements ForgeInstances {
     @Override
     public void set(final String host, final String adapter, final CommentReading reading)
             throws ForgeFileUnreadable {
+        final String named = named(host);
+        if (!adapters.installed(adapter)) {
+            throw new AdapterNotInstalled(adapter);
+        }
+        locked(entries -> replaced(entries, named, adapter, reading));
+    }
+
+    /**
+     * Changes how a known instance's comments are read, keeping its adapter. The host is looked for
+     * under the file's lock, so one taken out meanwhile is never added back.
+     *
+     * @param host The host, a DNS name.
+     * @param reading How its comments are read.
+     * @throws IllegalArgumentException When the host is no DNS name, the file holds no record of it
+     *     or only one that cannot be read, or its adapter is not installed; nothing was changed.
+     * @throws ForgeFileUnreadable When the file cannot be read or written; nothing was changed.
+     */
+    public void comments(final String host, final CommentReading reading)
+            throws ForgeFileUnreadable {
+        final String named = named(host);
+        locked(
+                entries -> {
+                    final ForgeInstance known =
+                            entries.stream()
+                                    .map(Entry::instance)
+                                    .filter(instance -> instance.host().equals(named))
+                                    .findFirst()
+                                    .orElse(null);
+                    final String adapter = known == null ? null : known.adapter();
+                    if (adapter == null) {
+                        throw new IllegalArgumentException(
+                                (known == null
+                                                ? "no forge " + named + " is known"
+                                                : "the record of " + named + " cannot be read")
+                                        + "; 'porelo forge add "
+                                        + named
+                                        + " --adapter <name>' adds it");
+                    }
+                    if (!adapters.installed(adapter)) {
+                        throw new AdapterNotInstalled(adapter);
+                    }
+                    return replaced(entries, named, adapter, reading);
+                });
+    }
+
+    private static String named(final String host) {
         final String named = host.strip().toLowerCase(Locale.ROOT);
         if (!HOST.matcher(named).matches()) {
             throw new IllegalArgumentException("'" + host + "' is not a DNS name");
         }
-        if (!adapters.installed(adapter)) {
-            throw new AdapterNotInstalled(adapter);
-        }
+        return named;
+    }
+
+    /** Reads, changes and writes the file under its lock, in this process and across processes. */
+    private void locked(final java.util.function.Function<List<Entry>, List<Object>> change)
+            throws ForgeFileUnreadable {
         synchronized (WRITERS) {
             try {
                 org.fuin.porelo.wire.Directories.create(file.getParent());
                 try (FileChannel channel =
                                 FileChannel.open(
                                         file.resolveSibling(NAME + ".lock"),
-                                        StandardOpenOption.CREATE,
-                                        StandardOpenOption.WRITE);
+                                        Set.of(
+                                                StandardOpenOption.CREATE,
+                                                StandardOpenOption.WRITE,
+                                                LinkOption.NOFOLLOW_LINKS),
+                                        PosixFilePermissions.asFileAttribute(
+                                                PosixFilePermissions.fromString("rw-------")));
                         FileLock ignored = channel.lock()) {
-                    write(replaced(read(), named, adapter, reading));
+                    write(change.apply(read()));
                 }
             } catch (IOException ex) {
                 throw new ForgeFileUnreadable(file + " cannot be written: " + ex.getMessage());
@@ -180,7 +241,7 @@ public final class ForgeInstanceFile implements ForgeInstances {
                 }
             } else if (instance.unreadable() != null) {
                 // Kept for its owner to mend: dropping it would lose what they wrote.
-                records.add(entry.written());
+                records.add(extended(entry.written()));
             } else {
                 // As read, so a loosened file's trusted is not made genuine by being written again.
                 records.add(
@@ -195,6 +256,16 @@ public final class ForgeInstanceFile implements ForgeInstances {
             records.add(record(host, adapter, reading));
         }
         return records;
+    }
+
+    /** A record kept as written, but extended: a trusted planted in it would hold once mended. */
+    private static @Nullable Object extended(final @Nullable Object written) {
+        if (!(written instanceof Map<?, ?> map)) {
+            return written;
+        }
+        final Map<Object, Object> kept = new LinkedHashMap<>(map);
+        kept.put("comments", CommentReading.EXTENDED.name().toLowerCase(Locale.ROOT));
+        return kept;
     }
 
     private static Map<String, Object> record(

@@ -13,8 +13,10 @@ public interface CommentGate {
      * @param place Where it was read.
      * @param run The run that is to see it.
      * @param item The comment with its producer.
+     * @param root Its thread's opening comment, whose place a reply stands at; for a comment, the
+     *     comment itself.
      * @return The rule it is withheld by, held for the owner account so the run sees only that one
      *     is held; empty when it passes.
      */
-    java.util.Optional<String> judge(ReviewPlace place, Run run, Kept item);
+    java.util.Optional<String> judge(ReviewPlace place, Run run, Kept item, Kept root);
 }

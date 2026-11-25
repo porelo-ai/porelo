@@ -2105,6 +2105,23 @@ public class GitGate {
         return url;
     }
 
+    /**
+     * Returns the last commit this gate forwarded for a task to one branch of its upstream, as its
+     * private record keeps it; reads only.
+     *
+     * @param task The task's name.
+     * @param branch The upstream branch.
+     * @return The commit in full, or empty when this gate forwarded nothing of the task there.
+     */
+    public java.util.Optional<String> forwarded(String task, String branch) {
+        final String ref = forwardedRef(task, branch);
+        if (!resolves(ref + "^{commit}")) {
+            return java.util.Optional.empty();
+        }
+        return java.util.Optional.of(
+                gitIn("rev-parse", "--verify", ref + "^{commit}").standardOutput().strip());
+    }
+
     private String forwardedRef(String task, String branch) {
         // The same commit on another branch or upstream grants no permission to replace it there.
         final String destination =

@@ -1,0 +1,2 @@
+title: "A task started at its own pull request (`--place own`, `ownPullRequest`) works as its author at the pull request open from its branch, asked of the forge's adapter at each start with the forge's token lent for that call alone and never kept; none open, or no upstream to find one at, is refused as NoPullRequest naming the branch"
+type: added

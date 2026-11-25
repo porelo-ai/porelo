@@ -11,9 +11,44 @@ import org.jspecify.annotations.Nullable;
  * A task's branch at the forge, made and judged once: by the start and by the daemon's {@code
  * CanStart} alike, so the question and the start never answer differently.
  */
-final class TaskBranch {
+public final class TaskBranch {
 
     private TaskBranch() {}
+
+    /**
+     * Returns the branch a new task's start settles, as its launch settles it: the branch its
+     * builds are read from and its pull request is opened from.
+     *
+     * @param projectFile The start's project file.
+     * @param repository The repository by its key or full name, or {@code null} when none is named.
+     * @param task The task's name.
+     * @param given The values the start was given, before the project's own are added.
+     * @param branch The branch named outright, or {@code null} for the scheme's.
+     * @return The branch, or {@code null} when the start refuses it or what it names does not read;
+     *     the launch then says why.
+     */
+    public static @Nullable String of(
+            final java.nio.file.Path projectFile,
+            final @Nullable String repository,
+            final String task,
+            final Map<String, Parameters.Given> given,
+            final @Nullable String branch) {
+        if (repository == null) {
+            return null;
+        }
+        try {
+            final Project project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+            return settle(
+                            project,
+                            GateSupport.repository(project, repository).name(),
+                            task,
+                            project.parameters().resolve(given),
+                            branch)
+                    .name();
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
 
     /**
      * What came of making a task's branch.

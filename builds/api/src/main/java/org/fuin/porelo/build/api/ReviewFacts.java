@@ -1,9 +1,12 @@
 package org.fuin.porelo.build.api;
 
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -17,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * @param approved The forge's observed verdict at the head, read only.
  * @param mergeCommit The merge commit exactly when merged, else {@code null}.
  * @param mergedHead The branch the merge commit went onto exactly when merged, else {@code null}.
+ * @param decidedAt When the forge merged or closed it, exactly when merged or closed, else {@code
+ *     null}.
  */
 public record ReviewFacts(
         String repository,
@@ -26,9 +31,14 @@ public record ReviewFacts(
         State state,
         boolean approved,
         @Nullable String mergeCommit,
-        @Nullable String mergedHead) {
+        @Nullable String mergedHead,
+        @Nullable Instant decidedAt) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
+
+    /** RFC 3339 in UTC, as the contract writes a time: a date, a time, its fraction if any, Z. */
+    private static final Pattern UTC =
+            Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z");
 
     /** Where a pull request stands at its forge. */
     public enum State {
@@ -61,7 +71,8 @@ public record ReviewFacts(
     /**
      * Refuses a repository that is no https address of profile 2's shape, a commit not written in
      * full, a merged branch git would not accept, and a merge commit or branch on a pull request
-     * that is not merged, or missing on one that is.
+     * that is not merged, or missing on one that is, and a decision time on a pull request that is
+     * open, or missing on one merged or closed.
      */
     public ReviewFacts {
         Objects.requireNonNull(repository, "repository");
@@ -82,6 +93,10 @@ public record ReviewFacts(
         if (merged != (mergeCommit != null) || merged != (mergedHead != null)) {
             throw new IllegalArgumentException(
                     "a merge commit and its branch are given exactly when merged");
+        }
+        if ((state == State.OPEN) != (decidedAt == null)) {
+            throw new IllegalArgumentException(
+                    "decidedAt is given exactly when the pull request is merged or closed");
         }
         if (mergeCommit != null && !mergeCommit.matches(COMMIT)) {
             throw new IllegalArgumentException("the merge commit is not a full commit id");
@@ -106,6 +121,9 @@ public record ReviewFacts(
         if (mergedHead != null) {
             map.put("mergedHead", mergedHead);
         }
+        if (decidedAt != null) {
+            map.put("decidedAt", decidedAt.toString());
+        }
         return map;
     }
 
@@ -128,7 +146,23 @@ public record ReviewFacts(
                 State.of(text(map, "state")),
                 approved.booleanValue(),
                 optional(map, "mergeCommit"),
-                optional(map, "mergedHead"));
+                optional(map, "mergedHead"),
+                time(optional(map, "decidedAt")));
+    }
+
+    /** Reads a time the contract wrote, refusing one that is no RFC 3339 time in UTC. */
+    private static @Nullable Instant time(final @Nullable String text) {
+        if (text == null) {
+            return null;
+        }
+        if (!UTC.matcher(text).matches()) {
+            throw new IllegalArgumentException("decidedAt is no RFC 3339 time in UTC");
+        }
+        try {
+            return Instant.parse(text);
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("decidedAt is no RFC 3339 time in UTC", ex);
+        }
     }
 
     private static String text(final Map<String, Object> map, final String name) {

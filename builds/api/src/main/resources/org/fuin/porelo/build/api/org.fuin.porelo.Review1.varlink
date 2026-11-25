@@ -13,12 +13,13 @@ method Describe() -> (protocolVersion: int, forge: string)
 
 # A pull request's facts, by its https address. head is the commit reviewed, for a merged one the head that merged;
 # base the base branch's commit and mergeBase the merge base of the two, each a full commit id. mergeCommit and
-# mergedHead (the branch the merge commit went onto) are given exactly when merged. approved is the forge's
-# observed verdict at head, read only, never one this adapter reaches. repository is the https address of the
-# repository the head is read from.
+# mergedHead (the branch the merge commit went onto) are given exactly when merged. decidedAt is when the forge
+# merged or closed it, an RFC 3339 time in UTC ending in Z (the forge's merged_at for merged, its closed_at for
+# closed), given exactly when merged or closed. approved is the forge's observed verdict at head, read only, never
+# one this adapter reaches. repository is the https address of the repository the head is read from.
 method PullRequest(api: string, token: string, url: string)
     -> (repository: string, head: string, base: string, mergeBase: string, state: (open, merged, closed),
-        approved: bool, mergeCommit: ?string, mergedHead: ?string)
+        approved: bool, mergeCommit: ?string, mergedHead: ?string, decidedAt: ?string)
 
 # The open pull request from a branch of the repository upstream names, as the project file names it; absent when
 # none is open. Read only: it opens none.

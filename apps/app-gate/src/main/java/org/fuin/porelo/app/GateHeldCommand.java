@@ -68,7 +68,22 @@ public class GateHeldCommand implements Callable<Integer>, PoreloFactory.Context
         try {
             final ReviewHolds used =
                     holds == null ? new HoldJournal(context.paths().gate().reviewHolds()) : holds;
-            final List<org.fuin.porelo.gate.review.Held> undecided = used.undecided(named);
+            final ReviewHolds.Undecided found =
+                    named == null
+                            ? used.everyUndecided()
+                            : new ReviewHolds.Undecided(used.undecided(named), List.of());
+            final List<org.fuin.porelo.gate.review.Held> undecided = found.items();
+            for (final String entry : found.unreadable()) {
+                err.println(
+                        "porelo: the held items of "
+                                + TerminalText.line(entry)
+                                + " cannot be read; porelo doctor names it too");
+            }
+            err.flush();
+            // Nothing listed and something not read is no answer at all; anything listed is one.
+            if (undecided.isEmpty() && !found.unreadable().isEmpty()) {
+                return 70;
+            }
             if (json) {
                 final List<Map<String, Object>> rows = new ArrayList<>();
                 undecided.forEach(held -> rows.add(HeldItemRows.row(held)));

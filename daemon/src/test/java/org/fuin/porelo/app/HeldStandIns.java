@@ -53,12 +53,26 @@ public final class HeldStandIns {
      * @return The item, undecided.
      */
     public static Held outgoing(final String id, final String text, final long second) {
+        return outgoing(TASK, id, text, second);
+    }
+
+    /**
+     * Returns an outgoing comment of a given task held at a given second, with a suggestion.
+     *
+     * @param task The task's container name.
+     * @param id The hold's id.
+     * @param text What it says.
+     * @param second When it was held, in seconds from the epoch.
+     * @return The item, undecided.
+     */
+    public static Held outgoing(
+            final String task, final String id, final String text, final long second) {
         final ReviewComment comment =
                 new ReviewComment(
                         new LineAnchor("src/Shop.java", Side.NEW, 3, 5),
                         new Body(text),
                         new Suggestion("orders.sort();\n"));
-        return held(id, Direction.OUTGOING, comment, null, null, second);
+        return held(task, id, Direction.OUTGOING, comment, null, null, second);
     }
 
     /**
@@ -76,10 +90,11 @@ public final class HeldStandIns {
                         "1834527690",
                         Origin.of(new ForgeAccount("github.com", "583231", "octocat")),
                         reply);
-        return held(id, Direction.INCOMING, reply, received, "extended: passed", second);
+        return held(TASK, id, Direction.INCOMING, reply, received, "extended: passed", second);
     }
 
     private static Held held(
+            final String task,
             final String id,
             final Direction direction,
             final ReviewItem item,
@@ -89,7 +104,7 @@ public final class HeldStandIns {
         return new Held(
                 id,
                 direction,
-                TASK,
+                task,
                 1,
                 PLACE,
                 "a".repeat(40),
@@ -195,11 +210,6 @@ public final class HeldStandIns {
         }
 
         @Override
-        public Held sending(final String task, final String id) {
-            throw new UnsupportedOperationException("not used here");
-        }
-
-        @Override
         public List<Held> due(final Instant now) {
             throw new UnsupportedOperationException();
         }
@@ -214,6 +224,31 @@ public final class HeldStandIns {
         public int count(final String task) {
             throw new UnsupportedOperationException();
         }
+    }
+
+    /**
+     * Holds one outgoing comment of a task's first run in a real journal.
+     *
+     * @param holds The journal.
+     * @param task The task's container name.
+     * @return The item, undecided.
+     */
+    public static Held heldIn(final ReviewHolds holds, final String task) {
+        final int number = holds.startRun(task, PLACE);
+        final org.fuin.porelo.gate.review.Push push =
+                new org.fuin.porelo.gate.review.Push(
+                        "uc", "shop", "review-7", "a".repeat(40), null, "0123456789ab");
+        return holds.hold(
+                new Run(
+                        PLACE,
+                        org.fuin.porelo.gate.review.Role.AUTHOR,
+                        new org.fuin.porelo.gate.review.Pinned(push, null),
+                        number),
+                task,
+                Direction.OUTGOING,
+                new org.fuin.porelo.gate.review.ReviewReply("t-1", new Body("why")),
+                null,
+                null);
     }
 
     /**
