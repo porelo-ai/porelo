@@ -72,6 +72,9 @@ class ReviewOpenPullRequestTest {
 
     static final String HEAD = "a".repeat(40);
 
+    /** The project's repository the task works in, whose mirror its gate forwarded to. */
+    static final String REPOSITORY = "shop";
+
     static final String BASE = "b".repeat(40);
 
     static final String MERGE = "e".repeat(40);
@@ -101,6 +104,9 @@ class ReviewOpenPullRequestTest {
     final List<Held> held = new ArrayList<>();
 
     final List<String> lentEntries = new ArrayList<>();
+
+    /** The repository each anchor check was given, by its push. */
+    final List<String> checkedIn = new ArrayList<>();
 
     /** The task each side was asked for. */
     final List<String> sidesAsked = new ArrayList<>();
@@ -261,7 +267,10 @@ class ReviewOpenPullRequestTest {
                         }
                         return read;
                     },
-                    (push, item) -> CommentFields.check(item),
+                    (push, item) -> {
+                        checkedIn.add(push.repository());
+                        return CommentFields.check(item);
+                    },
                     entry -> {
                         lentEntries.add(entry);
                         return new ForgeCredential(entry, "t-read");
@@ -271,7 +280,8 @@ class ReviewOpenPullRequestTest {
                     (project, task) ->
                             task.equals(TASK)
                                     ? Optional.of(
-                                            new ReviewOpen.Recorded(CONTAINER_NAME, CONTAINER))
+                                            new ReviewOpen.Recorded(
+                                                    CONTAINER_NAME, CONTAINER, REPOSITORY))
                                     : Optional.empty(),
                     holds);
 
@@ -347,6 +357,17 @@ class ReviewOpenPullRequestTest {
         final String name = "page-" + pages.size();
         pages.add(name);
         reads.put(name, new ProfileRead(List.of(items), completeness));
+    }
+
+    @Test
+    void aCommentsAnchorIsCheckedInTheTasksRepositoryNeverAtTheForgesAddress() throws Exception {
+        page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
+
+        open.answer("uc", PLACE, null, TASK);
+
+        assertThat(checkedIn)
+                .as("the mirror of the project's repository, where the head's tree is")
+                .containsOnly(REPOSITORY);
     }
 
     @Test

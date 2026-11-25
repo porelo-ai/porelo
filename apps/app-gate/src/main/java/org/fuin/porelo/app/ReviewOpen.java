@@ -299,7 +299,7 @@ public final class ReviewOpen {
                 new Pinned(
                         new Push(
                                 project,
-                                facts.repository(),
+                                recorded.repository(),
                                 task,
                                 facts.head(),
                                 facts.mergeBase(),
@@ -886,13 +886,16 @@ public final class ReviewOpen {
      *
      * @param container The container's name.
      * @param recordedId The container's recorded id.
+     * @param repository The project's repository the task works in, whose mirror holds what its
+     *     gate forwarded: never the forge's address, which names no mirror here.
      */
-    public record Recorded(String container, String recordedId) {
+    public record Recorded(String container, String recordedId, String repository) {
 
         /** Refuses a missing part. */
         public Recorded {
             Objects.requireNonNull(container, "container");
             Objects.requireNonNull(recordedId, "recordedId");
+            Objects.requireNonNull(repository, "repository");
         }
     }
 
@@ -1059,7 +1062,15 @@ public final class ReviewOpen {
                                             CommentIntake.recorded(context, project, task);
                                     return Optional.of(
                                             new Recorded(
-                                                    identity.container(), identity.recordedId()));
+                                                    identity.container(),
+                                                    identity.recordedId(),
+                                                    GateSupport.repository(
+                                                                    context,
+                                                                    GateSupport.byName(
+                                                                            context, project),
+                                                                    null,
+                                                                    task)
+                                                            .name()));
                                 } catch (ReviewRefused ex) {
                                     return Optional.empty();
                                 }
