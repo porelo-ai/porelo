@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
@@ -399,6 +400,15 @@ class RejectThreadsTest {
                 throw failure;
             }
             return threads;
+        }
+
+        @Override
+        public Optional<Push> recorded(
+                final String project,
+                final String repository,
+                final String name,
+                final String task) {
+            return Optional.empty();
         }
 
         @Override

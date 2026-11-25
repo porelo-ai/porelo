@@ -50,6 +50,7 @@ class TaskReviewRepliesTest {
                     asked.add(task);
                     return List.of(waiting);
                 },
+                task -> List.of("shop", "web"),
                 ReviewStandIns.parts(check, store, new ReviewStandIns.Writer()));
     }
 
@@ -99,13 +100,65 @@ class TaskReviewRepliesTest {
     }
 
     @Test
-    void aThreadOfAnotherOwnPushIsNotAnsweredInThisOne() {
+    void aThreadNoOwnPushHoldsIsNotAnswered() {
         // OTHER is no push of this task's container and holds no such thread.
-        assertThat(replies(OTHER).take(OWNER, thread, "Hi."))
-                .contains(ReviewError.NO_SUCH_THREAD.wireName());
-        assertThat(replies().take(OWNER, thread, "Hi."))
+        assertThat(replies(OTHER).take(OWNER, "no-such-thread", "Hi."))
                 .contains(ReviewError.NO_SUCH_THREAD.wireName());
         assertThat(store.kept).hasSize(1);
+    }
+
+    @Test
+    void theTasksReplyAfterARejectIsKeptInTheThreadOfThePushThatStoppedWaiting() {
+        assertThat(replies().take(OWNER, thread, "Fixed: the order is kept now."))
+                .as("a reply to a thread of the task's own rejected push")
+                .isEmpty();
+
+        assertThat(store.threads(SHOP).getFirst().items())
+                .as("the reply joined the thread")
+                .last()
+                .satisfies(
+                        kept -> {
+                            assertThat(kept.origin()).isEqualTo(Origin.of(new Task("shop-2")));
+                            assertThat(kept.item())
+                                    .isEqualTo(
+                                            new ReviewReply(
+                                                    thread,
+                                                    new Body("Fixed: the order is kept now.")));
+                        });
+    }
+
+    @Test
+    void aTaskStartedLaterUnderTheSameNameReachesNoThreadOfTheRejectedPush() {
+        final TaskIdentity later =
+                new TaskIdentity(
+                        TaskIdentity.Format.LEGACY,
+                        "uc",
+                        "shop-2",
+                        "porelo-uc-shop-2",
+                        "9".repeat(64));
+
+        assertThat(replies().take(later, thread, "Hi."))
+                .as("another container reads none of the old journal")
+                .contains(ReviewError.NO_SUCH_THREAD.wireName());
+        assertThat(store.threads(SHOP).getFirst().items())
+                .as("nothing was added to the old thread")
+                .hasSize(1);
+    }
+
+    @Test
+    void aThreadOfAnotherTasksRejectedPushIsStillRefused() throws Exception {
+        final TaskIdentity stranger =
+                new TaskIdentity(
+                        TaskIdentity.Format.LEGACY,
+                        "uc",
+                        "shop-3",
+                        "porelo-uc-shop-3",
+                        OTHER.task());
+
+        assertThat(replies().take(stranger, thread, "Hi."))
+                .as("the thread belongs to the push of another task")
+                .contains(ReviewError.NO_SUCH_THREAD.wireName());
+        assertThat(store.kept).as("no reply was kept").hasSize(1);
     }
 
     @Test

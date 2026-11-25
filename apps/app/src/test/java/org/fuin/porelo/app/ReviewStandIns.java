@@ -112,6 +112,24 @@ final class ReviewStandIns {
         }
 
         @Override
+        public Optional<Push> recorded(
+                final String project,
+                final String repository,
+                final String name,
+                final String task) {
+            Push last = null;
+            for (final Push each : threadPush.values()) {
+                if (each.project().equals(project)
+                        && each.repository().equals(repository)
+                        && each.name().equals(name)
+                        && each.task().equals(task)) {
+                    last = each;
+                }
+            }
+            return Optional.ofNullable(last);
+        }
+
+        @Override
         public ReviewThread state(final Push push, final String thread, final ThreadState state)
                 throws ReviewRefused {
             if (!push.equals(threadPush.get(thread))) {

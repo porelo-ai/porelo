@@ -139,6 +139,15 @@ class GateCommentMethodsTest {
         }
 
         @Override
+        public Optional<Push> recorded(
+                final String project,
+                final String repository,
+                final String name,
+                final String task) {
+            return Optional.empty();
+        }
+
+        @Override
         public synchronized ReviewThread state(
                 final Push push, final String thread, final ThreadState state)
                 throws ReviewRefused {

@@ -167,6 +167,43 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     }
 
     @Override
+    public Optional<Push> recorded(
+            final String project, final String repository, final String name, final String task) {
+        Objects.requireNonNull(project, "project");
+        Objects.requireNonNull(repository, "repository");
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(task, "task");
+        // It names a directory: only a recorded container id, as a Push takes it.
+        if (!task.matches("[0-9a-f]{12,64}")) {
+            throw new IllegalArgumentException("task is no recorded container id");
+        }
+        final Scope scope = new Scope(project, repository, name);
+        try {
+            return io(
+                    () -> {
+                        final Optional<Path> found = container(task, false);
+                        if (found.isEmpty()) {
+                            return Optional.empty();
+                        }
+                        final Path container = found.get();
+                        return locked(
+                                container,
+                                () -> {
+                                    Push last = null;
+                                    for (final Entry entry : read(container).entries()) {
+                                        if (entry.scope().equals(scope)) {
+                                            last = entry.push();
+                                        }
+                                    }
+                                    return Optional.ofNullable(last);
+                                });
+                    });
+        } catch (ReviewRefused ex) {
+            throw new IllegalStateException("reading a recorded push refused nothing", ex);
+        }
+    }
+
+    @Override
     public ReviewThread state(final Push push, final String thread, final ThreadState state)
             throws ReviewRefused {
         Objects.requireNonNull(push, "push");
@@ -216,7 +253,12 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     // The container's directory, checked to be a real directory under the root; made when asked
     // and missing, or empty when not asked and missing.
     private Optional<Path> container(final Push push, final boolean make) throws IOException {
-        return container(root, push.task(), make);
+        return container(push.task(), make);
+    }
+
+    // The same directory for a task's container id alone, as the lookup of a past push needs.
+    private Optional<Path> container(final String task, final boolean make) throws IOException {
+        return container(root, task, make);
     }
 
     /**
@@ -593,12 +635,14 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                         Origin.of(producer(object(entry.get("producer"), "producer")));
                 final ReviewItem item = item(object(entry.get("item"), "item"), thread);
                 yield new ItemEntry(
+                        push,
                         scope,
                         optional(entry, "id"),
                         new Kept(text(entry, "guid"), thread, origin, item));
             }
             case "state" ->
                     new StateEntry(
+                            push,
                             scope,
                             thread,
                             switch (text(entry, "state")) {
@@ -700,12 +744,17 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
 
     private sealed interface Entry permits ItemEntry, StateEntry {
 
+        /** The push as the entry recorded it, with the head and base it was written for. */
+        Push push();
+
         Scope scope();
     }
 
-    private record ItemEntry(Scope scope, @Nullable String id, Kept kept) implements Entry {}
+    private record ItemEntry(Push push, Scope scope, @Nullable String id, Kept kept)
+            implements Entry {}
 
-    private record StateEntry(Scope scope, String thread, ThreadState state) implements Entry {}
+    private record StateEntry(Push push, Scope scope, String thread, ThreadState state)
+            implements Entry {}
 
     /** A container's journal as read: its bytes, to append to, and its entries. */
     private record Journal(byte[] bytes, List<Entry> entries) {

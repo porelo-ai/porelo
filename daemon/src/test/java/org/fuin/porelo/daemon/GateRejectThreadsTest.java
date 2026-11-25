@@ -9,6 +9,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.fuin.porelo.app.Mailbox;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
@@ -289,6 +290,15 @@ class GateRejectThreadsTest {
         public List<ReviewThread> threads(final Push push) {
             asked.add(push);
             return List.of();
+        }
+
+        @Override
+        public Optional<Push> recorded(
+                final String project,
+                final String repository,
+                final String name,
+                final String task) {
+            return Optional.empty();
         }
 
         @Override

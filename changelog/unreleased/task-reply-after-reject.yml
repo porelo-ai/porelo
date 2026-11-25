@@ -1,0 +1,2 @@
+title: "A task's reply to a review thread of its rejected push is kept in that thread instead of bouncing until the next push waits"
+type: fixed

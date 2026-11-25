@@ -1,6 +1,7 @@
 package org.fuin.porelo.gate.review;
 
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -35,6 +36,18 @@ public interface ReviewStore {
      * @return Its threads; empty when it has none.
      */
     List<ReviewThread> threads(Push push);
+
+    /**
+     * Returns the push a task's container last recorded under a name, with the head and base of its
+     * latest entry, so the threads of a push that no longer waits stay reachable.
+     *
+     * @param project The project.
+     * @param repository The repository in the project.
+     * @param name The push's name at the gate.
+     * @param task The recorded container id; no other container's journal is read.
+     * @return The push as last recorded, or empty when that container kept nothing under the name.
+     */
+    Optional<Push> recorded(String project, String repository, String name, String task);
 
     /**
      * Sets a thread open or resolved.

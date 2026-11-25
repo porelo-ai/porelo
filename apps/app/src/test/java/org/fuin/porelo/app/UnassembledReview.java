@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.util.List;
+import java.util.Optional;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.Origin;
 import org.fuin.porelo.gate.review.Push;
@@ -32,6 +33,15 @@ final class UnassembledReview {
                 @Override
                 public List<ReviewThread> threads(final Push push) {
                     return List.of();
+                }
+
+                @Override
+                public Optional<Push> recorded(
+                        final String project,
+                        final String repository,
+                        final String name,
+                        final String task) {
+                    return Optional.empty();
                 }
 
                 @Override
