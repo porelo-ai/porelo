@@ -153,16 +153,58 @@ public final class PersonNote {
     }
 
     private static String deliver(final Mailbox mailbox, final Note note) throws IOException {
-        final String name = FILE_TIME.format(Instant.now()) + "--" + note.id() + ".json";
+        return deliver(mailbox, note.id(), note.json());
+    }
+
+    /**
+     * Writes one note the host built into a task's inbox, the way every host note goes: through
+     * {@code tmp} and a rename, so its agent never lists half of it.
+     *
+     * @param mailbox The task's mailbox.
+     * @param id The note's message id, which names its file.
+     * @param json The note.
+     * @return The file name written.
+     * @throws IOException Writing failed.
+     */
+    static String deliver(final Mailbox mailbox, final String id, final String json)
+            throws IOException {
+        return publish(mailbox, stage(mailbox, id, json));
+    }
+
+    /**
+     * Writes one note into the inbox's {@code tmp}, where its agent does not list it, for {@link
+     * #publish} to move in; several notes that belong together are all staged before any is moved.
+     *
+     * @param mailbox The task's mailbox.
+     * @param id The note's message id, which names its file.
+     * @param json The note.
+     * @return The staged file.
+     * @throws IOException Writing failed.
+     */
+    static Path stage(final Mailbox mailbox, final String id, final String json)
+            throws IOException {
+        final String name = FILE_TIME.format(Instant.now()) + "--" + id + ".json";
         mailbox.refuseLinks();
         // Never the mailbox again: a note for a task removed since its mailbox was found made it
         // again, and its retired name stayed taken.
         mailbox.ensure(mailbox.inboxTmp());
         mailbox.ensure(mailbox.inboxNew());
         final Path staged = mailbox.inboxTmp().resolve(name);
-        Files.writeString(staged, note.json(), StandardCharsets.UTF_8);
+        Files.writeString(staged, json, StandardCharsets.UTF_8);
+        return staged;
+    }
+
+    /**
+     * Moves a staged note into the inbox by a rename.
+     *
+     * @param mailbox The task's mailbox.
+     * @param staged What {@link #stage} answered.
+     * @return The file name written.
+     * @throws IOException Moving failed.
+     */
+    static String publish(final Mailbox mailbox, final Path staged) throws IOException {
         mailbox.intoInbox(staged);
-        return name;
+        return staged.getFileName().toString();
     }
 
     /**

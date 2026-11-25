@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Mail;
 import org.fuin.porelo.gate.review.ProfileRefused;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.JsonException;
 
 /**
  * Decides which transport carries an accepted message, and queues it for that one.
@@ -122,7 +123,14 @@ public final class MessageDispatch {
         final List<MessageDelivery.Held> refused = new ArrayList<>();
         for (final Path message : accepted(mailbox.accepted())) {
             final String name = message.getFileName().toString();
-            final List<String> addressed = addressees(message);
+            final List<String> addressed;
+            try {
+                addressed = addressees(message);
+            } catch (final JsonException ex) {
+                // One message no reader here takes must not stop every later one of the mailbox.
+                reject(mailbox, message, name, UNREADABLE, refused);
+                continue;
+            }
             if (addressed.size() != 1) {
                 hold(mailbox, message, name);
                 held.add(
@@ -232,8 +240,15 @@ public final class MessageDispatch {
             held.add(new MessageDelivery.Held(name, flagged));
             return;
         }
-        // Exact numbers, so a submission's lines reach the review as the task wrote them.
-        final Object parsed = Json.parseExact(Files.readString(message, StandardCharsets.UTF_8));
+        final Object parsed;
+        try {
+            // Exact numbers, so a submission's lines reach the review as the task wrote them.
+            parsed = Json.parseExact(Files.readString(message, StandardCharsets.UTF_8));
+        } catch (final JsonException ex) {
+            Files.deleteIfExists(released);
+            reject(mailbox, message, name, UNREADABLE, refused);
+            return;
+        }
         final TaskIdentity task = tasks.of(mailbox.root().getFileName().toString());
         final String why = Submission.claims(parsed) ? submit(parsed, task) : reply(parsed, task);
         Files.deleteIfExists(released);
@@ -243,12 +258,30 @@ public final class MessageDispatch {
             Files.delete(message);
             return;
         }
-        // Final, so it lies with what the filter refused rather than with what a person may
-        // release: the same reply would be refused again.
+        reject(mailbox, message, name, "it was not taken by the review: " + why, refused);
+    }
+
+    /** Said of a message no JSON reader here takes, whatever it holds. */
+    static final String UNREADABLE =
+            "it cannot be read as a message: its JSON is not one Porelo reads";
+
+    /**
+     * Refuses a message for good and tells its task why.
+     *
+     * <p>Final, so it lies with what the filter refused rather than with what a person may release:
+     * the same message would be refused again.
+     */
+    private void reject(
+            final Mailbox mailbox,
+            final Path message,
+            final String name,
+            final String reason,
+            final List<MessageDelivery.Held> refused)
+            throws IOException {
+        Files.deleteIfExists(mailbox.accepted().resolve(name + RELEASED_SUFFIX));
         move(mailbox.accepted().resolve(name + ".sig"), mailbox.rejected().resolve(name + ".sig"));
         final Path rejected = mailbox.rejected().resolve(name);
         Files.move(message, rejected, StandardCopyOption.REPLACE_EXISTING);
-        final String reason = "it was not taken by the review: " + why;
         new HostBounce().write(mailbox, rejected, reason, true);
         refused.add(new MessageDelivery.Held(name, reason));
     }
@@ -287,9 +320,16 @@ public final class MessageDispatch {
                     Json.write(submission.document()).getBytes(StandardCharsets.UTF_8));
             return "";
         } catch (final ProfileRefused ex) {
-            return ex.rule();
+            return SHOWN_RULE.matcher(ex.rule()).matches() ? ex.rule() : UNSHOWN_RULE;
         }
     }
+
+    /** A rule the task may be told as it is: short, plain, nothing a review wrote. */
+    private static final java.util.regex.Pattern SHOWN_RULE =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_./: -]{1,128}");
+
+    /** Said in place of a review's rule that is not short plain text, which the task never sees. */
+    static final String UNSHOWN_RULE = "the review refused it by a rule it cannot show";
 
     private static final String NO_OWNER =
             "no task of this machine owns the mailbox it came through";

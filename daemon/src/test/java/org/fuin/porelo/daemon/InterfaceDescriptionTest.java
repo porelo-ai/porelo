@@ -480,8 +480,9 @@ class InterfaceDescriptionTest {
                         "type GatePush \\((?s:.*?)repository: \\?string,(?s:.*?)name: string\\s*\\)")
                 .as("a task and its record carry the run's role, place and held items")
                 .containsPattern(
-                        "(?m)^type Task \\((?s:.*?)role: \\?string,(?s:.*?)place: \\?Place,"
-                                + "(?s:.*?)held: int\\s*\\n\\)")
+                        "(?m)^type Task \\((?:(?!\\n\\))[\\s\\S])*?role: \\?string,"
+                                + "(?:(?!\\n\\))[\\s\\S])*?place: \\?Place,"
+                                + "(?:(?!\\n\\))[\\s\\S])*?held: \\?int\\s*\\n\\)")
                 .containsPattern(
                         "type TaskRecord \\((?s:.*?)role: \\?string,(?s:.*?)place: \\?Place,"
                                 + "(?s:.*?)held: \\?int\\s*\\)")
@@ -509,7 +510,7 @@ class InterfaceDescriptionTest {
                 .containsPattern(
                         "error PlaceUnreadable\\(\\s*reason: \\(NoSuchPush, NotInProject,"
                                 + " MovedSinceReview, MissingForgeToken, ForgeAdapterMissing,"
-                                + " Unreachable\\),\\s*detail: string\\s*\\)");
+                                + " Unreachable, HeadNotFetched\\),\\s*detail: string\\s*\\)");
     }
 
     @Test

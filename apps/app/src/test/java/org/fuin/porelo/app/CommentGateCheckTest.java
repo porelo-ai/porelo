@@ -233,6 +233,7 @@ class CommentGateCheckTest {
         public Held sending(final String task, final String id) {
             throw new UnsupportedOperationException("not used here");
         }
+
         final List<Held> held = new ArrayList<>();
         final List<Kept> received = new ArrayList<>();
         final List<String> rules = new ArrayList<>();

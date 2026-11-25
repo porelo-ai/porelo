@@ -45,6 +45,28 @@ so an ordinary build is unaffected:
 | `porelo.acceptance.features` | Where feature files live, repository-relative, so an annotation lands on the right line. Default `src/test/resources/`. |
 | `cucumber.plugin` | Include `org.fuin.porelo.acceptance.GitHubReport` for the two GitHub surfaces below. |
 
+## The message filter in every account
+
+Porelo sends no message its filter has not passed, so a run without the filter `porelo-message-sluice` packages
+would fail the first scenario that talks, as something else. Before an account's first scenario, `MessageFilter`
+installs the filter into it at `$XDG_DATA_HOME/porelo/filter/porelo-message-sluice-filter`, mode 0700, where
+Porelo looks first; nothing is installed machine-wide. When it cannot, every scenario of that account fails
+naming the filter.
+
+- **The pin** is one build's `.deb` and `.rpm`, each an https address and a sha256, written in one place:
+  `src/main/resources/org/fuin/porelo/acceptance/message-filter.properties`. On the machine, the account takes the
+  `.deb` where `dpkg-deb` is installed and the `.rpm` where `rpm2cpio` and `cpio` are, downloads it with `curl`,
+  checks its sha256 before anything else, unpacks it into a private directory (`dpkg-deb -x`, or
+  `rpm2cpio | cpio -idm`) and copies out `usr/libexec/porelo/porelo-message-sluice-filter`. A package whose digest
+  differs is never unpacked, and an older filter is removed first, so a failure leaves nothing executable. A
+  snapshot can leave the package pool; the failure then names the pin, which is updated there.
+- **The override** is `PORELO_ACCEPTANCE_FILTER` with `PORELO_ACCEPTANCE_FILTER_SHA256` in the environment of the
+  run: the absolute path of a filter executable on the machine and its sha256, installed in place of the pin. One
+  without the other is refused.
+
+The machine needs `curl` and `dpkg-deb`, or `curl`, `rpm2cpio` and `cpio`, for the pin, and `sha256sum` for
+either.
+
 ## Two vocabularies
 
 Steps live in three classes - `TerminalSteps` for the machine and the terminal, `PoreloSteps` for the

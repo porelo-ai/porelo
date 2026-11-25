@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.Conversation;
@@ -195,6 +196,7 @@ class ReleasedSenderTest {
                 .as("what the place was handed")
                 .extracting(write -> write.held().id())
                 .containsExactly("goes");
+        assertThat(fixture.holds.sent).as("items recorded as being sent").containsExactly("goes");
     }
 
     @Test
@@ -214,6 +216,59 @@ class ReleasedSenderTest {
                 .isEqualTo(HeldState.RELEASED);
         assertThat(fixture.holds.state("goes"))
                 .as("the item after it")
+                .isEqualTo(HeldState.DELIVERED);
+    }
+
+    @Test
+    void anItemWhoseMarkFailsAfterTheWriteIsNeverSentAgain() {
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(held("a", PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.add(held("b", PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.failingMark.add("a");
+
+        assertThatThrownBy(() -> fixture.sender().send())
+                .as("the pass whose mark failed")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("could not be marked");
+        fixture.holds.failingMark.clear();
+        fixture.now = START.plus(Duration.ofDays(1));
+        assertThat(fixture.sender().send()).as("items written a day later").isZero();
+
+        assertThat(fixture.holds.state("a"))
+                .as("the item whose answer was not marked")
+                .isEqualTo(HeldState.SENDING);
+        assertThat(fixture.holds.state("b")).as("the item after it").isEqualTo(HeldState.DELIVERED);
+        assertThat(fixture.place.written)
+                .as("writes in both passes")
+                .extracting(write -> write.held().id())
+                .containsExactly("a", "b");
+    }
+
+    @Test
+    void anItemThatCannotBeRecordedAsSentStaysDueAndIsNotWritten() {
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(held("a", PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.add(held("b", PLACE, HeldState.RELEASED, null, null));
+        fixture.holds.failingSending.add("a");
+
+        assertThatThrownBy(() -> fixture.sender().send())
+                .as("the pass whose record of sending failed")
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("stays due");
+
+        assertThat(fixture.holds.state("a"))
+                .as("the item never recorded as sent")
+                .isEqualTo(HeldState.RELEASED);
+        assertThat(fixture.holds.state("b")).as("the item after it").isEqualTo(HeldState.DELIVERED);
+        assertThat(fixture.place.written)
+                .as("writes in the failed pass")
+                .extracting(write -> write.held().id())
+                .containsExactly("b");
+
+        fixture.holds.failingSending.clear();
+        assertThat(fixture.sender().send()).as("items written in the next pass").isEqualTo(1);
+        assertThat(fixture.holds.state("a"))
+                .as("the item once recorded and written")
                 .isEqualTo(HeldState.DELIVERED);
     }
 
@@ -254,7 +309,7 @@ class ReleasedSenderTest {
 
     private static final class Fixture {
 
-        final MemoryHolds holds = new MemoryHolds();
+        final MemoryHolds holds = new MemoryHolds(() -> this.now);
 
         final FakePlace place = new FakePlace(PLACE);
 
@@ -292,16 +347,42 @@ class ReleasedSenderTest {
     /** Held items in memory, due and marked as the contract says. */
     private static final class MemoryHolds implements ReviewHolds {
 
-        @Override
-        public Held sending(final String task, final String id) {
-            throw new UnsupportedOperationException("not used here");
-        }
-
         final Map<String, Held> items = new LinkedHashMap<>();
 
         final List<String> marks = new ArrayList<>();
 
+        final List<String> sent = new ArrayList<>();
+
+        final Set<String> failingSending = new HashSet<>();
+
+        final Set<String> failingMark = new HashSet<>();
+
+        final Supplier<Instant> clock;
+
         boolean everything;
+
+        MemoryHolds(final Supplier<Instant> clock) {
+            this.clock = clock;
+        }
+
+        @Override
+        public Held sending(final String task, final String id) {
+            final Held held = items.get(id);
+            if (failingSending.contains(id)) {
+                throw new IllegalStateException("the journal could not be written");
+            }
+            if (held == null
+                    || !task.equals(held.task())
+                    || !(held.state() == HeldState.RELEASED
+                            || held.state() == HeldState.RETRY
+                                    && !held.retryAt().isAfter(clock.get()))) {
+                throw new IllegalStateException("not a due item: " + id);
+            }
+            sent.add(id);
+            final Held sending = held.in(HeldState.SENDING, null, null);
+            items.put(id, sending);
+            return sending;
+        }
 
         Held add(final Held held) {
             items.put(held.id(), held);
@@ -332,10 +413,19 @@ class ReleasedSenderTest {
         public void mark(
                 final String task, final String id, final WriteOutcome outcome, final Instant now) {
             final Held held = items.get(id);
+            if (failingMark.contains(id)) {
+                throw new IllegalStateException("the journal could not be written");
+            }
+            final boolean neverSent =
+                    held != null
+                            && (held.state() == HeldState.RELEASED
+                                    || held.state() == HeldState.RETRY);
+            // As the journal: an item being sent takes any answer, one never sent only a refusal.
             if (held == null
                     || !task.equals(held.task())
-                    || held.state() != HeldState.RELEASED && held.state() != HeldState.RETRY) {
-                throw new IllegalStateException("not a released item: " + id);
+                    || !(held.state() == HeldState.SENDING
+                            || neverSent && outcome instanceof WriteOutcome.Refused)) {
+                throw new IllegalStateException("not an item that takes this answer: " + id);
             }
             marks.add(id);
             items.put(

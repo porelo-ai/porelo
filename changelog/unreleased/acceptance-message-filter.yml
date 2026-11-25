@@ -1,0 +1,2 @@
+title: The acceptance kit installs the pinned message filter into each account before its first scenario, checked by its sha256, and fails the run naming the filter when it cannot
+type: added

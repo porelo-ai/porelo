@@ -9,10 +9,14 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
 import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.review.CommentReading;
+import org.fuin.porelo.gate.review.ForgeFileUnreadable;
+import org.fuin.porelo.gate.review.ForgeInstance;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,14 @@ import org.junit.jupiter.api.io.TempDir;
 class RunPlacesTest {
 
     private static final String HEAD = "0123456789abcdef0123456789abcdef01234567";
+
+    private static final String PULL_REQUEST = "https://forge.example.org/uc/web-app/pull/7";
+
+    private static final String ENTRY = "git.token.forge.example.org";
+
+    private final StandInForges forges = new StandInForges();
+
+    private final List<RunPlace> started = new java.util.ArrayList<>();
 
     @TempDir Path dir;
 
@@ -154,24 +166,112 @@ class RunPlacesTest {
     }
 
     @Test
-    void aPullRequestPlaceIsUnreadableForWantOfItsForgeAdapter() {
-        for (final Map<String, Object> place :
-                List.<Map<String, Object>>of(
-                        Map.of("pullRequest", "porelo/fix"), Map.of("ownPullRequest", true))) {
-            final VarlinkException refused = refused(Map.of("place", place));
+    void ownPullRequestIsUnreadableForWantOfItsForgeAdapter() {
+        final VarlinkException refused = refused(Map.of("place", Map.of("ownPullRequest", true)));
 
-            assertThat(refused.getErrorName())
-                    .as("%s", place)
-                    .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
-            assertThat(refused.getParameters())
-                    .as("the reason, and a detail for a person")
-                    .containsEntry("reason", "ForgeAdapterMissing")
-                    .containsKey("detail");
-            assertThat(String.valueOf(refused.getParameters().get("detail")))
-                    .as("says a pull request's place is not read yet")
-                    .contains("pull request")
-                    .contains("not read yet");
+        assertThat(refused.getErrorName())
+                .as("the task's own pull request")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+        assertThat(refused.getParameters())
+                .as("the reason, and a detail for a person")
+                .containsEntry("reason", "ForgeAdapterMissing")
+                .containsKey("detail");
+        assertThat(String.valueOf(refused.getParameters().get("detail")))
+                .as("says the task's own pull request is not read yet")
+                .contains("pull request")
+                .contains("not read yet");
+    }
+
+    @Test
+    void aReviewerAtAPullRequestOfAKnownForgeIsTakenAndReachesTheStart() {
+        final RunPlace taken =
+                takenAt(Map.of("role", "REVIEWER", "place", Map.of("pullRequest", PULL_REQUEST)));
+
+        assertThat(taken)
+                .as("the place recorded")
+                .isEqualTo(RunPlace.atPullRequest(RunPlace.REVIEWER, "fix", PULL_REQUEST));
+        assertThat(taken.place())
+                .as("the place as the contract gives it")
+                .isEqualTo(Map.of("pullRequest", PULL_REQUEST));
+        assertThat(started).as("what reached the run's start").containsExactly(taken);
+        assertThat(forges.asked).as("the vault was asked for the entry only").contains(ENTRY);
+    }
+
+    @Test
+    void anAuthorIsTheDefaultRoleAtAPullRequest() {
+        assertThat(takenAt(Map.of("place", Map.of("pullRequest", PULL_REQUEST))))
+                .as("a start naming only the place")
+                .isEqualTo(RunPlace.atPullRequest(RunPlace.AUTHOR, "fix", PULL_REQUEST));
+    }
+
+    @Test
+    void aPullRequestAtAHostThisMachineDoesNotKnowIsUnknownForge() {
+        forges.known.clear();
+        final VarlinkException refused = refusedAt(pullRequest());
+        assertThat(refused.getErrorName())
+                .as("an unknown forge host")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".UnknownForge");
+        assertThat(refused.getParameters())
+                .as("its host")
+                .containsEntry("host", "forge.example.org");
+        assertThat(started).as("what reached the run's start").isEmpty();
+    }
+
+    @Test
+    void anUnreadableForgeFileIsPlaceUnreadable() {
+        forges.unreadable = true;
+        assertThat(refusedAt(pullRequest()).getParameters())
+                .as("an unreadable forge file")
+                .containsEntry("reason", "ForgeFileUnreadable");
+        assertThat(started).as("what reached the run's start").isEmpty();
+    }
+
+    @Test
+    void aForgeWithoutAnInstalledAdapterIsPlaceUnreadable() {
+        forges.installed = false;
+        assertThat(refusedAt(pullRequest()).getParameters())
+                .as("an adapter that is not installed")
+                .containsEntry("reason", "ForgeAdapterMissing");
+        forges.installed = true;
+        forges.known.put(
+                "forge.example.org",
+                new ForgeInstance(
+                        "forge.example.org", null, CommentReading.EXTENDED, "no adapter named"));
+        assertThat(refusedAt(pullRequest()).getParameters())
+                .as("an entry that names no adapter")
+                .containsEntry("reason", "ForgeAdapterMissing");
+        assertThat(started).as("what reached the run's start").isEmpty();
+    }
+
+    @Test
+    void aForgeWhoseTokenTheVaultLacksOrCannotTellIsPlaceUnreadable() {
+        forges.holds = Optional.of(false);
+        assertThat(refusedAt(pullRequest()).getParameters())
+                .as("no token entry")
+                .containsEntry("reason", "MissingForgeToken");
+        assertThat(String.valueOf(refusedAt(pullRequest()).getParameters().get("detail")))
+                .as("names the entry")
+                .contains(ENTRY);
+        forges.holds = Optional.empty();
+        assertThat(refusedAt(pullRequest()).getParameters())
+                .as("a vault that cannot tell")
+                .containsEntry("reason", "MissingForgeToken");
+        assertThat(started).as("what reached the run's start").isEmpty();
+    }
+
+    @Test
+    void aPullRequestAddressOfAnotherShapeIsAnInvalidParameter() {
+        for (final String address :
+                List.of(
+                        "porelo/fix",
+                        "http://forge.example.org/a/b/pull/1",
+                        "https://user@forge.example.org/a/b/pull/1",
+                        "https://forge.example.org/a/b/pull/1?x=1")) {
+            assertThat(refusedAt(Map.of("place", Map.of("pullRequest", address))).getErrorName())
+                    .as("%s", address)
+                    .isEqualTo("org.varlink.service.InvalidParameter");
         }
+        assertThat(started).as("what reached the run's start").isEmpty();
     }
 
     @Test
@@ -291,8 +391,13 @@ class RunPlacesTest {
 
         asked.put("place", Map.of("ownPullRequest", true));
         assertThat(canStartRefused(asked).getErrorName())
-                .as("a pull request's place")
+                .as("the task's own pull request")
                 .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+
+        asked.put("place", Map.of("pullRequest", PULL_REQUEST));
+        assertThat(canStartRefused(asked).getErrorName())
+                .as("a pull request at a forge this machine was never told of")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".UnknownForge");
 
         asked.put("place", Map.of());
         assertThat(canStartRefused(asked).getErrorName())
@@ -332,6 +437,73 @@ class RunPlacesTest {
 
     private VarlinkException refused(final Map<String, Object> parameters) {
         return refused(parameters, true);
+    }
+
+    private static Map<String, Object> pullRequest() {
+        return Map.of("place", Map.of("pullRequest", PULL_REQUEST));
+    }
+
+    private RunPlace takenAt(final Map<String, Object> parameters) {
+        final RunPlace taken =
+                RunPlaces.taken(
+                        context,
+                        parameters,
+                        projectFile,
+                        "fix",
+                        "demo",
+                        true,
+                        forges,
+                        (task, place, ref) -> started.add(place));
+        assertThat(taken).as("taken: %s", parameters).isNotNull();
+        return taken;
+    }
+
+    private VarlinkException refusedAt(final Map<String, Object> parameters) {
+        final VarlinkException refused =
+                catchThrowableOfType(() -> takenAt(parameters), VarlinkException.class);
+        assertThat(refused).as("refused: %s", parameters).isNotNull();
+        return refused;
+    }
+
+    /** The forges this machine knows, its adapters and whether the vault holds an entry. */
+    private static final class StandInForges implements RunPlaces.Forges {
+
+        final Map<String, ForgeInstance> known =
+                new HashMap<>(
+                        Map.of(
+                                "forge.example.org",
+                                new ForgeInstance(
+                                        "forge.example.org",
+                                        "forgejo",
+                                        CommentReading.EXTENDED,
+                                        null)));
+
+        boolean unreadable;
+
+        boolean installed = true;
+
+        Optional<Boolean> holds = Optional.of(true);
+
+        final List<String> asked = new java.util.ArrayList<>();
+
+        @Override
+        public Optional<ForgeInstance> of(final java.net.URI url) throws ForgeFileUnreadable {
+            if (unreadable) {
+                throw new ForgeFileUnreadable("cut off");
+            }
+            return Optional.ofNullable(known.get(url.getHost()));
+        }
+
+        @Override
+        public boolean installed(final String adapter) {
+            return installed;
+        }
+
+        @Override
+        public Optional<Boolean> holds(final String entry) {
+            asked.add(entry);
+            return holds;
+        }
     }
 
     private VarlinkException refused(final Map<String, Object> parameters, final boolean gated) {

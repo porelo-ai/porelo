@@ -321,6 +321,17 @@ public class GitHttpServer implements AutoCloseable {
     }
 
     /**
+     * Whether a reviewer's gate can show a ref: it reaches git's configuration as a pattern, so
+     * only a plain ref name below {@code refs/}, nothing that matches more.
+     *
+     * @param pinned The ref.
+     * @return True for a plain ref name.
+     */
+    public static boolean pinnable(final String pinned) {
+        return PINNED_REF.matcher(pinned).matches() && !pinned.contains("..");
+    }
+
+    /**
      * Binds a reviewer's gate, which shows one pinned ref and takes nothing.
      *
      * <p>Every {@code receive-pack} request is refused, at service discovery and at its call, so no
@@ -341,8 +352,7 @@ public class GitHttpServer implements AutoCloseable {
             TaskToken token,
             GitProcess git,
             String pinned) {
-        // It reaches git's configuration as a pattern: a plain ref name, nothing that matches more.
-        if (!PINNED_REF.matcher(pinned).matches() || pinned.contains("..")) {
+        if (!pinnable(pinned)) {
             throw new IllegalArgumentException("not a ref a gate can pin: " + pinned);
         }
         return new GitHttpServer(address, mirror, token, git, null, null, PACE, pinned);

@@ -447,7 +447,7 @@ class MessageDispatchTest {
 
         assertThat(review.tasks).as("the mailbox's task").containsExactly("porelo-p-t");
         assertThat(review.documents)
-                .as("the data part's document, compact, its numbers as written")
+                .as("the data part's document, compact, its whole numbers as written")
                 .containsExactly(SUBMISSION);
         assertThat(outcome.queued()).as("no transport carries it").isEmpty();
         assertThat(outcome.held()).as("nothing held").isEmpty();
@@ -528,7 +528,128 @@ class MessageDispatchTest {
                         toReview("", "[{\"text\":\"See the data.\",\"data\":" + SUBMISSION + "}]")),
                 Arguments.of(
                         "a data part that is no document",
-                        toReview("", "[{\"data\":\"a string\"}]")));
+                        toReview("", "[{\"data\":\"a string\"}]")),
+                Arguments.of(
+                        "a data part of another kind",
+                        toReview("", "[" + data + "]")
+                                .replace("\"kind\":\"comment\"", "\"kind\":\"question\"")));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unreadable")
+    void aReviewMessageNoReaderTakesBouncesAndTheNextMessageStillReachesTheReview(
+            final String what, final String number, @TempDir final Path dir) throws IOException {
+        // One message that cannot be read must not stop every later one of the mailbox.
+        accepted(
+                dir,
+                "m-20.json",
+                toReview("", "[{\"data\":{\"version\":\"2.1.0\",\"n\":" + number + "}}]"));
+        final Mailbox mailbox =
+                accepted(
+                        dir,
+                        "m-21.json",
+                        toReview("", "[{\"data\":" + SUBMISSION + "}]").replace("m-20", "m-21"));
+        final Submissions review = new Submissions(null);
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, review, OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(review.documents).as(what + ": the next one taken").containsExactly(SUBMISSION);
+        assertThat(outcome.refused())
+                .as("the unreadable one refused for good")
+                .singleElement()
+                .satisfies(held -> assertThat(held.message()).as("which").isEqualTo("m-20.json"));
+        assertThat(mailbox.rejected().resolve("m-20.json")).as("with the rejected").exists();
+        assertThat(bounces(mailbox)).as("the task is told").hasSize(1);
+    }
+
+    static Stream<Arguments> unreadable() {
+        return Stream.of(
+                Arguments.of("a number with a plus sign", "+1"),
+                Arguments.of("a number of 450 digits", "9".repeat(450)));
+    }
+
+    @Test
+    void aSubmissionFromAMailboxNoTaskOwnsBouncesAndReachesNoReview(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+        final Submissions review = new Submissions(null);
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, review, NO_TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(review.tasks).as("never handed to the review").isEmpty();
+        assertThat(outcome.refused())
+                .as("refused for good")
+                .singleElement()
+                .satisfies(
+                        held ->
+                                assertThat(held.reason())
+                                        .as("why")
+                                        .contains("no task of this machine owns the mailbox"));
+    }
+
+    @Test
+    void aSubmissionAPersonReleasedReachesTheReviewThoughTheFilterFlaggedIt(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+        Files.writeString(
+                mailbox.feedback().resolve("answer-m-20.json"),
+                "{\"messageId\":\"a-20\",\"metadata\":{\"inReplyToMessageId\":\"m-20\"},"
+                        + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":true,"
+                        + "\"decidingRule\":\"ENCODING/HEX\"}}]}");
+        Files.writeString(mailbox.accepted().resolve("m-20.json.released"), "");
+        final Submissions review = new Submissions(null);
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, review, OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(review.documents).as("handed to the review").containsExactly(SUBMISSION);
+        assertThat(outcome.held()).as("nothing held").isEmpty();
+        assertThat(mailbox.accepted()).as("the release used up").isEmptyDirectory();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("unshowable")
+    void aRefusalWhoseRuleCannotBeShownBouncesWithAFixedText(
+            final String what, final String rule, @TempDir final Path dir) throws IOException {
+        // The rule reaches the task's agent; only a short plain one may, never what a review wrote.
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+        final Submissions review = new Submissions(rule);
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, review, OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(outcome.refused())
+                .as(what)
+                .singleElement()
+                .satisfies(
+                        held ->
+                                assertThat(held.reason())
+                                        .as("the fixed text, not the rule")
+                                        .endsWith(MessageDispatch.UNSHOWN_RULE));
+        assertThat(bounces(mailbox))
+                .as("the task is told")
+                .singleElement()
+                .satisfies(
+                        bounce ->
+                                assertThat(bounce)
+                                        .as("without the rule")
+                                        .doesNotContain("\\u001b", "x".repeat(129)));
+    }
+
+    static Stream<Arguments> unshowable() {
+        return Stream.of(
+                Arguments.of("a control character", "run: \u001b[2J"),
+                Arguments.of("a quote", "run: \"none\""),
+                Arguments.of("129 characters", "x".repeat(129)));
     }
 
     @Test

@@ -393,6 +393,7 @@ class RunIntakeTest {
         public Held sending(final String task, final String id) {
             throw new UnsupportedOperationException("not used here");
         }
+
         final List<Held> held = new ArrayList<>();
 
         @Override

@@ -424,8 +424,9 @@ type Task (
   # Where the task's current or last run works, as Start's place took it. A start that named none
   # works at the task's own gate push, which is then given here. Absent as for role.
   place: ?Place,
-  # How many review items at that place are held back from the run; 0 while nothing is held.
-  held: int
+  # How many review items at that place are held back from the run; 0 while nothing is held. Absent
+  # while the task's hold journal cannot be read; the daemon's log and `porelo doctor` name it.
+  held: ?int
 )
 
 # Where a run works. Exactly one field is set; a Place with none or several is refused as
@@ -1775,7 +1776,7 @@ error NotTheTasksPush(head: string)
 error RoleNotAllowed(role: string, place: Place)
 # A Start or CanStart named a place that could not be read; nothing was made. 'detail' is for a person.
 error PlaceUnreadable(
-  reason: (NoSuchPush, NotInProject, MovedSinceReview, MissingForgeToken, ForgeAdapterMissing, Unreachable),
+  reason: (NoSuchPush, NotInProject, MovedSinceReview, MissingForgeToken, ForgeAdapterMissing, Unreachable, HeadNotFetched),
   detail: string
 )
 

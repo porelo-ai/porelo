@@ -400,7 +400,9 @@ task's name and, for a repository other than the project's own, by that reposito
 place, which is not read yet (`PlaceUnreadable`, `ForgeAdapterMissing`), whether the task runs or not. A
 repository is named by its key or its full name. The task keeps its role and place through a stop and a reboot, and starting it again keeps them. Its
 row in `List` and `Watch` and its record in `porelo task records --json` carry `role`, `place` and `held`, the
-number of review items held back from the run, which is 0; a task without a gate has no role and no place.
+number of review items held back from the run; a task without a gate has no role and no place. A task whose
+hold journal cannot be read is listed without `held`, and the daemon's log and the `holds` line of `porelo doctor`
+name it; the other tasks are listed as before.
 
 ## Values a task is started with
 

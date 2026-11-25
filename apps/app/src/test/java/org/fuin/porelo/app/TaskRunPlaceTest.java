@@ -9,6 +9,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.review.Body;
+import org.fuin.porelo.gate.review.Decision;
+import org.fuin.porelo.gate.review.Direction;
+import org.fuin.porelo.gate.review.Held;
+import org.fuin.porelo.gate.review.HoldJournal;
+import org.fuin.porelo.gate.review.Pinned;
+import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.ReviewReply;
+import org.fuin.porelo.gate.review.Role;
+import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.Sidecar;
@@ -18,12 +28,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A task's row carries its run's role and the gate push it works at, as its start recorded them,
- * and how many review items there are held back from it.
+ * A task's row and record carry its run's role and the gate push it works at, as its start recorded
+ * them, and how many of its items wait for the owner account's decision.
  */
 class TaskRunPlaceTest {
 
     private static final String TASK = "porelo-demo-fix";
+
+    private static final String OTHER = "porelo-demo-other";
 
     @TempDir Path dir;
 
@@ -60,7 +72,7 @@ class TaskRunPlaceTest {
         assertThat(row)
                 .as("its own push, the project's own repository left out")
                 .containsEntry("place", Map.of("gatePush", Map.of("name", "fix")));
-        assertThat(row).as("nothing is held in Porelo yet").containsEntry("held", 0);
+        assertThat(row).as("nothing held").containsEntry("held", 0);
     }
 
     @Test
@@ -194,6 +206,114 @@ class TaskRunPlaceTest {
         assertThat(record.get("held")).as("nothing held").isEqualTo(0L);
     }
 
+    @Test
+    void aHeldItemRaisesTheRowsCountAndADecisionLowersIt() throws Exception {
+        final Path state = context.paths().tasks().containerState(TASK);
+        profile(state);
+        RunPlace.ownPush("demo", null, "fix").writeTo(state);
+        runner.answering("ps", row(true));
+        final HoldJournal holds = new HoldJournal(context.paths().gate().reviewHolds());
+        final Held held = holdOne(holds);
+
+        assertThat(rows().getFirst()).as("the row with one item held").containsEntry("held", 1);
+
+        holds.decide(TASK, held.id(), held.digest(), Decision.REFUSE);
+
+        assertThat(rows().getFirst()).as("the row once it is decided").containsEntry("held", 0);
+    }
+
+    @Test
+    void aTasksRecordCountsWhatIsHeldWhileTheTaskIsThere() throws Exception {
+        new TaskWorkRecords(context)
+                .started(
+                        TASK,
+                        "demo",
+                        "demo",
+                        null,
+                        "an-agent",
+                        null,
+                        "agent",
+                        null,
+                        null,
+                        RunPlace.ownPush("demo", "demo", "fix"));
+        final HoldJournal holds = new HoldJournal(context.paths().gate().reviewHolds());
+        final Held held = holdOne(holds);
+
+        assertThat(recordsAnswered().getFirst().get("held"))
+                .as("the record with one item held")
+                .isEqualTo(1L);
+
+        holds.decide(TASK, held.id(), held.digest(), Decision.RELEASE);
+
+        assertThat(recordsAnswered().getFirst().get("held"))
+                .as("the record once it is decided")
+                .isEqualTo(0L);
+    }
+
+    @Test
+    void aHoldJournalThatCannotBeReadLeavesOutOnlyItsTasksCountAndTheListGoesOn() throws Exception {
+        profile(context.paths().tasks().containerState(TASK));
+        profile(context.paths().tasks().containerState(OTHER));
+        runner.answering("ps", row(TASK, true) + row(OTHER, true));
+        holdOne(new HoldJournal(context.paths().gate().reviewHolds()));
+        Files.writeString(
+                context.paths().gate().reviewHolds().resolve(TASK).resolve("holds"), "not json\n");
+        final List<String> said = new java.util.ArrayList<>();
+
+        final TaskInventory inventory = new TaskInventory(context, null);
+        final List<Map<String, Object>> rows = inventory.rows(inventory.tasks(), said::add);
+
+        assertThat(rows).as("both tasks listed").hasSize(2);
+        assertThat(rows.get(0))
+                .as("the row of the task whose journal cannot be read")
+                .doesNotContainKey("held");
+        assertThat(rows.get(1)).as("the other task's row").containsEntry("held", 0);
+        assertThat(said).as("what the log is told, once").hasSize(1);
+        assertThat(said.getFirst())
+                .as("names the task and the journal")
+                .contains(TASK)
+                .contains("journal");
+    }
+
+    @Test
+    void aTasksRecordWhoseHoldJournalCannotBeReadIsAnsweredWithoutItsCount() throws Exception {
+        new TaskWorkRecords(context)
+                .started(
+                        TASK,
+                        "demo",
+                        "demo",
+                        null,
+                        "an-agent",
+                        null,
+                        "agent",
+                        null,
+                        null,
+                        RunPlace.ownPush("demo", "demo", "fix"));
+        holdOne(new HoldJournal(context.paths().gate().reviewHolds()));
+        Files.writeString(
+                context.paths().gate().reviewHolds().resolve(TASK).resolve("holds"), "not json\n");
+
+        final Map<?, ?> record = recordsAnswered().getFirst();
+        assertThat(record.get("task")).as("the task's record is answered").isEqualTo(TASK);
+        assertThat(record.containsKey("held"))
+                .as("the record over a journal that cannot be read has no count")
+                .isFalse();
+    }
+
+    /** Holds one outgoing item of the task's first run at its own push. */
+    private static Held holdOne(final HoldJournal holds) {
+        final String place = "demo/fix";
+        final int number = holds.startRun(TASK, place);
+        final Push push = new Push("demo", "demo", "fix", "1".repeat(40), null, "0123456789ab");
+        return holds.hold(
+                new Run(place, Role.AUTHOR, new Pinned(push, null), number),
+                TASK,
+                Direction.OUTGOING,
+                new ReviewReply("t-1", new Body("why")),
+                null,
+                null);
+    }
+
     /** What 'porelo task records --json' answers for the project. */
     private List<Map<?, ?>> recordsAnswered() {
         final java.io.StringWriter text = new java.io.StringWriter();
@@ -244,7 +364,11 @@ class TaskRunPlaceTest {
     }
 
     private static String row(final boolean running) {
-        return TASK
+        return row(TASK, running);
+    }
+
+    private static String row(final String task, final boolean running) {
+        return task
                 + "\t"
                 + (running ? "Up 4 minutes" : "Exited (0) 1 minute ago")
                 + "\t1788500000\t0\tdemo\tguarded\tapp\t\t\n";

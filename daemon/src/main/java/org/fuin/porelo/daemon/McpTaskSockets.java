@@ -1294,6 +1294,19 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
         @Override
         public VarlinkServer method(final String name, final VarlinkServer.Method method) {
+            return super.method(name, guarded(name, method));
+        }
+
+        @Override
+        public VarlinkServer methodEndingWithItsCaller(
+                final String name, final VarlinkServer.Method method) {
+            // Review and ReviewPage come this way: unguarded, they answered past the file and
+            // read another project's gate.
+            return super.methodEndingWithItsCaller(name, guarded(name, method));
+        }
+
+        /** Wraps a method in the file's check first, then in what holds it to the caller. */
+        private VarlinkServer.Method guarded(final String name, final VarlinkServer.Method method) {
             // Every method is registered and the file is asked at the call, so a later open can
             // allow a method or take it away; one not allowed answers as an unregistered one does.
             final VarlinkServer.Method held;
@@ -1372,23 +1385,21 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             } else {
                 held = method;
             }
-            return super.method(
-                    name,
-                    (parameters, replies) -> {
-                        final McpEndpoint allowed = endpoint;
-                        if (!allowed.methods().contains(name)) {
-                            throw new VarlinkException(
-                                    "org.varlink.service.MethodNotFound",
-                                    Map.of("method", INTERFACE + "." + name));
-                        }
-                        ScopedValue.where(CALLER, task)
-                                .where(ALLOWED, allowed)
-                                .call(
-                                        () -> {
-                                            held.call(parameters, replies);
-                                            return null;
-                                        });
-                    });
+            return (parameters, replies) -> {
+                final McpEndpoint allowed = endpoint;
+                if (!allowed.methods().contains(name)) {
+                    throw new VarlinkException(
+                            "org.varlink.service.MethodNotFound",
+                            Map.of("method", INTERFACE + "." + name));
+                }
+                ScopedValue.where(CALLER, task)
+                        .where(ALLOWED, allowed)
+                        .call(
+                                () -> {
+                                    held.call(parameters, replies);
+                                    return null;
+                                });
+            };
         }
     }
 

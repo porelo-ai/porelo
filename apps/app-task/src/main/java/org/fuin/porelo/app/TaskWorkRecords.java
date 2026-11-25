@@ -19,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -161,7 +162,8 @@ public record TaskWorkRecords(PoreloContext context) {
             record.put("role", place.role());
             record.put("place", place.place());
         }
-        // Nothing is held back from a run in Porelo yet.
+        // Nothing of a run just started is held yet; an answer counts it anew while the task is
+        // there.
         record.put("held", Long.valueOf(0));
         locked(
                 () -> {
@@ -309,6 +311,7 @@ public record TaskWorkRecords(PoreloContext context) {
     private List<Map<String, Object>> since(
             final Path directory, final String project, final Instant since) throws IOException {
         final List<Map<String, Object>> found = new ArrayList<>();
+        final HoldJournal holds = new HoldJournal(context.paths().gate().reviewHolds());
         final List<Path> files;
         try (var entries = Files.list(directory)) {
             files =
@@ -339,6 +342,13 @@ public record TaskWorkRecords(PoreloContext context) {
                     && record.get("task") instanceof String task) {
                 // A task that is still there counts on.
                 record.put("totals", totals(task));
+                // A journal that cannot be read leaves this record's count out, never the record.
+                final Integer held = TaskInventory.held(holds, task, System.err::println);
+                if (held != null) {
+                    record.put("held", Long.valueOf(held));
+                } else {
+                    record.remove("held");
+                }
             }
             found.add(record);
         }

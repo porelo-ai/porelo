@@ -317,6 +317,12 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
 
         final PrintWriter out = spec.commandLine().getOut();
         final PrintWriter err = spec.commandLine().getErr();
+        if (pinned != null && !GitHttpServer.pinnable(pinned)) {
+            // Its value is not repeated: it may hold anything a terminal would act on.
+            err.println("porelo: --pinned takes a plain ref name under refs/");
+            err.flush();
+            return 2;
+        }
 
         try {
 

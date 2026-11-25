@@ -23,9 +23,11 @@ import org.fuin.porelo.gate.review.WriteOutcome;
  * released, or waiting for a retry whose time passed. An item whose place cannot be found is marked
  * not delivered as {@value #PLACE_UNREACHABLE}; one whose account's credential the vault lacks,
  * with the refusal's word in the contract. A write that throws may have gone out, so it is marked
- * of unknown outcome. Any other failure before the write leaves the item due; the pass goes on with
- * the next item and throws the failure at its end, as it does when an answer cannot be marked. The
- * same for every place.
+ * of unknown outcome. Before the write the item is recorded as being sent, so one whose answer is
+ * never marked is shown as it is and never sent again by itself. Any other failure before the
+ * write, that record among them, leaves the item due; the pass goes on with the next item and
+ * throws the failure at its end, as it does when an answer cannot be marked. The same for every
+ * place.
  *
  * <p>The credential is lent for each write and never kept.
  */
@@ -149,6 +151,8 @@ public final class ReleasedSender {
                         now);
                 return false;
             }
+            // Recorded before the write: an item whose answer is never marked is not sent again.
+            holds.sending(held.task(), held.id());
         } catch (RuntimeException ex) {
             throw new IllegalStateException("was not sent and stays due: " + ex.getMessage(), ex);
         }
@@ -163,8 +167,8 @@ public final class ReleasedSender {
             holds.mark(held.task(), held.id(), outcome, now);
         } catch (RuntimeException ex) {
             throw new IllegalStateException(
-                    "was handed to its place, but the answer could not be marked; a later pass"
-                            + " may send it again: "
+                    "was handed to its place, but the answer could not be marked; it stays being"
+                            + " sent and is never sent again by itself: "
                             + ex.getMessage(),
                     ex);
         }

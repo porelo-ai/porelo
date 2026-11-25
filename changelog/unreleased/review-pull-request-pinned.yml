@@ -1,0 +1,2 @@
+title: "A reviewer's run at a pull request asks the forge's adapter for the pull request's facts, fetches its head read-only into the task's gate with the owner account's read token lent for that fetch alone, in git's environment and never in an argument or file, and pins the head against its merge base; a head the forge's repository does not give is refused as HeadNotFetched, naming the commit"
+type: added

@@ -533,6 +533,53 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
      * @param forges The file.
      * @return The probe.
      */
+    /**
+     * Probes the hold store: each task whose hold journal cannot be read, by name, since its row is
+     * listed without a count while it stays so.
+     *
+     * @param root The hold store, one directory per task.
+     * @return DEGRADED naming those tasks; OK when every journal reads.
+     */
+    static Probe holds(final java.nio.file.Path root) {
+        final String name = "holds";
+        if (!java.nio.file.Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return Probe.ok(name, "nothing held");
+        }
+        final java.util.List<String> tasks = new java.util.ArrayList<>();
+        try (java.util.stream.Stream<java.nio.file.Path> entries = java.nio.file.Files.list(root)) {
+            entries.map(entry -> String.valueOf(entry.getFileName())).sorted().forEach(tasks::add);
+        } catch (final java.io.IOException ex) {
+            return Probe.degraded(name, "the hold store cannot be listed: " + ex, "ls -l " + root);
+        }
+        final org.fuin.porelo.gate.review.HoldJournal journal =
+                new org.fuin.porelo.gate.review.HoldJournal(root);
+        final java.util.List<String> unreadable = new java.util.ArrayList<>();
+        final java.util.List<String> where = new java.util.ArrayList<>();
+        int held = 0;
+        for (final String task : tasks) {
+            Integer count;
+            try {
+                count = TaskInventory.held(journal, task, unreadable::add);
+            } catch (final IllegalArgumentException ex) {
+                unreadable.add(task + " is no task's name");
+                count = null;
+            }
+            if (count == null) {
+                where.add(root.resolve(task).toString());
+            } else {
+                held += count;
+            }
+        }
+        if (!unreadable.isEmpty()) {
+            return Probe.degraded(
+                    name,
+                    String.join("; ", unreadable)
+                            + "; such a task is listed without its held count",
+                    "look at " + String.join(" ", where));
+        }
+        return Probe.ok(name, held == 0 ? "nothing held" : held + " held");
+    }
+
     static Probe forges(final ForgeInstanceFile forges) {
         final String name = "forges";
         final java.util.List<org.fuin.porelo.gate.review.ForgeInstance> all;
@@ -1089,6 +1136,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
         final java.util.List<Probe> all = new java.util.ArrayList<>(machine());
         all.add(privateFiles(new LooseFiles(context.paths().xdg())));
         all.add(forges(ForgeInstanceFile.of(context)));
+        all.add(holds(context.paths().gate().reviewHolds()));
         all.addAll(keepassxc());
         return java.util.List.copyOf(all);
     }

@@ -183,6 +183,14 @@ After its scenarios a leg prints what the cache
 served. On the run of 2026-10-02 both legs printed 20 manifests and 20 blobs, `ubuntu` and `alpine`.
 A leg takes 15-20 minutes, against 26 when the scenarios ran one after another.
 
+**Every account gets the message filter before its first scenario.** The acceptance kit downloads the
+`porelo-message-sluice-filter` package its pin names over https, a `.deb` where `dpkg-deb` is installed and an
+`.rpm` where `rpm2cpio` and `cpio` are, checks its sha256 and places the filter in the account's
+`$XDG_DATA_HOME/porelo/filter/`, never machine-wide; the machine needs `curl` too. Without
+it, the run fails at its first scenario naming the filter. `PORELO_ACCEPTANCE_FILTER` and
+`PORELO_ACCEPTANCE_FILTER_SHA256` install a filter executable on the machine instead. The pin and the override are
+described in the [kit's README](https://github.com/porelo-ai/porelo/blob/main/acceptance/kit/README.md#the-message-filter-in-every-account).
+
 **The legs start beside the unit tests**, not after them, and a failed unit test cancels the run: each
 leg's clean-up still runs and deletes the machine it rented. Measured on 2026-10-02 with a deliberately red
 test: the unit test failed after a minute, both legs were cancelled 30 seconds later, each deleted its one
@@ -229,7 +237,7 @@ provider, a queue transport that always defers delivery, and the installed MCP h
    | `PORELO_ACCEPTANCE_CANDIDATE_SHA256` | Its SHA-256 |
    | `PORELO_ACCEPTANCE_STUB`, `PORELO_ACCEPTANCE_STUB_SHA256` | VM path and digest of `porelo-agent-stub`, compatible with both packages |
    | `PORELO_ACCEPTANCE_MCP`, `PORELO_ACCEPTANCE_MCP_SHA256` | VM path and digest of the `porelo-mcp` native executable |
-   | `PORELO_ACCEPTANCE_FILTER`, `PORELO_ACCEPTANCE_FILTER_SHA256` | VM path and digest of `porelo-message-sluice-filter` |
+   | `PORELO_ACCEPTANCE_FILTER`, `PORELO_ACCEPTANCE_FILTER_SHA256` | VM path and digest of `porelo-message-sluice-filter`; the kit installs the same file into the suite's account in place of its pin |
 
    The helper files are installed explicitly into the account. The provider and transport fixtures are written by
    the scenario, with a fresh TLS certificate trusted only by this account. The suite supplies

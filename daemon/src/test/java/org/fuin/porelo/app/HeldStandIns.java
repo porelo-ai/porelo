@@ -111,6 +111,11 @@ public final class HeldStandIns {
         /** Each decision taken, as "task id decision". */
         public final List<String> decided = new ArrayList<>();
 
+        @Override
+        public Held sending(final String task, final String id) {
+            throw new UnsupportedOperationException("not used here");
+        }
+
         /** The task each listing asked for; "" for every task. */
         public final List<String> listed = new ArrayList<>();
 
@@ -187,6 +192,11 @@ public final class HeldStandIns {
         public Optional<Held> incoming(
                 final String task, final String place, final String received) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Held sending(final String task, final String id) {
+            throw new UnsupportedOperationException("not used here");
         }
 
         @Override

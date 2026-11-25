@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.fuin.porelo.gate.GateMode;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
@@ -23,9 +24,43 @@ import org.jspecify.annotations.Nullable;
  * @param repository The push's repository, or {@code null} for the project's own.
  * @param name The push's name, which is its task's name within the project.
  * @param pinned The state a reviewer's run is pinned to, or {@code null} while none is.
+ * @param pullRequest The pull request the run works at, its https address, or {@code null} for a
+ *     gate push; with one, {@code name} is the task's own and {@code repository} is {@code null}.
  */
 public record RunPlace(
-        String role, @Nullable String repository, String name, @Nullable Pin pinned) {
+        String role,
+        @Nullable String repository,
+        String name,
+        @Nullable Pin pinned,
+        @Nullable String pullRequest) {
+
+    /**
+     * A role and place, pinned or not, at a gate push.
+     *
+     * @param role {@link #AUTHOR} or {@link #REVIEWER}.
+     * @param repository The push's repository, or {@code null} for the project's own.
+     * @param name The push's name.
+     * @param pinned The pinned state, or {@code null}.
+     */
+    public RunPlace(
+            final String role,
+            final @Nullable String repository,
+            final String name,
+            final @Nullable Pin pinned) {
+        this(role, repository, name, pinned, null);
+    }
+
+    /**
+     * A run at a pull request, its address checked as {@link PullRequestRef} takes one.
+     *
+     * @param role {@link #AUTHOR} or {@link #REVIEWER}.
+     * @param task The task's own name.
+     * @param url The pull request's https address.
+     * @return The place.
+     */
+    public static RunPlace atPullRequest(final String role, final String task, final String url) {
+        return new RunPlace(role, null, task, null, url);
+    }
 
     /**
      * The state a reviewer's run reads: the ref {@code refs/porelo/pinned/<task>} in its task's
@@ -72,7 +107,7 @@ public record RunPlace(
      * @return A copy.
      */
     public RunPlace pinnedTo(final Pin pin) {
-        return new RunPlace(role, repository, name, pin);
+        return new RunPlace(role, repository, name, pin, pullRequest);
     }
 
     /** The role of a run that makes the work at its place. */
@@ -102,6 +137,13 @@ public record RunPlace(
         }
         if (!named(name) || (repository != null && !named(repository))) {
             throw new IllegalArgumentException("no push's name: " + repository + " " + name);
+        }
+        if (pullRequest != null) {
+            if (repository != null) {
+                throw new IllegalArgumentException("a pull request's place names no repository");
+            }
+            // Of the one shape a pull request's address has; refused otherwise.
+            PullRequestRef.of(java.net.URI.create(pullRequest));
         }
     }
 
@@ -143,6 +185,9 @@ public record RunPlace(
      * @return The place.
      */
     public Map<String, Object> place() {
+        if (pullRequest != null) {
+            return Map.of("pullRequest", pullRequest);
+        }
         final Map<String, Object> push = new LinkedHashMap<>();
         if (repository != null) {
             push.put("repository", repository);
@@ -161,6 +206,10 @@ public record RunPlace(
         final Map<String, Object> document = new LinkedHashMap<>();
         document.put("role", role);
         document.put("place", place());
+        if (pullRequest != null) {
+            // A pull request's place does not name the task, which the record still does.
+            document.put("name", name);
+        }
         if (pinned != null) {
             final Map<String, Object> pin = new LinkedHashMap<>();
             pin.put("head", pinned.head());
@@ -221,8 +270,20 @@ public record RunPlace(
             return null;
         }
         try {
-            if (Json.parse(Files.readString(file, StandardCharsets.UTF_8))
-                            instanceof Map<?, ?> document
+            final Object parsed = Json.parse(Files.readString(file, StandardCharsets.UTF_8));
+            if (parsed instanceof Map<?, ?> document
+                    && document.get("role") instanceof String role
+                    && document.get("place") instanceof Map<?, ?> place
+                    && place.get("pullRequest") instanceof String url
+                    && document.get("name") instanceof String task) {
+                return new RunPlace(
+                        role,
+                        null,
+                        task,
+                        document.containsKey("pinned") ? pin(document.get("pinned")) : null,
+                        url);
+            }
+            if (parsed instanceof Map<?, ?> document
                     && document.get("role") instanceof String role
                     && document.get("place") instanceof Map<?, ?> place
                     && place.get("gatePush") instanceof Map<?, ?> push

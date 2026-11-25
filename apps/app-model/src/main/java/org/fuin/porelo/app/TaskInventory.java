@@ -9,6 +9,8 @@ import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.gate.GateMode;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.HoldJournal;
+import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.wire.Sidecar;
@@ -1768,8 +1770,44 @@ public final class TaskInventory {
      * @return One row each, in the same order.
      */
     public List<Map<String, Object>> rows(List<Task> tasks) {
+        return rows(tasks, System.err::println);
+    }
+
+    /**
+     * Returns tasks as a client is sent them, telling a log of each task whose hold journal cannot
+     * be read; that task's row has no {@code held}, and the others are listed all the same.
+     *
+     * @param tasks The tasks, as {@link #tasks()} found them.
+     * @param unreadable Told one line for each task whose hold journal cannot be read: the task and
+     *     why.
+     * @return One row each, in the same order.
+     */
+    public List<Map<String, Object>> rows(
+            List<Task> tasks, java.util.function.Consumer<String> unreadable) {
         final TaskReports reports = new TaskReports(context.paths());
-        return tasks.stream().map(task -> row(task, reports.last(task.name()))).toList();
+        final HoldJournal holds = new HoldJournal(context.paths().gate().reviewHolds());
+        return tasks.stream()
+                .map(task -> row(task, reports.last(task.name()), holds, unreadable))
+                .toList();
+    }
+
+    /**
+     * Counts a task's held items, or tells the log why its journal cannot be read.
+     *
+     * @param holds The hold store.
+     * @param task The task's container name.
+     * @param unreadable Told the task and why, when its journal cannot be read.
+     * @return The count; {@code null} when the journal cannot be read.
+     */
+    public static @Nullable Integer held(
+            ReviewHolds holds, String task, java.util.function.Consumer<String> unreadable) {
+        try {
+            return holds.count(task);
+        } catch (java.io.UncheckedIOException ex) {
+            unreadable.accept(
+                    "the hold journal of task " + task + " cannot be read: " + ex.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -1786,7 +1824,11 @@ public final class TaskInventory {
         return rows(List.of(task)).getFirst();
     }
 
-    private Map<String, Object> row(Task task, long reports) {
+    private Map<String, Object> row(
+            Task task,
+            long reports,
+            ReviewHolds holds,
+            java.util.function.Consumer<String> unreadable) {
         final Map<String, Object> row = new LinkedHashMap<>(task.asMap());
         final String within = String.valueOf(row.getOrDefault("task", ""));
         final String project = task.project();
@@ -1803,8 +1845,12 @@ public final class TaskInventory {
             row.put("role", place.role());
             row.put("place", place.place());
         }
-        // Nothing is held back from a run in Porelo yet.
-        row.put("held", 0);
+        // Counted where it is held, by the task's container name; a journal that cannot be read
+        // leaves this task's count out rather than show nothing held or hide every task.
+        final Integer held = held(holds, task.name(), unreadable);
+        if (held != null) {
+            row.put("held", held);
+        }
         // The number of its last report, so Watch sends the row again when one arrives; the
         // reports themselves are read with Reports.
         row.put("reports", reports);

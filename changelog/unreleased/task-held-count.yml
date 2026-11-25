@@ -1,0 +1,2 @@
+title: "List, Watch and porelo task records report how many of a task's review items wait for the owner account's decision, and Watch sends a task's row again when that count changes; a task whose hold journal cannot be read is listed without the count, and the daemon's log and porelo doctor's holds line name it"
+type: added

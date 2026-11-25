@@ -415,27 +415,7 @@ final class HostPush {
      * no transport but http, no helper but ours.
      */
     private java.util.List<String> remote(final String base) {
-        return java.util.List.of(
-                "git",
-                "-c",
-                "core.hooksPath=/dev/null",
-                "-c",
-                "protocol.allow=never",
-                "-c",
-                "protocol.http.allow=always",
-                "-c",
-                "http.proxy=",
-                "-c",
-                "credential.helper=",
-                "-c",
-                "credential."
-                        + base
-                        + ".helper=!"
-                        + word(PoreloBinary.path().toString())
-                        + " vault credential --env "
-                        + TOKEN_VARIABLE,
-                "--git-dir",
-                mirror.toString());
+        return HostGitTransport.arguments("http", base, TOKEN_VARIABLE, mirror);
     }
 
     /**
@@ -511,40 +491,16 @@ final class HostPush {
      * git config, no proxy, no trace, no prompt. HOME and PATH alone, for the credential helper.
      */
     private Map<String, String> gitEnvironment() {
-        final Map<String, String> chosen = new java.util.LinkedHashMap<>();
-        chosen.put(
-                "PATH",
-                java.util.Objects.requireNonNullElse(System.getenv("PATH"), "/usr/bin:/bin"));
-        final String home = System.getenv("HOME");
-        if (home != null) {
-            chosen.put("HOME", home);
-        }
-        chosen.put("LC_ALL", "C");
-        chosen.put("GIT_CONFIG_NOSYSTEM", "1");
-        chosen.put("GIT_CONFIG_GLOBAL", "/dev/null");
-        chosen.put("GIT_ATTR_NOSYSTEM", "1");
-        chosen.put("GIT_NO_REPLACE_OBJECTS", "1");
-        chosen.put("GIT_PROTOCOL_FROM_USER", "0");
-        chosen.put("GIT_TERMINAL_PROMPT", "0");
-        return chosen;
+        return HostGitTransport.environment();
     }
 
     /** The token, and the Basic credential git makes of it, never travel in a message. */
     private static String masked(final String text, final String secret) {
-        final String basic =
-                java.util.Base64.getEncoder()
-                        .encodeToString(
-                                ("x-access-token:" + secret)
-                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-        return text.replace(basic, "<token>").replace(secret, "<token>");
+        return HostGitTransport.masked(text, secret);
     }
 
     private static String printable(final String value) {
         return value.replaceAll(
                 "[\\p{Cntrl}\\u0080-\\u009f\\u2028\\u2029\\u202a-\\u202e\\u2066-\\u2069]", "?");
-    }
-
-    private static String word(final String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
     }
 }

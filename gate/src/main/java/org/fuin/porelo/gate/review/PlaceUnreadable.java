@@ -22,6 +22,11 @@ public final class PlaceUnreadable extends Exception {
         /** The forge did not answer. */
         UNREACHABLE("Unreachable"),
         /**
+         * The forge's repository did not give the commit its adapter named as the pull request's
+         * head, or its merge base under it; the detail names the commit.
+         */
+        HEAD_NOT_FETCHED("HeadNotFetched"),
+        /**
          * The forge knows no pull request at that address; on the wire its own error {@code
          * NoSuchPullRequest(url)}, never a reason of {@code PlaceUnreadable}.
          */

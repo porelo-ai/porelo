@@ -65,8 +65,14 @@ final class TaskMethods {
     static Map<String, Object> list(final TaskInventory inventory) {
         final List<TaskInventory.Task> found = inventory.tasks();
         return Map.of(
-                "tasks", inventory.rows(found),
+                "tasks", inventory.rows(found, TaskMethods::logged),
                 "unrecognized", inventory.unrecognized(found));
+    }
+
+    /** Writes a line to the daemon's log. */
+    private static void logged(final String line) {
+        System.err.println("porelod: " + line);
+        System.err.flush();
     }
 
     static void done(final PoreloContext context, final Map<String, Object> parameters)
@@ -690,7 +696,7 @@ final class TaskMethods {
                         replies.last(
                                 Map.of(
                                         "tasks",
-                                        inventory.rows(found),
+                                        inventory.rows(found, TaskMethods::logged),
                                         "unrecognized",
                                         inventory.unrecognized(found)));
                         return;
@@ -704,13 +710,18 @@ final class TaskMethods {
                         // a fleet view to redraw because a clock had moved. Measured against a real
                         // task, which is the only way this shows up at all.
                         final List<String> unrecognized = inventory.unrecognized(tasks);
-                        final List<Map<String, Object>> rows = inventory.rows(tasks);
+                        // Told the log only with a reply sent, so a journal that stays unreadable
+                        // is named once per answer, not once a poll.
+                        final List<String> unreadable = new java.util.ArrayList<>();
+                        final List<Map<String, Object>> rows =
+                                inventory.rows(tasks, unreadable::add);
                         final List<String> settled =
                                 new java.util.ArrayList<>(
                                         rows.stream().map(PoreloDaemon::withoutAge).toList());
                         settled.addAll(unrecognized);
                         if (!settled.equals(previous)) {
                             replies.more(Map.of("tasks", rows, "unrecognized", unrecognized));
+                            unreadable.forEach(TaskMethods::logged);
                             previous = settled;
                         }
                         sleep(PoreloDaemon.watchInterval(context.limits()));

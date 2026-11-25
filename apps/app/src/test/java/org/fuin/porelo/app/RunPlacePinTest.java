@@ -47,6 +47,27 @@ class RunPlacePinTest {
     }
 
     @Test
+    void aPlaceAtAPullRequestReadsBackWithItsTaskAndPin() throws IOException {
+        final RunPlace at =
+                RunPlace.atPullRequest(RunPlace.REVIEWER, "shop-1", REPOSITORY + "/pull/7");
+        at.writeTo(state);
+        assertThat(RunPlace.readFrom(state)).as("the record read back").isEqualTo(at);
+        final RunPlace pinned = at.pinnedTo(new RunPlace.Pin(HEAD, BASE, REPOSITORY));
+        pinned.writeTo(state);
+        assertThat(RunPlace.readFrom(state)).as("the pinned record read back").isEqualTo(pinned);
+    }
+
+    @Test
+    void aPullRequestPlaceOfAnotherShapeIsRefused() {
+        for (final String url :
+                List.of("http://github.com/acme/shop/pull/7", "https://github.com/a/b?x=1")) {
+            assertThatThrownBy(() -> RunPlace.atPullRequest(RunPlace.AUTHOR, "shop-1", url))
+                    .as("a place at '%s'", url)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
     void aRecordWrittenWithoutAPinReadsAsPinnedNowhere() throws IOException {
         RunPlace.ownPush("shop", null, "shop-1").writeTo(state);
         assertThat(RunPlace.readFrom(state).pinned()).as("an author's pinned state").isNull();
