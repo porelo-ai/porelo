@@ -192,7 +192,8 @@
               { "required": ["porelo/sourceKind"] },
               { "required": ["porelo/taskId"] },
               { "required": ["porelo/forgeAccountId"] },
-              { "required": ["porelo/forgeAccountName"] }
+              { "required": ["porelo/forgeAccountName"] },
+              { "required": ["porelo/createdAt"] }
             ]
           }
         }
@@ -295,7 +296,12 @@
               "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(?![\\s\\S])"
             },
             "porelo/forgeAccountId": { "type": "string", "minLength": 1, "maxLength": 64 },
-            "porelo/forgeAccountName": { "type": "string", "minLength": 1, "maxLength": 256 }
+            "porelo/forgeAccountName": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "porelo/createdAt": {
+              "$comment": "When the forge says the comment was written, never edited: UTC in whole seconds; that the day and time exist is the reader's check.",
+              "type": "string",
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z(?![\\s\\S])"
+            }
           },
           "allOf": [
             {
@@ -311,10 +317,14 @@
                 "required": ["porelo/sourceKind"],
                 "properties": { "porelo/sourceKind": { "const": "forge-account" } }
               },
-              "then": { "required": ["porelo/forgeAccountId", "porelo/forgeAccountName"] },
+              "then": { "required": ["porelo/forgeAccountId", "porelo/forgeAccountName", "porelo/createdAt"] },
               "else": {
                 "not": {
-                  "anyOf": [{ "required": ["porelo/forgeAccountId"] }, { "required": ["porelo/forgeAccountName"] }]
+                  "anyOf": [
+                    { "required": ["porelo/forgeAccountId"] },
+                    { "required": ["porelo/forgeAccountName"] },
+                    { "required": ["porelo/createdAt"] }
+                  ]
                 }
               }
             }

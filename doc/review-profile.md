@@ -113,9 +113,14 @@ Everything profile 1 says holds, but for these points:
 | `forge-account` | a forge's conversation, through its adapter | the forge account's name |
 
 `porelo/forgeAccountId` (the forge's id of the account, at most 64 characters; for GitHub its
-numeric id as a decimal string) and `porelo/forgeAccountName` (its login, at most 256 characters)
-are required with `forge-account` and refused with any other source; `porelo/taskId` stays with
-`task` alone.
+numeric id as a decimal string), `porelo/forgeAccountName` (its login, at most 256 characters) and
+`porelo/createdAt` are required with `forge-account` and refused with any other source;
+`porelo/taskId` stays with `task` alone.
+
+`porelo/createdAt` is when the forge says the comment was written, never when it was last edited:
+RFC 3339 in UTC, whole seconds and a final `Z`, as `2026-11-20T09:12:05Z`. Porelo takes it as the
+item's time, so the last word of a thread says when it was said, and writes it back unchanged on
+the pages a task reads.
 
 ### A submission
 
@@ -126,7 +131,8 @@ the fields only Porelo assigns, since the producer is the channel's to stamp.
   repository URL, and no `porelo/push`, `porelo/project`, `porelo/repository` or
   `urn:porelo:repository` URI.
 - A result carries no `guid`, `porelo/threadState`, `porelo/sourceKind`, `porelo/taskId`,
-  `porelo/forgeAccountId` or `porelo/forgeAccountName`, and no `porelo/threadId`: a new comment
+  `porelo/forgeAccountId`, `porelo/forgeAccountName` or `porelo/createdAt`, and no
+  `porelo/threadId`: a new comment
   opens a thread, and a reply names its thread in `porelo/replyTo` alone. A submitted reply's
   location is its thread's as the producer read it; it is not used to route the reply, which
   `porelo/replyTo` alone does.
@@ -159,3 +165,4 @@ names its rule and a JSON Pointer, never the document's text.
 | a replacement at most 8 KiB in all, braces as written | `maxLength` 8192 as a necessary bound; the bytes are the reader's |
 | `message.text` at most 8192 bytes of UTF-8 per result as given, before SARIF's escaping, as in profile 1 | `maxLength` 16384 on the written form, since each escape doubles one character; the bytes as given are the reader's |
 | a pull request run's `repositoryUri` is `https://<host>[:<port>]` and 2 to 8 path segments, the host a DNS name of at most 253 characters (labels of 1 to 63 letters, digits and `-`, none starting or ending with `-`, no trailing dot) and the port 1 to 65535 without a leading zero, and its `porelo/pullRequest` that URL and 1 to 3 more segments, the last all digits; each segment 1 to 100 of `A-Z`, `a-z`, `0-9`, `.`, `_`, `~` and `-`, neither `.` nor `..`, so no percent-encoding, no empty segment and no trailing slash | no |
+| a forge account's `porelo/createdAt` is `YYYY-MM-DDThh:mm:ssZ`, a day its month has, an hour of 00 to 23 and a minute and a second of 00 to 59 | the form by `pattern`; that the day and time exist is the reader's |

@@ -240,6 +240,30 @@ class StubReviewTest {
     }
 
     @Test
+    void eachForgeAccountsResultCarriesTheTimeTheAnswersGiveElseAFixedOneOfItsOwn()
+            throws IOException {
+        final String timed =
+                result(THREAD, "Check the expiry first.")
+                        .replace(
+                                "\"porelo/forgeAccountName\": \"octocat\"",
+                                "\"porelo/forgeAccountName\": \"octocat\","
+                                        + " \"porelo/createdAt\": \"2026-11-20T09:12:05Z\"");
+        assertThat(timed).as("the scenario's result with its time").contains("porelo/createdAt");
+        final StubReader stub =
+                new StubReader(answers("", page(timed + "," + result("77", "Why here?"))));
+        stub.post(ACCESS, PR, text(submission(THREAD, "Moved the check up.")));
+
+        final List<?> results = valid(stub.comments(ACCESS, PR, null));
+
+        assertThat(results.stream().map(each -> properties(each).get("porelo/createdAt")).toList())
+                .as("the time the answers give, else the stub's own, one second apart per comment")
+                .containsExactly(
+                        "2026-11-20T09:12:05Z",
+                        StubReader.FIRST_CREATED_AT.plusSeconds(1).toString(),
+                        StubReader.FIRST_CREATED_AT.plusSeconds(2).toString());
+    }
+
+    @Test
     void aPostedResultIsWrittenAsTheAccountTheAnswersName() throws IOException {
         final StubReader stub =
                 new StubReader(

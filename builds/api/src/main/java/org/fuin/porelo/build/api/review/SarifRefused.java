@@ -123,7 +123,13 @@ public final class SarifRefused extends Exception {
         REPLACEMENT_LINES("replacement-lines"),
 
         /** A replacement's line holds more than 400 Unicode scalar values. */
-        REPLACEMENT_LINE_LENGTH("replacement-line-length");
+        REPLACEMENT_LINE_LENGTH("replacement-line-length"),
+
+        /**
+         * A forge account's {@code porelo/createdAt} names no time that was: a day its month does
+         * not have, an hour past 23 or a second past 59.
+         */
+        CREATED_AT("created-at");
 
         private final String text;
 

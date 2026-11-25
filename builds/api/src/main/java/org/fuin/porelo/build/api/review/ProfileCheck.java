@@ -16,6 +16,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -46,7 +50,9 @@ import org.jspecify.annotations.Nullable;
  *   <li>each region starts at or before its end and spans at most {@value #MAX_REGION_LINES} lines;
  *   <li>a fix changes its result's file at its result's lines, with at most {@value
  *       #MAX_TEXT_BYTES} bytes, at most the anchored lines plus {@value #EXTRA_REPLACEMENT_LINES}
- *       lines, each at most {@value #MAX_REPLACEMENT_LINE} Unicode scalar values.
+ *       lines, each at most {@value #MAX_REPLACEMENT_LINE} Unicode scalar values;
+ *   <li>a forge account's {@code porelo/createdAt} names a time that was: its day in its month, its
+ *       hour at most 23 and its second at most 59.
  * </ul>
  *
  * <p>A refusal names its rule and a JSON Pointer, never the document's text.
@@ -105,6 +111,11 @@ public final class ProfileCheck {
                             + "})/[0-9]{1,"
                             + MAX_URL_SEGMENT
                             + "}");
+
+    // Strict, so a day its month lacks is refused, never moved to the next month.
+    private static final DateTimeFormatter CREATED_AT =
+            DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss'Z'")
+                    .withResolverStyle(ResolverStyle.STRICT);
 
     /** The channel a document came through, which decides the one kind it may send. */
     public enum Channel {
@@ -275,7 +286,11 @@ public final class ProfileCheck {
     }
 
     private void result(final Result result, final String at) throws SarifRefused {
-        shownProperties(bag(result.getProperties()), at + "/properties");
+        final Map<String, Object> properties = bag(result.getProperties());
+        shownProperties(properties, at + "/properties");
+        if (properties.get("porelo/createdAt") instanceof String time) {
+            createdAt(time, at + "/properties/porelo~1createdAt");
+        }
         message(Objects.requireNonNull(result.getMessage(), "a result's message").getText(), at);
         final PhysicalLocation location =
                 Objects.requireNonNull(
@@ -297,6 +312,15 @@ public final class ProfileCheck {
                 c++;
             }
             f++;
+        }
+    }
+
+    /** Refuses a time the schema's pattern lets through that no calendar holds. */
+    private void createdAt(final String time, final String at) throws SarifRefused {
+        try {
+            LocalDateTime.parse(time, CREATED_AT);
+        } catch (final DateTimeParseException e) {
+            refuse(Rule.CREATED_AT, at);
         }
     }
 

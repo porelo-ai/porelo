@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -37,7 +38,7 @@ class ProfileTranslatorTest {
                 .as("the page's completeness")
                 .isEqualTo(Completeness.COMPLETE);
         assertThat(read.items())
-                .as("the forge page's items")
+                .as("the forge page's items, each at the time the forge gave it")
                 .containsExactly(
                         new ProfileItem(
                                 "5b2e9d40-1c7a-4f3e-8d6b-2a9c4e7f1b03",
@@ -52,7 +53,7 @@ class ProfileTranslatorTest {
                                                         + "            return Result.denied();\n"
                                                         + "        }\n"
                                                         + "        final Item first = items.get(0);\n")),
-                                null),
+                                Instant.parse("2026-11-20T09:12:05Z")),
                         new ProfileItem(
                                 "e3a1f6c2-7b84-4d09-9e5a-6c1b8d2f4a70",
                                 "1834527690",
@@ -61,7 +62,7 @@ class ProfileTranslatorTest {
                                         "1834527690",
                                         new Body(
                                                 "Moved the check up; the test LoginTest.expiredTokenIsDenied covers it.")),
-                                null),
+                                Instant.parse("2026-11-20T10:30:00Z")),
                         new ProfileItem(
                                 "0d7c4b19-3e62-4a8f-b5d1-9f2e6a3c8b54",
                                 "1834530112",
@@ -71,7 +72,7 @@ class ProfileTranslatorTest {
                                         new Body(
                                                 "Was this fallback to the session cookie removed on purpose?"),
                                         null),
-                                null),
+                                Instant.parse("2026-11-21T08:00:41Z")),
                         new ProfileItem(
                                 "a94f2e7b-6d13-4c58-a0b2-3e8d7f1c6a29",
                                 "1834530112",
@@ -80,7 +81,7 @@ class ProfileTranslatorTest {
                                         "1834530112",
                                         new Body(
                                                 "Yes: the cookie is set by the gateway now, see docs/session.md.")),
-                                null));
+                                Instant.parse("2026-11-21T08:45:17Z")));
     }
 
     @Test

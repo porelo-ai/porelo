@@ -36,6 +36,7 @@ import org.fuin.porelo.gate.review.ProfileChannel;
 import org.fuin.porelo.gate.review.ProfileItem;
 import org.fuin.porelo.gate.review.ProfileRead;
 import org.fuin.porelo.gate.review.ProfileRefused;
+import org.fuin.porelo.gate.review.ProfileTranslator;
 import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
@@ -388,6 +389,80 @@ class ReviewOpenPullRequestTest {
         assertThat(lentEntries)
                 .as("the forge's read credential lent by its entry")
                 .containsExactly("git.token.github.com");
+    }
+
+    // An adapter's page of one open thread, octocat's comment its last word, as the forge dated it.
+    static final String FORGE_PAGE =
+            """
+            {"version": "2.1.0", "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+             "properties": {"porelo/profileVersion": "2", "porelo/documentKind": "page"},
+             "runs": [{"tool": {"driver": {"name": "Porelo"}},
+               "versionControlProvenance": [{"repositoryUri": "https://github.com/uc/shop",
+                                             "revisionId": "%s"}],
+               "columnKind": "unicodeCodePoints",
+               "properties": {"porelo/pullRequest": "%s", "porelo/baseRevisionId": "%s",
+                              "porelo/completeness": "complete"},
+               "results": [{"guid": "5b2e9d40-1c7a-4f3e-8d6b-2a9c4e7f1b03",
+                 "kind": "review", "level": "none", "message": {"text": "This loses the order."},
+                 "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/Shop.java"},
+                                                     "region": {"startLine": 3, "endLine": 5}}}],
+                 "properties": {"porelo/anchorKind": "line", "porelo/diffSide": "new",
+                                "porelo/threadId": "1834527690", "porelo/threadState": "open",
+                                "porelo/sourceKind": "forge-account",
+                                "porelo/forgeAccountId": "9001", "porelo/forgeAccountName": "octocat",
+                                "porelo/createdAt": "2026-11-25T10:00:00Z"}}]}]}
+            """
+                    .formatted(HEAD, ADDRESS, BASE);
+
+    @Test
+    void anOpenThreadOnARealAdaptersPageIsCompleteAndItsLastWordCarriesTheForgesTime()
+            throws Exception {
+        pages.add(FORGE_PAGE);
+        held.add(held("h1", ADDRESS));
+        final ReviewOpen translated =
+                new ReviewOpen(
+                        new ReviewOpen.Parts(
+                                (project, repository, name) -> {
+                                    throw new AssertionError("no gate push is asked about");
+                                },
+                                new ReviewStandIns.Store(),
+                                push -> {
+                                    throw new AssertionError("no gate push is counted");
+                                },
+                                task -> Optional.empty(),
+                                url ->
+                                        Optional.of(
+                                                new ForgeInstance(
+                                                        FORGE,
+                                                        "github",
+                                                        CommentReading.EXTENDED,
+                                                        null)),
+                                instance ->
+                                        Optional.of(
+                                                new ReviewOpen.PullRequestParts(
+                                                        forge,
+                                                        new ProfileTranslator(),
+                                                        pullRequests.check(),
+                                                        pullRequests.credentials(),
+                                                        pullRequests.places(),
+                                                        role,
+                                                        pullRequests.containers(),
+                                                        holds))));
+
+        final ReviewOpen.Answer answer = translated.answer("uc", PLACE, null, TASK);
+
+        assertThat(answer.points())
+                .as("octocat's open thread, its last word at the time the forge gave it")
+                .containsExactly(
+                        new ReviewOpen.Point(
+                                "1834527690",
+                                "src/Shop.java",
+                                3,
+                                "octocat",
+                                "2026-11-25T10:00:00Z"));
+        assertThat(answer.held()).as("the one item held at this pull request").isEqualTo(1);
+        assertThat(answer.reason()).as("no part missing").isNull();
+        assertThat(answer.complete()).as("every item read with its time").isTrue();
     }
 
     @Test

@@ -31,6 +31,8 @@ class ProfileCheckTest {
 
     private static final String REGION = "/runs/0/results/0/locations/0/physicalLocation/region";
 
+    private static final String CREATED_AT = "/runs/0/results/0/properties/porelo~1createdAt";
+
     private static final String CHANGE = "/runs/0/results/0/fixes/0/artifactChanges/0";
 
     private static final String INSERTED = CHANGE + "/replacements/0/insertedContent/text";
@@ -49,6 +51,7 @@ class ProfileCheckTest {
         "text-placeholder, TASK, MESSAGE_ESCAPE, " + TEXT,
         "reply-to-zero-width, TASK, FORMAT_CHARACTER, /runs/0/results/0/properties/porelo~1replyTo",
         "forge-account-name-bidi, ADAPTER, FORMAT_CHARACTER, /runs/0/results/0/properties/porelo~1forgeAccountName",
+        "created-at-not-a-date, ADAPTER, CREATED_AT, " + CREATED_AT,
         "uri-encoded-unreserved, TASK, ARTIFACT_URI, " + URI,
         "uri-encoded-dot-segment, TASK, ARTIFACT_URI, " + URI,
         "uri-encoded-slash, TASK, ARTIFACT_URI, " + URI,
@@ -149,6 +152,44 @@ class ProfileCheckTest {
         assertThat(refused.path())
                 .as("where %s from %s is refused", fixture, channel)
                 .isEqualTo(path);
+    }
+
+    // Each holds the schema's pattern; only a calendar tells it is no time that was.
+    @ParameterizedTest
+    @CsvSource({
+        "2026-02-30T09:12:05Z, false",
+        "2025-02-29T09:12:05Z, false",
+        "2026-13-01T09:12:05Z, false",
+        "2026-00-10T09:12:05Z, false",
+        "2026-11-00T09:12:05Z, false",
+        "2026-11-20T24:00:00Z, false",
+        "2026-11-20T09:60:05Z, false",
+        "2026-12-31T23:59:60Z, false",
+        "2024-02-29T23:59:59Z, true",
+        "2026-11-20T00:00:00Z, true"
+    })
+    void aForgeCommentsTimeIsTakenOnlyWhenItIsARealUtcTime(final String time, final boolean real)
+            throws Exception {
+        final String page =
+                new String(resource("fixtures/forge-page.sarif.json"), StandardCharsets.UTF_8);
+        final String written = "\"porelo/createdAt\": \"2026-11-20T09:12:05Z\"";
+        assertThat(page).as("the page holding its first item's time").contains(written);
+        final SarifSchema210 document =
+                SarifReading.read(
+                        page.replace(written, "\"porelo/createdAt\": \"" + time + "\"")
+                                .getBytes(StandardCharsets.UTF_8));
+        final SarifRefused refused =
+                catchThrowableOfType(
+                        SarifRefused.class, () -> ProfileCheck.check(Channel.ADAPTER, document));
+        if (real) {
+            assertThat(refused).as("%s, a time that was", time).isNull();
+        } else {
+            assertThat(refused).as("%s's refusal", time).isNotNull();
+            assertThat(refused.rule())
+                    .as("the rule %s is refused by", time)
+                    .isEqualTo(Rule.CREATED_AT);
+            assertThat(refused.path()).as("where %s is refused", time).isEqualTo(CREATED_AT);
+        }
     }
 
     @Test

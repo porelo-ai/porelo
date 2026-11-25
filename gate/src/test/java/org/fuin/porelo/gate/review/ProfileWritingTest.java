@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +38,7 @@ class ProfileWritingTest {
                     null,
                     null,
                     null);
+    static final Instant AT = Instant.parse("2026-11-20T09:12:05Z");
     static final ForgeAccount OCTOCAT = new ForgeAccount(FORGE, "583231", "octocat");
     static final ForgeAccount MONA = new ForgeAccount(FORGE, "2154823", "mona");
     static final LineAnchor LOGIN =
@@ -91,13 +93,15 @@ class ProfileWritingTest {
                 .containsEntry("porelo/sourceKind", "forge-account")
                 .containsEntry("porelo/forgeAccountId", "583231")
                 .containsEntry("porelo/forgeAccountName", "octocat")
+                .containsEntry("porelo/createdAt", "2026-11-20T09:12:05Z")
                 .doesNotContainKey("porelo/replyTo");
         assertThat(map(reply.get("properties")))
                 .as("the reply's properties")
                 .containsEntry("porelo/threadId", "1834527690")
                 .containsEntry("porelo/replyTo", "1834527690")
                 .containsEntry("porelo/forgeAccountId", "2154823")
-                .containsEntry("porelo/forgeAccountName", "mona");
+                .containsEntry("porelo/forgeAccountName", "mona")
+                .containsEntry("porelo/createdAt", "2026-11-20T09:13:05Z");
         assertThat(reply.get("locations"))
                 .as("the reply's location, its thread's")
                 .isEqualTo(root.get("locations"));
@@ -261,6 +265,30 @@ class ProfileWritingTest {
                     .as("an item of " + kept.origin().producer())
                     .isInstanceOf(IllegalArgumentException.class);
         }
+    }
+
+    @Test
+    void anItemWithoutTheTimeTheForgeGaveItIsRefusedSinceThePageWouldFailTheProfile() {
+        final Kept untimed =
+                new Kept(
+                        UUID.randomUUID().toString(),
+                        "1",
+                        Origin.of(OCTOCAT),
+                        new ReviewComment(LOGIN, new Body("When?"), null));
+        assertThatThrownBy(
+                        () ->
+                                writer.pages(
+                                        FACTS,
+                                        new Conversation(
+                                                List.of(untimed),
+                                                List.of(),
+                                                Completeness.COMPLETE,
+                                                null)))
+                .as("a page of an item without its time")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> writer.one(FACTS, untimed, untimed))
+                .as("one item without its time")
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -437,7 +465,8 @@ class ProfileWritingTest {
                 new ReviewComment(
                         anchor,
                         new Body(text),
-                        suggestion == null ? null : new Suggestion(suggestion)));
+                        suggestion == null ? null : new Suggestion(suggestion)),
+                AT);
     }
 
     static Kept reply(final String thread, final ForgeAccount account, final String text) {
@@ -445,7 +474,8 @@ class ProfileWritingTest {
                 UUID.randomUUID().toString(),
                 thread,
                 Origin.of(account),
-                new ForgeReply(thread, new Body(text)));
+                new ForgeReply(thread, new Body(text)),
+                AT.plusSeconds(60));
     }
 
     static Map<String, Object> parse(final byte[] document) {

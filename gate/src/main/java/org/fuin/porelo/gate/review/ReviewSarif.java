@@ -3,6 +3,7 @@ package org.fuin.porelo.gate.review;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -24,9 +25,9 @@ import org.jspecify.annotations.Nullable;
  * whether it is the last page, never whether the review is complete.
  *
  * <p>A profile 2 page holds a pull request's conversation with each item's forge account, the
- * forge's own thread ids and the adapter's guid; it ends before its hundredth result or before it
- * would leave too little room for the message it travels in. A submission is one released item
- * without a producer, which the channel stamps.
+ * forge's own thread ids, the adapter's guid and the time the forge says the item was written; it
+ * ends before its hundredth result or before it would leave too little room for the message it
+ * travels in. A submission is one released item without a producer, which the channel stamps.
  *
  * <p>What the check should have refused is refused here once more, loudly: a text with a control,
  * format or separator character or a lone surrogate, or one over its limit, is never written.
@@ -55,6 +56,10 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
             Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
 
     private static final int MAX_TEXT_BYTES = 8192;
+
+    // Instant writes a whole second in this form within these years, as the profile requires.
+    private static final Pattern CREATED_AT =
+            Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z");
 
     private static final Pattern CURSOR = Pattern.compile("(0|[1-9][0-9]{0,8})\\.([0-9a-f]{16})");
 
@@ -100,9 +105,9 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
      * conversation's completeness. Profile 2 has no field for an incomplete conversation's reason,
      * so it is not written.
      *
-     * @throws IllegalArgumentException When an item is not a forge account's at this forge, a
-     *     reply's thread opens with no comment of the conversation, or one item passes a result's
-     *     bound.
+     * @throws IllegalArgumentException When an item is not a forge account's at this forge or
+     *     carries no time, a reply's thread opens with no comment of the conversation, or one item
+     *     passes a result's bound.
      */
     @Override
     public List<byte[]> pages(final PullRequestFacts facts, final Conversation conversation) {
@@ -157,8 +162,8 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
      * {@inheritDoc}
      *
      * @throws IllegalArgumentException When the root is not the item's thread's opening comment (a
-     *     comment's own root is itself), the item is not a forge account's at this forge, or it
-     *     passes a result's bound.
+     *     comment's own root is itself), the item is not a forge account's at this forge or carries
+     *     no time, or it passes a result's bound.
      */
     @Override
     public byte[] one(final PullRequestFacts facts, final Kept item, final Kept root) {
@@ -211,7 +216,10 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
                 .getBytes(StandardCharsets.UTF_8);
     }
 
-    /** A conversation's item as a page's result: its guid, the forge's ids and its account. */
+    /**
+     * A conversation's item as a page's result: its guid, the forge's ids, its account and the time
+     * the forge gave it, which the profile requires of every forge account's item.
+     */
     private static Map<String, Object> pageResult(
             final PullRequestFacts facts, final Kept kept, final LineAnchor place) {
         if (!(kept.origin().producer() instanceof ForgeAccount account)
@@ -221,6 +229,11 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
         }
         if (!UUID4.matcher(kept.guid()).matches()) {
             throw new IllegalArgumentException("a page's item has no UUIDv4 as its guid");
+        }
+        final Instant at = kept.at();
+        if (at == null || !CREATED_AT.matcher(at.toString()).matches()) {
+            throw new IllegalArgumentException(
+                    "a page's item has no time in whole seconds of the years 0000 to 9999");
         }
         final Map<String, Object> result = new LinkedHashMap<>();
         result.put("guid", kept.guid());
@@ -246,6 +259,7 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
         properties.put("porelo/sourceKind", "forge-account");
         properties.put("porelo/forgeAccountId", account.id());
         properties.put("porelo/forgeAccountName", account.name());
+        properties.put("porelo/createdAt", at.toString());
         result.put("properties", properties);
         return result;
     }

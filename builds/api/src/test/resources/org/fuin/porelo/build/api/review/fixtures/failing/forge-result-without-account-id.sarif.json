@@ -54,7 +54,8 @@
             "porelo/threadId": "1834527690",
             "porelo/threadState": "open",
             "porelo/sourceKind": "forge-account",
-            "porelo/forgeAccountName": "octocat"
+            "porelo/forgeAccountName": "octocat",
+            "porelo/createdAt": "2026-11-20T09:12:05Z"
           }
         },
         {
@@ -78,7 +79,8 @@
             "porelo/threadState": "open",
             "porelo/sourceKind": "forge-account",
             "porelo/forgeAccountId": "1050231",
-            "porelo/forgeAccountName": "shop-reviewer"
+            "porelo/forgeAccountName": "shop-reviewer",
+            "porelo/createdAt": "2026-11-20T10:30:00Z"
           }
         },
         {
@@ -101,7 +103,8 @@
             "porelo/threadState": "resolved",
             "porelo/sourceKind": "forge-account",
             "porelo/forgeAccountId": "2154823",
-            "porelo/forgeAccountName": "mona"
+            "porelo/forgeAccountName": "mona",
+            "porelo/createdAt": "2026-11-21T08:00:41Z"
           }
         },
         {
@@ -125,7 +128,8 @@
             "porelo/threadState": "resolved",
             "porelo/sourceKind": "forge-account",
             "porelo/forgeAccountId": "9919",
-            "porelo/forgeAccountName": "hubot"
+            "porelo/forgeAccountName": "hubot",
+            "porelo/createdAt": "2026-11-21T08:45:17Z"
           }
         }
       ]

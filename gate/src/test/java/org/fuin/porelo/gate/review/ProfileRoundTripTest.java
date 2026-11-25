@@ -14,7 +14,10 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-/** What the one writer writes in profile 2, the one translator reads back to the same items. */
+/**
+ * What the one writer writes in profile 2, the one translator reads back to the same items, each at
+ * the time the forge gave it.
+ */
 class ProfileRoundTripTest {
 
     private static final ProfileChannel ADAPTER = new ProfileChannel.Adapter(FORGE);
@@ -155,7 +158,7 @@ class ProfileRoundTripTest {
                                         item.thread(),
                                         item.origin().producer(),
                                         item.item(),
-                                        null))
+                                        item.at()))
                 .toList();
     }
 }

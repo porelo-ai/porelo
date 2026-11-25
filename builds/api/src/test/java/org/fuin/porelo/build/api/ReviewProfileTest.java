@@ -53,6 +53,8 @@ class ReviewProfileTest {
         "submission-with-guid.sarif.json, submitted-comment.sarif.json, not@$.runs[0].results[0]",
         "forge-result-without-account-id.sarif.json, forge-page.sarif.json,"
                 + " required@$.runs[0].results[0].properties",
+        "forge-result-without-created-at.sarif.json, forge-page.sarif.json,"
+                + " required@$.runs[0].results[0].properties",
         "pull-request-run-with-urn-repository.sarif.json, forge-page.sarif.json,"
                 + " pattern@$.runs[0].versionControlProvenance[0].repositoryUri",
         "result-with-markdown.sarif.json, forge-page.sarif.json,"
@@ -100,6 +102,50 @@ class ReviewProfileTest {
     }
 
     @Test
+    void aForgeAccountsItemCarriesTheTimeItWasWrittenAndNoOtherSourceCarriesOne()
+            throws IOException {
+        final Map<String, Object> page = parse(fixture("fixtures/forge-page.sarif.json"));
+        assertThat(properties(results(page).get(0)).get("porelo/createdAt"))
+                .as("the fixture's first item's time")
+                .isEqualTo("2026-11-20T09:12:05Z");
+        assertThat(violations(page)).as("a forge account's item with its time").isEmpty();
+
+        properties(results(page).get(0)).remove("porelo/createdAt");
+        assertThat(violations(page)).as("a forge account's item without its time").isNotEmpty();
+
+        final Map<String, Object> owner = ownerPushRun();
+        properties(results(owner).get(0)).put("porelo/createdAt", "2026-11-20T09:12:05Z");
+        assertThat(violations(owner)).as("the owner account's item with a time").isNotEmpty();
+
+        final Map<String, Object> taskRun = ownerPushRun();
+        final Map<String, Object> task = properties(results(taskRun).get(0));
+        task.put("porelo/sourceKind", "task");
+        task.put("porelo/taskId", "shop-2");
+        task.put("porelo/createdAt", "2026-11-20T09:12:05Z");
+        assertThat(violations(taskRun)).as("a task's item with a time").isNotEmpty();
+    }
+
+    // Whole seconds in UTC, as the forge says the comment was written, and nothing else.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "2026-11-20T09:12:05.250Z",
+                "2026-11-20T09:12:05+01:00",
+                "2026-11-20T09:12:05",
+                "2026-11-20 09:12:05Z",
+                "2026-11-20T09:12Z",
+                "2026-11-20t09:12:05z",
+                "+12026-11-20T09:12:05Z",
+                "2026-11-20T09:12:05Z\n",
+                ""
+            })
+    void aForgeAccountsTimeInAnyOtherFormFailsTheSchema(final String time) throws IOException {
+        final Map<String, Object> page = parse(fixture("fixtures/forge-page.sarif.json"));
+        properties(results(page).get(0)).put("porelo/createdAt", time);
+        assertThat(violations(page)).as("a forge account's time written %s", time).isNotEmpty();
+    }
+
+    @Test
     void aSubmissionCarriesNoneOfTheFieldsPoreloAssigns() throws IOException {
         for (final Map.Entry<String, Object> assigned :
                 Map.<String, Object>of(
@@ -107,7 +153,8 @@ class ReviewProfileTest {
                                 "porelo/threadState", "open",
                                 "porelo/taskId", "shop-2",
                                 "porelo/forgeAccountId", "583231",
-                                "porelo/forgeAccountName", "octocat")
+                                "porelo/forgeAccountName", "octocat",
+                                "porelo/createdAt", "2026-11-20T09:12:05Z")
                         .entrySet()) {
             final Map<String, Object> doc = parse(fixture("fixtures/submitted-comment.sarif.json"));
             properties(results(doc).get(0)).put(assigned.getKey(), assigned.getValue());
@@ -239,6 +286,7 @@ class ReviewProfileTest {
         forged.put("porelo/sourceKind", "forge-account");
         forged.put("porelo/forgeAccountId", "583231");
         forged.put("porelo/forgeAccountName", "octocat");
+        forged.put("porelo/createdAt", "2026-11-20T09:12:05Z");
         assertThat(violations(push)).as("a push run with a forge account's item").isNotEmpty();
 
         final Map<String, Object> owner = parse(fixture("fixtures/forge-page.sarif.json"));
@@ -246,6 +294,7 @@ class ReviewProfileTest {
         ownerItem.put("porelo/sourceKind", "owner-account");
         ownerItem.remove("porelo/forgeAccountId");
         ownerItem.remove("porelo/forgeAccountName");
+        ownerItem.remove("porelo/createdAt");
         assertThat(violations(owner)).as("a pull request page with an owner's item").isNotEmpty();
 
         final Map<String, Object> task = parse(fixture("fixtures/forge-page.sarif.json"));
@@ -254,6 +303,7 @@ class ReviewProfileTest {
         taskItem.put("porelo/taskId", "shop-2");
         taskItem.remove("porelo/forgeAccountId");
         taskItem.remove("porelo/forgeAccountName");
+        taskItem.remove("porelo/createdAt");
         assertThat(violations(task)).as("a pull request page with a task's item").isNotEmpty();
     }
 
@@ -333,6 +383,7 @@ class ReviewProfileTest {
             properties.put("porelo/sourceKind", "owner-account");
             properties.remove("porelo/forgeAccountId");
             properties.remove("porelo/forgeAccountName");
+            properties.remove("porelo/createdAt");
             properties.remove("porelo/taskId");
         }
         return push;

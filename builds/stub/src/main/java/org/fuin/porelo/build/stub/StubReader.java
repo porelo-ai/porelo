@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -80,10 +81,12 @@ import org.jspecify.annotations.Nullable;
  * that guid, its thread, and as {@code forge-account} under that account: the one {@code accounts}
  * names for the token by {@link #tokenKey}, else what {@code postedAs} names, else the stub's own
  * ({@link #ACCOUNT_ID}, {@link #ACCOUNT_NAME}). The facts' {@code account}, unless they name one,
- * is that same account, as {@code id} and {@code login}. A reply names a thread the conversation
- * holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse} refuses
- * every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code retryAfter} or
- * {@code field}; the {@code token} holds for the review calls too.
+ * is that same account, as {@code id} and {@code login}. Every {@code forge-account} result carries
+ * {@code porelo/createdAt}: the one its page in the answers gives, else {@link #FIRST_CREATED_AT}
+ * one second later per result before it in the conversation. A reply names a thread the
+ * conversation holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse}
+ * refuses every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code
+ * retryAfter} or {@code field}; the {@code token} holds for the review calls too.
  */
 public final class StubReader implements BuildReader, ReviewReader {
 
@@ -131,6 +134,12 @@ public final class StubReader implements BuildReader, ReviewReader {
 
     /** The forge account name a posted result carries when the answers name none. */
     public static final String ACCOUNT_NAME = "porelo-stub";
+
+    /**
+     * The time a {@code forge-account} result carries when the answers give it none: this for the
+     * conversation's first result, one second later for each result after it.
+     */
+    public static final Instant FIRST_CREATED_AT = Instant.parse("2026-01-01T00:00:00Z");
 
     /** The first thread id a new comment opens, so a test tells it from the ones it wrote. */
     private static final long FIRST_THREAD = 9_000_000_000L;
@@ -426,11 +435,39 @@ public final class StubReader implements BuildReader, ReviewReader {
             }
         }
         attach(pages.getLast(), added);
+        dated(pages);
         final List<Map<String, Object>> spilled = new ArrayList<>();
         for (final Map<String, Object> page : pages) {
             spilled.addAll(spill(page));
         }
         return spilled;
+    }
+
+    /**
+     * Gives each {@code forge-account} result without a time the stub's own, by its place in the
+     * conversation, so every page holds to the profile; a time the answers give stays.
+     */
+    private static void dated(final List<Map<String, Object>> pages) {
+        long place = 0;
+        for (final Map<String, Object> page : pages) {
+            final List<Object> results = new ArrayList<>();
+            for (final Object each : results(page)) {
+                if (each instanceof Map<?, ?> given) {
+                    final Map<String, Object> result = copy(given);
+                    final Map<String, Object> properties = properties(result);
+                    if ("forge-account".equals(properties.get("porelo/sourceKind"))
+                            && !properties.containsKey("porelo/createdAt")) {
+                        properties.put(
+                                "porelo/createdAt", FIRST_CREATED_AT.plusSeconds(place).toString());
+                    }
+                    results.add(result);
+                } else {
+                    results.add(each);
+                }
+                place++;
+            }
+            attach(page, results, true);
+        }
     }
 
     /**

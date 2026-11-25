@@ -9,6 +9,7 @@ import com.contrastsecurity.sarif.Replacement;
 import com.contrastsecurity.sarif.Result;
 import com.contrastsecurity.sarif.Run;
 import com.contrastsecurity.sarif.SarifSchema210;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -24,9 +25,9 @@ import org.jspecify.annotations.Nullable;
  * {@link ReviewComment} or a {@link ForgeReply}.
  *
  * <p>The producer comes from the channel, never from the document: an adapter's items are its
- * forge's accounts, named by the fields the profile requires of a forge page; a task's submission
- * is the task's, without an id or a thread. A refusal names a rule and a JSON Pointer, never the
- * document's text.
+ * forge's accounts, named by the fields the profile requires of a forge page, each item at the time
+ * the forge says it was written; a task's submission is the task's, without an id, a thread or a
+ * time. A refusal names a rule and a JSON Pointer, never the document's text.
  */
 public final class ProfileTranslator implements ProfileReading {
 
@@ -102,7 +103,8 @@ public final class ProfileTranslator implements ProfileReading {
                                     String.valueOf(properties.get("porelo/forgeAccountId")),
                                     String.valueOf(properties.get("porelo/forgeAccountName"))),
                             item,
-                            null);
+                            // The check requires it on a forge page and holds it to a real time.
+                            Instant.parse(String.valueOf(properties.get("porelo/createdAt"))));
             case ProfileChannel.FromTask task ->
                     new ProfileItem(null, null, task.task(), item, null);
         };
@@ -178,7 +180,8 @@ public final class ProfileTranslator implements ProfileReading {
                     FIX_ANCHOR,
                     REPLACEMENT_SIZE,
                     REPLACEMENT_LINES,
-                    REPLACEMENT_LINE_LENGTH ->
+                    REPLACEMENT_LINE_LENGTH,
+                    CREATED_AT ->
                     "profile: " + refused.rule().text() + " at " + at;
         };
     }
