@@ -370,6 +370,7 @@ final class GateMethods {
                 server,
                 new org.fuin.porelo.gate.review.HoldJournal(context.paths().gate().reviewHolds()),
                 reviews::send);
+        sendOnTimer(sweep, reviews::send);
         registerForges(
                 server,
                 org.fuin.porelo.app.ForgeInstanceFile.of(context),
@@ -1106,6 +1107,18 @@ final class GateMethods {
      * @param server Where.
      * @param holds The held items.
      */
+    /**
+     * Has the sweep's timer start a pass of the released items' send as well. A release decided on
+     * the command line writes the hold itself and calls no method here, and a retry's time passes
+     * with no call at all: without the timer neither would ever be sent.
+     *
+     * @param sweep The server's timer.
+     * @param send Starts one send pass.
+     */
+    static void sendOnTimer(final ReadingSweep sweep, final Runnable send) {
+        sweep.add(send);
+    }
+
     static void registerHolds(
             final VarlinkServer server, final org.fuin.porelo.gate.review.ReviewHolds holds) {
         registerHolds(server, holds, () -> {});
