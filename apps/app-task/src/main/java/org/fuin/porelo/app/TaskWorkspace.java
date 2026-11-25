@@ -298,6 +298,24 @@ public class TaskWorkspace {
         return cloneScript(FETCH_SECONDS);
     }
 
+    /**
+     * Returns the shell that moves a reviewer's workspace to the head its run was just pinned to.
+     *
+     * <p>The workspace is made before its run is pinned, and a later run is pinned anew while the
+     * workspace stays: without this, a reviewer never stood at the pull request's head. The branch
+     * is the one {@link #cloneScript} names a pinned start's, the reviewer's own.
+     *
+     * @return Command and arguments, run as the agent's user.
+     */
+    static java.util.List<String> pinnedHeadCommand() {
+        return java.util.List.of(
+                "sh",
+                "-c",
+                "set -e; cd "
+                        + MOUNT
+                        + "; git fetch -q porelo; git checkout -q -B pinned porelo/pinned");
+    }
+
     /** What the script prints when its fetch fails, with the fetch's exit code after it. */
     static final String FETCH_FAILED = "porelo-fetch-failed";
 

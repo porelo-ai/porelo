@@ -4528,6 +4528,21 @@ class TaskRunCommandTest {
             final TaskLaunch.RunStarts starts,
             final List<String> order)
             throws IOException {
+        return launchAtPullRequest(context, dir, RunPlace.AUTHOR, starts, order, () -> {});
+    }
+
+    /**
+     * A start in a role at a pull request, its run's start told through the hook given and its
+     * agent's run through the other.
+     */
+    private int launchAtPullRequest(
+            final PoreloContext context,
+            final Path dir,
+            final String role,
+            final TaskLaunch.RunStarts starts,
+            final List<String> order,
+            final Runnable agentRuns)
+            throws IOException {
         projectFile(dir, MINIMAL);
         final Path helpers = helperStandIns(dir);
         final String ownPorelo = System.getProperty(PoreloBinary.NAMED);
@@ -4557,15 +4572,14 @@ class TaskRunCommandTest {
                                     java.util.Map.of()))
                     .at(
                             RunPlace.atPullRequest(
-                                    RunPlace.AUTHOR,
-                                    "shell",
-                                    "https://review.stub.invalid/uc/uc/pull/7"))
+                                    role, "shell", "https://review.stub.invalid/uc/uc/pull/7"))
                     .startingRuns(starts)
                     .launch(
                             new PrintWriter(out, true),
                             new PrintWriter(err, true),
                             running -> {
                                 order.add("agent");
+                                agentRuns.run();
                                 return running.cleanUp().applyAsInt(0);
                             });
         } finally {
@@ -4631,6 +4645,210 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .as("the container it made is removed: %s", runner.lines())
                 .anyMatch(line -> line.contains("podman rm") || line.contains("podman stop"));
+    }
+
+    /**
+     * The move of a reviewer's workspace to its pinned head, as the stand-in runtime is told it.
+     */
+    private static final String TO_PINNED = "-B pinned porelo/pinned";
+
+    /**
+     * Writes a stand-in runtime that keeps, one line each, what it is asked to run in a container,
+     * and refuses the move to a pinned head when told to.
+     */
+    private static Path loggingPodman(final Path dir, final boolean refusingPinned)
+            throws IOException {
+        final Path podman = dir.resolve("logging-podman");
+        Files.writeString(
+                podman,
+                "#!/bin/sh\nprintf '%s\\n' \"$*\" >> "
+                        + shellArgument(dir.resolve("podman.said").toString())
+                        + "\n"
+                        + (refusingPinned
+                                ? "case \"$*\" in *'" + TO_PINNED + "'*) exit 1;; esac\n"
+                                : ""));
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        return podman;
+    }
+
+    /** What the stand-in runtime was asked to run in a container so far. */
+    private static List<String> said(final Path dir) {
+        try {
+            final Path said = dir.resolve("podman.said");
+            return Files.isRegularFile(said) ? Files.readAllLines(said) : List.of();
+        } catch (IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
+    /** Runs a start with the given stand-in runtime in place of the usual one. */
+    private static <T> T withPodman(final Path podman, final java.util.concurrent.Callable<T> start)
+            throws Exception {
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        try {
+            return start.call();
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+    }
+
+    /** Whether one line moves the workspace to its pinned head, its fetch first. */
+    private static boolean fetchesThenStandsAtPinned(final String line) {
+        final int fetch = line.indexOf("git fetch -q porelo");
+        return fetch >= 0
+                && line.contains(TaskWorkspace.MOUNT)
+                && line.indexOf("git checkout -q " + TO_PINNED) > fetch;
+    }
+
+    @Test
+    void aNewReviewerAtAPullRequestStandsAtItsPinnedHeadBeforeItsAgentRuns(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = countingContext(dir);
+        final Path podman = loggingPodman(dir, false);
+        final List<String> order = new ArrayList<>();
+        final List<String> atBegin = new ArrayList<>();
+        final List<String> atAgent = new ArrayList<>();
+
+        final int code =
+                withPodman(
+                        podman,
+                        () ->
+                                launchAtPullRequest(
+                                        context,
+                                        dir,
+                                        RunPlace.REVIEWER,
+                                        (container, place) -> {
+                                            order.add("run");
+                                            atBegin.addAll(said(dir));
+                                        },
+                                        order,
+                                        () -> atAgent.addAll(said(dir))));
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(order).as("the run before the agent").containsExactly("run", "agent");
+        assertThat(atBegin)
+                .as("its workspace is made before its run is pinned: %s", atBegin)
+                .noneMatch(line -> line.contains(TO_PINNED));
+        assertThat(atAgent)
+                .as("its workspace fetched and stood at its pinned head before its agent ran")
+                .filteredOn(line -> line.contains(TO_PINNED))
+                .singleElement()
+                .matches(TaskRunCommandTest::fetchesThenStandsAtPinned, "fetches, then checks out");
+    }
+
+    @Test
+    void aNewReviewerWhoseWorkspaceCannotStandAtItsPinnedHeadIsRefusedBeforeItsAgentRuns(
+            @TempDir Path dir) throws Exception {
+        final PoreloContext context = countingContext(dir);
+        final Path podman = loggingPodman(dir, true);
+        final List<String> order = new ArrayList<>();
+
+        final Throwable thrown =
+                org.assertj.core.api.Assertions.catchThrowable(
+                        () ->
+                                withPodman(
+                                        podman,
+                                        () ->
+                                                launchAtPullRequest(
+                                                        context,
+                                                        dir,
+                                                        RunPlace.REVIEWER,
+                                                        (container, place) -> order.add("run"),
+                                                        order,
+                                                        () -> {})));
+
+        assertThat(thrown)
+                .as("refused as a run that cannot begin, which the start answers with 69")
+                .isInstanceOf(TaskLaunch.RunStarts.Refused.class)
+                .hasMessageContaining("workspace " + TaskWorkspace.MOUNT);
+        assertThat(order).as("its run began, its agent never ran").containsExactly("run");
+        assertThat(runner.lines())
+                .as("the container it made is stopped: %s", runner.lines())
+                .anyMatch(line -> line.contains("podman rm") || line.contains("podman stop"));
+    }
+
+    @Test
+    void anAuthorAtItsOwnPullRequestIsNotMovedToAPinnedHead(@TempDir Path dir) throws Exception {
+        final PoreloContext context = countingContext(dir);
+        final Path podman = loggingPodman(dir, false);
+        final List<String> order = new ArrayList<>();
+
+        final int code =
+                withPodman(
+                        podman,
+                        () ->
+                                launchAtPullRequest(
+                                        context,
+                                        dir,
+                                        RunPlace.AUTHOR,
+                                        (container, place) -> order.add("run"),
+                                        order,
+                                        () -> {}));
+
+        assertThat(code).as("started: %s", err).isZero();
+        assertThat(order).as("its run began and its agent ran").containsExactly("run", "agent");
+        assertThat(said(dir))
+                .as("its workspace stays as its start made it")
+                .noneMatch(line -> line.contains(TO_PINNED));
+    }
+
+    /** A reviewer recorded at a pull request, brought back without a place, resumable here. */
+    private TaskLaunch.@org.jspecify.annotations.Nullable Existing reviewerResumed(
+            final PoreloContext context,
+            final Path dir,
+            final Path podman,
+            final List<String> order)
+            throws Exception {
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(RESUMED));
+        RunPlace.atPullRequest(RunPlace.REVIEWER, "shell", BROUGHT_BACK_AT).writeTo(state);
+        runner.answering("{{.Id}}", "e".repeat(64));
+        return withPodman(
+                podman,
+                () -> resumedWithoutAPlace(context, dir, (container, place) -> order.add("run")));
+    }
+
+    @Test
+    void aReviewerBroughtBackWithoutAPlaceStandsAtItsPinnedHeadBeforeItsAgentRuns(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir, true);
+        final List<String> order = new ArrayList<>();
+
+        final TaskLaunch.@org.jspecify.annotations.Nullable Existing resumed =
+                reviewerResumed(context, dir, loggingPodman(dir, false), order);
+
+        assertThat(order).as("its run began").containsExactly("run");
+        assertThat(resumed)
+                .as("brought back, for its agent to run: %s", err)
+                .isNotNull()
+                .extracting(TaskLaunch.Existing::code)
+                .isEqualTo(0);
+        assertThat(said(dir))
+                .as("its workspace fetched and stood at its pinned head")
+                .filteredOn(line -> line.contains(TO_PINNED))
+                .singleElement()
+                .matches(TaskRunCommandTest::fetchesThenStandsAtPinned, "fetches, then checks out");
+    }
+
+    @Test
+    void aReviewerBroughtBackWhoseWorkspaceCannotStandAtItsPinnedHeadIsRefused(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = context(dir, true);
+        final List<String> order = new ArrayList<>();
+
+        final TaskLaunch.@org.jspecify.annotations.Nullable Existing resumed =
+                reviewerResumed(context, dir, loggingPodman(dir, true), order);
+
+        assertThat(resumed)
+                .as("refused, so its agent does not run: %s", err)
+                .isNotNull()
+                .extracting(TaskLaunch.Existing::code)
+                .isEqualTo(69);
+        assertThat(err.toString())
+                .as("says its workspace, never a token")
+                .contains("workspace " + TaskWorkspace.MOUNT)
+                .doesNotContain("GIT_CONFIG");
     }
 
     @Test

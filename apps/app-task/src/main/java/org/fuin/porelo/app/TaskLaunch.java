@@ -2329,6 +2329,19 @@ public final class TaskLaunch {
             final TaskControl.Resumed resumed = new TaskControl(context).resume(container);
             final int code =
                     TaskResumeCommand.render(resumed, container, out, reporting(err), null);
+            // Only once it runs again: its container takes the move, and its gate serves the fetch.
+            final String unmoved =
+                    code == 0 && resumedAt != null && resumedAt.pullRequest() != null
+                            ? atPinnedHead(
+                                    context.tasks(), container, resumedAt, java.util.Map.of())
+                            : null;
+            if (unmoved != null) {
+                err.println("porelo: " + unmoved);
+                err.flush();
+                steps.refusal(unmoved);
+                steps.finish(69);
+                return new Existing(container, project.name(), 69);
+            }
             steps.finish(code);
             return new Existing(
                     container,
@@ -4711,6 +4724,12 @@ public final class TaskLaunch {
                     cleanUp(runner, container, 69, false, out, err);
                     throw new RunStartRefused(refused);
                 }
+                final String unmoved =
+                        atPinnedHead(runner, container, recordedPlace, environmentCache);
+                if (unmoved != null) {
+                    cleanUp(runner, container, 69, false, out, err);
+                    throw new RunStartRefused(new RunStarts.Refused(unmoved, null));
+                }
             }
 
             // The task is up. What happens next - run the agent to completion, attach a terminal,
@@ -4821,6 +4840,49 @@ public final class TaskLaunch {
                 + " at "
                 + (recorded.pullRequest() != null ? recorded.pullRequest() : "its gate push")
                 + ", which stays as it was; start a new task for another role or place";
+    }
+
+    /**
+     * Moves a reviewer's workspace to the head its run was just pinned to, before its agent runs.
+     *
+     * @param runner Runs it in the container, as the agent's user.
+     * @param container The task's container, running.
+     * @param place The place its run began at.
+     * @param environment What the start hands the container; empty where the container has it.
+     * @return Why the workspace could not be moved, naming it, or {@code null} when it stands at
+     *     the head or the place is no reviewer's.
+     */
+    private @Nullable String atPinnedHead(
+            final TaskRunner runner,
+            final String container,
+            final RunPlace place,
+            final java.util.Map<String, String> environment) {
+        if (!RunPlace.REVIEWER.equals(place.role()) || place.pullRequest() == null) {
+            return null;
+        }
+        final Path log =
+                context.paths().tasks().containerState(container).resolve("workspace-pinned.log");
+        int code;
+        try {
+            code =
+                    runner.execute(
+                            container,
+                            environment,
+                            TaskWorkspace.pinnedHeadCommand(),
+                            log,
+                            context.limits().services(java.time.Duration.ofMinutes(2)));
+        } catch (RuntimeException ex) {
+            // A runtime that could not run it, or a fetch past its time, leaves the head unreached.
+            code = -1;
+        }
+        return code == 0
+                ? null
+                : "the workspace "
+                        + TaskWorkspace.MOUNT
+                        + " of "
+                        + container
+                        + " could not be moved to the pull request's head, see "
+                        + log;
     }
 
     /** A run's start that refused once the task was made, which is cleaned up already. */
