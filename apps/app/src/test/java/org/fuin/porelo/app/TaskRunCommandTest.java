@@ -4183,6 +4183,68 @@ class TaskRunCommandTest {
                 .satisfies(row -> assertThat(row).containsEntry("callerKey", "offer-17"));
     }
 
+    @ParameterizedTest(name = "reads its project {0}")
+    @ValueSource(booleans = {false, true})
+    void aStartNamingNoRoleOrPlaceIsAnAuthorAtItsOwnGatePushAndOneWithoutAGateHasNeither(
+            boolean reading, @TempDir Path dir) throws IOException {
+
+        // As the window starts a task today: no role and no place, and List shows both after it.
+        final PoreloContext context = modelContext(dir, false);
+        final String project = projectFile(dir, MINIMAL);
+        ownMain(context, dir);
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\nexit 0\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        runner.answering("{{.State.Pid}}", "4711\n");
+        runner.answering("container inspect", "c0ffee\n");
+        final List<String> arguments = new ArrayList<>(List.of("task", "start"));
+        if (reading) {
+            arguments.add("--all-repositories");
+        }
+        arguments.addAll(List.of("--agent", "preview", "--prompt", "work", "-p", project));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        final int code;
+        try {
+            code = execute(context, arguments.toArray(String[]::new));
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+
+        assertThat(code).as("started: %s", err).isZero();
+        final String container;
+        try (java.util.stream.Stream<Path> records =
+                Files.list(context.paths().tasks().taskRecord("x").getParent())) {
+            container =
+                    records.map(path -> path.getFileName().toString())
+                            .filter(name -> name.startsWith("porelo-"))
+                            .findFirst()
+                            .orElseThrow();
+        }
+        runner.answering("ps", container + "\tUp 4 minutes\t1788500000\t0\tuc\tguarded\tuc\t\t\n");
+        final TaskInventory inventory = new TaskInventory(context, null);
+        final java.util.Map<String, Object> row = inventory.rows(inventory.tasks()).getFirst();
+        final java.util.Map<String, Object> record =
+                new TaskWorkRecords(context).since("uc", java.time.Instant.EPOCH).getFirst();
+        assertThat(row).as("nothing held, with a gate or without").containsEntry("held", 0);
+        if (reading) {
+            assertThat(row).as("no gate, no role and no place").doesNotContainKeys("role", "place");
+            assertThat(record).as("nor in its record").doesNotContainKeys("role", "place");
+        } else {
+            final Object own =
+                    java.util.Map.of(
+                            "gatePush", java.util.Map.of("name", String.valueOf(row.get("named"))));
+            assertThat(row).as("an author").containsEntry("role", "AUTHOR");
+            assertThat(row).as("at its own gate push").containsEntry("place", own);
+            assertThat(record)
+                    .as("and its record says the same")
+                    .containsEntry("role", "AUTHOR")
+                    .containsEntry("place", own)
+                    .containsEntry("held", 0L);
+        }
+    }
+
     @ParameterizedTest(name = "{0} characters")
     @ValueSource(ints = {201, 3})
     void aCallerKeyTooLongOrWithAControlCharacterIsRefusedBeforeAnythingIsMade(

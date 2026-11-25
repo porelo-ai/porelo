@@ -1798,6 +1798,13 @@ public final class TaskInventory {
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
         row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
         row.put("callerKey", callerKey(task.name()));
+        final RunPlace place = runPlace(task.name());
+        if (place != null) {
+            row.put("role", place.role());
+            row.put("place", place.place());
+        }
+        // Nothing is held back from a run in Porelo yet.
+        row.put("held", 0);
         // The number of its last report, so Watch sends the row again when one arrives; the
         // reports themselves are read with Reports.
         row.put("reports", reports);
@@ -1862,6 +1869,21 @@ public final class TaskInventory {
             // A file that cannot be read says nothing; the task is still listed.
             return "";
         }
+    }
+
+    /**
+     * Returns the role and place a task's start recorded: from its state where it runs, else from
+     * the record a reboot does not reach.
+     *
+     * @param container The task's container.
+     * @return Them, or {@code null} for a task without a gate or one whose start recorded none.
+     */
+    private @Nullable RunPlace runPlace(final String container) {
+        final RunPlace running =
+                RunPlace.readFrom(context.paths().tasks().containerState(container));
+        return running != null
+                ? running
+                : RunPlace.readFrom(context.paths().tasks().taskRecord(container));
     }
 
     private static Map<String, Object> landed(String task, GitGate.Landed landed) {

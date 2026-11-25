@@ -1,0 +1,2 @@
+title: "The daemon's `Start` and `CanStart` take a run's `role` and `place`, an author at the task's own gate push by default, and refuse a reviewer at its own task's work, another task's push and a pull request's place before anything is made; a task's row in `List` and `Watch` and its record in `porelo task records --json` carry `role`, `place` and `held`"
+type: added

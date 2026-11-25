@@ -1031,11 +1031,10 @@ public final class PoreloDaemon {
             org.fuin.porelo.app.TaskNames.@Nullable Chosen unnamed) {
         final String task = text(parameters, "task");
         final Path projectFile = projectFile(parameters, context);
-        final String repository = key(projectFile, text(parameters, "repository"));
+        final String repository = repositoryKey(projectFile, parameters);
         final boolean allRepositories = flag(parameters, "allRepositories");
         return new TaskLaunch.Request(
-                // Unnamed: after its repository, or after reading them all, as at the command line.
-                !task.isEmpty() ? task : unnamed == null ? "shell" : unnamed.name(),
+                taskName(parameters, unnamed),
                 // A name, resolved here rather than taken as a path. The machine prefers the file
                 // it verified; a client has no filesystem here to point at one.
                 projectFile,
@@ -1069,7 +1068,7 @@ public final class PoreloDaemon {
                 // Not defaulted here. A project is a unit of work over one or more repositories,
                 // and a client that does not say which one the task is for gets the same refusal
                 // the CLI gives, naming what there is to choose from.
-                repository.isEmpty() ? null : repository,
+                repository,
                 credentials(parameters),
                 values(parameters),
                 empty(parameters, "branch"),
@@ -1090,6 +1089,33 @@ public final class PoreloDaemon {
                 givenFiles(parameters),
                 // Refused by the launch with exitCode 64 when the agent does not list it.
                 effort(parameters));
+    }
+
+    /**
+     * Returns the name a start's task runs under, as Start and CanStart both name it.
+     *
+     * @param parameters The call's parameters.
+     * @param unnamed What {@link #unnamed} chose for it, or {@code null}.
+     * @return The name given, else the one chosen, else {@code shell}.
+     */
+    static String taskName(
+            Map<String, Object> parameters,
+            org.fuin.porelo.app.TaskNames.@Nullable Chosen unnamed) {
+        final String task = text(parameters, "task");
+        // Unnamed: after its repository, or after reading them all, as at the command line.
+        return !task.isEmpty() ? task : unnamed == null ? "shell" : unnamed.name();
+    }
+
+    /**
+     * Returns the repository a start names, by its key, as Start and CanStart both read it.
+     *
+     * @param projectFile The start's project file.
+     * @param parameters The call's parameters.
+     * @return The key, or {@code null} when the start names none.
+     */
+    static @Nullable String repositoryKey(Path projectFile, Map<String, Object> parameters) {
+        final String repository = key(projectFile, text(parameters, "repository"));
+        return repository.isEmpty() ? null : repository;
     }
 
     /**
@@ -1188,7 +1214,7 @@ public final class PoreloDaemon {
      * Returns the key of the repository a start names, by key or by full name, so an unnamed task
      * is named as CanStart names it. A name the project lacks is kept, for the start to refuse.
      */
-    private static String key(final Path projectFile, final String repository) {
+    static String key(final Path projectFile, final String repository) {
         if (repository.isEmpty()) {
             return repository;
         }

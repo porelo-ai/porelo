@@ -193,9 +193,19 @@ class TaskReportsCommandTest {
     void aRecordCarriesTheKeyItsStartWasGivenAndNoneWhenItWasGivenNone() throws Exception {
         final PoreloContext context = context();
         final TaskWorkRecords records = new TaskWorkRecords(context);
-        records.started(TASK, "uc", "work", null, "worker-one", null, "agent", null, "offer-17");
         records.started(
-                "porelo-uc-other", "uc", "work", null, "worker-one", null, "agent", null, null);
+                TASK, "uc", "work", null, "worker-one", null, "agent", null, "offer-17", null);
+        records.started(
+                "porelo-uc-other",
+                "uc",
+                "work",
+                null,
+                "worker-one",
+                null,
+                "agent",
+                null,
+                null,
+                null);
         new TaskReports(context.paths())
                 .report(TASK, ID, records.startedAt(TASK), "status", "Half done.", 2);
         final Ran ran =

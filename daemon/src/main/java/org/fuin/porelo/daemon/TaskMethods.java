@@ -358,6 +358,33 @@ final class TaskMethods {
     }
 
     /**
+     * Refuses the role and place a CanStart names as Start would refuse them.
+     *
+     * @param context The machine.
+     * @param parameters The call's parameters.
+     * @param projectFile Its project's file.
+     */
+    static void canStartAt(
+            final PoreloContext context,
+            final Map<String, Object> parameters,
+            final java.nio.file.Path projectFile) {
+        if (parameters.get("role") == null && parameters.get("place") == null) {
+            return;
+        }
+        // Named and placed as Start names and places it, so its own push is the same here and
+        // there.
+        RunPlaces.taken(
+                context,
+                parameters,
+                projectFile,
+                PoreloDaemon.taskName(parameters, PoreloDaemon.unnamed(parameters, context)),
+                PoreloDaemon.repositoryKey(projectFile, parameters),
+                !flag(parameters, "noGate")
+                        && !flag(parameters, "allRepositories")
+                        && !flag(parameters, "readOnly"));
+    }
+
+    /**
      * Registers this area's methods.
      *
      * @param server Where.
@@ -1178,6 +1205,10 @@ final class TaskMethods {
                                                                                 .names(context)))));
                         return;
                     }
+                    if (named != null) {
+                        // Refused as Start refuses them, and before anything else is asked.
+                        canStartAt(context, parameters, named);
+                    }
                     final Map<String, Object> answer =
                             new LinkedHashMap<>(canStart(context, parameters, named).asMap());
                     // What the host offers, asked only when it is the question: it reaches the
@@ -1353,6 +1384,15 @@ final class TaskMethods {
                     final org.fuin.porelo.app.TaskNames.Chosen unnamed =
                             unnamed(parameters, context);
                     final TaskLaunch.Request asked = request(parameters, context, unnamed);
+                    // Checked before anything is made, whether the task runs or not.
+                    final org.fuin.porelo.app.RunPlace runPlace =
+                            RunPlaces.taken(
+                                    context,
+                                    parameters,
+                                    asked.projectFile(),
+                                    asked.task(),
+                                    asked.repository(),
+                                    !asked.noGate() && !asked.reads());
                     final TaskLaunch launch =
                             new TaskLaunch(
                                             context,
@@ -1361,6 +1401,7 @@ final class TaskMethods {
                                     .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"))
                                     .reading(reads)
                                     .keyedBy(callerKey)
+                                    .at(runPlace)
                                     .nameHeld(
                                             unnamed != null
                                                     ? unnamed.note()

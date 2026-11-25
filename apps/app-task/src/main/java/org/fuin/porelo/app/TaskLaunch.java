@@ -2703,6 +2703,24 @@ public final class TaskLaunch {
         return this;
     }
 
+    /** The role and place the start asked for, or {@code null} for an author at its own push. */
+    private @Nullable RunPlace runPlace;
+
+    /** The role and place this task records once it is made, or {@code null} for none. */
+    private @Nullable RunPlace recordedPlace;
+
+    /**
+     * Starts this task's run in a role at a place its start checked; a gated task started without
+     * one is an author at its own gate push. A task brought back keeps what it recorded.
+     *
+     * @param place The checked role and place, or {@code null} for the default.
+     * @return This launch.
+     */
+    public TaskLaunch at(final @Nullable RunPlace place) {
+        this.runPlace = place;
+        return this;
+    }
+
     /** Who is asked whether to take the repository out of {@code default}; nobody by default. */
     private Offer leavingDefault = Offer.NOBODY;
 
@@ -4136,6 +4154,17 @@ public final class TaskLaunch {
             Directories.create(state);
             // First, so a start that fails from here on is still found by its caller's key.
             TaskInventory.writeCallerKey(state, callerKey);
+            // Beside the key: a task with a gate works at a push, one without has no place at all.
+            recordedPlace =
+                    gatedAtStart()
+                            ? runPlace != null
+                                    ? runPlace
+                                    : RunPlace.ownPush(
+                                            project.name(),
+                                            workedOn == null ? null : workedOn.name(),
+                                            request.task())
+                            : null;
+            RunPlace.record(context, container, recordedPlace);
             if (startingBranch != null && workspace != null) {
                 startingBranch.writeTo(state);
                 startingBranch.writeForGate(workspace.gate().mirror(), request.task());
@@ -5105,7 +5134,8 @@ public final class TaskLaunch {
                             model.model(),
                             model.from(),
                             request.effort(),
-                            callerKey);
+                            callerKey,
+                            recordedPlace);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start this task's work record: " + ex.getMessage());
             err.flush();

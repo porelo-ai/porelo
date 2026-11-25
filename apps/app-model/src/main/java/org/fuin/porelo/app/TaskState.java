@@ -50,6 +50,7 @@ public final class TaskState {
                     TaskInventory.CREDENTIALS_FILE,
                     TaskInventory.PARAMETERS_FILE,
                     TaskInventory.CALLER_KEY_FILE,
+                    RunPlace.FILE,
                     TaskInventory.GRANTS_FILE,
                     TaskHelpers.FILE,
                     TaskBuilds.READER_FILE,

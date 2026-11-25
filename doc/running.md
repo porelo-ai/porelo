@@ -390,6 +390,18 @@ window, hands it over as the definition says; without one nothing is passed and 
   with another is refused.
 - **Shown** on the task's row in `List` and `Watch` and in its record.
 
+## The role and place of a task's run
+
+A task with a gate runs in a role, `AUTHOR` or `REVIEWER`, at a place: the gate push it works at. A start that
+names neither, as `porelo task start` and the window do, is an author at the task's own gate push, named by the
+task's name and, for a repository other than the project's own, by that repository. The daemon's `Start` and
+`CanStart` take `role` and `place`; before anything is made they refuse a reviewer at its own task's work
+(`RoleNotAllowed`), another task's push (`NotTheTasksPush`, with the head that waits there), and a pull request's
+place, which is not read yet (`PlaceUnreadable`, `ForgeAdapterMissing`), whether the task runs or not. A
+repository is named by its key or its full name. The task keeps its role and place through a stop and a reboot, and starting it again keeps them. Its
+row in `List` and `Watch` and its record in `porelo task records --json` carry `role`, `place` and `held`, the
+number of review items held back from the run, which is 0; a task without a gate has no role and no place.
+
 ## Values a task is started with
 
 A project can declare values a task of it is started with, under `parameters` in the
