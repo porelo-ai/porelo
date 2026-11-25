@@ -326,6 +326,12 @@ public class TaskWorkspace {
     /** What the script puts before each of the last lines git said when its fetch failed. */
     static final String FETCH_SAID = "porelo-fetch-said";
 
+    /**
+     * The push URL of a reviewer's clone: no address git can reach, which names why when a push is
+     * tried.
+     */
+    static final String NO_PUSH = "porelo-reviewer-pushes-nothing:";
+
     /** What the script prints when the workspace holds no commit when it is done. */
     static final String EMPTY = "porelo-workspace-empty";
 
@@ -361,6 +367,17 @@ public class TaskWorkspace {
                 + "git config --get-all remote.origin.fetch 2>/dev/null | grep -q '/landed/'"
                 + " || git config --add remote.origin.fetch"
                 + " '+refs/porelo/landed/*:refs/remotes/origin/landed/*'; "
+                // A reviewer's gate shows its pinned ref alone, fetched under a name of its own;
+                // its clone has no push URL, so nothing it does looks like handing work in.
+                + "if [ -n \"${PORELO_PINNED_REF:-}\" ]; then "
+                + "  spec=\"+$PORELO_PINNED_REF:refs/remotes/porelo/pinned\"; "
+                + "  git config --get-all remote.porelo.fetch | grep -qxF -- \"$spec\""
+                + " || git config --add remote.porelo.fetch \"$spec\"; "
+                + "  git config remote.porelo.pushurl "
+                + NO_PUSH
+                + "; git config remote.origin.pushurl "
+                + NO_PUSH
+                + "; fi; "
                 // Within a limit, where the image has 'timeout': a remote that never answers - an
                 // ssh port dropped on the way - held the launch for its whole time, with nothing
                 // said. What became of it is printed for the launch to report; the task starts
@@ -382,6 +399,9 @@ public class TaskWorkspace {
                 + " 2>/dev/null || true); "
                 + "  if [ -n \"${PORELO_BASE_BRANCH:-}\" ]; then start=\"porelo/$PORELO_BASE_BRANCH\"; "
                 + "git rev-parse -q --verify \"$start^{commit}\" >/dev/null || { echo 'starting branch unavailable' >&2; exit 65; }; fi; "
+                // A reviewer starts from its pinned state, or from nothing while none is pinned.
+                + "  if [ -n \"${PORELO_PINNED_REF:-}\" ]; then start=;"
+                + " git rev-parse -q --verify porelo/pinned >/dev/null && start=porelo/pinned; fi; "
                 + "  if [ -z \"$start\" ]; then "
                 + "    for candidate in porelo/main porelo/master; do "
                 + "      if git rev-parse -q --verify \"$candidate\" >/dev/null; then "

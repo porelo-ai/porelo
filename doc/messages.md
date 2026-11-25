@@ -145,11 +145,15 @@ either.
   held. No task is named `people`, `person` or `review`, the names the room's people, a person's own note and the
   review go by. One
   from an `external` peer, or one the project does not list, is also put through the filter on the way in.
-- **A task's message to `review` is a reply to a thread of the review of its own work**, never sent anywhere:
-  after the filter has passed it (and a person has released it, when the filter only reported a finding), the host
-  hands it to the review as the task whose mailbox it came through, whatever its `metadata.from` says. It is
-  `metadata.kind` `comment`, names its thread in `metadata.thread` and has exactly one text part; one of any other
-  shape, or one the review refuses, comes back to the task with the reason. No peer is named `review`.
+- **A task's message to `review` is a reply to a thread of the review of its own work, or a run's submission
+  of comments and replies on a pull request**, never sent anywhere: after the filter has passed it (and a person
+  has released it, when the filter only reported a finding), the host hands it to the review as the task whose
+  mailbox it came through, whatever its `metadata.from` says. Both are `metadata.kind` `comment`. A reply names
+  its thread in `metadata.thread` and has exactly one text part. A submission has no `metadata.thread` and
+  exactly one part, a data part holding one [review profile 2](review-profile.md) document of kind
+  `submission`; the review checks it against the run's pinned state and holds each item for the owner
+  account's release. One of any other shape, or one the review refuses, comes back to the task with the
+  reason. No peer is named `review`.
 - **No order is promised, and nothing is delivered twice**: a message whose id already reached a mailbox is
   dropped and logged.
 - **The mailbox lives exactly as long as the task**: a stop, a start or a reboot leave it as it was, and the
@@ -287,11 +291,62 @@ thread as your reply.
 - You can answer only the threads of your own work. A reply that is refused comes back
   into `inbox/new/` with the reason.
 
+### Commenting on a pull request
+
+When your task reviews a pull request, or works on its own pull request, it is given the pull
+request's conversation as review documents. Send your comments and replies there as one
+message to `review` whose only part is a data part holding one review document of kind
+`submission`. Nothing reaches the pull request before the owner account releases it.
+
+```json
+{
+  "messageId": "a-unique-id-of-yours",
+  "role": "ROLE_AGENT",
+  "parts": [ { "data": {
+    "version": "2.1.0",
+    "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
+    "runs": [ {
+      "tool": { "driver": { "name": "Porelo" } },
+      "versionControlProvenance": [ { "repositoryUri": "https://github.com/shop/app",
+        "revisionId": "the head commit the conversation names, in full" } ],
+      "columnKind": "unicodeCodePoints",
+      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42" },
+      "results": [
+        { "kind": "review", "level": "none",
+          "message": { "text": "A blank password reaches hash() here." },
+          "locations": [ { "physicalLocation": {
+            "artifactLocation": { "uri": "src/Login.java" },
+            "region": { "startLine": 27, "endLine": 28 } } } ],
+          "properties": { "porelo/anchorKind": "line", "porelo/diffSide": "new" } },
+        { "kind": "review", "level": "none",
+          "message": { "text": "The check now runs first." },
+          "locations": [ { "physicalLocation": {
+            "artifactLocation": { "uri": "src/Login.java" },
+            "region": { "startLine": 41, "endLine": 43 } } } ],
+          "properties": { "porelo/anchorKind": "line", "porelo/diffSide": "new",
+            "porelo/replyTo": "the thread's id" } }
+      ]
+    } ]
+  } } ],
+  "metadata": { "to": "review", "kind": "comment" }
+}
+```
+
+- Take the run's `versionControlProvenance` and `porelo/pullRequest` from the conversation
+  you were given.
+- A result without `porelo/replyTo` is a new comment, which opens a thread; only a reviewer
+  opens one. A result with it replies in the thread of that id, as the conversation's
+  `porelo/threadId` gave it, at that thread's place.
+- Name no author, `guid`, `porelo/threadId` or thread state: the host knows who sends it.
+- No `metadata.thread` and no other part. A submission that is refused comes back into
+  `inbox/new/` with the reason, and nothing of it is kept.
+
 ### What does not travel
 
 Every message you send is checked before it leaves, and only plain English prose passes.
 Encoded data is refused, also when cut into pieces by spaces or line breaks: base64, hex, a full
-commit id and the like. So are `data`, `raw` and `url` parts. Long code, identifiers and command
+commit id and the like. So are `raw` and `url` parts, and a `data` part anywhere but in a
+submission to `review`, whose texts are checked as well. Long code, identifiers and command
 lines may be refused. **Never put a secret or a credential into a message:** do not rely on the
 check to catch one. **Work travels by commit**, through the task's gate, never inside a message.
 Name the commit by its short form (7 to 12 characters), never the full id. Depending on the

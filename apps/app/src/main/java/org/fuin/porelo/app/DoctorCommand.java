@@ -524,6 +524,53 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
                 "porelo tighten");
     }
 
+    /**
+     * Says whether the machine's forge file can be read, and whether it is this account's alone; a
+     * file another could write has every forge's comments read as extended.
+     *
+     * <p>Degrades and does not make the machine not ready: a task runs without a forge's review.
+     *
+     * @param forges The file.
+     * @return The probe.
+     */
+    static Probe forges(final ForgeInstanceFile forges) {
+        final String name = "forges";
+        final java.util.List<org.fuin.porelo.gate.review.ForgeInstance> all;
+        try {
+            all = forges.all();
+        } catch (final org.fuin.porelo.gate.review.ForgeFileUnreadable ex) {
+            return Probe.degraded(
+                    name,
+                    ex.getMessage() + "; no pull request's review can start until it is mended",
+                    "edit " + forges.file());
+        }
+        final java.util.Optional<String> loosened = forges.loosened();
+        if (loosened.isPresent()) {
+            return Probe.degraded(name, loosened.get(), "chmod 600 " + forges.file());
+        }
+        final long unreadable =
+                all.stream().filter(instance -> instance.unreadable() != null).count();
+        if (unreadable > 0) {
+            return Probe.degraded(
+                    name,
+                    unreadable + " of " + all.size() + " cannot be read and are read as extended",
+                    "porelo forge list");
+        }
+        return Probe.ok(
+                name,
+                all.isEmpty()
+                        ? "none known"
+                        : all.stream()
+                                .map(
+                                        instance ->
+                                                instance.host()
+                                                        + " "
+                                                        + instance.reading()
+                                                                .name()
+                                                                .toLowerCase(java.util.Locale.ROOT))
+                                .collect(java.util.stream.Collectors.joining(", ")));
+    }
+
     private Probe leftovers() {
         final String name = "leftovers";
         final Prune.Result found;
@@ -1041,6 +1088,7 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     java.util.List<Probe> reported() {
         final java.util.List<Probe> all = new java.util.ArrayList<>(machine());
         all.add(privateFiles(new LooseFiles(context.paths().xdg())));
+        all.add(forges(ForgeInstanceFile.of(context)));
         all.addAll(keepassxc());
         return java.util.List.copyOf(all);
     }

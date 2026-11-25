@@ -41,6 +41,12 @@ class ReviewReplyDispatchTest {
     private static final MessageDispatch.Tasks TASKS =
             container -> CONTAINER.equals(container) ? T : null;
 
+    /** No message here is a submission; one taken as such fails the test. */
+    private static final ReviewerComments NO_SUBMISSIONS =
+            (task, document) -> {
+                throw new AssertionError("no submission here");
+            };
+
     private final Mail mail =
             new Mail(List.of(new Mail.Peer("ops", "mail:ops@example.org", "external")));
 
@@ -138,7 +144,8 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, TASKS).dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken)
                 .containsExactly(List.of(T, "th-1", "Fixed: the bound is checked first now."));
@@ -179,7 +186,8 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, TASKS).dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken)
                 .containsExactly(List.of(T, thread, "The bound is checked first now."));
@@ -213,8 +221,9 @@ class ReviewReplyDispatchTest {
         final Mailbox second = accepted(dir.resolve("b"), "porelo-beta-fix", json, false);
         final StandIn review = new StandIn(Optional.empty());
 
-        new MessageDispatch(review, tasks).dispatch(first, mail, undecided(first));
-        new MessageDispatch(review, tasks).dispatch(second, mail, undecided(second));
+        new MessageDispatch(review, NO_SUBMISSIONS, tasks).dispatch(first, mail, undecided(first));
+        new MessageDispatch(review, NO_SUBMISSIONS, tasks)
+                .dispatch(second, mail, undecided(second));
 
         assertThat(review.taken).extracting(taken -> taken.get(0)).containsExactly(alpha, beta);
         assertThat(review.taken)
@@ -236,7 +245,8 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, TASKS).dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).isEmpty();
         assertThat(outcome.held())
@@ -261,7 +271,8 @@ class ReviewReplyDispatchTest {
                 new StandIn(Optional.of("NoSuchThread: this task's push has no thread 'th-9'"));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, TASKS).dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).hasSize(1);
         assertThat(outcome.queued()).isEmpty();
@@ -298,7 +309,7 @@ class ReviewReplyDispatchTest {
                         reply(
                                 "{\"to\":\"review\",\"kind\":\"comment\",\"thread\":\"th-1\"}",
                                 "[{\"text\":\"See the report.\"},{\"data\":{\"version\":\"2.1.0\"}}]"),
-                        "one text part"));
+                        "no metadata.thread and exactly one part, a data part"));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -306,12 +317,14 @@ class ReviewReplyDispatchTest {
     void aReplyOfAnotherShapeBouncesWithItsReasonAndReachesNoReview(
             final String what, final String json, final String reason, @TempDir final Path dir)
             throws IOException {
-        // A task never sends SARIF, and a reply without its thread answers nothing.
+        // A reply is words alone, a submission a document alone; a reply without its thread
+        // answers nothing.
         final Mailbox mailbox = accepted(dir, json, false);
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, TASKS).dispatch(mailbox, mail, undecided(mailbox));
+                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                        .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).as(what).isEmpty();
         assertThat(outcome.queued()).isEmpty();
@@ -335,7 +348,8 @@ class ReviewReplyDispatchTest {
                         false);
         final StandIn review = new StandIn(Optional.empty());
 
-        new MessageDispatch(review, container -> null).dispatch(mailbox, mail, undecided(mailbox));
+        new MessageDispatch(review, NO_SUBMISSIONS, container -> null)
+                .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).isEmpty();
         assertThat(bounces(mailbox))

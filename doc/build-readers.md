@@ -78,6 +78,20 @@ Porelo hands every document on as bytes and parses none here. The refusals are `
 cannot carry, naming the field) and `WriteOutcomeUnknown`: a post that was sent with no answer saying whether it was
 written, which Porelo never sends again. An adapter never logs the token and never puts it in an error.
 
+Porelo holds what an adapter answers to profile 2's shapes before it uses it, and refuses anything else as the
+adapter's fault:
+
+- **Addresses:** a repository is `https://<host>[:<port>]/` and 2 to 8 segments of `[A-Za-z0-9._~-]{1,100}`, none
+  of them `.` or `..`; a pull request is a repository's address and 1 to 3 segments more, the last all digits.
+- **Bounds:** a page is UTF-8 of at most 1 MiB, a cursor at most 256 characters, a thread's id 1 to 64 digits, a
+  field `NotInProfile` names at most 128 characters, and the branch a pull request merged onto a name git accepts;
+  none of them holds a control character. A parameter answered as `null` is absent.
+- **Messages:** what an adapter says reaches a message with the lent token replaced by `[token]` and cut to 512
+  characters.
+- **A broken answer:** a frame that is no varlink answer, or a connection that breaks, ends the adapter, and the
+  next call starts it again. During a post either is `WriteOutcomeUnknown`; a post refused before it is sent - a
+  submission over 1 MiB, or an adapter that will not start again - is safe to send again.
+
 ## The verdict, the jobs and their logs
 
 - **The verdict** is one of `queued`, `running`, `success`, `failure`, `cancelled`, `unknown`, across every run of

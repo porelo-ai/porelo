@@ -14,6 +14,8 @@ import picocli.CommandLine.Command;
             GateCommentCommand.class,
             GateCommentsCommand.class,
             GateResolveCommand.class,
+            GateHeldCommand.class,
+            GateDecideCommand.class,
             GateApproveCommand.class,
             GateRejectCommand.class,
             GateBackupCommand.class,

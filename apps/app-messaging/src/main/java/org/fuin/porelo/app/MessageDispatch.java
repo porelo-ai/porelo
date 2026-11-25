@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.fuin.porelo.core.project.Mail;
+import org.fuin.porelo.gate.review.ProfileRefused;
 import org.fuin.porelo.wire.Json;
 
 /**
@@ -65,16 +66,21 @@ public final class MessageDispatch {
 
     private final ReviewReplies replies;
 
+    private final ReviewerComments comments;
+
     private final Tasks tasks;
 
     /**
      * Constructor.
      *
-     * @param replies Takes a task's reply to a review thread.
+     * @param replies Takes a task's reply to a review thread at its own gate push.
+     * @param comments Takes a run's submission of comments and replies.
      * @param tasks Which task each mailbox belongs to.
      */
-    public MessageDispatch(final ReviewReplies replies, final Tasks tasks) {
+    public MessageDispatch(
+            final ReviewReplies replies, final ReviewerComments comments, final Tasks tasks) {
         this.replies = replies;
+        this.comments = comments;
         this.tasks = tasks;
     }
 
@@ -134,7 +140,7 @@ public final class MessageDispatch {
             }
             // Before the peer lookup: the review is no peer, and no project can make it one.
             if (Mail.REVIEW.equals(addressed.get(0))) {
-                reply(mailbox, message, name, held, refused);
+                review(mailbox, message, name, held, refused);
                 continue;
             }
             final Mail.Peer peer = mail.peer(addressed.get(0));
@@ -200,14 +206,15 @@ public final class MessageDispatch {
     }
 
     /**
-     * Hands a task's reply to the review, as the task whose mailbox it came through.
+     * Hands a task's reply or a run's submission to the review, as the task whose mailbox it came
+     * through.
      *
      * <p>The message chooses the thread; nothing in it chooses the task. Its {@code metadata.from}
      * is the task's own word and is never read here: the review is told the task as the host's own
-     * record gives the mailbox, its project and recorded container with its name, so a reply can
-     * only ever speak for the task that wrote it.
+     * record gives the mailbox, its project and recorded container with its name, so a reply or a
+     * submission can only ever speak for the task that wrote it.
      */
-    private void reply(
+    private void review(
             final Mailbox mailbox,
             final Path message,
             final String name,
@@ -225,15 +232,10 @@ public final class MessageDispatch {
             held.add(new MessageDelivery.Held(name, flagged));
             return;
         }
-        final Reply reply = Reply.of(Json.parse(Files.readString(message, StandardCharsets.UTF_8)));
+        // Exact numbers, so a submission's lines reach the review as the task wrote them.
+        final Object parsed = Json.parseExact(Files.readString(message, StandardCharsets.UTF_8));
         final TaskIdentity task = tasks.of(mailbox.root().getFileName().toString());
-        String why = reply.refusal();
-        if (why.isEmpty() && task == null) {
-            why = "no task of this machine owns the mailbox it came through";
-        }
-        if (why.isEmpty() && task != null) {
-            why = replies.take(task, reply.thread(), reply.text()).orElse("");
-        }
+        final String why = Submission.claims(parsed) ? submit(parsed, task) : reply(parsed, task);
         Files.deleteIfExists(released);
         if (why.isEmpty()) {
             // Kept by the review, which holds it from now on.
@@ -249,6 +251,93 @@ public final class MessageDispatch {
         final String reason = "it was not taken by the review: " + why;
         new HostBounce().write(mailbox, rejected, reason, true);
         refused.add(new MessageDelivery.Held(name, reason));
+    }
+
+    /** Hands a reply to the review; answers why it was not taken, or {@code ""}. */
+    private String reply(
+            final @org.jspecify.annotations.Nullable Object parsed,
+            final @org.jspecify.annotations.Nullable TaskIdentity task) {
+        final Reply reply = Reply.of(parsed);
+        if (!reply.refusal().isEmpty()) {
+            return reply.refusal();
+        }
+        if (task == null) {
+            return NO_OWNER;
+        }
+        return replies.take(task, reply.thread(), reply.text()).orElse("");
+    }
+
+    /**
+     * Hands a submission to the review as its mailbox's container, the task's one name on this
+     * machine; answers why it was not taken, or {@code ""}.
+     */
+    private String submit(
+            final @org.jspecify.annotations.Nullable Object parsed,
+            final @org.jspecify.annotations.Nullable TaskIdentity task) {
+        final Submission submission = Submission.of(parsed);
+        if (!submission.refusal().isEmpty()) {
+            return submission.refusal();
+        }
+        if (task == null) {
+            return NO_OWNER;
+        }
+        try {
+            comments.take(
+                    task.container(),
+                    Json.write(submission.document()).getBytes(StandardCharsets.UTF_8));
+            return "";
+        } catch (final ProfileRefused ex) {
+            return ex.rule();
+        }
+    }
+
+    private static final String NO_OWNER =
+            "no task of this machine owns the mailbox it came through";
+
+    /**
+     * A run's submission as its message carries it: {@code metadata.kind} {@code comment}, no
+     * {@code metadata.thread}, and one data part whose value is the review document itself.
+     *
+     * @param document The document, or an empty one when refused.
+     * @param refusal Why the message is no submission, or {@code ""} when it is one. Never quotes
+     *     it.
+     */
+    record Submission(Map<?, ?> document, String refusal) {
+
+        private static final String SHAPE =
+                "a submission to the review has metadata.kind '"
+                        + Reply.KIND
+                        + "', no metadata.thread and exactly one part, a data part holding its"
+                        + " review document";
+
+        /** Whether a message to the review means to be a submission: any of its parts is data. */
+        static boolean claims(final @org.jspecify.annotations.Nullable Object parsed) {
+            return parsed instanceof Map<?, ?> document
+                    && document.get("parts") instanceof List<?> parts
+                    && parts.stream()
+                            .anyMatch(
+                                    part ->
+                                            part instanceof Map<?, ?> each
+                                                    && each.containsKey("data"));
+        }
+
+        static Submission of(final @org.jspecify.annotations.Nullable Object parsed) {
+            if (!(parsed instanceof Map<?, ?> document)
+                    || !(document.get("metadata") instanceof Map<?, ?> metadata)
+                    || !Reply.KIND.equals(metadata.get("kind"))
+                    || metadata.containsKey("thread")
+                    || !(document.get("parts") instanceof List<?> parts)
+                    || parts.size() != 1
+                    || !(parts.get(0) instanceof Map<?, ?> part)
+                    || !(part.get("data") instanceof Map<?, ?> data)
+                    || part.containsKey("text")
+                    || part.containsKey("raw")
+                    || part.containsKey("url")
+                    || part.containsKey("file")) {
+                return new Submission(Map.of(), SHAPE);
+            }
+            return new Submission(data, "");
+        }
     }
 
     /**

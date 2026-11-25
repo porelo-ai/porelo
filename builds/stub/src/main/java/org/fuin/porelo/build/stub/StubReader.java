@@ -20,9 +20,11 @@ import org.fuin.porelo.build.api.ConversationPage;
 import org.fuin.porelo.build.api.ForgeAccess;
 import org.fuin.porelo.build.api.ForgeReviewRefused;
 import org.fuin.porelo.build.api.ReviewFacts;
+import org.fuin.porelo.build.api.ReviewProtocol;
 import org.fuin.porelo.build.api.ReviewReader;
 import org.fuin.porelo.build.api.Target;
 import org.fuin.porelo.wire.Json;
+import org.fuin.porelo.wire.JsonException;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -55,20 +57,21 @@ import org.jspecify.annotations.Nullable;
  *     "facts": {"repository": "https://forge.example/o/n", "head": "4f2a…", "base": "…", "mergeBase": "…",
  *               "state": "open", "approved": false},
  *     "pages": [{… a profile 2 page …}, …],
- *     "postedAs": {"porelo/sourceKind": "owner-account"}}},
+ *     "postedAs": {"porelo/forgeAccountId": "77", "porelo/forgeAccountName": "reviewer"}}},
  *  "openPullRequests": {"porelo/fix-login": "https://forge.example/o/n/pull/1"},
  *  "reviewRefuse": {"reason": "RATE_LIMITED", "retryAfter": 30}}
  * </pre>
  *
  * {@code facts} are a pull request's as the contract answers them, and {@code pages} its
- * conversation, one profile 2 page each, the cursor of the next being its index. Each {@code Post}
- * is written as one line to {@link #POSTS} beside the answers - its address, its thread and its
- * document, never the token - and its result joins the last page of that conversation with a new
- * guid, its thread, and the source {@code postedAs} names, the owner's account when it names none.
- * A reply names a thread the conversation holds or is refused; a new comment opens a thread of its
- * own. A {@code reviewRefuse} refuses every review call, a reason of {@link
- * ForgeReviewRefused.Reason} with its {@code retryAfter} or {@code field}; the {@code token} holds
- * for the review calls too.
+ * conversation, one profile 2 page each, the cursor of the next being its index; a page past 100
+ * results or 1 MiB spills onto pages of its own. Each {@code Post} is written as one line to {@link
+ * #POSTS} beside the answers - its address, its thread, the guid it is given then, and its
+ * document, never the token - and its result joins the last page of that conversation with that
+ * guid, its thread, and as {@code forge-account}: the stub's own account ({@link #ACCOUNT_ID},
+ * {@link #ACCOUNT_NAME}), or what {@code postedAs} names over it. A reply names a thread the
+ * conversation holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse}
+ * refuses every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code
+ * retryAfter} or {@code field}; the {@code token} holds for the review calls too.
  */
 public final class StubReader implements BuildReader, ReviewReader {
 
@@ -88,6 +91,12 @@ public final class StubReader implements BuildReader, ReviewReader {
     public static final String POSTS = "review-posts.jsonl";
 
     /** The first thread id a new comment opens, so a test tells it from the ones it wrote. */
+    /** The forge account id a posted result carries when the answers name none. */
+    public static final String ACCOUNT_ID = "4242";
+
+    /** The forge account name a posted result carries when the answers name none. */
+    public static final String ACCOUNT_NAME = "porelo-stub";
+
     private static final long FIRST_THREAD = 9_000_000_000L;
 
     private final Path answers;
@@ -242,7 +251,9 @@ public final class StubReader implements BuildReader, ReviewReader {
         final Map<String, Object> line = new LinkedHashMap<>();
         line.put("url", url);
         line.put("thread", thread);
-        line.put("document", Json.parse(document));
+        // Fixed when posted, so every page written later carries the same guid for it.
+        line.put("guid", UUID.randomUUID().toString());
+        line.put("document", Json.parseExact(document));
         try {
             Files.writeString(
                     posts(),
@@ -270,7 +281,7 @@ public final class StubReader implements BuildReader, ReviewReader {
     private Map<?, ?> reviews(final ForgeAccess access) {
         final Object parsed;
         try {
-            parsed = Json.parse(Files.readString(answers, StandardCharsets.UTF_8));
+            parsed = Json.parseExact(Files.readString(answers, StandardCharsets.UTF_8));
         } catch (IOException ex) {
             throw new ForgeReviewRefused(ForgeReviewRefused.Reason.UNREACHABLE);
         }
@@ -318,10 +329,13 @@ public final class StubReader implements BuildReader, ReviewReader {
             throw new IllegalArgumentException("the stub's answers hold no page of " + url);
         }
         final List<Object> added = new ArrayList<>();
-        final Map<String, Object> postedAs =
-                review.get("postedAs") instanceof Map<?, ?> named
-                        ? copy(named)
-                        : Map.of("porelo/sourceKind", "owner-account");
+        final Map<String, Object> postedAs = new LinkedHashMap<>();
+        postedAs.put("porelo/sourceKind", "forge-account");
+        postedAs.put("porelo/forgeAccountId", ACCOUNT_ID);
+        postedAs.put("porelo/forgeAccountName", ACCOUNT_NAME);
+        if (review.get("postedAs") instanceof Map<?, ?> named) {
+            postedAs.putAll(copy(named));
+        }
         for (final Map<?, ?> post : posted()) {
             if (url.equals(post.get("url")) && post.get("document") instanceof Map<?, ?> doc) {
                 final Map<String, Object> result = onlyResult(Json.write(doc));
@@ -330,12 +344,55 @@ public final class StubReader implements BuildReader, ReviewReader {
                 properties.put("porelo/threadId", thread);
                 properties.put("porelo/threadState", stateOf(pages, thread));
                 properties.putAll(postedAs);
-                result.put("guid", UUID.randomUUID().toString());
+                result.put("guid", text(post.get("guid")));
                 added.add(result);
             }
         }
         attach(pages.getLast(), added);
+        final List<Map<String, Object>> spilled = new ArrayList<>();
+        for (final Map<String, Object> page : pages) {
+            spilled.addAll(spill(page));
+        }
+        return spilled;
+    }
+
+    /**
+     * Splits a page past {@link ReviewProtocol#MOST_PAGE_RESULTS} results or {@link
+     * ReviewProtocol#MOST_PAGE_BYTES} into pages within both, in order, each its run's copy.
+     */
+    private static List<Map<String, Object>> spill(final Map<String, Object> page) {
+        final List<?> results = results(page);
+        final Map<String, Object> empty = copy(page);
+        attach(empty, List.of(), true);
+        final int bare = bytes(empty);
+        final List<Map<String, Object>> pages = new ArrayList<>();
+        List<Object> held = new ArrayList<>();
+        int size = bare;
+        for (final Object result : results) {
+            final int more = bytes(result) + (held.isEmpty() ? 0 : 1);
+            if (!held.isEmpty()
+                    && (held.size() == ReviewProtocol.MOST_PAGE_RESULTS
+                            || size + more > ReviewProtocol.MOST_PAGE_BYTES)) {
+                pages.add(withResults(empty, held));
+                held = new ArrayList<>();
+                size = bare;
+            }
+            size += bytes(result) + (held.isEmpty() ? 0 : 1);
+            held.add(result);
+        }
+        pages.add(withResults(empty, held));
         return pages;
+    }
+
+    private static Map<String, Object> withResults(
+            final Map<String, Object> empty, final List<Object> results) {
+        final Map<String, Object> page = copy(empty);
+        attach(page, results, true);
+        return page;
+    }
+
+    private static int bytes(final Object json) {
+        return Json.write(json).getBytes(StandardCharsets.UTF_8).length;
     }
 
     /** Every post written so far, in order. */
@@ -347,7 +404,7 @@ public final class StubReader implements BuildReader, ReviewReader {
         final List<Map<?, ?>> posted = new ArrayList<>();
         try {
             for (final String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
-                if (!line.isBlank() && Json.parse(line) instanceof Map<?, ?> post) {
+                if (!line.isBlank() && Json.parseExact(line) instanceof Map<?, ?> post) {
                     posted.add(post);
                 }
             }
@@ -359,7 +416,13 @@ public final class StubReader implements BuildReader, ReviewReader {
 
     /** The one result of a submission; anything else is not what the contract writes. */
     private static Map<String, Object> onlyResult(final String document) {
-        if (Json.parse(document) instanceof Map<?, ?> submission
+        final Object parsed;
+        try {
+            parsed = Json.parseExact(document);
+        } catch (JsonException ex) {
+            throw ForgeReviewRefused.notInProfile("document");
+        }
+        if (parsed instanceof Map<?, ?> submission
                 && submission.get("runs") instanceof List<?> runs
                 && runs.size() == 1
                 && runs.getFirst() instanceof Map<?, ?> run
@@ -382,13 +445,19 @@ public final class StubReader implements BuildReader, ReviewReader {
 
     /** Adds results to a page's run, which the copy of the answers holds. */
     private static void attach(final Map<String, Object> page, final List<Object> added) {
+        attach(page, added, false);
+    }
+
+    /** Adds results to a page's run, or sets them in place of those it holds. */
+    private static void attach(
+            final Map<String, Object> page, final List<Object> added, final boolean replace) {
         if (!(page.get("runs") instanceof List<?> runs)
                 || runs.isEmpty()
                 || !(runs.getFirst() instanceof Map<?, ?> first)) {
             throw new IllegalArgumentException("a page of the stub's answers holds no run");
         }
         final Map<String, Object> run = copy(first);
-        final List<Object> results = new ArrayList<>(results(page));
+        final List<Object> results = replace ? new ArrayList<>() : new ArrayList<>(results(page));
         results.addAll(added);
         run.put("results", results);
         final List<Object> copied = new ArrayList<>(runs);
@@ -443,7 +512,7 @@ public final class StubReader implements BuildReader, ReviewReader {
     private Map<?, ?> read(final Target target) {
         final Object parsed;
         try {
-            parsed = Json.parse(Files.readString(answers, StandardCharsets.UTF_8));
+            parsed = Json.parseExact(Files.readString(answers, StandardCharsets.UTF_8));
         } catch (IOException ex) {
             throw new BuildRefused(
                     BuildRefused.Reason.UNREACHABLE, "the stub has no answers at " + answers);

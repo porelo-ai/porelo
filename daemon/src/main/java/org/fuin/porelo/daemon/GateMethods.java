@@ -365,7 +365,14 @@ final class GateMethods {
             org.fuin.porelo.app.CommentIntake.Parts comments) {
         registerComments(server, comments);
         registerReviewOpen(server, org.fuin.porelo.app.ReviewOpen.of(context));
-        registerUnbuilt(server);
+        registerHolds(
+                server,
+                new org.fuin.porelo.gate.review.HoldJournal(context.paths().gate().reviewHolds()));
+        registerForges(
+                server,
+                org.fuin.porelo.app.ForgeInstanceFile.of(context),
+                org.fuin.porelo.app.ForgeAdapters.of(context),
+                System.err::println);
         // Readings too large for one reply, kept for their pages: this daemon's alone.
         final PullRequestPages pullRequestPages = new PullRequestPages(java.time.Instant::now);
         sweep.add(pullRequestPages::release);
@@ -1089,19 +1096,150 @@ final class GateMethods {
     }
 
     /**
-     * Registers the held items' and the forge instances' methods, described so the window, the IDE
-     * plugin and the planner build against them; each is answered once it is built.
+     * Registers the held items' methods over a store: the owner account's list and decision, the
+     * same the command line's {@code gate held} and {@code gate decide} use.
+     *
+     * @param server Where.
+     * @param holds The held items.
      */
-    static void registerUnbuilt(final VarlinkServer server) {
-        for (final String method : List.of("HeldItems", "DecideItem", "Forges", "ForgeSet")) {
-            server.method(
-                    method,
-                    (parameters, replies) -> {
+    static void registerHolds(
+            final VarlinkServer server, final org.fuin.porelo.gate.review.ReviewHolds holds) {
+        server.method(
+                "HeldItems",
+                (parameters, replies) -> {
+                    final String task = optionalName(parameters, "task");
+                    if (task != null && !task.matches(org.fuin.porelo.gate.review.Task.NAME)) {
+                        throw invalid("task");
+                    }
+                    final org.fuin.porelo.app.HeldItemRows.Page page;
+                    try {
+                        page =
+                                org.fuin.porelo.app.HeldItemRows.page(
+                                        holds.undecided(task),
+                                        task,
+                                        optionalName(parameters, "cursor"));
+                    } catch (ReviewRefused ex) {
+                        throw refused(ex.refusal(), null);
+                    }
+                    final Map<String, Object> reply = new LinkedHashMap<>();
+                    reply.put("items", page.items());
+                    if (page.next() != null) {
+                        reply.put("cursor", page.next());
+                    }
+                    replies.last(reply);
+                });
+        server.method(
+                "DecideItem",
+                (parameters, replies) -> {
+                    final String task = text(parameters, "task");
+                    if (!task.matches(org.fuin.porelo.gate.review.Task.NAME)) {
+                        throw invalid("task");
+                    }
+                    final org.fuin.porelo.gate.review.Decision decision;
+                    try {
+                        decision =
+                                org.fuin.porelo.app.HeldItemRows.decision(
+                                        text(parameters, "decision"));
+                    } catch (IllegalArgumentException ex) {
+                        throw invalid("decision");
+                    }
+                    try {
+                        holds.decide(
+                                task, text(parameters, "id"), text(parameters, "digest"), decision);
+                    } catch (org.fuin.porelo.gate.review.HoldRefused ex) {
                         throw new VarlinkException(
-                                "org.varlink.service.MethodNotImplemented",
-                                Map.of("method", PoreloDaemon.INTERFACE + "." + method));
-                    });
-        }
+                                INTERFACE + "." + ex.reason().wireName(), Map.of("id", ex.id()));
+                    } catch (IllegalArgumentException ex) {
+                        // A decision for the other direction.
+                        throw invalid("decision");
+                    }
+                    replies.last(Map.of());
+                });
+    }
+
+    /**
+     * Registers the forge instances' methods: what the machine knows, and the owner account's
+     * change to it. Offered on the owner's socket alone, never through MCP.
+     *
+     * @param server Where.
+     * @param forges The machine's forge file.
+     * @param adapters The forge adapters installed.
+     * @param log Takes a line naming a forge file that is unreadable or loosened.
+     */
+    static void registerForges(
+            final VarlinkServer server,
+            final org.fuin.porelo.app.ForgeInstanceFile forges,
+            final org.fuin.porelo.app.ForgeAdapters adapters,
+            final java.util.function.Consumer<String> log) {
+        server.method(
+                "Forges",
+                (parameters, replies) -> {
+                    final List<org.fuin.porelo.gate.review.ForgeInstance> all;
+                    try {
+                        all = forges.all();
+                    } catch (org.fuin.porelo.gate.review.ForgeFileUnreadable ex) {
+                        log.accept("porelod: " + ex.getMessage());
+                        throw forgeFileUnreadable(ex);
+                    }
+                    forges.loosened().ifPresent(why -> log.accept("porelod: " + why));
+                    final List<Map<String, Object>> listed = new java.util.ArrayList<>();
+                    for (final org.fuin.porelo.gate.review.ForgeInstance instance : all) {
+                        final Map<String, Object> forge = new LinkedHashMap<>();
+                        forge.put("host", instance.host());
+                        // The type's adapter is not optional: an unreadable entry names none.
+                        forge.put("adapter", instance.adapter() == null ? "" : instance.adapter());
+                        if (instance.unreadable() == null) {
+                            forge.put("comments", instance.reading().name());
+                        } else {
+                            forge.put("unreadable", instance.unreadable());
+                        }
+                        listed.add(forge);
+                    }
+                    final Map<String, Object> answer = new LinkedHashMap<>();
+                    answer.put("forges", listed);
+                    answer.put("adapters", adapters.names());
+                    replies.last(answer);
+                });
+        server.method(
+                "ForgeSet",
+                (parameters, replies) -> {
+                    if (!(parameters.get("host") instanceof String host) || host.isBlank()) {
+                        throw invalid("host");
+                    }
+                    if (!(parameters.get("adapter") instanceof String adapter)
+                            || adapter.isBlank()) {
+                        throw invalid("adapter");
+                    }
+                    final Object comments = parameters.get("comments");
+                    // Absent is extended, also for a trusted host: leaving it out only tightens.
+                    final org.fuin.porelo.gate.review.CommentReading reading;
+                    if (comments == null || "EXTENDED".equals(comments)) {
+                        reading = org.fuin.porelo.gate.review.CommentReading.EXTENDED;
+                    } else if ("TRUSTED".equals(comments)) {
+                        reading = org.fuin.porelo.gate.review.CommentReading.TRUSTED;
+                    } else {
+                        throw invalid("comments");
+                    }
+                    try {
+                        forges.set(host, adapter, reading);
+                    } catch (org.fuin.porelo.app.AdapterNotInstalled ex) {
+                        throw new VarlinkException(
+                                INTERFACE + ".AdapterNotInstalled", Map.of("adapter", adapter));
+                    } catch (IllegalArgumentException ex) {
+                        throw invalid("host");
+                    } catch (org.fuin.porelo.gate.review.ForgeFileUnreadable ex) {
+                        log.accept("porelod: " + ex.getMessage());
+                        throw forgeFileUnreadable(ex);
+                    }
+                    replies.last(Map.of());
+                });
+    }
+
+    private static VarlinkException forgeFileUnreadable(
+            final org.fuin.porelo.gate.review.ForgeFileUnreadable ex) {
+        return new VarlinkException(
+                INTERFACE + ".ForgeFileUnreadable",
+                Map.of("reason", String.valueOf(ex.getMessage())));
     }
 
     /** The place a ReviewOpen names: exactly one field set, else InvalidParameter. */

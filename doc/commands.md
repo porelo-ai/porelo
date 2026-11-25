@@ -15,6 +15,7 @@ file are in [the project file](project-file.md).
 | [`card`](#card) | Checks a person's card; makes and checks a host's. |
 | [`org`](#org) | Answers the organization: its people, projects and hosts. |
 | [`gate`](#gate) | Reviews and forwards what an agent pushed. |
+| [`forge`](#forge) | Lists and sets the forge instances this machine reads pull requests from. |
 | [`commit`](#commit) | Judges the commits a push brings to a host's forge. |
 | [`talk`](#talk) | Shows and moves the messages a task exchanges with other tasks. |
 | [`agents`](#agents) | Lists the agents installed on this machine. |
@@ -848,6 +849,8 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate comment NAME --commit=ID --path=PATH --side=old\|new --lines=START[-END] --text=TEXT [--replacement-file=FILE]` | Opens a comment thread on lines of a pending push, as the owner account. `--commit` is the full commit you reviewed; a push that moved past it is refused as `MovedSinceReview`, exit 70, and nothing is kept. Lines count from 1, both ends included, on the review's base (`old`) or the reviewed commit (`new`). `--replacement-file` proposes its lines in place of those lines, on the `new` side only. With `--reply-to=THREAD` instead of the path, side and lines, it answers that thread. A refusal is named as the daemon names it, such as `TextRefused` or `NoSuchThread`, exit 70; a malformed option exits 64. |
 | `porelo gate comments NAME [--json] [--cursor=CURSOR]` | Shows every comment thread of a pending push: each thread's id and state, who wrote each item ("owner account" or "task NAME"), the file, side and lines, and the text, every line escaped and indented below its header. `--json` prints one page of the threads as SARIF instead and the next page's cursor on standard error; `--cursor` asks for that page. |
 | `porelo gate resolve NAME THREAD [--reopen]` | Marks a thread resolved, or open again with `--reopen`. It changes only the thread's state: it clears no finding, changes no approval and approves nothing. |
+| `porelo gate held [TASK] [--json]` | Lists the review items held for your decision, oldest first, for one task (by its container name) or every task of this machine: outgoing ones a task's run wrote for its place, incoming ones a forge's conversation wrote for the run. Each shows its id, task, direction and operation (`comment` or `reply`), run and time, where it goes, the commit the run pinned, its digest, a comment's file, side and lines or a reply's thread, an incoming one's writer as "forge account NAME", and its text and suggestion, every line escaped and indented below its header. `--json` prints them as a JSON array of the daemon's `HeldItem`, the text exact. |
+| `porelo gate decide TASK ID release\|refuse\|pass\|dismiss --digest=DIGEST` | Decides one held item: `release` or `refuse` an outgoing one, `pass` or `dismiss` an incoming one, if its content is still the one `--digest` names, as `gate held` showed it. It prints nothing when decided. A refusal is named as the daemon names it, `NoSuchItem`, `DigestChanged`, `AlreadyDecided` or `Lapsed`, with the item's id, exit 70; a decision that does not fit the item's direction, or none, exits 64. |
 | `porelo gate checkout NAME` | Opens waiting work as a read copy. It can only go back to the gate. |
 | `porelo gate approve NAME [--branch=NAME] [--commit=ID] [--signed]` | Forwards a push onto the starting branch (`main` for older tasks), or `porelo/<task>` on the host's own forge; `--branch` wins. With a [`branch` block](project-file.md#branch), uses the task's recorded branch, and a named one must match the pattern. On the host's forge it opens or reuses a pull request to the default branch with the task's token and prints its URL. `--commit` names the reviewed revision and refuses if the push moved. Without it nothing is forwarded, at a terminal or in a script, with `--signed` too: it names the waiting commit and the bound command with `--commit` to run after reviewing it, and exits 70. A mistyped NAME, an offline project or one without an upstream is refused before any command is offered. A push that arrives while a signed approval fetches the upstream is refused as moved, naming both commits. `--signed` merges it as a commit signed with your own git key. |
 | `porelo gate reject NAME [--reason] [--force]` | Discards a push and tells the task. `--reason` reads why from standard input. A push somebody pushed upstream by hand, which `gate pending` marks "already upstream", is refused without `--force`, since discarding it would record the opposite of what happened. |
@@ -855,9 +858,9 @@ Nothing an agent pushes reaches a real upstream without passing here.
 | `porelo gate check` | The check that hook runs. A push it cannot judge - the installed agents cannot be asked, the push cannot be read, git cannot list its commits - is refused like one carrying unapproved agent work; `--no-verify` pushes anyway. |
 | `porelo gate backup` | Writes the mirror to a verifiable bundle file. |
 | `porelo gate restore` | Restores a mirror from a bundle; never overwrites one. |
-| `porelo gate serve` | Serves the mirror for an agent to push to. Started per task. |
+| `porelo gate serve [--pinned REF]` | Serves the mirror for an agent to push to. Started per task. A reviewer's gate is started with `--pinned`: it shows that one ref, read only, and refuses every push. |
 
-All but `protect` and `check` take `-p PROJECT` and `-r REPOSITORY`.
+All but `protect`, `check`, `held` and `decide` take `-p PROJECT` and `-r REPOSITORY`.
 
 `gate review` and `gate pending` show each waiting commit by its full id, which is what `gate approve --commit` takes;
 a shortened id is refused, since another commit could be made to share it. Use the command printed at the end of the review, such as
@@ -879,6 +882,14 @@ error: `NoSuchPush`, `MovedSinceReview`, `AnchorOutsideBlob`, `NotARegularFile`,
 `OldSideFix`, `TextRefused(rule)`, `TooLarge(limit)`, `NoSuchThread`, `CursorRefused` and `IdReused`. A
 comment or reply is kept with the push and bound to the container of the task that pushed it, so a later
 task of the same name inherits no thread.
+
+Tasks1 `HeldItems` and `DecideItem` are `gate held --json` and `gate decide` over the daemon's socket, over
+the same held items, for the owner account alone: a task's MCP socket is never offered them. `HeldItems`
+answers the undecided items oldest first, in pages; a cursor is bound to the items before it, so after a
+decision among them it is refused as `CursorRefused` and the list is read again from its first page.
+`DecideItem` answers nothing when decided and each refusal by its own error, `NoSuchItem`, `DigestChanged`,
+`AlreadyDecided` or `Lapsed`, naming the item's id; a decision that does not fit the item's direction is
+`InvalidParameter`.
 
 Tasks1 `ReviewSummary`, for the owner account alone too, answers how much of the reviewed `commit` is
 still open, as the daemon counts it: `openFindings`, `openThreads` (a resolved thread is not counted) and
@@ -923,6 +934,28 @@ the pull request call, the command exits non-zero and names its status and messa
 already happened, and approval stays pending so `gate approve --commit FULL_ID` can be retried after the refusal is resolved, with the same reviewed ID.
 Complete host approvals before removing the task: removal retires its forge identity and forgets its
 token. A pending ref outlives the container, but does not keep that credential alive.
+
+## forge
+
+The forge instances this machine reads pull requests from, one per host, kept in `forges.yml` in the configuration
+directory beside `credentials.yml` (`$XDG_CONFIG_HOME/porelo/forges.yml`). Each names the installed forge adapter that
+reads it and how its comments are read before a run sees them: `extended`, every comment through the message filter's
+inbound check, or `trusted`, the format and size checks alone. A pull request's address is matched to its instance by
+its host alone, and read with the vault entry `git.token.<host>`, never the plain `git.token`. Only this account
+changes the file, here or through the daemon's `ForgeSet`; no task reaches either.
+
+| Command | What it does |
+|---|---|
+| `porelo forge add HOST --adapter NAME` | Adds an instance, or changes its adapter. Its comments are then read `extended`, also where they were trusted. An adapter not installed, or a host that is not a DNS name, is exit 2 and changes nothing. |
+| `porelo forge comments HOST extended\|trusted` | Sets how a known instance's comments are read. |
+| `porelo forge list [--json]` | Lists the instances and the adapters installed. `--json` answers as the daemon's `Forges`: `{"forges": [{"host", "adapter", "comments"}], "adapters"}`, a record that cannot be read with `unreadable` in place of `comments`. |
+
+A record is read `trusted` only when it says so and the file is this account's alone. A file another account owns,
+a symbolic link, or one the group or others may write has every record read `extended`, and `porelo doctor` says so
+under `forges`. A record that cannot be read - a host that is not a DNS name, a word that is not an adapter's name, a
+reading that is neither - is listed with why and read `extended`, and the others stand; `porelo forge add` for its
+host replaces it. A file that cannot be read as a whole is exit 70 here, and no pull request's review starts until it
+is mended.
 
 ## review
 
@@ -1396,6 +1429,9 @@ failing is `DEGRADED`, a project file that does not read `UNKNOWN`, and a machin
 when its entries under `/proc` belong to root, which is how the kernel shows a process that cannot be core-dumped or
 traced by its own user; `yes` with the restart that fixes it; `not running`; or `unknown`. `--json` carries it as
 `process.daemon` with `pid` and `dumpable`.
+
+The `forges` line says whether the [forge file](#forge) can be read and is this account's alone; a file another
+could write has every forge's comments read as extended, and is `DEGRADED` with the `chmod` that mends it.
 
 The `vault` line says whether a vault exists yet. The `daemon` line says whether `porelod` runs, and
 whether it is the same version as this command: after an update it restarts itself, and the line says

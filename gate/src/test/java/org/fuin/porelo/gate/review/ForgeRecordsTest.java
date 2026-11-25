@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -74,6 +75,30 @@ class ForgeRecordsTest {
         assertThat(PullRequestRef.of(URI.create("https://github.com/o/r/pull/12")).forge())
                 .as("the forge is the address's host")
                 .isEqualTo("github.com");
+    }
+
+    @Test
+    void aPullRequestsPathIsItsRepositorysAndItsNumberAndCarriesNothingElse() {
+        // A payload could ride in a path segment the filter and the profile otherwise let through.
+        for (final String path :
+                List.of(
+                        "/o/r/pull/%41",
+                        "/o/r/pull/12/",
+                        "/r/12",
+                        "/o/r/pull/x",
+                        "/o//r/pull/12",
+                        "/o/../r/pull/12",
+                        "/o/./pull/12")) {
+            assertThatThrownBy(() -> PullRequestRef.of(URI.create("https://github.com" + path)))
+                    .as(path)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(
+                        PullRequestRef.of(
+                                        URI.create("https://gitlab.com/g/s/r/-/merge_requests/42"))
+                                .forge())
+                .as("a forge with a longer pull request path")
+                .isEqualTo("gitlab.com");
     }
 
     @Test
@@ -158,13 +183,110 @@ class ForgeRecordsTest {
                         DIGEST,
                         Instant.parse("2026-11-25T12:00:00Z"),
                         HeldState.UNDECIDED,
-                        null,
+                        "unknown-author",
                         null);
         assertThat(incoming.from()).as("the account's name alone").isEqualTo("octocat");
         assertThat(held(COMMIT, DIGEST).from()).as("an outgoing item's writer").isNull();
         assertThatThrownBy(() -> held(COMMIT, DIGEST).in(HeldState.RETRY, null, null))
                 .as("a retry without its time")
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void aHeldItemsStateFitsItsDirection() {
+        // A write's states belong to an outgoing item, a run's to an incoming one.
+        final Kept received =
+                new Kept(
+                        "c-7",
+                        "1001",
+                        Origin.of(new ForgeAccount("github.com", "583231", "octocat")),
+                        REPLY,
+                        null);
+        final Held incoming = incoming(received, "unknown-author");
+        final Held outgoing = held(COMMIT, DIGEST);
+        for (final HeldState state :
+                List.of(
+                        HeldState.RELEASED,
+                        HeldState.REFUSED,
+                        HeldState.SENDING,
+                        HeldState.DELIVERED,
+                        HeldState.OUTCOME_UNKNOWN)) {
+            assertThatThrownBy(() -> incoming.in(state, "unknown-author", null))
+                    .as("an incoming item %s", state)
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(outgoing.in(state, null, null).state())
+                    .as("an outgoing item %s", state)
+                    .isEqualTo(state);
+        }
+        assertThatThrownBy(() -> incoming.in(HeldState.NOT_DELIVERED, "unknown-author", null))
+                .as("an incoming item not delivered")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> incoming.in(HeldState.RETRY, "unknown-author", Instant.EPOCH))
+                .as("an incoming item retried")
+                .isInstanceOf(IllegalArgumentException.class);
+        for (final HeldState state : List.of(HeldState.PASSED, HeldState.DISMISSED)) {
+            assertThatThrownBy(() -> outgoing.in(state, null, null))
+                    .as("an outgoing item %s", state)
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThat(incoming.in(state, "unknown-author", null).state())
+                    .as("an incoming item %s", state)
+                    .isEqualTo(state);
+        }
+        for (final HeldState state : List.of(HeldState.UNDECIDED, HeldState.LAPSED)) {
+            assertThat(outgoing.in(state, null, null).state())
+                    .as("an outgoing item %s", state)
+                    .isEqualTo(state);
+            assertThat(incoming.in(state, "unknown-author", null).state())
+                    .as("an incoming item %s", state)
+                    .isEqualTo(state);
+        }
+    }
+
+    @Test
+    void aHeldItemCarriesAReasonExactlyWhereOneBelongs() {
+        // An incoming item's reason is the rule it was withheld by; an outgoing one's is only the
+        // place's refusal of its write.
+        final Kept received =
+                new Kept(
+                        "c-7",
+                        "1001",
+                        Origin.of(new ForgeAccount("github.com", "583231", "octocat")),
+                        REPLY,
+                        null);
+        for (final String rule : java.util.Arrays.asList(null, "", " ")) {
+            assertThatThrownBy(() -> incoming(received, rule))
+                    .as("an incoming item with the rule [%s]", rule)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(incoming(received, "unknown-author").reason())
+                .as("an incoming item's rule")
+                .isEqualTo("unknown-author");
+        assertThatThrownBy(() -> held(COMMIT, DIGEST).in(HeldState.UNDECIDED, "why", null))
+                .as("an undecided outgoing item with a reason")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> held(COMMIT, DIGEST).in(HeldState.NOT_DELIVERED, null, null))
+                .as("an outgoing item not delivered without the place's reason")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(held(COMMIT, DIGEST).in(HeldState.NOT_DELIVERED, "too long", null).reason())
+                .as("the place's reason for an item not delivered")
+                .isEqualTo("too long");
+    }
+
+    private static Held incoming(final Kept received, final @Nullable String rule) {
+        return new Held(
+                "h3",
+                Direction.INCOMING,
+                "review-1",
+                1,
+                "https://github.com/o/r/pull/12",
+                COMMIT,
+                REPLY,
+                received,
+                DIGEST,
+                Instant.parse("2026-11-25T12:00:00Z"),
+                HeldState.UNDECIDED,
+                rule,
+                null);
     }
 
     @Test

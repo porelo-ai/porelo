@@ -137,7 +137,10 @@ the fields only Porelo assigns, since the producer is the channel's to stamp.
 
 A reader of a profile 2 document holds it to these bounds, agreed with the receivers, and refuses a
 document past any of them before reading further. The schema states those a JSON Schema keyword can
-express; the others are the reader's alone.
+express; the others are the reader's alone. In `porelo-build-api`, `SarifReading` holds a document
+to the bounds on its bytes and tokens and to its schema, and `ProfileCheck` then to the rest and to
+its channel: an adapter sends a page of a pull request run, a task a submission. Each refusal
+names its rule and a JSON Pointer, never the document's text.
 
 | Bound | In the schema |
 |---|---|
@@ -149,8 +152,10 @@ express; the others are the reader's alone.
 | a string at most 16384 characters | `maxLength` on every string |
 | a property name at most 128 characters | `propertyNames` on each property bag; every object is closed besides |
 | a number at most 20 characters as written | no |
+| an artifact location's `uri` at most 2048 characters as written, in profile 1 too | no: the schema's `maxLength` is 12288 |
 | a region at most 100 lines | no |
 | a replacement (`insertedContent`) at most its anchored lines plus 10 lines | no |
 | a replacement's line at most 400 characters | no |
 | a replacement at most 8 KiB in all, braces as written | `maxLength` 8192 as a necessary bound; the bytes are the reader's |
 | `message.text` at most 8192 bytes of UTF-8 per result as given, before SARIF's escaping, as in profile 1 | `maxLength` 16384 on the written form, since each escape doubles one character; the bytes as given are the reader's |
+| a pull request run's `repositoryUri` is `https://<host>[:<port>]` and 2 to 8 path segments, and its `porelo/pullRequest` that URL and 1 to 3 more segments, the last all digits; each segment 1 to 100 of `A-Z`, `a-z`, `0-9`, `.`, `_`, `~` and `-`, neither `.` nor `..`, so no percent-encoding, no empty segment and no trailing slash | no |

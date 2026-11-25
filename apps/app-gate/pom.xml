@@ -66,6 +66,16 @@
             <groupId>org.fuin.porelo</groupId>
             <artifactId>porelo-agent-api</artifactId>
         </dependency>
+        <!-- Finds the installed forge adapters a forge instance names, as a task's builds find them. -->
+        <dependency>
+            <groupId>org.fuin.porelo</groupId>
+            <artifactId>porelo-build-api</artifactId>
+        </dependency>
+        <!-- Reads and writes the machine's forge file. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
             <artifactId>picocli</artifactId>

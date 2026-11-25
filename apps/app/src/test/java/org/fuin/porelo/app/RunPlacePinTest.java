@@ -1,0 +1,86 @@
+package org.fuin.porelo.app;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * The state a reviewer's run is pinned to is kept beside its role and place, through a stop and a
+ * reboot, and a pin that does not read leaves the whole record unread.
+ */
+class RunPlacePinTest {
+
+    private static final String HEAD = "a".repeat(40);
+
+    private static final String BASE = "b".repeat(40);
+
+    private static final String REPOSITORY = "https://github.com/acme/shop";
+
+    @TempDir Path state;
+
+    @Test
+    void aReviewersPinnedStateReadsBackAsItWasKept() throws IOException {
+        final RunPlace pinned =
+                new RunPlace(RunPlace.REVIEWER, null, "shop-1")
+                        .pinnedTo(new RunPlace.Pin(HEAD, BASE, REPOSITORY));
+        pinned.writeTo(state);
+        assertThat(RunPlace.readFrom(state)).as("the record read back").isEqualTo(pinned);
+        assertThat(RunPlace.readFrom(state).pinned())
+                .as("its pinned state")
+                .isEqualTo(new RunPlace.Pin(HEAD, BASE, REPOSITORY));
+    }
+
+    @Test
+    void aPinWithoutBaseOrRepositoryReadsBack() throws IOException {
+        final RunPlace pinned =
+                new RunPlace(RunPlace.REVIEWER, null, "shop-1")
+                        .pinnedTo(new RunPlace.Pin(HEAD, null, null));
+        pinned.writeTo(state);
+        assertThat(RunPlace.readFrom(state)).as("the record read back").isEqualTo(pinned);
+    }
+
+    @Test
+    void aRecordWrittenWithoutAPinReadsAsPinnedNowhere() throws IOException {
+        RunPlace.ownPush("shop", null, "shop-1").writeTo(state);
+        assertThat(RunPlace.readFrom(state).pinned()).as("an author's pinned state").isNull();
+    }
+
+    @Test
+    void aPinThatDoesNotReadLeavesTheRecordUnread() throws IOException {
+        for (final String pin :
+                List.of(
+                        "{\"head\": \"abc\"}",
+                        "{\"head\": \"" + HEAD + "\", \"repository\": \"http://github.com/a\"}",
+                        "{\"base\": \"" + BASE + "\"}",
+                        "\"" + HEAD + "\"")) {
+            Files.writeString(
+                    state.resolve(RunPlace.FILE),
+                    "{\"role\": \"REVIEWER\", \"place\": {\"gatePush\": {\"name\": \"shop-1\"}},"
+                            + " \"pinned\": "
+                            + pin
+                            + "}",
+                    StandardCharsets.UTF_8);
+            assertThat(RunPlace.readFrom(state)).as("a record pinned as %s", pin).isNull();
+        }
+    }
+
+    @Test
+    void aPinNamesFullCommitsAndAnHttpsRepository() {
+        assertThatThrownBy(() -> new RunPlace.Pin("abc", null, null))
+                .as("a short head")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new RunPlace.Pin(HEAD, "HEAD", null))
+                .as("a base that is no commit id")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new RunPlace.Pin(HEAD, null, "git@github.com:acme/shop"))
+                .as("a repository not on https")
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+}

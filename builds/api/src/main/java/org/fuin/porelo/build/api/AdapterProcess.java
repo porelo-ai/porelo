@@ -59,6 +59,9 @@ final class AdapterProcess implements AutoCloseable {
 
     private Running running;
 
+    /** Set when an answer broke off or could not be read: the connection holds no next answer. */
+    private boolean dead;
+
     /** The adapter's process and the connection to it. */
     private record Running(Process process, VarlinkClient client) {}
 
@@ -87,24 +90,6 @@ final class AdapterProcess implements AutoCloseable {
     }
 
     /**
-     * Returns the adapter's executable, for messages.
-     *
-     * @return The path.
-     */
-    Path executable() {
-        return executable;
-    }
-
-    /**
-     * Returns how long the handshake may take.
-     *
-     * @return The limit.
-     */
-    Duration readyLimit() {
-        return readyLimit;
-    }
-
-    /**
      * Returns how long one question may take.
      *
      * @return The limit.
@@ -114,39 +99,54 @@ final class AdapterProcess implements AutoCloseable {
     }
 
     /**
-     * Asks one question, starting the adapter again first when its process has ended.
+     * Asks one question, starting the adapter again first when its process has ended or its last
+     * answer broke off.
      *
      * @param method The fully qualified method.
      * @param parameters Its parameters.
      * @return The answer.
+     * @throws BuildReaderException When the adapter had to be started again and would not start:
+     *     the question was never sent.
      * @throws VarlinkTimeoutException When it did not answer in time; its process is ended.
      * @throws VarlinkException When the call failed: with an error name as the adapter answered,
-     *     without one when the connection failed, its process then ended.
+     *     without one when the connection failed or the answer could not be read, its process then
+     *     ended.
      */
     Map<String, Object> call(final String method, final Map<String, Object> parameters) {
-        if (!running.process().isAlive()) {
-            // Killed for not answering in time, or gone by itself: the watch asks again later, and
-            // one that cannot answer now must not leave every later question unanswered.
+        if (dead || !running.process().isAlive()) {
+            // Killed for not answering in time, gone by itself, or left mid-answer: one that cannot
+            // answer now must not leave every later question unanswered or read a stale answer.
             closeQuietly(running.client());
+            ended(running.process());
             running = start();
+            dead = false;
         }
         final Running asked = running;
         try {
             return asked.client().call(method, parameters, callLimit);
         } catch (VarlinkTimeoutException ex) {
             // Killed, so the next question starts it again rather than reading this answer late.
-            ended(asked.process());
+            broken(asked);
             throw ex;
         } catch (VarlinkException ex) {
             if (ex.getErrorName() == null) {
-                // The connection failed, not the question: the reader is gone or going. Its process
-                // is ended and waited for here, so the next question finds it ended and starts it
-                // again - looking at it straight away found a crashed reader still alive on a busy
-                // machine, and asked it again.
-                ended(asked.process());
+                // The connection failed, not the question: the reader is gone or going. It is
+                // ended here, so the next question starts it again rather than asking it.
+                broken(asked);
             }
             throw ex;
+        } catch (RuntimeException ex) {
+            // A frame that is no varlink answer, or a call cut short: what is left unread on the
+            // connection could be taken as the next question's answer.
+            broken(asked);
+            throw new VarlinkException("the answer of " + method + " could not be read", ex);
         }
+    }
+
+    /** Marks the adapter dead and ends its process, so the next question starts it again. */
+    private void broken(final Running asked) {
+        dead = true;
+        ended(asked.process());
     }
 
     @Override

@@ -33,6 +33,10 @@ public class GitHttpServer implements AutoCloseable {
     /** Services a client may ask for. Anything else is refused. */
     private static final Set<String> SERVICES = Set.of("git-upload-pack", "git-receive-pack");
 
+    /** A ref a reviewer's gate may show: below {@code refs/}, no pattern or separator of git's. */
+    private static final java.util.regex.Pattern PINNED_REF =
+            java.util.regex.Pattern.compile("refs/[A-Za-z0-9][A-Za-z0-9._/-]*[A-Za-z0-9]");
+
     /** A task's name as a reader may give it: one ref component, no pattern. */
     private static final java.util.regex.Pattern TASK_NAME =
             java.util.regex.Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
@@ -42,6 +46,9 @@ public class GitHttpServer implements AutoCloseable {
     private final Path mirror;
 
     private final @org.jspecify.annotations.Nullable String ref;
+
+    /** The one ref a reviewer's gate shows, or {@code null} for a gate that takes pushes. */
+    private final @org.jspecify.annotations.Nullable String pinned;
 
     private final TaskToken token;
 
@@ -285,6 +292,19 @@ public class GitHttpServer implements AutoCloseable {
             @org.jspecify.annotations.Nullable String ref,
             @org.jspecify.annotations.Nullable Upstream upstream,
             java.time.Duration pace) {
+        this(address, mirror, token, git, ref, upstream, pace, null);
+    }
+
+    private GitHttpServer(
+            InetSocketAddress address,
+            Path mirror,
+            TaskToken token,
+            GitProcess git,
+            @org.jspecify.annotations.Nullable String ref,
+            @org.jspecify.annotations.Nullable Upstream upstream,
+            java.time.Duration pace,
+            @org.jspecify.annotations.Nullable String pinned) {
+        this.pinned = pinned;
         this.upstream = upstream;
         this.pace = pace;
         this.ref = ref;
@@ -298,6 +318,34 @@ public class GitHttpServer implements AutoCloseable {
         }
         server.createContext("/", this::handle);
         server.setExecutor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor());
+    }
+
+    /**
+     * Binds a reviewer's gate, which shows one pinned ref and takes nothing.
+     *
+     * <p>Every {@code receive-pack} request is refused, at service discovery and at its call, so no
+     * ref moves, the task's own included. A fetch is shown the pinned ref alone, not even {@code
+     * HEAD}; git serves no commit by its id that no shown ref reaches. Pinning afresh moves the ref
+     * in the mirror, and the running gate shows where it points then.
+     *
+     * @param address Where to listen.
+     * @param mirror The bare mirror.
+     * @param token What a request must present.
+     * @param git How git is run.
+     * @param pinned The ref that holds the pinned state.
+     * @return The server, not yet started.
+     */
+    public static GitHttpServer reviewing(
+            InetSocketAddress address,
+            Path mirror,
+            TaskToken token,
+            GitProcess git,
+            String pinned) {
+        // It reaches git's configuration as a pattern: a plain ref name, nothing that matches more.
+        if (!PINNED_REF.matcher(pinned).matches() || pinned.contains("..")) {
+            throw new IllegalArgumentException("not a ref a gate can pin: " + pinned);
+        }
+        return new GitHttpServer(address, mirror, token, git, null, null, PACE, pinned);
     }
 
     /**
@@ -447,7 +495,7 @@ public class GitHttpServer implements AutoCloseable {
 
         final String query = exchange.getRequestURI().getQuery();
         final String service = query == null ? "" : query.replace("service=", "");
-        if (!SERVICES.contains(service)) {
+        if (!SERVICES.contains(service) || refusedToReviewer(service)) {
             exchange.sendResponseHeaders(403, -1);
             return;
         }
@@ -457,8 +505,7 @@ public class GitHttpServer implements AutoCloseable {
         }
         final byte[] refs =
                 git.run(
-                        hidingOthers(
-                                ref,
+                        visible(
                                 "git-upload-pack".equals(service) ? reads : List.of(),
                                 service.substring("git-".length()),
                                 "--stateless-rpc",
@@ -479,7 +526,7 @@ public class GitHttpServer implements AutoCloseable {
 
     private void service(HttpExchange exchange, String service) throws IOException {
 
-        if (!SERVICES.contains(service)) {
+        if (!SERVICES.contains(service) || refusedToReviewer(service)) {
             exchange.sendResponseHeaders(403, -1);
             return;
         }
@@ -501,12 +548,7 @@ public class GitHttpServer implements AutoCloseable {
                 exchange.sendResponseHeaders(200, 0);
                 try (OutputStream out = exchange.getResponseBody()) {
                     git.stream(
-                            hidingOthers(
-                                    ref,
-                                    reads,
-                                    "upload-pack",
-                                    "--stateless-rpc",
-                                    mirror.toString()),
+                            visible(reads, "upload-pack", "--stateless-rpc", mirror.toString()),
                             body,
                             out);
                 }
@@ -943,6 +985,42 @@ public class GitHttpServer implements AutoCloseable {
      * @param ref The task's incoming ref, or {@code null} for an unscoped endpoint.
      * @return The command, with the configuration in front.
      */
+    /** A reviewer's gate takes no push: said in the gate's log, answered with 403. */
+    private boolean refusedToReviewer(final String service) {
+        if (pinned == null || !"git-receive-pack".equals(service)) {
+            return false;
+        }
+        System.err.println("refused: a reviewer's gate takes no push");
+        return true;
+    }
+
+    /** What git runs with for a fetch: a reviewer's pinned ref alone, else as for every task. */
+    private List<String> visible(final List<String> readers, final String... arguments) {
+        final String shown = pinned;
+        return shown == null ? hidingOthers(ref, readers, arguments) : pinnedOnly(shown, arguments);
+    }
+
+    /**
+     * Returns git's arguments hiding every ref and {@code HEAD} but one; later entries win.
+     *
+     * @param pinned The one ref shown.
+     * @param arguments Arguments after these.
+     * @return The command after {@code git}.
+     */
+    static List<String> pinnedOnly(final String pinned, final String... arguments) {
+        final List<String> command =
+                new java.util.ArrayList<>(
+                        List.of(
+                                "-c",
+                                "transfer.hideRefs=HEAD",
+                                "-c",
+                                "transfer.hideRefs=refs/",
+                                "-c",
+                                "transfer.hideRefs=!" + pinned));
+        command.addAll(List.of(arguments));
+        return command;
+    }
+
     static List<String> hidingOthers(
             @org.jspecify.annotations.Nullable String ref, String... arguments) {
         return hidingOthers(ref, List.of(), arguments);
@@ -967,6 +1045,8 @@ public class GitHttpServer implements AutoCloseable {
         }
         // An ownership record would otherwise expose work kept out of another task's starting view.
         command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.FORWARDED));
+        // A reviewer's pinned state is its own gate's to show, never another task's.
+        command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.PINNED));
         // Where work landed, for the readers that name its task alone: later entries win, and
         // each name is matched at a component boundary, so 'foo-1/' does not reveal 'foo-10'.
         command.addAll(List.of("-c", "transfer.hideRefs=" + GitGate.LANDED));

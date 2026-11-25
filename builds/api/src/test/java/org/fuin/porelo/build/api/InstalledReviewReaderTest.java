@@ -249,6 +249,237 @@ class InstalledReviewReaderTest {
         }
     }
 
+    @Test
+    void aPostPastOneMebibyteIsRefusedBeforeItIsSent() throws IOException {
+        final Path posts = directory.resolve("posts.txt");
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(recording(posts), "fake", socket())) {
+
+            assertThatThrownBy(
+                            () ->
+                                    reader.post(
+                                            ACCESS,
+                                            OPEN,
+                                            new byte[ReviewProtocol.MOST_PAGE_BYTES + 1]))
+                    .as("a submission past the bound a document has")
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(posts).as("nothing reached the adapter").doesNotExist();
+    }
+
+    @Test
+    void aPostThatTimesOutIsAnUnknownOutcomeAndIsNeverSentAgain() throws IOException {
+        final Path posts = directory.resolve("posts.txt");
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(
+                        recording(posts),
+                        "fake",
+                        socket(),
+                        org.fuin.porelo.wire.LimitFactors.parse("services=0.1"))) {
+
+            assertThatThrownBy(() -> reader.post(ACCESS, OPEN, bytes("slow")))
+                    .as("sent, and no answer came in time")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(
+                                                    ForgeReviewRefused.Reason
+                                                            .WRITE_OUTCOME_UNKNOWN));
+            assertThat(reader.comments(ACCESS, OPEN, null).cursor())
+                    .as("a new adapter answers the next question")
+                    .isEqualTo("after-first");
+        }
+        assertThat(Files.readAllLines(posts))
+                .as("the post reached the adapter once")
+                .containsExactly("slow");
+    }
+
+    @Test
+    void anAdaptersOwnUnknownOutcomeAndUnreachableAreHeardAsThemselves() throws IOException {
+        try (InstalledReviewReader reader =
+                        new InstalledReviewReader(java(FakeReviewReader.class), "fake", socket());
+                InstalledReviewReader raw =
+                        new InstalledReviewReader(
+                                java(RawReviewAdapter.class),
+                                "fake",
+                                directory.resolve("x.sock"))) {
+
+            assertThatThrownBy(() -> reader.post(ACCESS, OPEN, bytes("unreachable")))
+                    .as("the forge did not answer")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(ForgeReviewRefused.Reason.UNREACHABLE));
+            assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes("outcome-unknown")))
+                    .as("the adapter says it cannot tell")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(
+                                                    ForgeReviewRefused.Reason
+                                                            .WRITE_OUTCOME_UNKNOWN));
+        }
+    }
+
+    @Test
+    void aThreadThatIsNoDecimalIdIsTheAdaptersFault() throws IOException {
+        try (InstalledReviewReader raw =
+                new InstalledReviewReader(java(RawReviewAdapter.class), "fake", socket())) {
+            for (final String answer :
+                    new String[] {
+                        "thread-empty", "thread-letters", "thread-65", "thread-missing"
+                    }) {
+                assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes(answer)))
+                        .as("%s is no thread", answer)
+                        .isInstanceOf(BuildReaderException.class);
+            }
+        }
+    }
+
+    @Test
+    void aMalformedAnswerIsAnUnknownOutcomeForAPostAndTheAdaptersFaultOtherwise()
+            throws IOException {
+        try (InstalledReviewReader raw =
+                new InstalledReviewReader(java(RawReviewAdapter.class), "fake", socket())) {
+
+            assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes("garbage")))
+                    .as("a post answered with no frame")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(
+                                                    ForgeReviewRefused.Reason
+                                                            .WRITE_OUTCOME_UNKNOWN));
+            assertThatThrownBy(() -> raw.comments(ACCESS, OPEN, "garbage"))
+                    .as("a page answered with no frame")
+                    .isInstanceOf(BuildReaderException.class);
+            assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes("thread-letters")))
+                    .as("a started-again adapter answers the next question")
+                    .isInstanceOf(BuildReaderException.class)
+                    .hasMessageContaining("thread");
+        }
+    }
+
+    @Test
+    void aCallInterruptedOnItsWayLeavesNoBrokenConnectionForTheNextPost() throws Exception {
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(java(FakeReviewReader.class), "fake", socket())) {
+            final Thread asking =
+                    Thread.ofPlatform()
+                            .start(
+                                    () -> {
+                                        try {
+                                            reader.comments(ACCESS, OPEN, "slow");
+                                        } catch (RuntimeException ex) {
+                                            // Interrupted: what it threw is not the point.
+                                        }
+                                    });
+            Thread.sleep(1500);
+            asking.interrupt();
+            asking.join(30_000);
+
+            assertThat(reader.post(ACCESS, OPEN, bytes("after")))
+                    .as("the post reaches a live adapter and is answered")
+                    .isEqualTo(FakeReviewReader.threadOf("after"));
+        }
+    }
+
+    @Test
+    void aPageCursorOrFieldPastItsBoundIsRefused() throws IOException {
+        try (InstalledReviewReader raw =
+                new InstalledReviewReader(java(RawReviewAdapter.class), "fake", socket())) {
+            for (final String cursor : new String[] {"huge", "long-cursor", "control-cursor"}) {
+                assertThatThrownBy(() -> raw.comments(ACCESS, OPEN, cursor))
+                        .as("%s is refused", cursor)
+                        .isInstanceOf(BuildReaderException.class);
+            }
+            assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes("field-long")))
+                    .as("a field past 128 characters")
+                    .isInstanceOf(BuildReaderException.class);
+            assertThatThrownBy(() -> raw.post(ACCESS, OPEN, bytes("field-null")))
+                    .as("a null field is an absent one, never the word null")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused -> assertThat(refused.field()).as("field").isEmpty());
+        }
+    }
+
+    @Test
+    void aPullRequestsAddressOrFactsOutOfShapeAreRefused() throws IOException {
+        try (InstalledReviewReader raw =
+                new InstalledReviewReader(java(RawReviewAdapter.class), "fake", socket())) {
+            for (final String branch : new String[] {"evil", "file", "blank", "number", "dots"}) {
+                assertThatThrownBy(() -> raw.pullRequestOf(ACCESS, "git@x:o/n.git", branch))
+                        .as("the address answered for %s", branch)
+                        .isInstanceOf(BuildReaderException.class);
+            }
+            for (int pull = 1; pull <= 5; pull++) {
+                final String url = "https://forge.example/o/n/pull/" + pull;
+                assertThatThrownBy(() -> raw.pullRequest(ACCESS, url))
+                        .as("the facts answered for %s", url)
+                        .isInstanceOf(BuildReaderException.class);
+            }
+        }
+    }
+
+    @Test
+    void theLentTokenNeverReachesAMessageAndAnAdaptersTextIsBounded() throws IOException {
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(java(FakeReviewReader.class), "fake", socket())) {
+
+            assertThatThrownBy(() -> reader.post(ACCESS, OPEN, bytes("leak")))
+                    .as("a failure that names the token")
+                    .isInstanceOf(BuildReaderException.class)
+                    .hasMessageContaining("[token]")
+                    .hasMessageNotContaining(ACCESS.token())
+                    .satisfies(
+                            failed ->
+                                    assertThat(failed.getMessage().length())
+                                            .as("bounded")
+                                            .isLessThan(1024));
+            assertThatThrownBy(() -> reader.post(ACCESS, OPEN, bytes("leak-field")))
+                    .as("a field that names the token")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused -> {
+                                assertThat(refused.field())
+                                        .as("field")
+                                        .doesNotContain(ACCESS.token())
+                                        .contains("[token]");
+                                assertThat(refused.getMessage())
+                                        .as("message")
+                                        .doesNotContain(ACCESS.token());
+                            });
+        }
+    }
+
+    private Path recording(final Path posts) throws IOException {
+        final Path file = directory.resolve("recording-" + System.nanoTime());
+        Files.writeString(
+                file,
+                "#!/bin/sh\n"
+                        + FakeReviewReader.POSTS
+                        + "='"
+                        + posts
+                        + "' exec '"
+                        + Path.of(System.getProperty("java.home"), "bin", "java")
+                        + "' -cp '"
+                        + System.getProperty("java.class.path")
+                        + "' '"
+                        + FakeReviewReader.class.getName()
+                        + "' \"$@\"\n");
+        Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rwx------"));
+        return file;
+    }
+
     private static byte[] bytes(final String text) {
         return text.getBytes(StandardCharsets.UTF_8);
     }

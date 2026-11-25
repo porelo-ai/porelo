@@ -1,0 +1,2 @@
+title: "Review profile 1's schema refuses a commit, guid, URI, repository URI or task name that ends in a line feed, which its patterns' `$` let through"
+type: security

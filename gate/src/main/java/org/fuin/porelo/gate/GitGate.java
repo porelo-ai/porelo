@@ -33,6 +33,12 @@ public class GitGate {
     /** Namespace every agent push lands in. */
     public static final String INCOMING = "refs/porelo/incoming/";
 
+    /**
+     * The state a reviewer's run reads, one ref per task: {@code <task>} at the pinned head. Shown
+     * only to that reviewer's gate, hidden from every other task's.
+     */
+    public static final String PINNED = "refs/porelo/pinned/";
+
     /** Private ownership records, hidden from every task's Git endpoint. */
     public static final String FORWARDED = "refs/porelo/forwarded/";
 

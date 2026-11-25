@@ -17,17 +17,17 @@
     "runs": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "#/$defs/run" } }
   },
   "$defs": {
-    "commit": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})$" },
+    "commit": { "type": "string", "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])" },
     "uuid4": {
       "type": "string",
-      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?![\\s\\S])"
     },
     "uri": {
       "type": "string",
       "minLength": 1,
       "maxLength": 12288,
-      "pattern": "^([A-Za-z0-9._~-]|%[0-9A-F]{2})+(/([A-Za-z0-9._~-]|%[0-9A-F]{2})+)*$",
-      "not": { "pattern": "(^|/)\\.{1,2}(/|$)" }
+      "pattern": "^([A-Za-z0-9._~-]|%[0-9A-F]{2})+(/([A-Za-z0-9._~-]|%[0-9A-F]{2})+)*(?![\\s\\S])",
+      "not": { "pattern": "(^|/)\\.{1,2}(/|(?![\\s\\S]))" }
     },
     "line": { "type": "integer", "minimum": 1 },
     "region": {
@@ -69,7 +69,7 @@
             "additionalProperties": false,
             "required": ["repositoryUri", "revisionId"],
             "properties": {
-              "repositoryUri": { "type": "string", "pattern": "^urn:porelo:repository:[A-Za-z0-9._~%-]+:[A-Za-z0-9._~%-]+$" },
+              "repositoryUri": { "type": "string", "pattern": "^urn:porelo:repository:[A-Za-z0-9._~%-]+:[A-Za-z0-9._~%-]+(?![\\s\\S])" },
               "revisionId": { "$ref": "#/$defs/commit" }
             }
           }
@@ -186,7 +186,7 @@
             "porelo/replyTo": { "type": "string", "minLength": 1, "maxLength": 64 },
             "porelo/threadState": { "enum": ["open", "resolved"] },
             "porelo/sourceKind": { "enum": ["owner-account", "task"] },
-            "porelo/taskId": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$" }
+            "porelo/taskId": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]*[a-z0-9])?(?![\\s\\S])" }
           },
           "allOf": [
             {

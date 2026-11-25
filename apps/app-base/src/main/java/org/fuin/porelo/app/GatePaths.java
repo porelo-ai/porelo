@@ -44,6 +44,18 @@ public record GatePaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the directory the items held for the owner account's decision are kept in, one
+     * journal per task, readable by the owner account alone.
+     *
+     * <p>State, not data: a hold belongs to a task's runs and is dropped with the task.
+     *
+     * @return The directory, which may not exist yet.
+     */
+    public Path reviewHolds() {
+        return paths.xdg().state().resolve("review-holds");
+    }
+
+    /**
      * Returns where a readable copy of waiting work is put.
      *
      * <p><strong>Visible, in the home directory, and not under the data directory.</strong> This is

@@ -95,14 +95,15 @@ public final class InstalledReviewReader implements AutoCloseable {
     public ReviewFacts pullRequest(final ForgeAccess access, final String url) {
         final Map<String, Object> parameters = parameters(access);
         parameters.put("url", url);
+        final Map<String, Object> answer = call(access, ReviewProtocol.PULL_REQUEST, parameters);
         try {
-            return ReviewFacts.of(call(ReviewProtocol.PULL_REQUEST, parameters));
+            return ReviewFacts.of(answer);
         } catch (IllegalArgumentException ex) {
+            // Not chained: what was refused may hold the adapter's text unscrubbed.
             throw new BuildReaderException(
                     executable
                             + " answered something that is not a pull request's facts: "
-                            + ex.getMessage(),
-                    ex);
+                            + AdapterText.shown(ex.getMessage(), access.token()));
         }
     }
 
@@ -114,20 +115,23 @@ public final class InstalledReviewReader implements AutoCloseable {
      * @param branch The branch's name.
      * @return Its https address; {@code null} when none is open from it.
      * @throws ForgeReviewRefused When the forge would not answer.
-     * @throws BuildReaderException When the adapter failed.
+     * @throws BuildReaderException When the adapter failed, or answered an address that is not
+     *     https and of profile 2's shape.
      */
     public @Nullable String pullRequestOf(
             final ForgeAccess access, final String upstream, final String branch) {
         final Map<String, Object> parameters = parameters(access);
         parameters.put("upstream", upstream);
         parameters.put("branch", branch);
-        final Object url = call(ReviewProtocol.PULL_REQUEST_OF, parameters).get("url");
+        final Object url = call(access, ReviewProtocol.PULL_REQUEST_OF, parameters).get("url");
         if (url == null) {
             return null;
         }
-        if (!(url instanceof String address) || address.isBlank()) {
+        if (!(url instanceof String address) || !AdapterText.isPullRequest(address)) {
             throw new BuildReaderException(
-                    executable + " answered a pull request's address that is none: " + url);
+                    executable
+                            + " answered a pull request's address that is none: "
+                            + AdapterText.shown(url, access.token()));
         }
         return address;
     }
@@ -140,8 +144,8 @@ public final class InstalledReviewReader implements AutoCloseable {
      * @param cursor Where the page starts, as the previous page said; {@code null} for the first.
      * @return The page's document as bytes, unread, and where the next page starts.
      * @throws ForgeReviewRefused When the forge would not answer.
-     * @throws BuildReaderException When the adapter failed, or answered no document or one over
-     *     {@link ReviewProtocol#MOST_PAGE_BYTES}.
+     * @throws BuildReaderException When the adapter failed, or answered no document, one over
+     *     {@link ReviewProtocol#MOST_PAGE_BYTES}, or a cursor out of its bounds.
      */
     public ConversationPage comments(
             final ForgeAccess access, final String url, final @Nullable String cursor) {
@@ -150,7 +154,7 @@ public final class InstalledReviewReader implements AutoCloseable {
         if (cursor != null) {
             parameters.put("cursor", cursor);
         }
-        final Map<String, Object> answer = call(ReviewProtocol.COMMENTS, parameters);
+        final Map<String, Object> answer = call(access, ReviewProtocol.COMMENTS, parameters);
         if (!(answer.get("document") instanceof String document)) {
             throw new BuildReaderException(executable + " answered a page without a document");
         }
@@ -162,7 +166,9 @@ public final class InstalledReviewReader implements AutoCloseable {
             return ConversationPage.of(document, (String) next);
         } catch (IllegalArgumentException ex) {
             throw new BuildReaderException(
-                    executable + " answered a page that is none: " + ex.getMessage(), ex);
+                    executable
+                            + " answered a page that is none: "
+                            + AdapterText.shown(ex.getMessage(), access.token()));
         }
     }
 
@@ -176,10 +182,19 @@ public final class InstalledReviewReader implements AutoCloseable {
      *     given.
      * @return The thread answered, or the new thread root's id.
      * @throws ForgeReviewRefused When the forge would not write it, or its outcome is unknown.
-     * @throws BuildReaderException When the adapter failed before it wrote, or answered no thread.
-     * @throws IllegalArgumentException When the document is not UTF-8.
+     * @throws BuildReaderException When the adapter failed before it wrote, would not start so the
+     *     document was never sent, or answered no thread.
+     * @throws IllegalArgumentException When the document is over {@link
+     *     ReviewProtocol#MOST_PAGE_BYTES} or not UTF-8; it is not sent.
      */
     public String post(final ForgeAccess access, final String url, final byte[] document) {
+        if (document.length > ReviewProtocol.MOST_PAGE_BYTES) {
+            throw new IllegalArgumentException(
+                    "a submission is at most "
+                            + ReviewProtocol.MOST_PAGE_BYTES
+                            + " bytes, not "
+                            + document.length);
+        }
         final Map<String, Object> parameters = parameters(access);
         parameters.put("url", url);
         parameters.put("document", utf8(document));
@@ -195,9 +210,10 @@ public final class InstalledReviewReader implements AutoCloseable {
                 // The connection broke with the request out: whether it was written is unknown.
                 throw new ForgeReviewRefused(ForgeReviewRefused.Reason.WRITE_OUTCOME_UNKNOWN);
             }
-            throw refusal(ex);
+            throw refusal(ex, access);
         }
-        if (!(answer.get("thread") instanceof String thread) || !thread.matches("[0-9]{1,64}")) {
+        if (!(answer.get("thread") instanceof String thread)
+                || !thread.matches("[0-9]{1," + AdapterText.MOST_ID + "}")) {
             throw new BuildReaderException(
                     executable + " answered a post without a thread's decimal id");
         }
@@ -269,14 +285,20 @@ public final class InstalledReviewReader implements AutoCloseable {
                             + ReviewProtocol.VERSION
                             + ". Install the adapter's version that goes with this Porelo.");
         }
-        final String reads = String.valueOf(answer.get("forge"));
+        final Object reads = answer.get("forge");
         if (!forge.equals(reads)) {
             throw new BuildReaderException(
-                    executable + " reads '" + reads + "', not '" + forge + "'");
+                    executable
+                            + " reads '"
+                            + AdapterText.shown(reads, null)
+                            + "', not '"
+                            + forge
+                            + "'");
         }
     }
 
-    private Map<String, Object> call(final String method, final Map<String, Object> parameters) {
+    private Map<String, Object> call(
+            final ForgeAccess access, final String method, final Map<String, Object> parameters) {
         try {
             return process.call(method, parameters);
         } catch (VarlinkTimeoutException ex) {
@@ -286,19 +308,32 @@ public final class InstalledReviewReader implements AutoCloseable {
                             + AdapterProcess.seconds(process.callLimit()),
                     ex);
         } catch (VarlinkException ex) {
-            throw refusal(ex);
+            throw refusal(ex, access);
         }
     }
 
-    /** A contract error as the refusal it names; anything else is the adapter's own fault. */
-    private RuntimeException refusal(final VarlinkException ex) {
+    /**
+     * A contract error as the refusal it names; anything else is the adapter's own fault, its text
+     * scrubbed of the lent token and bounded, and the error not chained, since it holds that text
+     * as answered.
+     */
+    private RuntimeException refusal(final VarlinkException ex, final ForgeAccess access) {
         final ForgeReviewRefused.Reason reason = ForgeReviewRefused.Reason.of(ex.getErrorName());
         final Map<String, Object> said = ex.getParameters() == null ? Map.of() : ex.getParameters();
-        if (reason == ForgeReviewRefused.Reason.RATE_LIMITED) {
-            return ForgeReviewRefused.rateLimited(InstalledBuildReader.retryAfter(said));
-        }
-        if (reason == ForgeReviewRefused.Reason.NOT_IN_PROFILE) {
-            return ForgeReviewRefused.notInProfile(String.valueOf(said.getOrDefault("field", "")));
+        try {
+            if (reason == ForgeReviewRefused.Reason.RATE_LIMITED) {
+                return ForgeReviewRefused.rateLimited(InstalledBuildReader.retryAfter(said));
+            }
+            if (reason == ForgeReviewRefused.Reason.NOT_IN_PROFILE) {
+                return ForgeReviewRefused.notInProfile(field(said.get("field"), access));
+            }
+        } catch (BuildReaderException malformed) {
+            return new BuildReaderException(
+                    executable
+                            + " answered "
+                            + ex.getErrorName()
+                            + " out of its shape: "
+                            + malformed.getMessage());
         }
         if (reason != null) {
             return new ForgeReviewRefused(reason);
@@ -306,9 +341,25 @@ public final class InstalledReviewReader implements AutoCloseable {
         return new BuildReaderException(
                 executable
                         + " failed: "
-                        + (ex.getErrorName() == null
-                                ? ex.getMessage()
-                                : ex.getErrorName() + " " + said),
-                ex);
+                        + AdapterText.shown(
+                                ex.getErrorName() == null
+                                        ? ex.getMessage()
+                                        : ex.getErrorName() + " " + said,
+                                access.token()));
+    }
+
+    /** The field a refusal names: absent when null, else bounded plain text without the token. */
+    private static String field(final @Nullable Object given, final ForgeAccess access) {
+        if (given == null) {
+            return "";
+        }
+        if (given instanceof String text) {
+            final String scrubbed = AdapterText.scrubbed(text, access.token());
+            if (text.isEmpty() || AdapterText.isPlain(scrubbed, AdapterText.MOST_FIELD)) {
+                return scrubbed;
+            }
+        }
+        throw new BuildReaderException(
+                "field is plain text of at most " + AdapterText.MOST_FIELD + " characters");
     }
 }

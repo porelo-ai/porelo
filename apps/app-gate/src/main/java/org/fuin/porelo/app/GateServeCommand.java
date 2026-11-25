@@ -77,6 +77,13 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private @Nullable String ref;
 
     @Option(
+            names = "--pinned",
+            paramLabel = "<ref>",
+            description =
+                    "A reviewer's gate: shows only this ref, read only, and refuses every push. Not with --ref or --pass-on.")
+    private @Nullable String pinned;
+
+    @Option(
             names = "--pass-on",
             description =
                     "Passes a push to the task's own ref on to the upstream at once, as its branch, and fetches"
@@ -444,15 +451,27 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                             return refused;
                                         }
                                     };
+            if (pinned != null && (ref != null || passOn)) {
+                err.println("porelo: a reviewer's gate (--pinned) takes no --ref or --pass-on");
+                err.flush();
+                return 2;
+            }
             try (GitHttpServer server =
-                    new GitHttpServer(
-                            new InetSocketAddress(InetAddress.getByName(address), port),
-                            gate.mirror(),
-                            token,
-                            new GitSubprocess(context.limits()),
-                            ref,
-                            through,
-                            GitHttpServer.PACE)) {
+                    pinned != null
+                            ? GitHttpServer.reviewing(
+                                    new InetSocketAddress(InetAddress.getByName(address), port),
+                                    gate.mirror(),
+                                    token,
+                                    new GitSubprocess(context.limits()),
+                                    pinned)
+                            : new GitHttpServer(
+                                    new InetSocketAddress(InetAddress.getByName(address), port),
+                                    gate.mirror(),
+                                    token,
+                                    new GitSubprocess(context.limits()),
+                                    ref,
+                                    through,
+                                    GitHttpServer.PACE)) {
                 server.limitedBy(context.limits());
 
                 if (ref != null && ref.startsWith(GitGate.INCOMING)) {

@@ -86,10 +86,9 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     private static final Set<PosixFilePermission> DIRECTORY_MODE =
             PosixFilePermissions.fromString("rwx------");
 
-    private static final Set<PosixFilePermission> FILE_MODE =
-            PosixFilePermissions.fromString("rw-------");
+    static final Set<PosixFilePermission> FILE_MODE = PosixFilePermissions.fromString("rw-------");
 
-    private static final FileAttribute<Set<PosixFilePermission>> FILE_ATTRIBUTE =
+    static final FileAttribute<Set<PosixFilePermission>> FILE_ATTRIBUTE =
             PosixFilePermissions.asFileAttribute(FILE_MODE);
 
     /** One lock per container in this process; a file lock alone throws for a second channel. */
@@ -315,7 +314,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     // Whether a directory of the store is there, made owner-only when asked and missing. One that
     // is a link or no directory is refused, and, when it must be owner-only, one that another
     // account can reach is refused too: never widened, never used.
-    private static boolean directory(final Path path, final boolean make, final boolean ownerOnly)
+    static boolean directory(final Path path, final boolean make, final boolean ownerOnly)
             throws IOException {
         PosixFileAttributes attributes;
         try {
@@ -352,7 +351,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         return true;
     }
 
-    private static <T> T locked(final Path container, final Work<T> work)
+    static <T> T locked(final Path container, final Work<T> work)
             throws IOException, ReviewRefused {
         final ReentrantLock here = HELD.computeIfAbsent(container, path -> new ReentrantLock());
         here.lock();
@@ -376,7 +375,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
 
     // Whether a file of the store is there; one that is anything but a regular file is refused, so
     // a link is never followed and a pipe never waited on.
-    private static boolean regularOrAbsent(final Path path) throws IOException {
+    static boolean regularOrAbsent(final Path path) throws IOException {
         final BasicFileAttributes attributes;
         try {
             attributes = Files.readAttributes(path, BasicFileAttributes.class, NOFOLLOW_LINKS);
@@ -517,8 +516,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         }
     }
 
-    private static void mode(final Path path, final Set<PosixFilePermission> mode)
-            throws IOException {
+    static void mode(final Path path, final Set<PosixFilePermission> mode) throws IOException {
         final PosixFileAttributeView view =
                 Files.getFileAttributeView(path, PosixFileAttributeView.class, NOFOLLOW_LINKS);
         if (view == null) {
@@ -630,7 +628,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         return written;
     }
 
-    private static Map<String, Object> anchor(final Anchor anchor) {
+    static Map<String, Object> anchor(final Anchor anchor) {
         return switch (anchor) {
             case LineAnchor line ->
                     Map.of(
@@ -711,7 +709,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         };
     }
 
-    private static Anchor anchor(final Map<?, ?> anchor) {
+    static Anchor anchor(final Map<?, ?> anchor) {
         if (!"line".equals(text(anchor, "kind"))) {
             throw new IllegalArgumentException("an unknown anchor");
         }
@@ -740,21 +738,21 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         return at;
     }
 
-    private static Map<?, ?> object(final @Nullable Object value, final String what) {
+    static Map<?, ?> object(final @Nullable Object value, final String what) {
         if (value instanceof Map<?, ?> map) {
             return map;
         }
         throw new IllegalArgumentException(what + " is not an object");
     }
 
-    private static String text(final Map<?, ?> map, final String key) {
+    static String text(final Map<?, ?> map, final String key) {
         if (map.get(key) instanceof String text) {
             return text;
         }
         throw new IllegalArgumentException(key + " is not a text");
     }
 
-    private static @Nullable String optional(final Map<?, ?> map, final String key) {
+    static @Nullable String optional(final Map<?, ?> map, final String key) {
         if (!map.containsKey(key)) {
             throw new IllegalArgumentException(key + " is missing");
         }
@@ -765,7 +763,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
         throw new IllegalArgumentException(key + " is not a text");
     }
 
-    private static int number(final Map<?, ?> map, final String key) {
+    static int number(final Map<?, ?> map, final String key) {
         if (map.get(key) instanceof Number number) {
             final double value = number.doubleValue();
             if (value == Math.rint(value) && value >= 0 && value <= Integer.MAX_VALUE) {
@@ -779,7 +777,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
 
     /** What runs under the lock. */
     @FunctionalInterface
-    private interface Work<T> {
+    interface Work<T> {
 
         T run() throws IOException, ReviewRefused;
     }

@@ -3564,7 +3564,8 @@ public final class TaskLaunch {
                 }
                 EgressReport.reportReachable(
                         project,
-                        EgressReport.compose(selected, serving, projectOrigins).origins(),
+                        ReviewerStart.reachable(runPlace, selected, serving, projectOrigins)
+                                .origins(),
                         EgressReport.refusals(selected, project),
                         project.egress().hostServices(),
                         out);
@@ -3853,7 +3854,8 @@ public final class TaskLaunch {
                 }
                 extras.put(named.getKey(), destination);
             }
-            this.extras = java.util.Map.copyOf(extras);
+            // A reviewer reads untrusted work: it is given none of them, each still checked above.
+            this.extras = ReviewerStart.credentials(runPlace, java.util.Map.copyOf(extras));
 
             // A credential that has to be bought is tried once before anything exists: an
             // authorization server that refuses or cannot be reached makes it as missing as a key
@@ -4231,7 +4233,7 @@ public final class TaskLaunch {
             // answer "who decided this" rather than only "what is open". The same composition the
             // egress editor shows, from the same method.
             final EgressReport.Reachable reachable =
-                    EgressReport.compose(selected, serving, projectOrigins);
+                    ReviewerStart.reachable(runPlace, selected, serving, projectOrigins);
             final java.util.List<String> domains = new java.util.ArrayList<>(reachable.domains());
             final java.util.Map<String, String> origins =
                     new java.util.LinkedHashMap<>(reachable.origins());
@@ -4308,7 +4310,12 @@ public final class TaskLaunch {
             // The project's package repositories with a credential: read through a broker of their
             // own, which hands the task no token, only an address.
             final CredentialWiring.RepositoryPlumbing repositories =
-                    wiring().startRepositories(project.toolRepositories(), container, out, err);
+                    wiring().startRepositories(
+                                    ReviewerStart.repositories(
+                                            runPlace, project.toolRepositories()),
+                                    container,
+                                    out,
+                                    err);
             if (repositories != null) {
                 environmentCache.putAll(repositories.environment());
             }
@@ -4379,6 +4386,12 @@ public final class TaskLaunch {
                     workspace.certified(issued.certificate().line());
                 }
                 environmentCache.putAll(workspace.environment(project, request.task()));
+                if (ReviewerStart.reviewing(runPlace)) {
+                    // A reviewer's workspace reads its pinned ref and has no ref to push to.
+                    environmentCache.remove("PORELO_TASK_REF");
+                    environmentCache.remove("PORELO_BASE_BRANCH");
+                    environmentCache.putAll(ReviewerStart.workspaceRefs(runPlace, request.task()));
+                }
             }
 
             final java.util.Map<String, String> refusals = EgressReport.refusals(selected, project);
@@ -4483,7 +4496,8 @@ public final class TaskLaunch {
                             project, repository, container, forgeBranch, hostBuilds, out, err);
 
             if (workspace != null) {
-                if (!gate().reading(reads)
+                if (!gate().reviewer(ReviewerStart.reviewing(runPlace))
+                        .reading(reads)
                         .forIssue(request.work() == null ? null : request.work().first().issue())
                         .followingBuilds(BuildsWiring.follows(project, hostBuilds))
                         .watchingBuilds(buildsWatched)

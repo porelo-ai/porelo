@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Comparator;
-import java.util.List;
 import java.util.stream.Stream;
-import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandResult;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.project.Mail;
@@ -98,40 +95,27 @@ public final class InboundCheck {
         }
 
         final String name = message.getFileName().toString();
-        clear(mailbox);
+        InboundFilterRun.clear(mailbox);
         Files.copy(
                 message,
                 mailbox.checkIncoming().resolve(name),
                 StandardCopyOption.REPLACE_EXISTING);
         final CommandResult result;
         try {
-            // No settle, as on the way out: what is checked here was put in place by rename.
-            result =
-                    runner.run(
-                            HelperEnvironment.chosen(
-                                    Command.of(
-                                            filter.toString(),
-                                            LimitFactors.OPTION,
-                                            limits.line(),
-                                            "--mail",
-                                            mailbox.check().toString(),
-                                            "--blocking",
-                                            "--stabilityDelayMillis",
-                                            "0")));
+            result = runner.run(InboundFilterRun.command(filter, limits, mailbox.check()));
         } catch (final RuntimeException e) {
             return "it is from an external peer and the filter could not be run: " + e.getMessage();
         }
-        if (result.exitCode() != MessageFiltering.ALL_ACCEPTED
-                && result.exitCode() != MessageFiltering.SOMETHING_REFUSED) {
+        if (!InboundFilterRun.ran(result.exitCode())) {
             return "it is from an external peer and the filter stopped with " + result.exitCode();
         }
         if (Files.isRegularFile(mailbox.checkAccepted().resolve(name))) {
-            clear(mailbox);
+            InboundFilterRun.clear(mailbox);
             return "";
         }
         final boolean unreadable = Files.isRegularFile(mailbox.checkError().resolve(name));
         keepTheAnswer(mailbox, name);
-        clear(mailbox);
+        InboundFilterRun.clear(mailbox);
         return unreadable
                 ? "it is from an external peer and the filter could not read it"
                 : "the filter refused it on the way in";
@@ -160,34 +144,6 @@ public final class InboundCheck {
                         answer,
                         mailbox.hold().resolve(name + ".refusal-" + number + ".json"),
                         StandardCopyOption.REPLACE_EXISTING);
-            }
-        }
-    }
-
-    /**
-     * Empties the check area.
-     *
-     * <p>Before and after, and not only after: one message is checked at a time, and something left
-     * behind by a crash must never be mistaken for this message's verdict.
-     *
-     * @param mailbox The task's mailbox.
-     * @throws IOException Deleting failed.
-     */
-    private void clear(final Mailbox mailbox) throws IOException {
-        for (final Path directory :
-                List.of(
-                        mailbox.checkIncoming(),
-                        mailbox.checkAccepted(),
-                        mailbox.checkRejected(),
-                        mailbox.checkFeedback(),
-                        mailbox.checkError())) {
-            if (!Files.isDirectory(directory)) {
-                continue;
-            }
-            try (Stream<Path> entries = Files.list(directory)) {
-                for (final Path entry : entries.sorted(Comparator.reverseOrder()).toList()) {
-                    Files.deleteIfExists(entry);
-                }
             }
         }
     }

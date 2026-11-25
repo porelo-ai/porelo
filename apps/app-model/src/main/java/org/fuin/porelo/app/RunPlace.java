@@ -22,8 +22,58 @@ import org.jspecify.annotations.Nullable;
  * @param role {@link #AUTHOR} or {@link #REVIEWER}.
  * @param repository The push's repository, or {@code null} for the project's own.
  * @param name The push's name, which is its task's name within the project.
+ * @param pinned The state a reviewer's run is pinned to, or {@code null} while none is.
  */
-public record RunPlace(String role, @Nullable String repository, String name) {
+public record RunPlace(
+        String role, @Nullable String repository, String name, @Nullable Pin pinned) {
+
+    /**
+     * The state a reviewer's run reads: the ref {@code refs/porelo/pinned/<task>} in its task's
+     * mirror points at the head.
+     *
+     * @param head The commit reviewed, in full.
+     * @param base The commit it is compared with, in full, or {@code null} when none is named.
+     * @param repository The pull request's repository, its https address, or {@code null} for a
+     *     gate push.
+     */
+    public record Pin(String head, @Nullable String base, @Nullable String repository) {
+
+        private static final Pattern COMMIT = Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
+
+        /** Refuses a commit not written in full and a repository not on https. */
+        public Pin {
+            if (!COMMIT.matcher(head).matches()
+                    || (base != null && !COMMIT.matcher(base).matches())) {
+                throw new IllegalArgumentException("a pin names full commit ids");
+            }
+            if (repository != null
+                    && (!repository.startsWith("https://")
+                            || !repository.chars().allMatch(c -> c > 0x20 && c < 0x7f))) {
+                throw new IllegalArgumentException("a pinned repository is an https address");
+            }
+        }
+    }
+
+    /**
+     * A role and place pinned to nothing yet.
+     *
+     * @param role {@link #AUTHOR} or {@link #REVIEWER}.
+     * @param repository The push's repository, or {@code null} for the project's own.
+     * @param name The push's name.
+     */
+    public RunPlace(final String role, final @Nullable String repository, final String name) {
+        this(role, repository, name, null);
+    }
+
+    /**
+     * Returns this role and place pinned to a state.
+     *
+     * @param pin The state.
+     * @return A copy.
+     */
+    public RunPlace pinnedTo(final Pin pin) {
+        return new RunPlace(role, repository, name, pin);
+    }
 
     /** The role of a run that makes the work at its place. */
     public static final String AUTHOR = "AUTHOR";
@@ -111,6 +161,17 @@ public record RunPlace(String role, @Nullable String repository, String name) {
         final Map<String, Object> document = new LinkedHashMap<>();
         document.put("role", role);
         document.put("place", place());
+        if (pinned != null) {
+            final Map<String, Object> pin = new LinkedHashMap<>();
+            pin.put("head", pinned.head());
+            if (pinned.base() != null) {
+                pin.put("base", pinned.base());
+            }
+            if (pinned.repository() != null) {
+                pin.put("repository", pinned.repository());
+            }
+            document.put("pinned", pin);
+        }
         final Path file = state.resolve(FILE);
         Files.writeString(file, Json.write(document), StandardCharsets.UTF_8);
         Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rw-------"));
@@ -172,12 +233,27 @@ public record RunPlace(String role, @Nullable String repository, String name) {
                 return new RunPlace(
                         role,
                         push.get("repository") instanceof String repository ? repository : null,
-                        name);
+                        name,
+                        document.containsKey("pinned") ? pin(document.get("pinned")) : null);
             }
         } catch (IOException | RuntimeException ex) {
             // A file that does not read says nothing of the run; the task is still listed.
         }
         return null;
+    }
+
+    /** A pin that does not read throws, so the whole record reads as none. */
+    private static Pin pin(final @Nullable Object kept) {
+        if (kept instanceof Map<?, ?> pin
+                && pin.get("head") instanceof String head
+                && (pin.get("base") == null || pin.get("base") instanceof String)
+                && (pin.get("repository") == null || pin.get("repository") instanceof String)) {
+            return new Pin(
+                    head,
+                    pin.get("base") instanceof String base ? base : null,
+                    pin.get("repository") instanceof String repository ? repository : null);
+        }
+        throw new IllegalArgumentException("a pin that does not read");
     }
 
     /**

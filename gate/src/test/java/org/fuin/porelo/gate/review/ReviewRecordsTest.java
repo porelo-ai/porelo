@@ -73,6 +73,12 @@ class ReviewRecordsTest {
     void aProducerIsNamedByItsChannelNeverAsAPerson() {
         assertThat(new OwnerAccount().words()).isEqualTo("owner account");
         assertThat(new Task("shop-2").words()).isEqualTo("task shop-2");
+        assertThat(new Task("porelo-shop_review-2").words())
+                .as("a container name, as the daemon names a task")
+                .isEqualTo("task porelo-shop_review-2");
+        assertThatThrownBy(() -> new Task("shop\n2"))
+                .as("a line break")
+                .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new Task(""))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("task");

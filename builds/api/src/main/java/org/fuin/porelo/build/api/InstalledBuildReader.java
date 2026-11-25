@@ -352,8 +352,6 @@ public final class InstalledBuildReader implements AutoCloseable {
         }
         return org.fuin.porelo.wire.varlink.VarlinkNumbers.whole(given)
                 .orElseThrow(
-                        () ->
-                                new BuildReaderException(
-                                        "retryAfter is a whole number of seconds, not " + given));
+                        () -> new BuildReaderException("retryAfter is a whole number of seconds"));
     }
 }

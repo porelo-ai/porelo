@@ -1,0 +1,2 @@
+title: "The machine keeps its forge instances in `forges.yml` beside `credentials.yml`, one per host with the adapter that reads it and whether its comments are trusted, set with `porelo forge add|comments|list` or the daemon's `Forges` and `ForgeSet`; a pull request's address is matched by its host alone and read with `git.token.<host>`, and a file others could write has every forge read as extended, which `porelo doctor` names"
+type: added

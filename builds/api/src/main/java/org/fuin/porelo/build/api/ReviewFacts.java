@@ -54,13 +54,14 @@ public record ReviewFacts(
                     return state;
                 }
             }
-            throw new IllegalArgumentException("no pull request state '" + wire + "'");
+            throw new IllegalArgumentException("no pull request state is open, merged or closed");
         }
     }
 
     /**
-     * Refuses a repository not on https, a commit not written in full, and a merge commit or branch
-     * on a pull request that is not merged, or missing on one that is.
+     * Refuses a repository that is no https address of profile 2's shape, a commit not written in
+     * full, a merged branch git would not accept, and a merge commit or branch on a pull request
+     * that is not merged, or missing on one that is.
      */
     public ReviewFacts {
         Objects.requireNonNull(repository, "repository");
@@ -68,8 +69,9 @@ public record ReviewFacts(
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(mergeBase, "mergeBase");
         Objects.requireNonNull(state, "state");
-        if (!repository.startsWith("https://")) {
-            throw new IllegalArgumentException("the repository's address is https");
+        if (!AdapterText.isRepository(repository)) {
+            throw new IllegalArgumentException(
+                    "the repository's address is https://<host>[:<port>] and 2 to 8 segments");
         }
         for (final String commit : new String[] {head, base, mergeBase}) {
             if (!commit.matches(COMMIT)) {
@@ -84,8 +86,8 @@ public record ReviewFacts(
         if (mergeCommit != null && !mergeCommit.matches(COMMIT)) {
             throw new IllegalArgumentException("the merge commit is not a full commit id");
         }
-        if (mergedHead != null && mergedHead.isBlank()) {
-            throw new IllegalArgumentException("the merged branch is blank");
+        if (mergedHead != null && !AdapterText.isBranch(mergedHead)) {
+            throw new IllegalArgumentException("the merged branch is no branch name git accepts");
         }
     }
 

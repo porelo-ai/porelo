@@ -55,6 +55,22 @@ final class GateWiring {
         return this;
     }
 
+    /**
+     * Whether the task's run is a reviewer's, whose gate shows its pinned ref and takes nothing.
+     */
+    private boolean reviewer;
+
+    /**
+     * Says whether the task's run is a reviewer's.
+     *
+     * @param reviews Whether its recorded role is a reviewer's.
+     * @return This wiring.
+     */
+    GateWiring reviewer(final boolean reviews) {
+        this.reviewer = reviews;
+        return this;
+    }
+
     /** Whether a build watch reports on what this gate passes on. */
     private boolean followsBuilds = true;
 
@@ -441,6 +457,49 @@ final class GateWiring {
                 null);
     }
 
+    /**
+     * Returns the command that serves a reviewer's gate: its pinned ref alone, read only, and
+     * nothing passed on, judged or read beside it.
+     *
+     * @param project The task's project.
+     * @param bind Where the gate listens.
+     * @param port Its port.
+     * @param state The task's runtime state.
+     * @param taskName The task's own name, which names its pinned ref.
+     * @param repository Which repository of the project, or {@code null} for its own.
+     * @return The command.
+     */
+    static java.util.List<String> reviewing(
+            final org.fuin.porelo.core.project.Project project,
+            final String bind,
+            final int port,
+            final java.nio.file.Path state,
+            final String taskName,
+            final @Nullable String repository) {
+        final java.util.List<String> command =
+                new java.util.ArrayList<>(
+                        java.util.List.of(
+                                PoreloBinary.path(),
+                                "gate",
+                                "serve",
+                                "--project",
+                                project.name(),
+                                "--address",
+                                bind,
+                                "--port",
+                                String.valueOf(port),
+                                "--pid-file",
+                                state.resolve("gate.pid").toString(),
+                                "--pinned",
+                                org.fuin.porelo.gate.GitGate.PINNED + taskName));
+        if (repository != null) {
+            // On the recorded command line, so a resumed reviewer reads the same mirror.
+            command.add("--repository");
+            command.add(repository);
+        }
+        return command;
+    }
+
     /** The gate's option for a task whose project follows builds and whose watch did not start. */
     static final String BUILDS_UNWATCHED = "--builds-unwatched";
 
@@ -490,19 +549,27 @@ final class GateWiring {
 
         final java.nio.file.Path state = context.paths().tasks().containerState(container);
         final java.util.List<String> command =
-                serving(
-                        project,
-                        gateBind(gateAddress, err),
-                        workspace.port(),
-                        state,
-                        taskName,
-                        repository,
-                        forgeBranch,
-                        certified,
-                        reads,
-                        followsBuilds,
-                        watchesBuilds,
-                        issue);
+                reviewer
+                        ? reviewing(
+                                project,
+                                gateBind(gateAddress, err),
+                                workspace.port(),
+                                state,
+                                taskName,
+                                repository)
+                        : serving(
+                                project,
+                                gateBind(gateAddress, err),
+                                workspace.port(),
+                                state,
+                                taskName,
+                                repository,
+                                forgeBranch,
+                                certified,
+                                reads,
+                                followsBuilds,
+                                watchesBuilds,
+                                issue);
 
         try {
             final ProcessBuilder builder =

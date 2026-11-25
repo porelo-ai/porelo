@@ -130,7 +130,7 @@ final class ReviewMethods {
             if (ex.reason() == ForgeReviewRefused.Reason.RATE_LIMITED) {
                 said.put("retryAfter", Long.valueOf(ex.retryAfterSeconds()));
             }
-            if (ex.reason() == ForgeReviewRefused.Reason.NOT_IN_PROFILE) {
+            if (ex.reason() == ForgeReviewRefused.Reason.NOT_IN_PROFILE && !ex.field().isEmpty()) {
                 said.put("field", ex.field());
             }
             throw new VarlinkException(ReviewProtocol.error(ex.reason()), said);

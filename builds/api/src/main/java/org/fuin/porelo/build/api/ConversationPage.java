@@ -1,5 +1,8 @@
 package org.fuin.porelo.build.api;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
@@ -15,8 +18,8 @@ import org.jspecify.annotations.Nullable;
 public record ConversationPage(byte[] document, @Nullable String cursor) {
 
     /**
-     * Copies the document and refuses one over {@link ReviewProtocol#MOST_PAGE_BYTES} or a blank
-     * cursor.
+     * Copies the document and refuses one over {@link ReviewProtocol#MOST_PAGE_BYTES} or not UTF-8,
+     * and a cursor that is blank, over 256 characters or holds a control character.
      *
      * @param document The document's bytes.
      * @param cursor Where the next page starts, or {@code null}.
@@ -30,8 +33,20 @@ public record ConversationPage(byte[] document, @Nullable String cursor) {
                             + " bytes, not "
                             + document.length);
         }
-        if (cursor != null && cursor.isBlank()) {
-            throw new IllegalArgumentException("a cursor is not blank");
+        if (cursor != null && !AdapterText.isPlain(cursor, AdapterText.MOST_CURSOR)) {
+            throw new IllegalArgumentException(
+                    "a cursor is not blank, at most "
+                            + AdapterText.MOST_CURSOR
+                            + " characters, and free of control characters");
+        }
+        try {
+            StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(document));
+        } catch (CharacterCodingException ex) {
+            throw new IllegalArgumentException("a page is UTF-8", ex);
         }
         document = document.clone();
     }

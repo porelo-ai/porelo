@@ -183,11 +183,62 @@ public final class MailboxGuide {
                 - You can answer only the threads of your own work. A reply that is refused comes back
                   into `inbox/new/` with the reason.
 
+                ## Commenting on a pull request
+
+                When your task reviews a pull request, or works on its own pull request, it is given the pull
+                request's conversation as review documents. Send your comments and replies there as one
+                message to `@REVIEW@` whose only part is a data part holding one review document of kind
+                `submission`. Nothing reaches the pull request before the owner account releases it.
+
+                ```json
+                {
+                  "messageId": "a-unique-id-of-yours",
+                  "role": "@ROLE@",
+                  "parts": [ { "data": {
+                    "version": "2.1.0",
+                    "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
+                    "runs": [ {
+                      "tool": { "driver": { "name": "Porelo" } },
+                      "versionControlProvenance": [ { "repositoryUri": "https://github.com/shop/app",
+                        "revisionId": "the head commit the conversation names, in full" } ],
+                      "columnKind": "unicodeCodePoints",
+                      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42" },
+                      "results": [
+                        { "kind": "review", "level": "none",
+                          "message": { "text": "A blank password reaches hash() here." },
+                          "locations": [ { "physicalLocation": {
+                            "artifactLocation": { "uri": "src/Login.java" },
+                            "region": { "startLine": 27, "endLine": 28 } } } ],
+                          "properties": { "porelo/anchorKind": "line", "porelo/diffSide": "new" } },
+                        { "kind": "review", "level": "none",
+                          "message": { "text": "The check now runs first." },
+                          "locations": [ { "physicalLocation": {
+                            "artifactLocation": { "uri": "src/Login.java" },
+                            "region": { "startLine": 41, "endLine": 43 } } } ],
+                          "properties": { "porelo/anchorKind": "line", "porelo/diffSide": "new",
+                            "@REPLY_TO@": "the thread's id" } }
+                      ]
+                    } ]
+                  } } ],
+                  "metadata": { "to": "@REVIEW@", "kind": "@KIND@" }
+                }
+                ```
+
+                - Take the run's `versionControlProvenance` and `porelo/pullRequest` from the conversation
+                  you were given.
+                - A result without `@REPLY_TO@` is a new comment, which opens a thread; only a reviewer
+                  opens one. A result with it replies in the thread of that id, as the conversation's
+                  `@THREAD@` gave it, at that thread's place.
+                - Name no author, `guid`, `@THREAD@` or thread state: the host knows who sends it.
+                - No `metadata.thread` and no other part. A submission that is refused comes back into
+                  `inbox/new/` with the reason, and nothing of it is kept.
+
                 ## What does not travel
 
                 Every message you send is checked before it leaves, and only plain English prose passes.
                 Encoded data is refused, also when cut into pieces by spaces or line breaks: base64, hex, a full
-                commit id and the like. So are `data`, `raw` and `url` parts. Long code, identifiers and command
+                commit id and the like. So are `raw` and `url` parts, and a `data` part anywhere but in a
+                submission to `@REVIEW@`, whose texts are checked as well. Long code, identifiers and command
                 lines may be refused. **Never put a secret or a credential into a message:** do not rely on the
                 check to catch one. **Work travels by commit**, through the task's gate, never inside a message.
                 Name the commit by its short form (7 to 12 characters), never the full id. Depending on the
@@ -200,7 +251,8 @@ public final class MailboxGuide {
                 .replace("@KIND@", MessageDispatch.Reply.KIND)
                 .replace("@ROLE@", MessageIntake.AGENT)
                 .replace("@REVIEW_PART@", PersonNote.REVIEW)
-                .replace("@THREAD@", "porelo/threadId");
+                .replace("@THREAD@", "porelo/threadId")
+                .replace("@REPLY_TO@", "porelo/replyTo");
     }
 
     /**

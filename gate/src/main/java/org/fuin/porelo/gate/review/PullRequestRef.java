@@ -2,6 +2,7 @@ package org.fuin.porelo.gate.review;
 
 import java.net.URI;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * A pull request at a forge instance, by its https address.
@@ -14,6 +15,14 @@ public record PullRequestRef(String forge, URI url) {
 
     /** The longest address taken, in characters. */
     public static final int LIMIT = 2048;
+
+    // Review profile 2's shape: the repository's segments, then the pull request's, the last its
+    // number; unreserved characters only, so no payload rides in an encoded segment.
+    private static final Pattern PATH =
+            Pattern.compile("(/[A-Za-z0-9._~-]{1,100}){2,10}/[0-9]{1,20}");
+
+    // A dot segment, which a reader would resolve to another place.
+    private static final Pattern DOTS = Pattern.compile("/\\.{1,2}(?=/|$)");
 
     /**
      * Refuses an address that is not https, is over 2048 characters or not ASCII, carries user
@@ -38,6 +47,12 @@ public record PullRequestRef(String forge, URI url) {
         }
         if (url.getHost() == null || !url.getHost().equals(forge)) {
             throw new IllegalArgumentException("the address's host is not the forge");
+        }
+        final String path = url.getRawPath();
+        if (path == null || !PATH.matcher(path).matches() || DOTS.matcher(path).find()) {
+            throw new IllegalArgumentException(
+                    "a pull request's path is its repository's 2 to 8 segments and 1 to 3 more,"
+                            + " the last its number");
         }
     }
 

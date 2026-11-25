@@ -46,8 +46,11 @@ public record Held(
 
     /**
      * Refuses a blank id, task or place, a run below 1, a commit not in full, a digest that is no
-     * SHA-256, an incoming item without what its place gave or an outgoing one with it, and a retry
-     * time on any state but {@link HeldState#RETRY}.
+     * SHA-256, an incoming item without what its place gave or an outgoing one with it, an incoming
+     * item without its rule, an outgoing one with a reason in any state but {@link
+     * HeldState#NOT_DELIVERED} or without one in it, a blank reason, a state that is not one of its
+     * direction (a write's states are an outgoing item's, passed and dismissed an incoming one's),
+     * and a retry time on any state but {@link HeldState#RETRY}.
      */
     public Held {
         Objects.requireNonNull(id, "id");
@@ -78,6 +81,19 @@ public record Held(
         if (received != null && !received.item().equals(item)) {
             throw new IllegalArgumentException("an incoming item is the one its place gave");
         }
+        if (reason != null && reason.isBlank()) {
+            throw new IllegalArgumentException("a reason is not blank");
+        }
+        if (direction == Direction.INCOMING
+                ? reason == null
+                : (state == HeldState.NOT_DELIVERED) != (reason != null)) {
+            throw new IllegalArgumentException(
+                    "an incoming item names the rule it was withheld by, an outgoing one only the"
+                            + " reason its place did not take it");
+        }
+        if (!fits(state, direction)) {
+            throw new IllegalArgumentException("a held item " + direction + " is never " + state);
+        }
         if ((state == HeldState.RETRY) != (retryAt != null)) {
             throw new IllegalArgumentException("a retry time is given exactly when retried");
         }
@@ -85,6 +101,16 @@ public record Held(
         if (retryAt != null) {
             retryAt = retryAt.truncatedTo(ChronoUnit.SECONDS);
         }
+    }
+
+    // A write's states are an outgoing item's, a run's an incoming one's; the rest are both's.
+    private static boolean fits(final HeldState state, final Direction direction) {
+        return switch (state) {
+            case UNDECIDED, LAPSED -> true;
+            case PASSED, DISMISSED -> direction == Direction.INCOMING;
+            case RELEASED, REFUSED, SENDING, DELIVERED, NOT_DELIVERED, RETRY, OUTCOME_UNKNOWN ->
+                    direction == Direction.OUTGOING;
+        };
     }
 
     /**

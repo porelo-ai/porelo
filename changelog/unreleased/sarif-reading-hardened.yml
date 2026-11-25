@@ -1,0 +1,2 @@
+title: "'porelo-build-api' reads a review document from outside through one hardened SARIF reader, which holds it to the review profile's bounds and its bundled schema before binding it to SARIF's model, and names a refusal by its rule and JSON path alone"
+type: security

@@ -105,6 +105,12 @@
         <!-- Holds the review profile's written SARIF to its bundled schema, in tests only; the version
              porelo-planner and porelo-buildtools hold their schemas with. -->
         <json-schema-validator.version>1.5.9</json-schema-validator.version>
+        <!-- SARIF 2.1.0's model, which the hardened SARIF reader in porelo-build-api binds a document to. -->
+        <java-sarif.version>2.0</java-sarif.version>
+        <!-- One Jackson set for every module, newer than what java-sarif and json-schema-validator declare. -->
+        <jackson.version>2.22.4</jackson.version>
+        <!-- slf4j's own no-op provider, at the slf4j-api version the fuin BOM names. -->
+        <slf4j-nop.version>2.0.17</slf4j-nop.version>
         <!-- musl cross-toolchain used for the statically linked hook binaries.
              Install with the build tools' 'musl' command (doc/build.md), or override on the command line. -->
         <musl.home>${user.home}/.local/opt/x86_64-linux-musl-native</musl.home>
@@ -158,6 +164,14 @@
             </dependency>
 
             <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.fuin</groupId>
                 <artifactId>bom</artifactId>
                 <version>${fuin-bom.version}</version>
@@ -183,6 +197,25 @@
                 <groupId>com.networknt</groupId>
                 <artifactId>json-schema-validator</artifactId>
                 <version>${json-schema-validator.version}</version>
+                <!-- Porelo's schemas and documents are JSON; YAML would only be one more parser to trust. -->
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.dataformat</groupId>
+                        <artifactId>jackson-dataformat-yaml</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.contrastsecurity</groupId>
+                <artifactId>java-sarif</artifactId>
+                <version>${java-sarif.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-nop</artifactId>
+                <version>${slf4j-nop.version}</version>
             </dependency>
 
             <dependency>

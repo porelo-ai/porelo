@@ -67,6 +67,13 @@ public final class MessagePass {
     private ReviewReplies replies =
             (task, thread, text) -> java.util.Optional.of("this pass takes no review replies");
 
+    // No task has a current run until runs are recorded, so every submission is refused as the
+    // review itself would refuse one without a run.
+    private final ReviewerComments comments =
+            (task, document) -> {
+                throw new org.fuin.porelo.gate.review.ProfileRefused("run: none for the task");
+            };
+
     private MessageDispatch.Tasks tasks = container -> null;
 
     /**
@@ -193,7 +200,8 @@ public final class MessagePass {
             // Even after exit 2: accepted/ holds only what the filter checked and passed; one not
             // judged stays in incoming/.
             dispatched =
-                    new MessageDispatch(replies, tasks).dispatch(mailbox, mail, moderation, budget);
+                    new MessageDispatch(replies, comments, tasks)
+                            .dispatch(mailbox, mail, moderation, budget);
             for (final Map.Entry<String, String> queued : dispatched.queued().entrySet()) {
                 record.append(
                         MessageRecord.QUEUED,

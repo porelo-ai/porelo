@@ -29,6 +29,16 @@
             <artifactId>porelo-app</artifactId>
         </dependency>
 
+        <!-- runtime -->
+
+        <!-- The SARIF reader's schema validator logs through slf4j, which warns on stderr without a provider. -->
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- test -->
 
         <dependency>

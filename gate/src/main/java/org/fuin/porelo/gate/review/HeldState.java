@@ -14,6 +14,11 @@ public enum HeldState {
     DISMISSED,
     /** Undecided when a later run of its task began at its place; it can no longer be decided. */
     LAPSED,
+    /**
+     * A released item handed to its place's write, its answer not yet marked; one left so, by a
+     * crash or a mark that failed, is shown as it is and never written again by itself.
+     */
+    SENDING,
     /** A released item written to its place. */
     DELIVERED,
     /**

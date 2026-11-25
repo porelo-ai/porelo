@@ -34,13 +34,42 @@
             <artifactId>porelo-wire</artifactId>
         </dependency>
 
-        <!-- test -->
+        <!-- The hardened SARIF reader: SARIF's model, bound by one Jackson set, held to the bundled profile schemas. -->
 
-        <!-- Holds the review profiles' fixtures to their schemas. -->
+        <dependency>
+            <groupId>com.contrastsecurity</groupId>
+            <artifactId>java-sarif</artifactId>
+        </dependency>
+
+        <!-- Declared here so the published pom carries this Jackson set, not the older ones java-sarif names. -->
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>com.networknt</groupId>
             <artifactId>json-schema-validator</artifactId>
+        </dependency>
+
+        <!-- test -->
+
+        <!-- A provider for the tests alone: a published API leaves the choice of one to the application. -->
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-nop</artifactId>
             <scope>test</scope>
         </dependency>
 

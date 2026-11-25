@@ -74,6 +74,46 @@ class TaskWorkspaceTest {
     }
 
     @Test
+    void aReviewersWorkspaceChecksOutItsPinnedStateAndHasNoPushUrl(@TempDir Path root)
+            throws IOException {
+        final Path mirror = seededMirror(root, "main");
+        final String pinned = git(mirror, "rev-parse", "main");
+        git(mirror, "update-ref", "refs/porelo/pinned/reviewer", pinned);
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        final String script =
+                TaskWorkspace.cloneScript()
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        runner.runOrFail(
+                new Command(
+                        List.of("sh", "-c", script),
+                        workspace,
+                        Map.of(
+                                "PORELO_REMOTE_URL",
+                                mirror.toString(),
+                                "PORELO_TASK_REF",
+                                "",
+                                "PORELO_PINNED_REF",
+                                "refs/porelo/pinned/reviewer",
+                                "GIT_TERMINAL_PROMPT",
+                                "0"),
+                        null));
+
+        assertThat(git(workspace, "rev-parse", "HEAD"))
+                .as("the reviewer's workspace is at its pinned state")
+                .isEqualTo(pinned);
+        assertThat(git(workspace, "config", "remote.porelo.pushurl"))
+                .as("porelo's push URL")
+                .isEqualTo(TaskWorkspace.NO_PUSH);
+        assertThat(git(workspace, "config", "remote.origin.pushurl"))
+                .as("origin's push URL")
+                .isEqualTo(TaskWorkspace.NO_PUSH);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> git(workspace, "push", "porelo", "HEAD:refs/heads/main"))
+                .as("a push from the reviewer's workspace")
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
     void aReadersWorkspaceFetchesWhereTheTasksItReadsLandedUnderOrigin(@TempDir Path root)
             throws IOException {
         // A reader polled git ls-remote for half an hour for a branch it could not reach.

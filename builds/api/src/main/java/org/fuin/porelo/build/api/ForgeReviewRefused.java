@@ -84,15 +84,22 @@ public final class ForgeReviewRefused extends RuntimeException {
 
     private ForgeReviewRefused(
             final Reason reason, final long retryAfterSeconds, final String field) {
-        super(
-                reason.wire()
-                        + (reason == Reason.RATE_LIMITED
-                                ? " for " + Math.max(0, retryAfterSeconds) + " seconds"
-                                : "")
-                        + (field.isEmpty() ? "" : ": " + field));
-        this.reason = Objects.requireNonNull(reason, "reason");
+        super(message(reason, retryAfterSeconds, field));
+        this.reason = reason;
         this.retryAfterSeconds = Math.max(0, retryAfterSeconds);
         this.field = field;
+    }
+
+    /** Checks the arguments first, so a missing one is named rather than failing the message. */
+    private static String message(
+            final Reason reason, final long retryAfterSeconds, final String field) {
+        Objects.requireNonNull(reason, "reason");
+        Objects.requireNonNull(field, "field");
+        return reason.wire()
+                + (reason == Reason.RATE_LIMITED
+                        ? " for " + Math.max(0, retryAfterSeconds) + " seconds"
+                        : "")
+                + (field.isEmpty() ? "" : ": " + field);
     }
 
     /**

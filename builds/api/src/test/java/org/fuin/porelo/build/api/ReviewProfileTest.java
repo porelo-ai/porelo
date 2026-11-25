@@ -269,6 +269,43 @@ class ReviewProfileTest {
         assertThat(violations(doc)).as("a submission on a push").isNotEmpty();
     }
 
+    // The JDK's "$" also matches before a final line feed, so each anchored value is tried with
+    // one.
+    @ParameterizedTest
+    @CsvSource(
+            delimiter = '|',
+            value = {
+                "\"revisionId\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa | \"",
+                "\"porelo/baseRevisionId\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb | \"",
+                "\"guid\": \"3f2b8c1e-5d4a-4b7e-9c2d-1a0e6f7b8c9d | \"",
+                "\"repositoryUri\": \"urn:porelo:repository:shop:app | \"",
+                "\"uri\": \"src/main/java/Login.java | \"",
+                "\"porelo/sourceKind\": \"task\", \"porelo/taskId\": \"shop-2 | \""
+            })
+    void aProfileOneValueEndingInALineFeedFailsItsPattern(final String value, final String end)
+            throws IOException {
+        final String fixture =
+                java.nio.file.Files.readString(
+                                java.nio.file.Path.of(
+                                        "../../gate/src/test/resources/org/fuin/porelo/gate/review/fixtures/comment-with-fix.sarif.json"),
+                                StandardCharsets.UTF_8)
+                        .replace(
+                                "\"porelo/sourceKind\": \"owner-account\"",
+                                value.startsWith("\"porelo/sourceKind\"")
+                                        ? value + end
+                                        : "\"porelo/sourceKind\": \"owner-account\"");
+        assertThat(fixture).as("the fixture holding %s", value).contains(value + end);
+        assertThat(PROFILE_1.validate(fixture, InputFormat.JSON))
+                .as("%s as it stands", value)
+                .isEmpty();
+        assertThat(
+                        PROFILE_1.validate(
+                                fixture.replace(value + end, value + "\\n" + end),
+                                InputFormat.JSON))
+                .as("%s and a line feed", value)
+                .isNotEmpty();
+    }
+
     @Test
     void profileOneStandsBesideProfileTwoAndKnowsNoneOfItsFields() throws IOException {
         for (final String fixture :
