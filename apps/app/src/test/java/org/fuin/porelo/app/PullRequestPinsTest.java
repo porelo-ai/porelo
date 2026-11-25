@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.process.Command;
 import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandResult;
@@ -24,6 +26,8 @@ import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.WriteOutcome;
+import org.fuin.porelo.runtime.ContainerName;
+import org.fuin.porelo.testing.FakeCommandRunner;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -411,6 +415,53 @@ class PullRequestPinsTest {
                                         .as("reason")
                                         .isEqualTo(PlaceUnreadable.Reason.NO_SUCH_PULL_REQUEST));
         assertThat(ran).as("no git run").isEmpty();
+    }
+
+    @Test
+    void theMachinesGateFindsALiveTaskByItsRecordedIdentityWhenItsContainerCarriesNoTaskLabel()
+            throws Exception {
+        final Path home = state.resolve("machine");
+        final XdgPaths xdg =
+                XdgPaths.of(
+                        name ->
+                                switch (name) {
+                                    case "XDG_CONFIG_HOME" -> home.resolve("config").toString();
+                                    case "XDG_DATA_HOME" -> home.resolve("data").toString();
+                                    case "XDG_STATE_HOME" -> home.resolve("state").toString();
+                                    case "XDG_RUNTIME_DIR" -> home.resolve("run").toString();
+                                    default -> null;
+                                },
+                        home);
+        final String id = "c".repeat(64);
+        final String container = ContainerName.contract(DefaultProject.NAME, "review-shop");
+        // As a start labels it: project, class and repository, but no task label.
+        final FakeCommandRunner podman =
+                new FakeCommandRunner()
+                        .answering(
+                                "ps",
+                                container
+                                        + "\tUp 4 minutes\t1788500000\t0\t"
+                                        + DefaultProject.NAME
+                                        + "\tguarded\tapp\t\t"
+                                        + id
+                                        + "\t\n");
+        final PoreloContext machine =
+                new PoreloContext(podman, new PoreloPaths(xdg, home.resolve("bin")), args -> 0);
+        new DefaultProject(machine).add(REPOSITORY, "app", "", "");
+        Files.createDirectories(
+                GateSupport.mirror(machine, DefaultProject.NAME, "app").resolve("objects"));
+        TaskIdentityFixture.running(
+                machine.paths(), container, DefaultProject.NAME, "review-shop", id);
+        RunPlace.record(machine, container, new RunPlace(RunPlace.REVIEWER, "app", "shop-2"));
+
+        final PullRequestPins.TaskGate gate = PullRequestPins.gatesOn(machine).locate(id);
+
+        assertThat(gate.taskName())
+                .as("the task's own name, from its identity")
+                .isEqualTo("review-shop");
+        assertThat(gate.project()).as("its project").isEqualTo(DefaultProject.NAME);
+        assertThat(gate.repository()).as("its repository").isEqualTo("app");
+        assertThat(gate.push()).as("the push its run reviews").isEqualTo("shop-2");
     }
 
     private Command fetch() {

@@ -351,15 +351,25 @@ public final class PullRequestPins implements PullRequestPinning {
                                             new PlaceUnreadable(
                                                     PlaceUnreadable.Reason.NOT_IN_PROJECT,
                                                     "no task " + task + " on this machine"));
+            // The task label is set by no start; the recorded identity is what names the task.
+            final TaskIdentity identity =
+                    switch (new TaskIdentities(context)
+                            .lookup(summary.name(), summary.project(), List.of(summary))) {
+                        case TaskIdentities.Found found -> found.identity();
+                        case TaskIdentities.Refused refused ->
+                                throw new PlaceUnreadable(
+                                        PlaceUnreadable.Reason.NOT_IN_PROJECT,
+                                        "task " + task + ": " + refused.said());
+                    };
             final Path state = context.paths().tasks().containerState(summary.name());
             final RunPlace place = RunPlace.readFrom(state);
-            if (summary.project() == null || summary.task() == null || place == null) {
+            if (place == null) {
                 throw new PlaceUnreadable(
                         PlaceUnreadable.Reason.NOT_IN_PROJECT,
-                        "task " + task + " records no project or run");
+                        "task " + task + " records no run place");
             }
             try {
-                final Project project = GateSupport.byName(context, summary.project());
+                final Project project = GateSupport.byName(context, identity.project());
                 final Repository repository =
                         summary.repository() == null || summary.repository().isBlank()
                                 ? project.ownRepository()
@@ -379,14 +389,14 @@ public final class PullRequestPins implements PullRequestPinning {
                 return new TaskGate(
                         mirror,
                         state,
-                        summary.task(),
+                        identity.task(),
                         project.name(),
                         repository.name(),
                         place.name());
             } catch (ProjectException ex) {
                 throw new PlaceUnreadable(
                         PlaceUnreadable.Reason.NOT_IN_PROJECT,
-                        "project " + summary.project() + " cannot be read");
+                        "project " + identity.project() + " cannot be read");
             }
         };
     }
