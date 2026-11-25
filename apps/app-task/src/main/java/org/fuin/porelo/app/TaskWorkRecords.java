@@ -101,6 +101,35 @@ public record TaskWorkRecords(PoreloContext context) {
             final String modelFrom,
             final @Nullable String effort)
             throws IOException {
+        started(container, project, repository, work, agent, model, modelFrom, effort, null);
+    }
+
+    /**
+     * Writes a new task's record, with the key its caller gave it.
+     *
+     * @param container Its container name.
+     * @param project Its project.
+     * @param repository The repository it works on, or {@code null}.
+     * @param work The issues and phases it was started for, or {@code null}.
+     * @param agent Its agent, or {@code null}.
+     * @param model The model it was started with, or {@code null} for the agent's default.
+     * @param modelFrom Where the model was settled from.
+     * @param effort The effort it was started with, or {@code null} when its start named none.
+     * @param callerKey The key its start was given, already checked, or {@code null} for none; the
+     *     record carries it only when there is one.
+     * @throws IOException If it cannot be written.
+     */
+    public void started(
+            final String container,
+            final String project,
+            final @Nullable String repository,
+            final @Nullable TaskWorkList work,
+            final @Nullable String agent,
+            final @Nullable String model,
+            final String modelFrom,
+            final @Nullable String effort,
+            final @Nullable String callerKey)
+            throws IOException {
         if (!TaskUsage.validTask(container)) {
             return;
         }
@@ -113,6 +142,10 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("model", model);
         record.put("modelFrom", modelFrom);
         record.put("effort", effort);
+        if (callerKey != null && !callerKey.isEmpty()) {
+            // Who started it recognizes its own task by this, through the command line too.
+            record.put("callerKey", callerKey);
+        }
         record.put("startedAt", Instant.now().toString());
         record.put("endedAt", null);
         record.put("end", null);
@@ -418,6 +451,25 @@ public record TaskWorkRecords(PoreloContext context) {
             throw new IOException(file + " holds no work a start would take: " + refused);
         }
         return work;
+    }
+
+    /**
+     * Returns when the task of this name now there was made, as its record keeps it: what tells its
+     * reports from those of an earlier task of the name.
+     *
+     * @param container Its container name.
+     * @return The start, or {@code null} for a task without a record.
+     * @throws IOException If its record cannot be read.
+     */
+    public @Nullable String startedAt(final String container) throws IOException {
+        if (!TaskUsage.validTask(container)) {
+            return null;
+        }
+        final Path file = file(container);
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+            return null;
+        }
+        return read(file).get("startedAt") instanceof String startedAt ? startedAt : null;
     }
 
     private Path file(final String container) {

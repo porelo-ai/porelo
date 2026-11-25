@@ -190,7 +190,7 @@ limits:
   subagents: 0     # the most subagents a task's agent runs at the same time; 0 for none
   pass_on: "2m"    # how long the gate waits for the forge to take a push an online task passes on or an
                    # approval forwards, 10s to 1h
-  ideas: 0         # the most ideas one task may propose with ProposeIdea; 0 for none, at most 100
+  reports: 0       # the most reports one task may hand back with Report; 0 for none, at most 100
 
 # Optional. Whom the project's tasks may write to. Tasks of one project reach each other by task
 # name without being listed, and a project with a conversation has 'people', the people in it,
@@ -395,13 +395,14 @@ the workspace is written once the workspace is checked out, which refuses to ove
 a host, the task's forge token is taken last, once the task's key is kept, which is how `porelo task remove` ends the
 token; a start whose key cannot be kept takes none and is refused with exit code 65.
 
-`limits.ideas` is how many ideas one task may propose for itself with `ProposeIdea` over its
-[MCP endpoint](#a-tasks-mcp-endpoint), whose `mcp.methods` must name `ProposeIdea` too: 0, the default, for none, and
-at most 100. An idea is a new issue the task found while working, a one-line title and what must be true; Porelo keeps
-it with the task, and List and Watch show it on the task's row (`ideas`) for a person's client to hand on, until the
-person takes it (`TakeIdea`) or the task is removed. The bound counts every idea the task proposed, taken ones too. The bound is read at each proposal, not fixed at the start, so a lowered bound holds for the next
-one; a proposal where it is 0, or past it, is refused with `NotAllowed`, naming the bound. A number below 0, over 100
-or not whole is refused when the file is read.
+`limits.reports` is how many reports one task may hand back to whoever started it with `Report` over its
+[MCP endpoint](#a-tasks-mcp-endpoint), whose `mcp.methods` must name `Report` too: 0, the default, for none, and at
+most 100. A report is a one-line kind the caller's brief asks for and a plain text; Porelo numbers it in the
+sequence of the task's name and keeps it with the task's work records, also after the task is removed, and the
+person's `Reports` and `porelo task reports` answer it ([running tasks](running.md)). The bound counts the reports
+of one task, not those of an earlier task of the same name. It is read at each report, not fixed at the start, so a
+lowered bound holds for the next one; a report where it is 0, or past it, is refused with `NotAllowed`, naming the
+bound. A number below 0, over 100 or not whole is refused when the file is read.
 
 ## The default model
 
@@ -440,7 +441,7 @@ when the section is gone; a running task keeps what it was started with.
 - **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
   `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
   task is offered no other tool. Only the methods `McpMethods` lists under `reading`, `Start`, `Stop`, `Done` and
-  `ProposeIdea` may be
+  `Report` may be
   named: a method the daemon never offers to MCP - one that stops every task, removes what cannot be had back, or
   hands out a secret, as `McpMethods` lists under `never` -, any other method, and a name the daemon does not have
   are refused when the daemon reads the file, and by `CheckProjectFile`.

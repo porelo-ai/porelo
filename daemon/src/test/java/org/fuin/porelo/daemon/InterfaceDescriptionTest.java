@@ -320,31 +320,33 @@ class InterfaceDescriptionTest {
     }
 
     @Test
-    void aTasksIdeasAreDeclaredWithTheMethodTheRowAndTheirFields() {
-        // The window reads each idea off the row by these names and hands its id on once.
+    void aTasksReportsAreDeclaredWithBothMethodsTheRowAndTheirFields() {
+        // The planner and the window read each report by these names and keep the last number.
         final String description = PoreloDaemon.description();
         assertThat(description)
-                .as("the task proposes an idea for itself and is told its id")
+                .as("the task reports back and is told its number; the person reads after one")
                 .contains(
-                        "method ProposeIdea(task: string, title: string, whatMustBeTrue: string)"
-                                + " -> (id: string)",
+                        "method Report(task: string, kind: string, text: string) -> (seq: int)",
+                        "method Reports(task: string, after: ?int)"
+                                + " -> (reports: []TaskReport, last: int, more: bool)",
                         "error NotAllowed(message: string)",
                         "error NotItsOwn(task: string, parent: string)");
-        assertThat(description)
-                .as("the person takes an idea, so the next reply carries the ones behind it")
-                .contains("method TakeIdea(task: string, id: string) -> (taken: bool)");
-        final Matcher idea =
-                Pattern.compile("(?ms)^type TaskIdea \\(\\n(.*?)^\\)").matcher(description);
-        assertThat(idea.find()).as("the contract declares TaskIdea").isTrue();
-        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), idea.group(1)))
-                .containsExactlyInAnyOrder("id", "title", "whatMustBeTrue", "at");
+        final Matcher report =
+                Pattern.compile("(?ms)^type TaskReport \\(\\n(.*?)^\\)").matcher(description);
+        assertThat(report.find()).as("the contract declares TaskReport").isTrue();
+        assertThat(names(Pattern.compile("(?m)^\\s*([a-z][A-Za-z0-9]*)\\s*:"), report.group(1)))
+                .as("its fields")
+                .containsExactlyInAnyOrder("seq", "kind", "text", "at");
         final Matcher task =
                 Pattern.compile("(?ms)^type Task \\(\\n(.*?)^\\)").matcher(description);
         assertThat(task.find()).as("the contract declares Task").isTrue();
-        assertThat(task.group(1)).as("every row carries its ideas").contains("ideas: []TaskIdea");
         assertThat(task.group(1))
-                .as("and how many a reply left out, which an older daemon omits")
-                .contains("ideasHeldBack: ?int");
+                .as("every row carries the number of its last report")
+                .contains("reports: int")
+                .doesNotContain("ideas");
+        assertThat(description)
+                .as("nothing of the ideas is left")
+                .doesNotContainPattern("(?i)\\b\\w*idea(s|HeldBack)?\\b");
     }
 
     @Test

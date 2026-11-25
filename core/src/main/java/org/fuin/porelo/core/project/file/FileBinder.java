@@ -235,7 +235,7 @@ final class FileBinder {
                 b.text(s.get("hand_in"), "limits.hand_in"),
                 b.number(s.get("subagents"), "limits.subagents"),
                 b.text(s.get("pass_on"), "limits.pass_on"),
-                b.number(s.get("ideas"), "limits.ideas"));
+                b.number(s.get("reports"), "limits.reports"));
     }
 
     private static @Nullable Mail mail(final Binding b, final @Nullable Node node) {

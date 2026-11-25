@@ -15,7 +15,7 @@ import org.jspecify.annotations.Nullable;
  * @param handIn Bytes one file handed to a running task may have.
  * @param subagents The most subagents a task's agent may run at the same time; 0 for none.
  * @param passOn How long an online task's gate waits for the forge to take a push it passes on.
- * @param ideas The most ideas one task may propose over its own socket; 0 for none.
+ * @param reports The most reports one task may hand back over its own socket; 0 for none.
  */
 public record Limits(
         @Nullable String memory,
@@ -24,7 +24,7 @@ public record Limits(
         long handIn,
         int subagents,
         java.time.Duration passOn,
-        int ideas) {
+        int reports) {
 
     /** Memory a task gets unless the project says otherwise. */
     public static final String DEFAULT_MEMORY = "8g";
@@ -36,10 +36,10 @@ public record Limits(
     public static final String NONE = "none";
 
     /**
-     * The most ideas a project may let one task propose: each is kept with the task until it is
-     * removed, and every client watching it is sent all of them on every change.
+     * The most reports a project may let one task hand back: each is kept with the task's records,
+     * past its removal.
      */
-    public static final int MOST_IDEAS = 100;
+    public static final int MOST_REPORTS = 100;
 
     /** Processes a task gets unless the project says otherwise, matching podman's own default. */
     public static final int DEFAULT_PIDS = 2048;
@@ -106,7 +106,7 @@ public record Limits(
      * @param handIn Bytes one file handed to a running task may have.
      * @param subagents The most subagents at the same time.
      * @param passOn How long a gate waits for the forge to take a push.
-     * @param ideas The most ideas one task may propose.
+     * @param reports The most reports one task may hand back.
      */
     public Limits {
         if (pids < 1) {
@@ -124,17 +124,17 @@ public record Limits(
                             + passOn.toSeconds()
                             + " s is outside ten seconds to one hour");
         }
-        if (ideas < 0) {
-            throw new ProjectException("An idea limit of " + ideas + " is below none");
+        if (reports < 0) {
+            throw new ProjectException("A report limit of " + reports + " is below none");
         }
-        if (ideas > MOST_IDEAS) {
+        if (reports > MOST_REPORTS) {
             throw new ProjectException(
-                    "An idea limit of " + ideas + " is over the most of " + MOST_IDEAS);
+                    "A report limit of " + reports + " is over the most of " + MOST_REPORTS);
         }
     }
 
     /**
-     * Constructor for limits whose gate waits the default for the forge and that allow no ideas.
+     * Constructor for limits whose gate waits the default for the forge and that allow no reports.
      *
      * @param memory Memory limit, or {@code null}.
      * @param cpus CPU limit, or {@code null}.

@@ -380,7 +380,7 @@ public final class ProjectReader {
         final String handIn = limits.handIn();
         final Integer subagents = limits.subagents();
         final String passOn = limits.passOn();
-        final Integer ideas = limits.ideas();
+        final Integer reports = limits.reports();
         // 'none' is how a project opts out on purpose, which reads differently from having
         // forgotten to set one.
         return new Limits(
@@ -390,8 +390,8 @@ public final class ProjectReader {
                 handIn == null ? Limits.DEFAULT_HAND_IN : Limits.bytes(handIn, "limits.hand_in"),
                 subagents == null ? 0 : subagents,
                 passOn == null ? Limits.DEFAULT_PASS_ON : Limits.passOn(passOn, "limits.pass_on"),
-                // Read at each proposal, so a changed bound holds for the next one.
-                ideas == null ? 0 : ideas);
+                // Read at each report, so a changed bound holds for the next one.
+                reports == null ? 0 : reports);
     }
 
     private static Egress egress(org.fuin.porelo.core.project.file.@Nullable Egress egress) {

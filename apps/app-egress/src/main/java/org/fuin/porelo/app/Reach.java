@@ -512,27 +512,26 @@ public final class Reach {
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,
-                        "An idea a task proposes over MCP",
+                        "A report a task hands back over MCP",
                         "Only the task bound to that socket, for itself, never a child or another task."
-                                + " The endpoint must allow `ProposeIdea`, and the project file's"
-                                + " `limits.ideas`, 0 by default and at most "
-                                + Limits.MOST_IDEAS
-                                + ", read at each call, is how many it may propose, taken ones too. A title"
-                                + " is one line of"
-                                + " at most "
-                                + TaskIdeas.MOST_TITLE
-                                + " characters, and what must be true at most "
-                                + TaskIdeas.MOST_WHAT_MUST_BE_TRUE
-                                + " characters with no control characters but line breaks. The daemon"
-                                + " numbers them and keeps them owner-only in the task's durable record"
-                                + " outside every task mount until the person takes them with `TakeIdea`,"
-                                + " which no task endpoint carries, or the task is removed; a later start"
-                                + " keeps them. They reach the task's reader in List and Watch, which carry"
-                                + " at most "
-                                + TaskInventory.MOST_REPLY_IDEAS / (1024 * 1024)
-                                + " MiB of ideas in one reply, oldest first, and a task's further ideas"
-                                + " follow as those are taken; task endpoints without Logs or Tail receive `ideas: []`,"
-                                + " never another agent's prompt",
+                                + " The endpoint must allow `Report`, and the project file's"
+                                + " `limits.reports`, 0 by default and at most "
+                                + Limits.MOST_REPORTS
+                                + ", read at each call, is how many it may hand back. A kind is one line of"
+                                + " 1 to "
+                                + TaskReports.MOST_KIND
+                                + " characters with no format character, passed on unread, and the text at most "
+                                + TaskReports.MOST_TEXT
+                                + " characters with no control characters but line breaks and no line"
+                                + " separators or bidi controls. The daemon"
+                                + " numbers them in the task's own sequence and keeps them owner-only with"
+                                + " the task's work records, outside every task mount, also after the task is"
+                                + " removed. They reach only the person's socket, through `Reports`, which no"
+                                + " task endpoint carries, at most "
+                                + TaskReports.MOST_PAGE / (1024 * 1024)
+                                + " MiB in one answer, oldest first; a task's row in List and Watch carries"
+                                + " only the number of its last report, and task endpoints without Logs or"
+                                + " Tail receive `reports: 0`, never another agent's prompt",
                         Kind.CONTROL),
                 new Row(
                         Part.PRODUCE,

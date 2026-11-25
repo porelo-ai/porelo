@@ -166,7 +166,8 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
 | `porelo task start [TASK]` | Creates a task, or brings back a stopped one with its workspace. |
 | `porelo task list` | Lists the tasks, with what each is doing and how long it has been in its state. |
 | `porelo task status TASK [--json]` | Everything known about one task, including unpushed work; `--json` answers a program, `absent` for none. |
-| `porelo task records --project PROJECT --since TIME [--json]` | A project's task records whose task ended at `TIME` or later, or works still, removed tasks' among them, oldest first: what each worked on, from when to when, and its tool calls. |
+| `porelo task records --project PROJECT --since TIME [--json]` | A project's task records whose task ended at `TIME` or later, or works still, removed tasks' among them, oldest first: what each worked on, from when to when, its tool calls and its reports. |
+| `porelo task reports TASK [--after N] [--json]` | What a task reported back with `Report`, a removed task's too, oldest first, the ones numbered after `N` (all by default), at most 1 MiB: with `--json` the answer of the daemon's `Reports`, `reports`, `last` and `more`. |
 | `porelo task logs TASK [LOG]` | Shows what the task's helpers on this machine wrote. |
 | `porelo task logs TASK --zip [FILE] [--with-agent-output]` | Keeps the task's logs, its status, files and talk log in one archive readable by you only, with `SHA256SUMS`. |
 | `porelo task attach TASK` | Opens a running task's session. Ctrl+b then d leaves it without ending it. |
@@ -524,7 +525,9 @@ the order given, a record kept with one pair answered as a list of one), `agent`
 `failed` by a run's exit code, else `stopped` or `removed`, whichever came first since its last run), `totals` as
 `Usage` answers them, `toolCallsAsked` (`ASKED`, `CANNOT_SAY` for an agent that cannot say, never read as no tool
 having run, `DID_NOT_ASK` where no unattended run was read), `toolCalls` (every call of all its runs) and `runs`
-(its unattended runs read). `TIME` is
+(its unattended runs read); a record of `porelo task records` also carries `reports`, what its task reported back,
+each with `seq`, `kind`, `text` and `at` as `Reports` answers them, which the daemon's `Records` leaves to `Reports`.
+`TIME` is
 ISO-8601, a time with its offset or a date in the machine's zone; a record whose task ended before it is left out.
 Without `--json` each record is one line, its work each pair as `ISSUE:"PHASE"`, the phase quoted as JSON quotes it,
 joined by commas.

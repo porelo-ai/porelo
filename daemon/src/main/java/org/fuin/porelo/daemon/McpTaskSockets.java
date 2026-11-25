@@ -108,7 +108,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "work");
 
     /** The methods a task's endpoint may carry beside the reading ones. */
-    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "ProposeIdea");
+    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "Report");
 
     /** One socket, the thread serving it, and what releases its kept readings. */
     private record Served(TaskSocket server, Thread thread, ReadingSweep sweep) {}
@@ -188,7 +188,7 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                         "mcp.methods: '"
                                 + method
                                 + "' is not offered to a task: its endpoint carries only the"
-                                + " reading methods McpMethods names, Start, Stop, Done and ProposeIdea");
+                                + " reading methods McpMethods names, Start, Stop, Done and Report");
             }
         }
         return List.copyOf(refused);
@@ -768,19 +768,17 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     static final Set<String> WHAT_IT_SAID = Set.of("lastMessage", "agentEnded", "ended", "result");
 
     /**
-     * What a listed task carries that its agent wrote and every row has, sent empty instead: the
-     * ideas it proposed, which would otherwise reach another agent's prompt.
+     * What a listed task carries of what its agent wrote and every row has, sent as 0 instead: the
+     * number of its last report, which says the task wrote something.
      */
-    static final Set<String> WHAT_IT_WROTE = Set.of("ideas");
+    static final Set<String> WHAT_IT_WROTE = Set.of("reports");
 
     private static Object withoutWhatItSaid(final Object task) {
         final Map<Object, Object> kept = new LinkedHashMap<>((Map<?, ?>) task);
         kept.keySet().removeAll(WHAT_IT_SAID);
         for (final String field : WHAT_IT_WROTE) {
-            kept.replace(field, List.of());
+            kept.replace(field, 0L);
         }
-        // Not even how many: the count says the task wrote something.
-        kept.replace("ideasHeldBack", 0L);
         return kept;
     }
 

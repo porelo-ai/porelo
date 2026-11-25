@@ -882,15 +882,15 @@ public final class ProjectFileCheck {
                                 + "'");
             }
         }
-        if (limits.ideas() != null
-                && (limits.ideas() < 0
-                        || limits.ideas() > org.fuin.porelo.core.project.Limits.MOST_IDEAS)) {
+        if (limits.reports() != null
+                && (limits.reports() < 0
+                        || limits.reports() > org.fuin.porelo.core.project.Limits.MOST_REPORTS)) {
             fault(
-                    "limits.ideas",
-                    "'limits.ideas' must be a whole number of 0 or more, at most "
-                            + org.fuin.porelo.core.project.Limits.MOST_IDEAS
+                    "limits.reports",
+                    "'limits.reports' must be a whole number of 0 or more, at most "
+                            + org.fuin.porelo.core.project.Limits.MOST_REPORTS
                             + ", not '"
-                            + limits.ideas()
+                            + limits.reports()
                             + "'");
         }
     }

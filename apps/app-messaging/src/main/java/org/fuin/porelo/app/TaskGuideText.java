@@ -232,36 +232,36 @@ public final class TaskGuideText {
 
     /**
      * What a task is told of its MCP endpoint: its own name, which a call naming a task must give,
-     * the methods the endpoint carries, and how many ideas it may propose.
+     * the methods the endpoint carries, and how many reports it may hand back.
      *
      * <p>Never its token: the agent sends its own from {@code $PORELO_TOKEN_PORELO_MCP}, and the
      * guide only names the variable.
      *
      * @param task The task's own name, its container's.
      * @param methods The methods the endpoint carries, by name, in the order the file writes them.
-     * @param ideas The most ideas the task may propose, the project's {@code limits.ideas}.
+     * @param reports The most reports the task may hand back, the project's {@code limits.reports}.
      */
-    public record Endpoint(String task, java.util.List<String> methods, int ideas) {
+    public record Endpoint(String task, java.util.List<String> methods, int reports) {
 
         /**
          * Constructor.
          *
          * @param task The task.
          * @param methods The methods.
-         * @param ideas The ideas bound.
+         * @param reports The reports bound.
          */
         public Endpoint {
             methods = java.util.List.copyOf(methods);
         }
 
         /**
-         * Whether the task is told how to propose an idea: the endpoint carries {@code ProposeIdea}
-         * and the project allows at least one.
+         * Whether the task is told how to report back: the endpoint carries {@code Report} and the
+         * project allows at least one.
          *
-         * @return Whether it may propose one.
+         * @return Whether it may report.
          */
-        public boolean proposes() {
-            return ideas > 0 && methods.contains("ProposeIdea");
+        public boolean canReport() {
+            return reports > 0 && methods.contains("Report");
         }
     }
 
@@ -330,45 +330,46 @@ public final class TaskGuideText {
                   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
                 ```
                 """);
-        if (endpoint.proposes()) {
+        if (endpoint.canReport()) {
             part.append(
                     """
 
-                    ## Proposing an idea
+                    ## Reporting back
 
-                    When you find a new issue while working, one that is not this task's to fix, propose it
-                    as an idea with `ProposeIdea` instead of writing it anywhere else. Porelo keeps it with
-                    this task and shows it to a person. A person takes it from there, keeping or declining
-                    it; you do nothing more with it. This task may propose at most **@MOST@** @IDEAS@ in
-                    its life, ones a person already took counted too, so propose only what matters.
+                    When the brief of whoever started this task asks it to report back, such as a status,
+                    a finding or an answer, report it with `Report` instead of writing it anywhere else.
+                    Porelo keeps it with this task's records and numbers it, and whoever started the task
+                    reads it from there; you do nothing more with it. This task may report at most
+                    **@MOST@** @TIMES@, so report only what the brief asks for.
 
                     - `task`: this task's own name, `@TASK@`, and no other.
-                    - `title`: one line of at most @TITLE@ characters.
-                    - `whatMustBeTrue`: what must be true once it is done, in one or two sentences of at
-                      most @TEXT@ characters, with no control characters but line breaks.
+                    - `kind`: one line of 1 to @KIND@ characters, the word the brief asks for, such as
+                      `status`, with no invisible characters; Porelo passes it on unread.
+                    - `text`: plain text of at most @TEXT@ characters, with no control characters but
+                      line breaks, and no line separators or bidi controls.
 
-                    The answer names its id, such as `idea-1`. It is refused with `NotItsOwn` when `task`
+                    The answer names its number, such as `1`. It is refused with `NotItsOwn` when `task`
                     names another task, with `NotAllowed` past this task's bound, and with
-                    `InvalidParameter` when the title or the text is out of these bounds; nothing is trimmed
-                    or cut, so shorten it and call again.
+                    `InvalidParameter` when the kind or the text is out of these bounds; nothing is
+                    trimmed or cut, so shorten it and call again.
 
                     ```
                     curl -s -X POST "$PORELO_URL_PORELO_MCP" \\
                       -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \\
                       -H 'Content-Type: application/json' \\
-                      -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ProposeIdea",
-                    "arguments":{"task":"@TASK@","title":"The listing names the branch of a stopped task",
-                    "whatMustBeTrue":"The row of a stopped task in the listing names the branch it worked on."}}}'
+                      -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"Report",
+                    "arguments":{"task":"@TASK@","kind":"status",
+                    "text":"The listing now names the branch of a stopped task."}}}'
                     ```
 
-                    The body is in single quotes, so a `'` in your title or text ends it: leave it out,
+                    The body is in single quotes, so a `'` in your kind or text ends it: leave it out,
                     or write the body to a file and send it with `-d @file`.
                     """
-                            .replace("@MOST@", Integer.toString(endpoint.ideas()))
-                            .replace("@IDEAS@", endpoint.ideas() == 1 ? "idea" : "ideas")
+                            .replace("@MOST@", Integer.toString(endpoint.reports()))
+                            .replace("@TIMES@", endpoint.reports() == 1 ? "time" : "times")
                             .replace("@TASK@", endpoint.task())
-                            .replace("@TITLE@", Integer.toString(TaskIdeas.MOST_TITLE))
-                            .replace("@TEXT@", Integer.toString(TaskIdeas.MOST_WHAT_MUST_BE_TRUE)));
+                            .replace("@KIND@", Integer.toString(TaskReports.MOST_KIND))
+                            .replace("@TEXT@", Integer.toString(TaskReports.MOST_TEXT)));
         }
         return part.toString();
     }

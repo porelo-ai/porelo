@@ -189,17 +189,17 @@ class TaskGuideTest {
     }
 
     @Test
-    void aTaskWhoseEndpointCarriesProposeIdeaIsToldHowToProposeOneWithinItsBound() {
+    void aTaskWhoseEndpointCarriesReportIsToldHowToReportBackWithinItsBound() {
 
-        // An agent of a task with an endpoint carrying ProposeIdea and limits.ideas 1 wrote its
-        // idea as mail: nothing told it the endpoint existed.
+        // A task asked to report back that is not told the endpoint and its bound writes its
+        // report where its caller never reads it.
         final String text =
                 TaskGuideText.text(
                         false,
                         java.util.Map.of(),
                         null,
                         null,
-                        new TaskGuideText.Endpoint(TASK, List.of("List", "ProposeIdea"), 1));
+                        new TaskGuideText.Endpoint(TASK, List.of("List", "Report"), 1));
         final String flat = text.replaceAll("\\s+", " ");
 
         assertThat(text)
@@ -208,40 +208,42 @@ class TaskGuideTest {
                 .contains("$PORELO_URL_PORELO_MCP")
                 .contains("Authorization: Bearer $PORELO_TOKEN_PORELO_MCP")
                 .contains("`initialize`", "`tools/list`", "`tools/call`")
-                .contains("- `List`\n", "- `ProposeIdea`\n")
+                .contains("- `List`\n", "- `Report`\n")
                 .contains("`" + TASK + "`")
-                .contains("\"name\":\"ProposeIdea\"")
+                .contains("\"name\":\"Report\"")
                 .contains("NotItsOwn", "NotAllowed", "InvalidParameter");
         assertThat(flat)
+                .as("the bound and the limits of kind and text")
                 .contains("exactly as it stands")
-                .contains("at most **1** idea")
-                .contains("at most 256 characters")
-                .contains("at most 65536 characters")
-                .contains("A person takes it");
+                .contains("at most **1** time,")
+                .contains("one line of 1 to " + TaskReports.MOST_KIND + " characters")
+                .contains("at most " + TaskReports.MOST_TEXT + " characters")
+                .contains("Porelo passes it on unread");
         // The worked call is copied into a shell as it stands: its body one single-quoted word
         // holding one JSON-RPC message that names this task.
         final int body = text.lastIndexOf("-d '") + 4;
         final String call = text.substring(body, text.indexOf("'\n```", body));
-        assertThat(call).doesNotContain("'");
+        assertThat(call).as("one single-quoted word").doesNotContain("'");
         assertThat(org.fuin.porelo.wire.Json.parse(call))
+                .as("a call of Report naming this task")
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
                 .containsEntry("method", "tools/call")
                 .extractingByKey("params")
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
-                .containsEntry("name", "ProposeIdea")
+                .containsEntry("name", "Report")
                 .extractingByKey("arguments")
                 .asInstanceOf(org.assertj.core.api.InstanceOfAssertFactories.MAP)
                 .containsEntry("task", TASK)
-                .containsOnlyKeys("task", "title", "whatMustBeTrue");
+                .containsOnlyKeys("task", "kind", "text");
         assertThat(
                         TaskGuideText.text(
                                 false,
                                 java.util.Map.of(),
                                 null,
                                 null,
-                                new TaskGuideText.Endpoint(TASK, List.of("ProposeIdea"), 3)))
+                                new TaskGuideText.Endpoint(TASK, List.of("Report"), 3)))
                 .as("the bound as the project sets it")
-                .contains("at most **3** ideas");
+                .contains("at most\n**3** times");
         assertThat(text)
                 .as("no token value, only its variable")
                 .doesNotContainPattern("[0-9a-f]{32}")
@@ -249,7 +251,7 @@ class TaskGuideTest {
     }
 
     @Test
-    void aTaskWhoseEndpointCarriesNoProposeIdeaIsToldOfTheEndpointButNoIdeas() {
+    void aTaskWhoseEndpointCarriesNoReportIsToldOfTheEndpointButNotHowToReport() {
         final String text =
                 TaskGuideText.text(
                         false,
@@ -259,10 +261,10 @@ class TaskGuideTest {
                         new TaskGuideText.Endpoint(TASK, List.of("List", "Stop"), 1));
 
         assertThat(text)
+                .as("the endpoint without Report")
                 .contains("$PORELO_URL_PORELO_MCP", "$PORELO_TOKEN_PORELO_MCP")
                 .contains("- `List`\n", "- `Stop`\n")
-                .doesNotContain("ProposeIdea")
-                .doesNotContain("idea")
+                .doesNotContain("Report")
                 .doesNotContainPattern("[0-9a-f]{32}");
         assertThat(
                         TaskGuideText.text(
@@ -270,12 +272,11 @@ class TaskGuideTest {
                                 java.util.Map.of(),
                                 null,
                                 null,
-                                new TaskGuideText.Endpoint(
-                                        TASK, List.of("List", "ProposeIdea"), 0)))
-                .as("one whose project allows no idea is told of none")
-                .contains("$PORELO_URL_PORELO_MCP", "- `ProposeIdea`\n")
-                .doesNotContain("\"name\":\"ProposeIdea\"")
-                .doesNotContain("idea-1");
+                                new TaskGuideText.Endpoint(TASK, List.of("List", "Report"), 0)))
+                .as("one whose project allows no report is told of none")
+                .contains("$PORELO_URL_PORELO_MCP", "- `Report`\n")
+                .doesNotContain("\"name\":\"Report\"")
+                .doesNotContain("## Reporting back");
     }
 
     @Test
@@ -286,7 +287,7 @@ class TaskGuideTest {
                 .isEqualTo(TaskGuideText.text(true))
                 .doesNotContain("PORELO_URL_PORELO_MCP")
                 .doesNotContain("PORELO_TOKEN_PORELO_MCP")
-                .doesNotContain("ProposeIdea")
+                .doesNotContain("Report")
                 .doesNotContain("tools/call");
     }
 
@@ -295,7 +296,7 @@ class TaskGuideTest {
         final TaskGuide guide = new TaskGuide(paths(), TASK);
         final String token = McpWiring.token();
         final TaskGuideText.Endpoint endpoint =
-                new TaskGuideText.Endpoint(TASK, List.of("ProposeIdea"), 1);
+                new TaskGuideText.Endpoint(TASK, List.of("Report"), 1);
 
         TaskGuideText.write(guide, false, java.util.Map.of(), null, null, endpoint);
 
@@ -381,9 +382,7 @@ class TaskGuideTest {
                                 null,
                                 null,
                                 new TaskGuideText.Endpoint(
-                                        "porelo-shop-fix",
-                                        List.of("List", "Done", "ProposeIdea"),
-                                        2))
+                                        "porelo-shop-fix", List.of("List", "Done", "Report"), 2))
                         .substring(before.length());
 
         for (final String line : part.split("\n")) {

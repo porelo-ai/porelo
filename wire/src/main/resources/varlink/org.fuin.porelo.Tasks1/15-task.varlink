@@ -75,16 +75,15 @@ type TaskEnded (
   at: string
 )
 
-# An idea a task proposed for itself with ProposeIdea: a new issue it found while working.
-type TaskIdea (
-  # The task's own counter: idea-1, idea-2, ... A client hands each id on once, then takes it with
-  # TakeIdea; a taken id is not given again.
-  id: string,
-  # One line of at most 256 characters, as the task gave it.
-  title: string,
-  # One or two sentences of at most 65536 characters; it may hold line breaks.
-  whatMustBeTrue: string,
-  # When the host kept it, ISO-8601.
+# Something a task reported back to whoever started it: plain text, numbered per task.
+type TaskReport (
+  # The task's own sequence, 1, 2, ...; never reused, also after the task is removed.
+  seq: int,
+  # One line the caller's brief asks for; Porelo passes it through unread and never checks it.
+  kind: string,
+  # At most 65,536 characters; it may hold line breaks.
+  text: string,
+  # When the host kept it, ISO-8601 UTC.
   at: string
 )
 
@@ -281,16 +280,9 @@ type Task (
   # whose agent did not end on its own: after Done, a stop or a prompt run. Absent for a task started
   # without Start's result, and while nothing was taken.
   result: ?TaskResult,
-  # The ideas it proposed with ProposeIdea, oldest first; [] when none. They stay until a person
-  # takes them with TakeIdea or the task is removed, and a later start keeps them. Task text: a task
-  # socket without Logs or Tail receives []. One reply carries at most 1 MiB of ideas across its
-  # rows, the ideas arrays written as sent, so a row may then carry only a task's oldest ideas;
-  # ideasHeldBack says how many more it has, and the next reply carries them once these are taken.
-  ideas: []TaskIdea,
-  # The number of this task's ideas the reply left out under the 1 MiB limit, 0 when all are listed.
-  # It falls as ideas are taken with TakeIdea. An older daemon omits it, and a client takes that as
-  # 0. 0 on a task socket without Logs or Tail.
-  ideasHeldBack: ?int,
+  # The sequence number of the task's last report, 0 before its first; it changes when a report
+  # arrives, so Watch sends the row again. Reports answers the reports themselves.
+  reports: int,
   # Whether the task only reads: made with Start's readOnly or allRepositories, its
   # repositories under /workspace/ read only, with no gate and nothing it can push. false for any
   # other task. An older daemon omits it, and a client takes that as false.
@@ -601,26 +593,17 @@ method List() -> (tasks: []Task, unrecognized: []string)
 # This replaces no completion message to the room, and neither stops nor removes the container.
 method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
 
-# The task proposes an idea for itself: a new issue it found while working, kept with the task and
-# offered on its List and Watch row (ideas), where the person's client hands it on. Carried only by a
-# task socket whose project's mcp.methods includes ProposeIdea. task must be that socket's task,
-# never even a child or another project; a call over the person's socket, or naming anybody else,
-# is NotItsOwn. The project file's limits.ideas, read at each call, is the most ideas one task may
-# propose (0, the default, for none): a call where it is 0, or past it, is NotAllowed naming the
-# bound. title is one line of at most 256 characters; whatMustBeTrue is at most 65536 characters,
-# with no control characters but line breaks; either empty is InvalidParameter, and neither is
-# trimmed or cut. id is the task's own counter, idea-1, idea-2, ... The daemon keeps the ideas in
-# its private durable task record, outside every task mount, until a person takes them or the task
-# is removed. limits.ideas counts every idea the task proposed: a taken one frees no room.
-method ProposeIdea(task: string, title: string, whatMustBeTrue: string) -> (id: string)
+# The task reports back to whoever started it: plain text and a one-line kind, kept with the task's
+# records and numbered in the task's own sequence. On the task socket only, when the project's
+# limits.reports is above 0 and its mcp.methods includes Report; past the bound, NotAllowed names it.
+# task must be that socket's task, else NotItsOwn. Porelo passes kind through unread and never checks it.
+method Report(task: string, kind: string, text: string) -> (seq: int)
 
-# A person took one of a task's ideas, kept it or declined it, once its client has handed it on: the
-# daemon forgets it, so the task's row no longer carries it and a later List or Watch reply carries
-# the ideas held back behind it; ideasHeldBack falls as ideas are taken. task is the task's name, id
-# the idea's. taken is false where the task holds no such idea: taken before, never proposed, or the
-# task removed. A name that is no task's, or an id the daemon does not give, is InvalidParameter. A
-# task's socket never carries it: what a task proposed is the person's to take.
-method TakeIdea(task: string, id: string) -> (taken: bool)
+# The reports after `after` (all when absent), oldest first, at most 1 MiB; `more` when some were
+# left out. Kept as long as the task's records (records.kept_days), a removed task's included. Porelo
+# keeps nothing about who read what: a reader keeps the last seq it took. last is the task's last
+# sequence number.
+method Reports(task: string, after: ?int) -> (reports: []TaskReport, last: int, more: bool)
 
 # The file a task hands back, as the host took it, read from this machine's files alone: also after
 # its container is gone and after the task was removed, until the next start of its name, which

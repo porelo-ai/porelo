@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** How many ideas a project lets one of its tasks propose. */
-class ProjectIdeasTest {
+/** How many reports a project lets one of its tasks hand back. */
+class ProjectReportsTest {
 
     private static final String HEAD =
             """
@@ -28,17 +28,17 @@ class ProjectIdeasTest {
 
     @Test
     void aProjectThatSaysNothingAllowsNone() {
-        assertThat(read(HEAD).limits().ideas())
-                .as("no idea unless the project file allows one")
+        assertThat(read(HEAD).limits().reports())
+                .as("no report unless the project file allows one")
                 .isZero();
-        assertThat(read(HEAD + "limits:\n  memory: 2g\n").limits().ideas())
+        assertThat(read(HEAD + "limits:\n  memory: 2g\n").limits().reports())
                 .as("a limits block without the key allows none too")
                 .isZero();
     }
 
     @Test
-    void aProjectNamesHowManyIdeasOneTaskMayPropose() {
-        assertThat(read(HEAD + "limits:\n  ideas: 2\n").limits().ideas())
+    void aProjectNamesHowManyReportsOneTaskMayHandBack() {
+        assertThat(read(HEAD + "limits:\n  reports: 2\n").limits().reports())
                 .as("the bound the file names")
                 .isEqualTo(2);
     }
@@ -46,18 +46,26 @@ class ProjectIdeasTest {
     @Test
     void theBoundSurvivesWritingTheFileBack() {
         final var file =
-                ProjectFileReader.read(new StringReader(HEAD + "limits:\n  ideas: 3\n"), "test");
+                ProjectFileReader.read(new StringReader(HEAD + "limits:\n  reports: 3\n"), "test");
         assertThat(ProjectFileWriter.write(file))
                 .as("a file written back keeps its bound")
-                .contains("ideas: 3");
+                .contains("reports: 3");
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"-1", "101", "two", "1.5", "\"2\"", "[]", "99999999999"})
     void aNumberBelowNoneOrNoWholeNumberIsRefused(String value) {
-        assertThatThrownBy(() -> read(HEAD + "limits:\n  ideas: " + value + "\n"))
+        assertThatThrownBy(() -> read(HEAD + "limits:\n  reports: " + value + "\n"))
                 .as("a bound nobody can read must not pass as none")
                 .isInstanceOf(ProjectException.class)
-                .hasMessageContaining("limits.ideas");
+                .hasMessageContaining("limits.reports");
+    }
+
+    @Test
+    void theKeyOfTheRetiredIdeasIsNoLongerTaken() {
+        assertThatThrownBy(() -> read(HEAD + "limits:\n  ideas: 2\n"))
+                .as("a file still naming ideas is told so, never read as allowing reports")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("ideas");
     }
 }

@@ -374,9 +374,9 @@ final class ProjectSchema {
                             false),
                     key(
                             "limits",
-                            "ideas",
-                            "The most ideas one task may propose with ProposeIdea over its own socket;"
-                                    + " 0 for none. Read at each proposal.",
+                            "reports",
+                            "The most reports one task may hand back with Report over its own"
+                                    + " socket, at most 100; 0 for none. Read at each report.",
                             "integer",
                             "0",
                             false),

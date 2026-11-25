@@ -37,7 +37,7 @@ class McpMethodsTest {
                     "RefreshTask",
                     "Stop",
                     "Done",
-                    "ProposeIdea",
+                    "Report",
                     "Lock",
                     "AllowSettings",
                     "Label",

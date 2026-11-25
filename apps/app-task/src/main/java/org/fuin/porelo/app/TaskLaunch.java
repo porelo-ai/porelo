@@ -5104,7 +5104,8 @@ public final class TaskLaunch {
                             selected == null ? null : selected.definition().name(),
                             model.model(),
                             model.from(),
-                            request.effort());
+                            request.effort(),
+                            callerKey);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start this task's work record: " + ex.getMessage());
             err.flush();

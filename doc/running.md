@@ -425,21 +425,23 @@ observed activity is `IDLE`, its state is `done`, with no waiting reason. New ou
 again while keeping the declaration; an ended run keeps its `ENDED` activity. A later start clears
 completion. See [task status](commands.md) for the activity values.
 
-A task whose project's MCP endpoint allows `ProposeIdea`, and whose project file sets
-[`limits.ideas`](project-file.md#limits), can propose an idea for itself, a new issue it found while working, with
-`ProposeIdea(task: CONTAINER, title: ..., whatMustBeTrue: ...)`: a title of one line and at most 256 characters, and
-what must be true in one or two sentences of at most 65536 characters, with no control characters but line breaks.
-It is told the idea's id, `idea-1`, `idea-2` and so on. Porelo keeps the idea on the host, outside the task's mounts,
-until a person takes it or the task is removed, and shows it on the task's row in List and Watch, where the person's
-window hands it on and then takes it with `TakeIdea(task, id)`, kept or declined; a later start keeps it. One reply
-carries at most 1 MiB of ideas across all tasks, each task's oldest first, so a row may carry only a task's oldest
-ideas; its `ideasHeldBack` says how many more it has, 0 when all are listed, and falls as ideas are taken, since the
-next reply carries the ones behind them. A taken idea frees no room under `limits.ideas`, and its id is not given
-again. The ideas one task keeps take at most 4 MiB written all together, since every List and Watch reads them:
-several at their longest fit, and a proposal past that is refused with `NotAllowed` until a person takes some, which
-frees their room. A call naming another task is refused with `NotItsOwn`, one past the project's bound with
-`NotAllowed`, and a title or text out of these bounds with `InvalidParameter`, never trimmed or cut. Another task of
-the project sees no idea in its own listing unless its endpoint reads output (`Logs` or `Tail`).
+A task whose project's MCP endpoint allows `Report`, and whose project file sets
+[`limits.reports`](project-file.md#limits), can report back to whoever started it with
+`Report(task: CONTAINER, kind: ..., text: ...)`: a kind of one line and 1 to 64 characters with no format
+character, the word the caller's brief asks for, which Porelo passes on unread, and a plain text of at most 65536
+characters, with no control characters but line breaks and no line separators or bidi controls. It is told the report's number, `1`, `2` and so on, in the sequence of the task's name:
+a later task of the same name goes on with it, so no number is given twice. Porelo keeps the reports on the host with
+the task's work records, outside the task's mounts, also after the task is removed, and knows nothing of what they
+say or who read them. The task's row in List and Watch carries `reports`, the number of its last report, 0 before
+the first, so a watcher is sent the row again when one arrives; `Reports(task, after)` on the person's socket, and
+`porelo task reports TASK --after N --json`, answer the reports numbered after `after` (all when it is absent),
+oldest first, at most 1 MiB of them, with `last`, the task's last number, and `more` when some were left out: the
+caller keeps the last number it read and asks again after it. Each record of `porelo task records --json` carries
+its task's reports, and `callerKey`, the key its start was given, when it was given one, so a caller finds the reports
+of the tasks it started. A call naming another task is refused with `NotItsOwn`, one where the project allows none or
+past its bound with `NotAllowed` naming `limits.reports`, and a kind or text out of these bounds with
+`InvalidParameter`, never trimmed or cut. Another task of the project is sent `reports: 0` in its own listing
+unless its endpoint reads output (`Logs` or `Tail`), and no task endpoint carries `Reports`.
 
 An agent learns what Porelo gives it in its task from one guide, which it takes into its standing instructions at
 every start when its definition declares how (`instructions`): Porelo writes it to `/run/porelo/guide/README.md`,
@@ -627,13 +629,13 @@ may name further issues by further such lines.
 A task whose project gives it an [MCP endpoint](project-file.md#a-tasks-mcp-endpoint) is told so in its guide, in a
 part after all of the above, so the shared beginning stays the same: where the endpoint is, the header its own token
 goes in, how to speak MCP to it with nothing but `curl`, and the methods it carries, by name. Where it carries
-`ProposeIdea` and the project's [`limits.ideas`](project-file.md#limits) is above 0, the part ends with how to
-propose an idea for the task itself: its own name, the bounds of a title and of what must be true, how many it may
-propose, the refusals, and a worked call. The methods and the bound are read from the project's file at every start,
+`Report` and the project's [`limits.reports`](project-file.md#limits) is above 0, the part ends with how to
+report back to whoever started the task: its own name, the bounds of a kind and of a text, how many times it may
+report, the refusals, and a worked call. The methods and the bound are read from the project's file at every start,
 so a task brought back is told what it has then; a task without an endpoint is told nothing of one. The part names
 the token's variable, never its value.
 
-For a task `porelo-shop-fix` whose endpoint carries `List`, `Done` and `ProposeIdea`, with `limits.ideas: 2`:
+For a task `porelo-shop-fix` whose endpoint carries `List`, `Done` and `Report`, with `limits.reports: 2`:
 
 ### This task's MCP endpoint
 
@@ -656,7 +658,7 @@ Its tools are Porelo's own methods of the same names, these alone:
 
 - `List`
 - `Done`
-- `ProposeIdea`
+- `Report`
 
 To list them with their parameters:
 
@@ -667,34 +669,35 @@ curl -s -X POST "$PORELO_URL_PORELO_MCP" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-#### Proposing an idea
+#### Reporting back
 
-When you find a new issue while working, one that is not this task's to fix, propose it
-as an idea with `ProposeIdea` instead of writing it anywhere else. Porelo keeps it with
-this task and shows it to a person. A person takes it from there, keeping or declining
-it; you do nothing more with it. This task may propose at most **2** ideas in
-its life, ones a person already took counted too, so propose only what matters.
+When the brief of whoever started this task asks it to report back, such as a status,
+a finding or an answer, report it with `Report` instead of writing it anywhere else.
+Porelo keeps it with this task's records and numbers it, and whoever started the task
+reads it from there; you do nothing more with it. This task may report at most
+**2** times, so report only what the brief asks for.
 
 - `task`: this task's own name, `porelo-shop-fix`, and no other.
-- `title`: one line of at most 256 characters.
-- `whatMustBeTrue`: what must be true once it is done, in one or two sentences of at
-  most 65536 characters, with no control characters but line breaks.
+- `kind`: one line of 1 to 64 characters, the word the brief asks for, such as
+  `status`, with no invisible characters; Porelo passes it on unread.
+- `text`: plain text of at most 65536 characters, with no control characters but
+  line breaks, and no line separators or bidi controls.
 
-The answer names its id, such as `idea-1`. It is refused with `NotItsOwn` when `task`
+The answer names its number, such as `1`. It is refused with `NotItsOwn` when `task`
 names another task, with `NotAllowed` past this task's bound, and with
-`InvalidParameter` when the title or the text is out of these bounds; nothing is trimmed
-or cut, so shorten it and call again.
+`InvalidParameter` when the kind or the text is out of these bounds; nothing is
+trimmed or cut, so shorten it and call again.
 
 ```
 curl -s -X POST "$PORELO_URL_PORELO_MCP" \
   -H "Authorization: Bearer $PORELO_TOKEN_PORELO_MCP" \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"ProposeIdea",
-"arguments":{"task":"porelo-shop-fix","title":"The listing names the branch of a stopped task",
-"whatMustBeTrue":"The row of a stopped task in the listing names the branch it worked on."}}}'
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"Report",
+"arguments":{"task":"porelo-shop-fix","kind":"status",
+"text":"The listing now names the branch of a stopped task."}}}'
 ```
 
-The body is in single quotes, so a `'` in your title or text ends it: leave it out,
+The body is in single quotes, so a `'` in your kind or text ends it: leave it out,
 or write the body to a file and send it with `-d @file`.
 
 ## Adding your own tooling to a task

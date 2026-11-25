@@ -96,24 +96,22 @@ class ReachDocumentTest {
     }
 
     @Test
-    void statesWhatAnIdeaATaskProposesMayHoldAndWhoSeesIt() throws IOException {
-        // A task's ideas are task text put in front of a person: the page must say its bounds.
+    void statesWhatAReportATaskHandsBackMayHoldAndWhoReadsIt() throws IOException {
+        // A task's reports are task text put in front of its caller: the page must say its bounds.
         assertThat(page())
-                .as("the allowance, the text bounds, the owner, the lifetime and who sees it")
-                .contains("| An idea a task proposes over MCP |")
+                .as("the allowance, the text bounds, the owner, the lifetime and who reads it")
+                .contains("| A report a task hands back over MCP |")
                 .contains(
-                        "`limits.ideas`, 0 by default and at most "
-                                + org.fuin.porelo.core.project.Limits.MOST_IDEAS)
-                .contains("one line of at most " + TaskIdeas.MOST_TITLE + " characters")
-                .contains("at most " + TaskIdeas.MOST_WHAT_MUST_BE_TRUE + " characters")
+                        "`limits.reports`, 0 by default and at most "
+                                + org.fuin.porelo.core.project.Limits.MOST_REPORTS)
+                .contains("one line of 1 to " + TaskReports.MOST_KIND + " characters")
+                .contains("the text at most " + TaskReports.MOST_TEXT + " characters")
                 .contains("Only the task bound to that socket, for itself")
-                .contains("until the person takes them with `TakeIdea`")
-                .contains("which no task endpoint carries, or the task is removed")
-                .contains("receive `ideas: []`")
+                .contains("also after the task is removed")
+                .contains("through `Reports`, which no task endpoint carries")
+                .contains("receive `reports: 0`")
                 .contains(
-                        "at most "
-                                + TaskInventory.MOST_REPLY_IDEAS / (1024 * 1024)
-                                + " MiB of ideas");
+                        "at most " + TaskReports.MOST_PAGE / (1024 * 1024) + " MiB in one answer");
     }
 
     @Test

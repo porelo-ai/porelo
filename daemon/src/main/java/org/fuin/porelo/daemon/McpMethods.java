@@ -158,7 +158,10 @@ final class McpMethods {
                     "ResolveThread",
                     "ReviewSummary",
                     // What is open at a place, read for the person's planner.
-                    "ReviewOpen");
+                    "ReviewOpen",
+                    // What any task reported back, for whoever started it: never another agent's
+                    // prompt.
+                    "Reports");
 
     /** Methods that stand for a person's own judgement; offered only from the list, and named. */
     static final Set<String> JUDGEMENT =
@@ -171,9 +174,7 @@ final class McpMethods {
                     "Authorize",
                     "EnrollDevice",
                     "UnlockWithShare",
-                    "Release",
-                    // Keeping or declining a task's idea, which then leaves its row.
-                    "TakeIdea");
+                    "Release");
 
     private McpMethods() {}
 

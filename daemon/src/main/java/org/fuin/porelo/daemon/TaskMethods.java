@@ -112,28 +112,13 @@ final class TaskMethods {
         new org.fuin.porelo.app.TaskResult(context.paths()).take(task);
     }
 
-    /** Keeps an idea the socket's own task proposes for itself, within its project's bound. */
-    static Map<String, Object> proposeIdea(
+    /** Keeps a report the socket's own task hands back, within its project's bound. */
+    static Map<String, Object> report(
             final PoreloContext context, final Map<String, Object> parameters)
             throws java.io.IOException {
-        return proposeIdea(context, parameters, () -> {}, () -> {});
-    }
-
-    /**
-     * Keeps an idea as {@link #proposeIdea(PoreloContext, Map)} does, running {@code checked} after
-     * the task is found its own and before the idea is kept: where a removal or a replacement of
-     * the task may come between; and {@code looked} under the lock, after the last lookup found the
-     * task the same and before the idea is kept: where a removal must wait.
-     */
-    static Map<String, Object> proposeIdea(
-            final PoreloContext context,
-            final Map<String, Object> parameters,
-            final Runnable checked,
-            final Runnable looked)
-            throws java.io.IOException {
         final String task = text(parameters, "task");
-        // For itself alone, as Done: an idea under a child's or a sibling's name is words put in
-        // its mouth for the person's window.
+        // For itself alone, as Done: a report under a child's or a sibling's name is words put in
+        // its mouth for whoever started it.
         if (!task.equals(McpTaskSockets.caller())
                 || !(new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
                         instanceof org.fuin.porelo.app.TaskIdentities.Found found)) {
@@ -141,20 +126,20 @@ final class TaskMethods {
                     INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
         }
         for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
-            if (!java.util.Set.of("task", "title", "whatMustBeTrue").contains(parameter)) {
+            if (!java.util.Set.of("task", "kind", "text").contains(parameter)) {
                 throw new VarlinkException(
                         "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
             }
         }
-        if (!(parameters.get("title") instanceof String title)
-                || !org.fuin.porelo.app.TaskIdeas.validTitle(title)) {
+        if (!(parameters.get("kind") instanceof String kind)
+                || !org.fuin.porelo.app.TaskReports.validKind(kind)) {
             throw new VarlinkException(
-                    "org.varlink.service.InvalidParameter", Map.of("parameter", "title"));
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "kind"));
         }
-        if (!(parameters.get("whatMustBeTrue") instanceof String whatMustBeTrue)
-                || !org.fuin.porelo.app.TaskIdeas.validWhatMustBeTrue(whatMustBeTrue)) {
+        if (!(parameters.get("text") instanceof String said)
+                || !org.fuin.porelo.app.TaskReports.validText(said)) {
             throw new VarlinkException(
-                    "org.varlink.service.InvalidParameter", Map.of("parameter", "whatMustBeTrue"));
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "text"));
         }
         final String project = found.identity().project();
         // Read at each call, as the mail rules are: a bound the person lowered holds at once.
@@ -164,7 +149,7 @@ final class TaskMethods {
                     org.fuin.porelo.core.project.ProjectReader.read(
                                     org.fuin.porelo.app.ProjectSource.require(context, project))
                             .limits()
-                            .ideas();
+                            .reports();
         } catch (org.fuin.porelo.core.project.ProjectException ex) {
             // Without the reason: it names where the file lies and the machine's other projects.
             throw new VarlinkException(
@@ -173,7 +158,7 @@ final class TaskMethods {
                             "message",
                             "the file of project '"
                                     + project
-                                    + "' cannot be read, so it allows no idea"));
+                                    + "' cannot be read, so it allows no report"));
         }
         if (most < 1) {
             throw new VarlinkException(
@@ -182,88 +167,91 @@ final class TaskMethods {
                             "message",
                             "project '"
                                     + project
-                                    + "' allows a task no ideas: limits.ideas is 0, the default"));
+                                    + "' allows a task no reports: limits.reports is 0, the"
+                                    + " default"));
         }
-        checked.run();
         final String incarnation = found.identity().recordedId();
-        final org.fuin.porelo.app.TaskReservations reservations =
-                new org.fuin.porelo.app.TaskReservations(context);
-        // Under the lock a removal takes, and only for the container the check found: a removal
-        // that came between would find its record made again, and a replacement of the name would
-        // be given the idea of the task it replaced.
+        // Under the lock a removal takes, and only for the container the check found: a
+        // replacement of the name would be counted the report of the task it replaced.
         final Object kept =
-                reservations.locked(
-                        () -> {
-                            if (!(new org.fuin.porelo.app.TaskIdentities(context).lookup(task, null)
-                                            instanceof org.fuin.porelo.app.TaskIdentities.Found now)
-                                    || !now.identity().recordedId().equals(incarnation)
-                                    || !org.fuin.porelo.app.TaskReservations.matches(
-                                            context.paths(), now.identity())) {
-                                return Boolean.FALSE;
-                            }
-                            looked.run();
-                            try {
-                                return new org.fuin.porelo.app.TaskIdeas(context.paths())
-                                        .propose(task, title, whatMustBeTrue, most);
-                            } catch (org.fuin.porelo.app.TaskIdeas.BoundReached
-                                    | org.fuin.porelo.app.TaskIdeas.KeptFull ex) {
-                                return ex;
-                            }
-                        });
-        if (kept instanceof org.fuin.porelo.app.TaskIdeas.Idea idea) {
-            return Map.of("id", idea.id());
+                new org.fuin.porelo.app.TaskReservations(context)
+                        .locked(
+                                () -> {
+                                    if (!(new org.fuin.porelo.app.TaskIdentities(context)
+                                                            .lookup(task, null)
+                                                    instanceof
+                                                    org.fuin.porelo.app.TaskIdentities.Found now)
+                                            || !now.identity().recordedId().equals(incarnation)
+                                            || !org.fuin.porelo.app.TaskReservations.matches(
+                                                    context.paths(), now.identity())) {
+                                        return Boolean.FALSE;
+                                    }
+                                    try {
+                                        // Counted by the container the lookup found, never by
+                                        // the work record, which a removal may have moved away.
+                                        return new org.fuin.porelo.app.TaskReports(context.paths())
+                                                .report(
+                                                        task,
+                                                        now.identity().recordedId(),
+                                                        new org.fuin.porelo.app.TaskWorkRecords(
+                                                                        context)
+                                                                .startedAt(task),
+                                                        kind,
+                                                        said,
+                                                        most);
+                                    } catch (org.fuin.porelo.app.TaskReports.BoundReached ex) {
+                                        return ex;
+                                    } catch (IllegalArgumentException noContainer) {
+                                        // No container id to count by: refused, never counted.
+                                        return Boolean.FALSE;
+                                    }
+                                });
+        if (kept instanceof org.fuin.porelo.app.TaskReports.Report report) {
+            return Map.of("seq", report.seq());
         }
-        if (kept instanceof org.fuin.porelo.app.TaskIdeas.BoundReached ex) {
+        if (kept instanceof org.fuin.porelo.app.TaskReports.BoundReached ex) {
             throw new VarlinkException(
                     INTERFACE + ".NotAllowed",
                     Map.of(
                             "message",
-                            "this task has proposed "
+                            "this task has reported "
                                     + ex.most()
-                                    + " ideas, the most limits.ideas of project '"
+                                    + " times, the most limits.reports of project '"
                                     + project
                                     + "' allows"));
-        }
-        if (kept instanceof org.fuin.porelo.app.TaskIdeas.KeptFull ex) {
-            throw new VarlinkException(
-                    INTERFACE + ".NotAllowed", Map.of("message", String.valueOf(ex.getMessage())));
         }
         // Removed, or its name started again, since the check: the socket's task is gone.
         throw new VarlinkException(INTERFACE + ".NotItsOwn", Map.of("task", task, "parent", ""));
     }
 
     /**
-     * Forgets one of a task's ideas a person took, kept or declined, so the next reply carries the
-     * task's next ones. A task's socket never carries it: taking is the person's.
+     * Answers a task's reports after a number, a removed task's too; the person's alone, never a
+     * task socket's.
      */
-    static Map<String, Object> takeIdea(
+    static Map<String, Object> reports(
             final PoreloContext context, final Map<String, Object> parameters)
             throws java.io.IOException {
         for (final String parameter : new java.util.TreeSet<>(parameters.keySet())) {
-            if (!java.util.Set.of("task", "id").contains(parameter)) {
+            if (!java.util.Set.of("task", "after").contains(parameter)) {
                 throw new VarlinkException(
                         "org.varlink.service.InvalidParameter", Map.of("parameter", parameter));
             }
         }
         if (!(parameters.get("task") instanceof String task)
-                || !ContainerName.isTask(task)
-                || !task.matches(ContainerName.NAME_PATTERN)) {
+                || !org.fuin.porelo.app.TaskResult.named(task)) {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
         }
-        if (!(parameters.get("id") instanceof String id)
-                || !org.fuin.porelo.app.TaskIdeas.validId(id)) {
+        final long after =
+                parameters.get("after") == null
+                        ? 0
+                        : org.fuin.porelo.wire.varlink.VarlinkNumbers.longParameter(
+                                parameters, "after");
+        if (after < 0) {
             throw new VarlinkException(
-                    "org.varlink.service.InvalidParameter", Map.of("parameter", "id"));
+                    "org.varlink.service.InvalidParameter", Map.of("parameter", "after"));
         }
-        // Under the lock a removal takes: a record it deleted is not made again.
-        final boolean taken =
-                new org.fuin.porelo.app.TaskReservations(context)
-                        .locked(
-                                () ->
-                                        new org.fuin.porelo.app.TaskIdeas(context.paths())
-                                                .take(task, id));
-        return Map.of("taken", taken);
+        return new org.fuin.porelo.app.TaskReports(context.paths()).page(task, after).asMap();
     }
 
     /** Answers the file a task handed back, or why there is none; from the host's files alone. */
@@ -502,15 +490,40 @@ final class TaskMethods {
                 });
 
         server.method(
-                "ProposeIdea",
+                "Report",
                 (parameters, replies) -> {
-                    replies.last(proposeIdea(context, parameters));
+                    try {
+                        replies.last(report(context, parameters));
+                    } catch (java.io.IOException ex) {
+                        // Answered, so the task knows its report was not kept.
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the report of task "
+                                                        + parameters.get("task")
+                                                        + " cannot be kept",
+                                                ex)));
+                    }
                 });
 
         server.method(
-                "TakeIdea",
+                "Reports",
                 (parameters, replies) -> {
-                    replies.last(takeIdea(context, parameters));
+                    try {
+                        replies.last(reports(context, parameters));
+                    } catch (java.io.IOException ex) {
+                        throw new VarlinkException(
+                                INTERFACE + ".Failed",
+                                Map.of(
+                                        "message",
+                                        FileFailure.said(
+                                                "the reports of task "
+                                                        + parameters.get("task")
+                                                        + " cannot be read",
+                                                ex)));
+                    }
                 });
 
         server.method(

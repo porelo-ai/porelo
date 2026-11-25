@@ -14,16 +14,19 @@ import picocli.CommandLine.Spec;
 
 /**
  * Answers a project's task records since a time, removed tasks' among them: what each task worked
- * on, from when to when, with which agent, model and tokens, and its tool calls.
+ * on, from when to when, with which agent, model and tokens, its tool calls and what it reported
+ * back.
  *
- * <p>The same answer as the daemon's {@code Records}, from the same code.
+ * <p>The same records as the daemon's {@code Records}, from the same code; each also carries its
+ * task's reports, as {@code Reports} answers them, which a record of the daemon's leaves to {@code
+ * Reports}.
  */
 @Command(
         name = "records",
         mixinStandardHelpOptions = true,
         description =
                 "A project's task records since a time, removed tasks' among them, oldest first:"
-                        + " work, times, agent, model, token totals and tool calls.")
+                        + " work, times, agent, model, token totals, tool calls and reports.")
 public class TaskRecordsCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
     @Option(
@@ -71,6 +74,23 @@ public class TaskRecordsCommand implements Callable<Integer>, PoreloFactory.Cont
         final List<Map<String, Object>> records;
         try {
             records = new TaskWorkRecords(context).since(project, from);
+            final TaskReports reports = new TaskReports(context.paths());
+            for (final Map<String, Object> record : records) {
+                // Each task's own, told from an earlier task of its name by its record's start.
+                record.put(
+                        "reports",
+                        record.get("task") instanceof String task && TaskResult.named(task)
+                                ? reports
+                                        .ofRecord(
+                                                task,
+                                                record.get("startedAt") instanceof String startedAt
+                                                        ? startedAt
+                                                        : null)
+                                        .stream()
+                                        .map(TaskReports.Report::asMap)
+                                        .toList()
+                                : List.of());
+            }
         } catch (IOException ex) {
             err.println("porelo: the task records could not be read: " + ex.getMessage());
             err.flush();
@@ -107,6 +127,7 @@ public class TaskRecordsCommand implements Callable<Integer>, PoreloFactory.Cont
                                         .toList())
                         : "-";
         final int calls = record.get("toolCalls") instanceof List<?> list ? list.size() : 0;
+        final int reported = record.get("reports") instanceof List<?> list ? list.size() : 0;
         return record.get("startedAt")
                 + "  "
                 + (record.get("endedAt") == null ? "running" : record.get("endedAt"))
@@ -118,6 +139,8 @@ public class TaskRecordsCommand implements Callable<Integer>, PoreloFactory.Cont
                 + work
                 + "  "
                 + calls
-                + " tool calls";
+                + " tool calls  "
+                + reported
+                + " reports";
     }
 }

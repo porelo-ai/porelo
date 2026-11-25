@@ -18,6 +18,7 @@ import picocli.CommandLine.Command;
             TaskAttachCommand.class,
             TaskStatusCommand.class,
             TaskRecordsCommand.class,
+            TaskReportsCommand.class,
             TaskLogsCommand.class,
             TaskPrepareCommand.class,
             TaskClearanceCommand.class,

@@ -151,15 +151,15 @@ class McpWiringTest {
                 head
                         + """
                         limits:
-                          ideas: 1
+                          reports: 1
                         mcp:
-                          methods: ["List", "ProposeIdea"]
+                          methods: ["List", "Report"]
                           agents:
                             alpha:
                         """);
 
         assertThat(McpWiring.told(context, TASK, PROJECT))
-                .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List", "ProposeIdea"), 1));
+                .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List", "Report"), 1));
 
         Files.writeString(file, head);
 

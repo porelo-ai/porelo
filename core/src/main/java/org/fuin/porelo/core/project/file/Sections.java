@@ -110,7 +110,7 @@ final class Sections {
         keys.put("egress", List.of("sets", "domains", "host_services", "refused"));
         keys.put(
                 "limits",
-                List.of("memory", "pids", "cpus", "hand_in", "subagents", "pass_on", "ideas"));
+                List.of("memory", "pids", "cpus", "hand_in", "subagents", "pass_on", "reports"));
         keys.put("mail", List.of("peers", "rules", "outgoing_filter", "transports"));
         keys.put("mail.peers.<name>", List.of("address", "trust", "per_day", "mode"));
         keys.put("mail.rules", List.of("project", "room", "others"));
