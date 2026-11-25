@@ -2312,9 +2312,14 @@ public final class TaskLaunch {
                     "       it starts again; its agent may not reach its mailbox or know about it");
             err.flush();
         }
-        // A task brought back at a pull request starts its next run there before its agent runs.
-        if (runPlace != null && runPlace.pullRequest() != null) {
-            runStarts.begin(container, runPlace);
+        // A task brought back at a pull request starts its next run there before its agent runs;
+        // a start that names no place brings it back at the one it recorded.
+        final RunPlace resumedAt =
+                runPlace != null
+                        ? runPlace
+                        : RunPlace.readFrom(context.paths().tasks().containerState(container));
+        if (resumedAt != null && resumedAt.pullRequest() != null) {
+            runStarts.begin(container, resumedAt);
         }
         // Its workspace, its branch and its uncommitted changes are all in that container. What has
         // to be started again is everything that lives on the host, which is what resume does.

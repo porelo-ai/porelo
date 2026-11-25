@@ -5992,6 +5992,125 @@ class TaskRunCommandTest {
                 .noneMatch(line -> line.contains("podman start"));
     }
 
+    /**
+     * The container a launch of task shell in project uc names, which a direct launch looks for.
+     */
+    private static final String RESUMED = "porelo-uc_shell";
+
+    /** A stopped task brought back by a start that names no role and no place. */
+    private TaskLaunch.@org.jspecify.annotations.Nullable Existing resumedWithoutAPlace(
+            final PoreloContext context, final Path dir, final TaskLaunch.RunStarts starts)
+            throws IOException {
+        final String id = "e".repeat(64);
+        TaskIdentityFixture.running(context.paths(), RESUMED, "uc", "shell", id);
+        runner.answering(
+                "ps",
+                RESUMED
+                        + "\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\t"
+                        + id
+                        + "\tshell\n");
+        projectFile(dir, MINIMAL);
+        return new TaskLaunch(
+                        context,
+                        new TaskLaunch.Request(
+                                "shell",
+                                dir.resolve("project.yml"),
+                                null,
+                                null,
+                                null,
+                                8,
+                                null,
+                                false,
+                                false,
+                                "deny",
+                                false,
+                                org.fuin.porelo.wire.TaskMode.AGENT,
+                                null,
+                                null,
+                                null,
+                                60,
+                                null))
+                .startingRuns(starts)
+                .startExisting(new PrintWriter(out, true), new PrintWriter(err, true));
+    }
+
+    @Test
+    void aReviewerRecordedAtAPullRequestStartedAgainWithoutAPlaceBeginsItsRunThere(
+            @TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(RESUMED));
+        final RunPlace recorded =
+                RunPlace.atPullRequest(RunPlace.REVIEWER, "shell", BROUGHT_BACK_AT);
+        recorded.writeTo(state);
+        final List<String> begun = new ArrayList<>();
+
+        resumedWithoutAPlace(
+                context,
+                dir,
+                (container, place) -> {
+                    begun.add(container);
+                    assertThat(place)
+                            .as("its run begins at its recorded place")
+                            .isEqualTo(recorded);
+                });
+
+        assertThat(begun)
+                .as("a further run begins at its pull request: %s", err)
+                .containsExactly(RESUMED);
+    }
+
+    @Test
+    void aReviewerRecordedAtAPullRequestWhoseRunCannotBeginIsRefusedAndNotResumed(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        RunPlace.atPullRequest(RunPlace.REVIEWER, "shell", BROUGHT_BACK_AT).writeTo(state);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+
+        final int code =
+                execute(
+                        context,
+                        "task",
+                        "start",
+                        "shell",
+                        "-p",
+                        projectFile(dir, MINIMAL),
+                        "--detach");
+
+        assertThat(code).as("no daemon to begin its run in: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("its run is asked of the daemon, never skipped")
+                .contains("porelod does not answer");
+        assertThat(runner.lines())
+                .as("nothing is resumed without its run")
+                .noneMatch(line -> line.contains("podman start"));
+    }
+
+    @Test
+    void aTaskRecordedAtItsOwnGatePushStartedAgainWithoutAPlaceBeginsNoRun(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = context(dir, true);
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(RESUMED));
+        RunPlace.ownPush("uc", null, "shell").writeTo(state);
+        final List<String> begun = new ArrayList<>();
+
+        final TaskLaunch.@org.jspecify.annotations.Nullable Existing resumed =
+                resumedWithoutAPlace(context, dir, (container, place) -> begun.add(container));
+
+        assertThat(begun).as("no run begins at a gate push: %s", err).isEmpty();
+        assertThat(resumed)
+                .as("it is brought back, as before: %s", err)
+                .isNotNull()
+                .extracting(TaskLaunch.Existing::container)
+                .isEqualTo(RESUMED);
+        assertThat(err.toString())
+                .as("it goes on to its resume, which the stand-in runtime has no container for")
+                .contains("no container " + RESUMED + " to resume");
+    }
+
     @Test
     void anAuthorAtOnePullRequestBroughtBackAtAnotherIsRefused(@TempDir Path dir)
             throws IOException {
