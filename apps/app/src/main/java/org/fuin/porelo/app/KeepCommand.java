@@ -29,8 +29,8 @@ import picocli.CommandLine.Spec;
 
 /**
  * Copies the tasks' usage and work records into a directory it is given, and puts them back on a
- * new machine, so the history a project's velocity is computed from outlives the machine it was
- * written on. Taking the copy elsewhere, and when, is for whoever calls it.
+ * new machine, so the history a planner works from outlives the machine it was written on. Taking
+ * the copy elsewhere, and when, is for whoever calls it.
  */
 @Command(
         name = "keep",

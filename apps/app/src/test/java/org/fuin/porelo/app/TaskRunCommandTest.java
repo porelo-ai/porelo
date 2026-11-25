@@ -10586,39 +10586,7 @@ class TaskRunCommandTest {
     }
 
     @Test
-    void aTaskIsToldWhereItsReadingsGo(@TempDir Path dir) throws IOException {
-
-        // So the agent and the planner read one value: a reading writes its findings there.
-        execute(
-                context(dir, true),
-                "task",
-                "start",
-                "--attach",
-                "shell",
-                "--detach",
-                "-p",
-                projectFile(
-                        dir,
-                        MINIMAL
-                                + """
-                        readings:
-                          directory: "doc/readings"
-                        """));
-
-        assertThat(runner.only("create").environment())
-                .containsEntry(TaskLaunch.READINGS_DIRECTORY, "doc/readings");
-        assertThat(runner.lines())
-                .as("the name alone on the command line")
-                .anyMatch(
-                        line ->
-                                line.contains("create")
-                                        && line.contains(
-                                                "--env " + TaskLaunch.READINGS_DIRECTORY + " "));
-    }
-
-    @Test
-    void aTaskWhoseProjectNamesNoReadingsDirectoryIsToldTheDefault(@TempDir Path dir)
-            throws IOException {
+    void aTaskIsNotToldWhereReadingsGo(@TempDir Path dir) throws IOException {
         execute(
                 context(dir, true),
                 "task",
@@ -10629,8 +10597,12 @@ class TaskRunCommandTest {
                 "-p",
                 projectFile(dir, MINIMAL));
 
-        assertThat(runner.only("create").environment())
-                .containsEntry(TaskLaunch.READINGS_DIRECTORY, "readings");
+        assertThat(runner.only("create").environment().keySet())
+                .as("the environment podman copies from")
+                .noneMatch(name -> name.startsWith("PORELO_READINGS"));
+        assertThat(runner.lines())
+                .as("the command line")
+                .noneMatch(line -> line.contains("PORELO_READINGS"));
     }
 
     @Test

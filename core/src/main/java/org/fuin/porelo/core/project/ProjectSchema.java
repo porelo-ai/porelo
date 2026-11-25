@@ -10,8 +10,7 @@ import java.util.List;
  * same set. Two places are open by design: the names under {@code credentials} and {@code
  * repositories} are the project's own, and what is under {@code mail.transports.<scheme>} is the
  * transport's, handed to it as it is written - the transport refuses what it does not know. A block
- * under {@code extensions} is likewise its ecosystem adapter's, and the settings under {@code
- * tracker} are the person's planner's.
+ * under {@code extensions} is likewise its ecosystem adapter's.
  */
 final class ProjectSchema {
 
@@ -663,51 +662,6 @@ final class ProjectSchema {
                             "extensions",
                             "Settings for one ecosystem adapter alone, by its name, which Porelo"
                                     + " passes to it unread; they widen nothing a task reaches.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "",
-                            "readings",
-                            "Where a reading of an issue writes its findings.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "readings",
-                            "directory",
-                            "The directory a reading writes its findings into, relative to the"
-                                    + " repository and inside it; a repository's porelo.yml may"
-                                    + " name its own. A task is told it in"
-                                    + " PORELO_READINGS_DIRECTORY.",
-                            "string",
-                            Project.READINGS_DEFAULT,
-                            false),
-                    key(
-                            "",
-                            "tracker",
-                            "Which store holds the project's issues, as the person's planner reads"
-                                    + " it: 'kind' and settings of one line each; absent, the"
-                                    + " issues are Markdown files in the repositories. Porelo keeps"
-                                    + " it unread.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "",
-                            "velocity",
-                            "What the person's planner starts the project's velocity from."
-                                    + " Porelo checks its form and keeps it unread.",
-                            "map",
-                            "",
-                            false),
-                    key(
-                            "velocity",
-                            "seed",
-                            "The starting median per repository and size, in minutes: each key"
-                                    + " one of the file's repositories, each size one of XS, S,"
-                                    + " M, L and XL, any of them missing, each value a whole"
-                                    + " number from 1 to 100000.",
                             "map",
                             "",
                             false));

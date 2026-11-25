@@ -829,4 +829,15 @@ class ProjectFileFaultsTest {
                 .isInstanceOf(ProjectFileException.class)
                 .hasMessageContaining("porelo.yml:1: 'image' is required");
     }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"velocity", "tracker", "readings"})
+    void aKeyOfWhatThePlannerKeepsIsRefusedByName(final String key) {
+        assertThat(faults(BASE + key + ":\n  x: y\n"))
+                .as("the refusal of '%s' at the top level", key)
+                .singleElement()
+                .asString()
+                .contains("'" + key + "'")
+                .contains("may be older than the file");
+    }
 }

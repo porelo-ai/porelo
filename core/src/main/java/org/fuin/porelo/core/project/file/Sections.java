@@ -33,12 +33,6 @@ final class Sections {
     /** An entry of {@code tool_repositories}, a list whose entries are mappings. */
     static final String TOOL_REPOSITORY = "tool_repositories[]";
 
-    /** Which store holds the project's issues: the project file's alone. */
-    static final String TRACKER = "tracker";
-
-    /** What the person's planner starts a project's velocity from: the project file's alone. */
-    static final String VELOCITY = "velocity";
-
     /** The section that allows a task an MCP endpoint: the project file's alone. */
     private static final String MCP = "mcp";
 
@@ -55,16 +49,10 @@ final class Sections {
         keys.put(
                 TOP,
                 project.keys(TOP).stream()
-                        .filter(
-                                key ->
-                                        !"repositories".equals(key)
-                                                && !MCP.equals(key)
-                                                && !TRACKER.equals(key)
-                                                && !VELOCITY.equals(key))
+                        .filter(key -> !"repositories".equals(key) && !MCP.equals(key))
                         .toList());
         keys.remove("repositories.<name>");
         keys.remove(MCP);
-        keys.remove(VELOCITY);
     }
 
     private Sections(final boolean repositoryFile) {
@@ -92,11 +80,7 @@ final class Sections {
                         MCP,
                         "providers",
                         "tool_repositories",
-                        "extensions",
-                        "readings",
-                        TRACKER,
-                        VELOCITY));
-        keys.put(VELOCITY, List.of("seed"));
+                        "extensions"));
         keys.put(
                 "project",
                 List.of(
@@ -138,7 +122,6 @@ final class Sections {
         keys.put(MCP, List.of("methods", "agents", "tasks", "minutes"));
         keys.put("providers.<name>", List.of("model", "label"));
         keys.put(TOOL_REPOSITORY, List.of("ecosystem", "name", "url", "credential"));
-        keys.put("readings", List.of("directory"));
     }
 
     /**
@@ -179,12 +162,6 @@ final class Sections {
                             + where
                             + "' cannot be set here; only from, env, run and run_file may be set"
                             + " under image";
-        }
-        if (TOP.equals(section) && (TRACKER.equals(key) || VELOCITY.equals(key))) {
-            return "'"
-                    + where
-                    + "' cannot be set here; what the person's planner keeps is the project file's"
-                    + " alone";
         }
         if (TOP.equals(section) && MCP.equals(key)) {
             return "'"

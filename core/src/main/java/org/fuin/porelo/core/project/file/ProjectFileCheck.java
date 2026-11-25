@@ -54,25 +54,6 @@ public final class ProjectFileCheck {
     /** What an issue prefix looks like. */
     private static final String ISSUES = "[A-Z]+";
 
-    /** The most entries {@code tracker} holds. */
-    private static final int PLANNER_ENTRIES = 256;
-
-    /** How {@code tracker.kind} is spelled. */
-    private static final String TRACKER_KIND = "[a-z][a-z0-9-]{0,62}";
-
-    /** How a setting of {@code tracker} is named. */
-    private static final String TRACKER_KEY = "[a-z][a-z0-9_]{0,62}";
-
-    /** The sizes {@code velocity.seed} names minutes for, as the planner sizes an issue. */
-    private static final java.util.List<String> SIZES =
-            java.util.List.of("XS", "S", "M", "L", "XL");
-
-    /** The most minutes {@code velocity.seed} names for one size. */
-    private static final int SEED_MOST = 100_000;
-
-    /** The longest value of a setting of {@code tracker}. */
-    private static final int TRACKER_VALUE_MOST = 512;
-
     /** A merge needs another person's approval, or the author may merge their own. */
     private static final List<String> REVIEWS = List.of("required", "optional");
 
@@ -197,33 +178,6 @@ public final class ProjectFileCheck {
         return List.copyOf(check.faults);
     }
 
-    /**
-     * Holds the readings directory inside the repository: a reading writes its findings there, so a
-     * path that leaves it would write where no review of the repository looks.
-     */
-    private void readings(final Readings readings) {
-        final String directory = readings.directory();
-        if (directory == null) {
-            return;
-        }
-        final String path = "readings.directory";
-        if (directory.isBlank()) {
-            fault(path, "'" + path + "' is empty; leave it out for the default 'readings'");
-        } else if (directory.startsWith("/")) {
-            fault(
-                    path,
-                    "'"
-                            + path
-                            + "' is relative to the repository's root, not '"
-                            + shown(directory)
-                            + "'");
-        } else if (java.util.Arrays.asList(directory.split("/", -1)).contains("..")) {
-            fault(path, "'" + path + "' leaves the repository: '" + shown(directory) + "'");
-        } else if (directory.chars().anyMatch(Character::isISOControl)) {
-            fault(path, "'" + path + "' holds a control character: '" + shown(directory) + "'");
-        }
-    }
-
     private void fault(final String path, final String message) {
         if (faults.size() > Binding.MOST) {
             return;
@@ -269,9 +223,6 @@ public final class ProjectFileCheck {
                     "base_branch",
                     "'base_branch' names no branch: '" + shown(file.baseBranch()) + "'");
         }
-        if (file.readings() != null) {
-            readings(file.readings());
-        }
         credentials(file.credentials(), label, securityClass);
         repositories(file, label, securityClass);
         if (file.mcp() != null) {
@@ -280,137 +231,6 @@ public final class ProjectFileCheck {
         providers(file.providers());
         toolRepositories(file, label, securityClass);
         extensions(file.extensions());
-        if (file.tracker() != null) {
-            tracker(file.tracker());
-        }
-        if (file.velocity() != null) {
-            velocity(file.velocity(), file.repositories().keySet());
-        }
-    }
-
-    /**
-     * Checks {@code velocity.seed}: each key one of the file's repositories, each size one of
-     * {@link #SIZES}, each value whole minutes within {@link #SEED_MOST}. What the minutes mean is
-     * the person's planner's to judge.
-     */
-    private void velocity(final Velocity velocity, final java.util.Set<String> repositories) {
-        final String seedPath = Binding.join(Sections.VELOCITY, "seed");
-        if (velocity.seed().isEmpty()) {
-            fault(
-                    Sections.VELOCITY,
-                    "'velocity' needs 'seed', the starting minutes of at least one repository");
-            return;
-        }
-        velocity.seed()
-                .forEach(
-                        (repository, sizes) -> {
-                            final String path = Binding.join(seedPath, repository);
-                            if (!repositories.contains(repository)) {
-                                fault(
-                                        path,
-                                        "'" + path + "' is not one of this file's repositories");
-                                return;
-                            }
-                            if (sizes.isEmpty()) {
-                                fault(path, "'" + path + "' needs the minutes of a size");
-                            }
-                            sizes.forEach(
-                                    (size, minutes) -> {
-                                        final String at = Binding.join(path, size);
-                                        if (!SIZES.contains(size)) {
-                                            fault(
-                                                    at,
-                                                    "'"
-                                                            + at
-                                                            + "' is no size: one of XS, S, M, L"
-                                                            + " and XL");
-                                        } else if (minutes < 1 || minutes > SEED_MOST) {
-                                            fault(
-                                                    at,
-                                                    "'"
-                                                            + at
-                                                            + "' is whole minutes from 1 to "
-                                                            + SEED_MOST);
-                                        }
-                                    });
-                        });
-    }
-
-    /**
-     * Checks {@code tracker}: a kind, and settings of one line each, by name. Which kinds there are
-     * and what the settings mean is the person's planner's to judge, so a new store needs nothing
-     * here. A value is never repeated in a fault: it may hold what its writer did not mean to show.
-     */
-    private void tracker(final Map<String, String> tracker) {
-        if (tracker.size() > PLANNER_ENTRIES) {
-            fault(Sections.TRACKER, "'tracker' holds more than " + PLANNER_ENTRIES + " settings");
-            return;
-        }
-        final String kind = tracker.get("kind");
-        if (kind == null) {
-            fault(Sections.TRACKER, "'tracker' needs 'kind', the store that holds the issues");
-        } else if (!kind.matches(TRACKER_KIND)) {
-            fault(
-                    "tracker.kind",
-                    "'tracker.kind' is one word of lower-case letters, digits and hyphens, a"
-                            + " letter first");
-        }
-        tracker.forEach(
-                (key, value) -> {
-                    final String path = Binding.join(Sections.TRACKER, key);
-                    if ("kind".equals(key)) {
-                        return;
-                    }
-                    if (!key.matches(TRACKER_KEY)) {
-                        fault(
-                                path,
-                                "'"
-                                        + path
-                                        + "' is no setting's name: lower-case letters, digits and"
-                                        + " '_', a letter first, at most 63 characters");
-                    } else if (!org.fuin.porelo.core.project.ModelDefault.isLine(value)) {
-                        fault(path, "'" + path + "' is one line of text, not empty");
-                    } else if (value.length() > TRACKER_VALUE_MOST) {
-                        fault(
-                                path,
-                                "'"
-                                        + path
-                                        + "' is longer than "
-                                        + TRACKER_VALUE_MOST
-                                        + " characters");
-                    } else if (holdsUserinfo(value)) {
-                        fault(
-                                path,
-                                "'"
-                                        + path
-                                        + "' names an address with a user or password in it; a"
-                                        + " credential belongs in the vault, never in this file");
-                    }
-                });
-    }
-
-    /**
-     * Whether text names an address whose authority carries a user or password: after a scheme up
-     * to its path, query or fragment, also percent-encoded, or as an scp-like address.
-     */
-    private static boolean holdsUserinfo(final String value) {
-        if (!org.fuin.porelo.core.project.AddressForm.withoutUserinfo(value).equals(value)) {
-            return true;
-        }
-        final int scheme = value.indexOf("://");
-        if (scheme < 0) {
-            return false;
-        }
-        final String rest = value.substring(scheme + 3);
-        int end = rest.length();
-        for (final char stop : new char[] {'/', '?', '#'}) {
-            final int at = rest.indexOf(stop);
-            if (at >= 0 && at < end) {
-                end = at;
-            }
-        }
-        final String authority = rest.substring(0, end).toLowerCase(Locale.ROOT);
-        return authority.contains("@") || authority.contains("%40");
     }
 
     /**

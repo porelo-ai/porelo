@@ -162,9 +162,7 @@ public final class ProjectReader {
      * Returns the places where a project file holds what is not Porelo's to know: the project's own
      * names ({@code credentials}, {@code repositories}), each transport's settings ({@code
      * mail.transports.<scheme>}), the agents an MCP endpoint may start ({@code mcp.agents}), by the
-     * names this machine's agents go by, each ecosystem adapter's block ({@code extensions}), and
-     * where the person's planner keeps the issues ({@code tracker}) and the repositories it seeds
-     * the velocity of ({@code velocity.seed}).
+     * names this machine's agents go by, and each ecosystem adapter's block ({@code extensions}).
      *
      * @return Their paths.
      */
@@ -174,9 +172,7 @@ public final class ProjectReader {
                 "repositories",
                 "mail.transports.<scheme>",
                 "mcp.agents",
-                "extensions",
-                "tracker",
-                "velocity.seed");
+                "extensions");
     }
 
     /**
@@ -288,7 +284,6 @@ public final class ProjectReader {
                 info.shortName(),
                 toolRepositories(file),
                 extensions(file),
-                readingsDirectory(file),
                 info.secrets() == null
                         ? Project.SECRETS_WARN
                         : Objects.requireNonNull(info.secrets()));
@@ -322,19 +317,6 @@ public final class ProjectReader {
                             read.put(adapter, java.util.Collections.unmodifiableMap(values));
                         });
         return read;
-    }
-
-    /**
-     * Returns where a reading writes its findings: the project file's directory, else the default.
-     * A repository's own file may not name one.
-     *
-     * @param file The file, checked.
-     */
-    private static String readingsDirectory(final ProjectFile file) {
-        final org.fuin.porelo.core.project.file.Readings readings = file.readings();
-        return readings == null || readings.directory() == null
-                ? Project.READINGS_DEFAULT
-                : Objects.requireNonNull(readings.directory(), "checked: readings.directory");
     }
 
     /**

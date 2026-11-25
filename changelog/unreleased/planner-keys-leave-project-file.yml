@@ -1,0 +1,2 @@
+title: "The project file's `readings`, `tracker` and `velocity` keys are gone, and a file naming one is refused like any other unknown key, with the key's name; a task is no longer told `PORELO_READINGS_DIRECTORY`"
+type: removed

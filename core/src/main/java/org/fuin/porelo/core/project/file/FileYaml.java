@@ -150,25 +150,6 @@ final class FileYaml {
         final Map<String, Object> extensions = new LinkedHashMap<>();
         file.extensions().forEach((adapter, block) -> extensions.put(adapter, plain(block)));
         put(top, "extensions", extensions);
-        if (file.readings() != null) {
-            final Map<String, Object> readings = new LinkedHashMap<>();
-            put(readings, "directory", file.readings().directory());
-            top.put("readings", readings);
-        }
-        if (file.tracker() != null) {
-            top.put(Sections.TRACKER, new LinkedHashMap<>(file.tracker()));
-        }
-        if (file.velocity() != null) {
-            final Map<String, Object> seed = new LinkedHashMap<>();
-            file.velocity()
-                    .seed()
-                    .forEach(
-                            (repository, sizes) ->
-                                    seed.put(repository, new LinkedHashMap<>(sizes)));
-            final Map<String, Object> velocity = new LinkedHashMap<>();
-            velocity.put("seed", seed);
-            top.put(Sections.VELOCITY, velocity);
-        }
         return top;
     }
 

@@ -442,10 +442,7 @@ public final class EgressControl {
                 file.mcp(),
                 file.providers(),
                 file.toolRepositories(),
-                file.extensions(),
-                file.readings(),
-                file.tracker(),
-                file.velocity());
+                file.extensions());
     }
 
     /** The egress section alone, which is what a person writes. */

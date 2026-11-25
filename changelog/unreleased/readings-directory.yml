@@ -1,2 +1,0 @@
-title: "`project.yml` names where a reading of an issue writes its findings, `readings.directory` (default `readings`, inside the repository), and a task is told it in `PORELO_READINGS_DIRECTORY`; a repository's `porelo.yml` may not name it"
-type: added
