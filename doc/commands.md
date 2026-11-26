@@ -1479,7 +1479,7 @@ porelo prune [--yes] [--including-work]
 
 Lists what nothing owns any more, and removes it only with `--yes`: projects no start placed whose project
 file is gone, leftovers of tasks whose container is gone (after 15 minutes unchanged), and images or
-records named after projects that no longer exist. Running tasks and placed projects are never
+records named after projects that no longer exist, and a reviewer's served repository left without its task. Running tasks and placed projects are never
 touched.
 
 **Unreviewed work is kept**: an unreviewed push, a stopped task's workspace, a held or unsent

@@ -201,6 +201,7 @@ public final class Prune {
             final Item item = task(container, apply, includingWork);
             (item.holds().isEmpty() ? removes : keeps).add(item);
         }
+        pinnedRepositories(containers, apply, removes, keeps);
         lookupSockets(apply, removes, keeps);
         // What a project's removal already named is not named again on its own.
         final Set<String> named = new java.util.HashSet<>();
@@ -335,6 +336,66 @@ public final class Prune {
         }
         gone.removeIf(name -> !settled(name));
         return gone;
+    }
+
+    /**
+     * Lists, and removes when asked, every reviewer's served repository whose task left no other
+     * trace: a task found by its record, mailbox or state takes its repository with it, so only a
+     * repository alone is offered here. A link is never followed, and one made within {@link
+     * #SETTLED} may be a pin being served now.
+     */
+    private void pinnedRepositories(
+            final Set<String> containers,
+            final boolean apply,
+            final List<Item> removes,
+            final List<Item> keeps) {
+        final Path pinned = directoryOf(context.paths().tasks().pinnedRepository("x"));
+        final java.time.Instant before = java.time.Instant.now().minus(SETTLED);
+        for (final String entry : names(pinned)) {
+            final String container =
+                    entry.substring(0, Math.max(0, entry.length() - ".git".length()));
+            final Path served = pinned.resolve(entry);
+            if (!entry.endsWith(".git")
+                    || container.isEmpty()
+                    || !Files.isDirectory(served, java.nio.file.LinkOption.NOFOLLOW_LINKS)
+                    || containers.contains(container)
+                    || hasTrace(container)
+                    || modified(served).isAfter(before)) {
+                continue;
+            }
+            final Item item =
+                    new Item(
+                            "TASK",
+                            container,
+                            List.of("served repository of a removed reviewer task"),
+                            "");
+            if (apply) {
+                try {
+                    org.fuin.porelo.gate.PinnedRepository.remove(served);
+                } catch (IOException | RuntimeException ex) {
+                    keeps.add(
+                            new Item(
+                                    "TASK",
+                                    container,
+                                    item.what(),
+                                    "not removed: " + ex.getMessage()));
+                    continue;
+                }
+            }
+            removes.add(item);
+        }
+    }
+
+    /** Returns whether anything else is kept for a task, which then removes its repository. */
+    private boolean hasTrace(final String container) {
+        return List.of(
+                        context.paths().tasks().taskRecord(container),
+                        context.paths().messaging().mailbox(container),
+                        context.paths().tasks().sessionRecord(container),
+                        context.paths().tasks().result(container),
+                        context.paths().tasks().containerState(container))
+                .stream()
+                .anyMatch(path -> Files.exists(path, java.nio.file.LinkOption.NOFOLLOW_LINKS));
     }
 
     /**

@@ -345,6 +345,100 @@ class PruneTest {
         assertThat(left.root()).as("the leftover went").doesNotExist();
     }
 
+    private static Path served(final PoreloContext context, final String container)
+            throws IOException {
+        final Path repository =
+                Files.createDirectories(context.paths().tasks().pinnedRepository(container));
+        Files.writeString(repository.resolve("HEAD"), "ref: refs/heads/main\n");
+        return repository;
+    }
+
+    @Test
+    void aReviewersServedRepositoryLeftWithoutItsTaskIsListedAndRemovedOnlyWithYes()
+            throws IOException {
+        final PoreloContext context = context();
+        final Path repository = served(context, "porelo-web-reviewer");
+        age(context.paths().xdg().state());
+
+        final Prune.Result preview = new Prune(context).run(false, false);
+
+        assertThat(preview.removes())
+                .as("the preview lists it: %s", preview)
+                .singleElement()
+                .satisfies(
+                        item -> {
+                            assertThat(item.name()).as("its task").isEqualTo("porelo-web-reviewer");
+                            assertThat(item.what())
+                                    .as("what goes")
+                                    .containsExactly(
+                                            "served repository of a removed reviewer task");
+                        });
+        assertThat(repository).as("the preview removes nothing").exists();
+
+        final Prune.Result done = new Prune(context).run(true, false);
+
+        assertThat(done.removes()).as("the run lists it too").hasSize(1);
+        assertThat(repository).as("the repository went").doesNotExist();
+    }
+
+    @Test
+    void aServedRepositoryWhoseTaskStillHasATraceIsNotListedOnItsOwn() throws IOException {
+        final PoreloContext context = context();
+        final Path repository = served(context, "porelo-web-reviewer");
+        Files.createDirectories(context.paths().tasks().taskRecord("porelo-web-reviewer"));
+        age(context.paths().xdg().state());
+
+        final Prune.Result result = new Prune(context).run(false, false);
+
+        assertThat(result.removes())
+                .as("the task is listed once, with its repository inside: %s", result)
+                .extracting(Prune.Item::what)
+                .noneMatch(what -> what.contains("served repository of a removed reviewer task"));
+        assertThat(repository).as("nothing is removed on a preview").exists();
+    }
+
+    @Test
+    void aServedRepositoryOfATaskWhoseContainerExistsIsUntouched() throws IOException {
+        final PoreloContext context = context();
+        final Path repository = served(context, "porelo-web-reviewer");
+        runner.answering("ps --all", "porelo-web-reviewer\n");
+        age(context.paths().xdg().state());
+
+        final Prune.Result result = new Prune(context).run(true, false);
+
+        assertThat(result.found()).as(result.toString()).isFalse();
+        assertThat(repository).as("a live task's repository stays").exists();
+    }
+
+    @Test
+    void aServedRepositoryJustMadeIsNotLeftOverThoughItsTaskIsNotThereYet() throws IOException {
+        final PoreloContext context = context();
+        final Path repository = served(context, "porelo-web-reviewer");
+
+        assertThat(new Prune(context).run(true, false).found()).as("found").isFalse();
+        assertThat(repository).as("a pin being served now stays").exists();
+    }
+
+    @Test
+    void aLinkInThePinnedDirectoryIsNeverFollowedNorDeletedThrough() throws IOException {
+        final PoreloContext context = context();
+        final Path outside = Files.createDirectories(dir.resolve("outside"));
+        Files.writeString(outside.resolve("keep"), "mine");
+        final Path pinned =
+                Files.createDirectories(
+                        context.paths().tasks().pinnedRepository("porelo-x").getParent());
+        Files.createSymbolicLink(pinned.resolve("porelo-web-linked.git"), outside);
+        age(context.paths().xdg().state());
+
+        final Prune.Result result = new Prune(context).run(true, false);
+
+        assertThat(result.found()).as("a link is no repository: %s", result).isFalse();
+        assertThat(outside.resolve("keep")).as("what the link points at").exists();
+        assertThat(Files.isSymbolicLink(pinned.resolve("porelo-web-linked.git")))
+                .as("the link itself stays")
+                .isTrue();
+    }
+
     @Test
     void aTaskStartingNowIsNotLeftOverThoughItsContainerIsNotThereYet() throws IOException {
         // Its mailbox and state are made before its container: a prune at that moment must not take
