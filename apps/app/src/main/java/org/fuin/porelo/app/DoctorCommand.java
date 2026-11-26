@@ -1176,6 +1176,56 @@ public class DoctorCommand implements Callable<Integer>, PoreloFactory.ContextAw
     }
 
     private java.util.List<Probe> machine() {
+        final java.util.List<Probe> all = new java.util.ArrayList<>(basics());
+        final Probe waiting = messagesWaiting(context);
+        if (waiting != null) {
+            all.add(all.indexOf(vaultProbe(all)) + 1, waiting);
+        }
+        return java.util.List.copyOf(all);
+    }
+
+    private static Probe vaultProbe(final java.util.List<Probe> all) {
+        return all.stream().filter(probe -> "vault".equals(probe.name())).findFirst().orElseThrow();
+    }
+
+    /**
+     * Says that finished messages wait in the mailboxes for the Vault-Passphrase.
+     *
+     * <p>Only while the vault is shut and a message waits; nothing is opened or asked.
+     *
+     * @param context The machine.
+     * @return The probe, an unknown one when the mailboxes cannot be counted, or {@code null} when
+     *     nothing waits for the vault.
+     */
+    static @org.jspecify.annotations.Nullable Probe messagesWaiting(final PoreloContext context) {
+        if (Conversations.vaultWait(context).isEmpty()) {
+            return null;
+        }
+        final java.nio.file.Path root = context.paths().messaging().mailboxes();
+        int count = 0;
+        if (java.nio.file.Files.isDirectory(root)) {
+            try (java.util.stream.Stream<java.nio.file.Path> boxes =
+                    java.nio.file.Files.list(root)) {
+                for (final java.nio.file.Path box :
+                        boxes.filter(java.nio.file.Files::isDirectory).toList()) {
+                    count += MessageIntake.waiting(new Mailbox(box));
+                }
+            } catch (final java.io.IOException | RuntimeException ex) {
+                return Probe.unknown(
+                        "messages waiting",
+                        "cannot be counted: " + ex.getClass().getSimpleName(),
+                        "see that the mailboxes under " + root + " can be read");
+            }
+        }
+        return count == 0
+                ? null
+                : Probe.degraded(
+                        "messages waiting",
+                        count + " message(s) wait for the Vault-Passphrase",
+                        "run 'porelo vault unlock', which sends them");
+    }
+
+    private java.util.List<Probe> basics() {
         return java.util.List.of(
                 podmanVersion(),
                 hookRegistration(),

@@ -1447,6 +1447,12 @@ The `vault` line says whether a vault exists yet. The `daemon` line says whether
 whether it is the same version as this command: after an update it restarts itself, and the line says
 when one did not (see [After an update](running.md#after-an-update)). The daemon answers the same
 checks, and a `ready` flag by the same rule, so a machine is never ready to one and not to the other.
+The `messages waiting` line appears only while the vault is locked and a message waits for it: a task's finished
+message not yet sent, or a signed one that arrived for a task and is not yet delivered. It says how many, as
+`DEGRADED` with `porelo vault unlock`, which sends them; when the mailboxes cannot be counted it says `UNKNOWN` and why.
+It never changes the exit code. A message a transport holds for the account's login, not yet fetched while the vault is
+locked, lies on the other side and is not counted.
+
 It runs external programs, so it takes a moment and is not something to poll.
 
 ## tighten

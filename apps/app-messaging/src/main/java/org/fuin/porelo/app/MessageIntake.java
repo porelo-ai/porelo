@@ -308,6 +308,32 @@ public final class MessageIntake {
     }
 
     /**
+     * Counts the finished messages a task's outbox and person directory hold that no pass has taken
+     * yet, and the signed ones that arrived for it, which stay in its inbound directory until the
+     * vault opens to read the sender's key.
+     *
+     * @param mailbox The task's mailbox.
+     * @return How many wait there.
+     * @throws IOException Reading a directory failed.
+     */
+    public static int waiting(final Mailbox mailbox) throws IOException {
+        return finished(mailbox.outboxNew()).size()
+                + finished(mailbox.person()).size()
+                + signedArrivals(mailbox.inbound());
+    }
+
+    private static int signedArrivals(final Path inbound) throws IOException {
+        int signed = 0;
+        for (final Path message : finished(inbound)) {
+            // A person's words carry no signature and are delivered without the vault.
+            if (Files.isRegularFile(inbound.resolve(message.getFileName() + ".sig"))) {
+                signed++;
+            }
+        }
+        return signed;
+    }
+
+    /**
      * Returns where a file is written before it is renamed into place: a dot file beside it, named
      * by a digest of its name. Built from the name itself, a task's longest name made one longer
      * than a file name may be, and the intake of every message after it failed. The same name gives
@@ -328,7 +354,7 @@ public final class MessageIntake {
         }
     }
 
-    private List<Path> finished(final Path outbox) throws IOException {
+    private static List<Path> finished(final Path outbox) throws IOException {
         if (!Files.isDirectory(outbox)) {
             return List.of();
         }

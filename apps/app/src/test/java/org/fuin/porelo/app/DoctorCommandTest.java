@@ -127,6 +127,97 @@ class DoctorCommandTest {
     }
 
     @Test
+    void saysHowManyMessagesWaitForTheVaultPassphraseOnlyWhileTheVaultIsShutAndSomethingWaits(
+            @TempDir Path dir) throws java.io.IOException {
+        final PoreloContext context =
+                context(
+                        dir,
+                        dir.resolve("bin"),
+                        dir.resolve("libexec-hooks"),
+                        dir.resolve("agents"));
+        final java.util.function.Supplier<java.util.List<Probe>> waiting =
+                () ->
+                        DoctorCommand.probesFor(context).stream()
+                                .filter(probe -> "messages waiting".equals(probe.name()))
+                                .toList();
+        final Path outbox =
+                context.paths().messaging().mailbox("porelo-demo-1").resolve("box/outbox/new");
+        Files.createDirectories(outbox);
+        Files.writeString(outbox.resolve("m1.json"), "{}");
+        Files.writeString(outbox.resolve("m2.json"), "{}");
+
+        assertThat(waiting.get()).as("no vault, so nothing waits for it").isEmpty();
+
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), "fixture passphrase".toCharArray());
+        assertThat(waiting.get())
+                .as("shut vault and two messages waiting")
+                .singleElement()
+                .satisfies(
+                        probe -> {
+                            assertThat(probe.detail())
+                                    .contains("2 message")
+                                    .contains("Vault-Passphrase");
+                            assertThat(probe.action()).contains("porelo vault unlock");
+                        });
+
+        Files.delete(outbox.resolve("m1.json"));
+        Files.delete(outbox.resolve("m2.json"));
+        assertThat(waiting.get()).as("shut vault and nothing waiting").isEmpty();
+
+        Files.writeString(outbox.resolve("m3.json"), "{}");
+        final PoreloContext open = context.asking(prompt -> "fixture passphrase".toCharArray());
+        assertThat(open.openerAsking(false, new PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its vault")
+                .isPresent();
+        assertThat(DoctorCommand.probesFor(open))
+                .as("an open vault holds nothing back")
+                .noneMatch(probe -> "messages waiting".equals(probe.name()));
+    }
+
+    @Test
+    void countsASignedMessageThatArrivedAndSaysUnknownWhenTheMailboxesCannotBeCounted(
+            @TempDir Path dir) throws java.io.IOException {
+        final PoreloContext context =
+                context(
+                        dir,
+                        dir.resolve("bin"),
+                        dir.resolve("libexec-hooks"),
+                        dir.resolve("agents"));
+        Files.createDirectories(context.vault().path().getParent());
+        context.vault().write(java.util.Map.of(), "fixture passphrase".toCharArray());
+        final Path root = context.paths().messaging().mailbox("porelo-demo-1");
+        final Path inbound = new Mailbox(root).inbound();
+        Files.createDirectories(inbound);
+        Files.writeString(inbound.resolve("a.json"), "{}");
+        Files.writeString(inbound.resolve("a.json.sig"), "sig");
+        Files.writeString(inbound.resolve("b.json"), "{}");
+        Files.writeString(inbound.resolve("b.json.person"), "somebody");
+
+        assertThat(DoctorCommand.messagesWaiting(context))
+                .as("one signed arrival waits, a person's words do not")
+                .satisfies(probe -> assertThat(probe.detail()).contains("1 message"));
+
+        final Path outbox = root.resolve("box/outbox/new");
+        Files.createDirectories(outbox);
+        final java.util.Set<java.nio.file.attribute.PosixFilePermission> none = java.util.Set.of();
+        Files.setPosixFilePermissions(outbox, none);
+        try {
+            assertThat(DoctorCommand.messagesWaiting(context))
+                    .as("an unreadable mailbox is said, not left out")
+                    .satisfies(
+                            probe -> {
+                                assertThat(probe.state()).isEqualTo(Probe.State.UNKNOWN);
+                                assertThat(probe.detail())
+                                        .contains("cannot be counted: AccessDeniedException");
+                            });
+        } finally {
+            Files.setPosixFilePermissions(
+                    outbox, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+    }
+
+    @Test
     void refusesAProbeThatFailsWithNothingToDoAboutIt() {
 
         // Enforced in the type, because the line somebody forgets is the line an operator is

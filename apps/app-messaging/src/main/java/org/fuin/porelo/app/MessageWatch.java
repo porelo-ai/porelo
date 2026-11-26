@@ -204,6 +204,13 @@ public final class MessageWatch implements AutoCloseable {
     /** Whether the vault was open at the last look; shut until the first. */
     private volatile boolean wasOpen;
 
+    /** What the log says, once while the vault is shut, about the messages that wait for it. */
+    static final String VAULT_WAIT =
+            "messages wait for the Vault-Passphrase; 'porelo vault unlock' sends them";
+
+    /** Whether the log said, since the vault last shut, that messages wait for it. */
+    private volatile boolean saidShut;
+
     /**
      * Tells whether the vault opened since the last look - the first look after the daemon started
      * counts when it is open then. A message written while it was shut waited for the first timed
@@ -512,7 +519,33 @@ public final class MessageWatch implements AutoCloseable {
                 continue;
             }
         }
+        sayWhileShut(mailboxes);
         return moved;
+    }
+
+    /**
+     * Says that messages wait for the Vault-Passphrase, once for each time the vault went shut with
+     * a message left in a mailbox; the next saying needs the vault to open first.
+     */
+    private void sayWhileShut(final List<Path> mailboxes) {
+        if (vaultOpen.getAsBoolean()) {
+            saidShut = false;
+            return;
+        }
+        if (saidShut) {
+            return;
+        }
+        for (final Path mailbox : mailboxes) {
+            try {
+                if (MessageIntake.waiting(new Mailbox(mailbox)) > 0) {
+                    saidShut = true;
+                    System.err.println("porelod: " + VAULT_WAIT);
+                    return;
+                }
+            } catch (final IOException | RuntimeException ex) {
+                continue;
+            }
+        }
     }
 
     /**
