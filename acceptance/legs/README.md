@@ -11,7 +11,11 @@
   and run the install against a tree laid out as a build leaves it, so a regrouping that breaks one fails this
   build, not a leg.
 - **`deploy`** installs a handover - the packages, the stub agent, the build readers - on a machine somebody keeps,
-  machine-wide or into one account (`--account`).
+  machine-wide or into one account (`--account`). An account's install lives in its `$XDG_BIN_HOME`, and the deploy
+  writes one marked line at the very top of the account's bash startup file that puts that directory first on `PATH`,
+  so a command run over ssh without a login shell (`ssh <account>@<host> porelo --version`, the IntelliJ plugin's relay) finds it too.
+  The line is above Ubuntu's early return for a shell that is not interactive, a second deploy leaves one line, and
+  removing the line marked `# porelo test install (acceptance legs deploy --account)` undoes it.
 
 Renting, ssh and the sweep are `porelo-machines`, shared by every repository; these two know this tree's layout,
 so they live beside it, and a change to the layout needs no release of the tools.

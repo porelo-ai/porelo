@@ -332,6 +332,85 @@ class DeployTest {
     }
 
     @Test
+    void accountInstallPutsTheBinDirectoryFirstOnThePathOfANonInteractiveShell() {
+        assertThat(Deploy.accountInstall("/tmp/porelo_1_amd64.deb"))
+                .as("the install script runs the .bashrc step")
+                .contains(Deploy.bashrcInstall());
+    }
+
+    @Test
+    void writesTheBashrcLineAtTheTopAheadOfAnInteractiveGuard() throws Exception {
+        final Path home = Files.createDirectory(repository.resolve("home-guard"));
+        Files.writeString(
+                home.resolve(".bashrc"),
+                "case $- in\n    *i*) ;;\n      *) return;;\nesac\nalias ll='ls -l'\n");
+
+        runInBash(home, Deploy.bashrcInstall());
+
+        final List<String> lines = Files.readAllLines(home.resolve(".bashrc"));
+        assertThat(lines.getFirst())
+                .as("the first line of .bashrc")
+                .contains("$HOME/.local/bin:$PATH")
+                .contains(Deploy.BASHRC_MARKER);
+        assertThat(lines.get(1)).as("the guard follows the line").isEqualTo("case $- in");
+        assertThat(runInBash(home, ". \"$HOME/.bashrc\"; echo \"$PATH\""))
+                .as("a non-interactive shell that reads .bashrc sees the bin directory first")
+                .startsWith(home + "/.local/bin:");
+    }
+
+    @Test
+    void writingTheBashrcLineTwiceLeavesOneLine() throws Exception {
+        final Path home = Files.createDirectory(repository.resolve("home-twice"));
+        Files.writeString(home.resolve(".bashrc"), "alias ll='ls -l'\n");
+
+        runInBash(home, Deploy.bashrcInstall());
+        runInBash(home, Deploy.bashrcInstall());
+
+        assertThat(Files.readAllLines(home.resolve(".bashrc")))
+                .as("one marked line, then the rest")
+                .hasSize(2)
+                .element(1)
+                .isEqualTo("alias ll='ls -l'");
+    }
+
+    @Test
+    void undoingRemovesOnlyTheMarkedLine() throws Exception {
+        final Path home = Files.createDirectory(repository.resolve("home-undo"));
+        Files.writeString(home.resolve(".bashrc"), "# mine\nalias ll='ls -l'\n");
+        runInBash(home, Deploy.bashrcInstall());
+
+        runInBash(home, Deploy.bashrcUndo());
+
+        assertThat(Files.readString(home.resolve(".bashrc")))
+                .as(".bashrc is as it was before the install")
+                .isEqualTo("# mine\nalias ll='ls -l'\n");
+    }
+
+    @Test
+    void createsAMissingBashrcWithJustTheLine() throws Exception {
+        final Path home = Files.createDirectory(repository.resolve("home-missing"));
+
+        runInBash(home, Deploy.bashrcInstall());
+
+        assertThat(Files.readAllLines(home.resolve(".bashrc")))
+                .as("the new .bashrc holds the marked line only")
+                .singleElement()
+                .asString()
+                .contains(Deploy.BASHRC_MARKER);
+    }
+
+    private static String runInBash(Path home, String script) throws Exception {
+        final ProcessBuilder builder = new ProcessBuilder("bash", "-c", "set -e; " + script);
+        builder.environment().put("HOME", home.toString());
+        builder.redirectErrorStream(true);
+        final Process process = builder.start();
+        final String output =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(process.waitFor()).as(output).isZero();
+        return output.strip();
+    }
+
+    @Test
     void readsTheExecutablesTheHookDescriptorsName() {
         assertThat(
                         Deploy.hookPaths(

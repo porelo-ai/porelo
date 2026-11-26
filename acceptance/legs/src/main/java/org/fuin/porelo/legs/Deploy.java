@@ -55,6 +55,9 @@ final class Deploy {
     /** Where an account install puts the binaries and the hooks - found before the package's. */
     static final String ACCOUNT_BIN = ".local/bin";
 
+    /** Marks the one line of the account's {@code ~/.bashrc} that this install owns. */
+    static final String BASHRC_MARKER = "# porelo test install (acceptance legs deploy --account)";
+
     /** Where the build leaves the deb, relative to the checkout. */
     static final String PACKAGES = "dist/dist-deb/target";
 
@@ -540,6 +543,39 @@ final class Deploy {
     }
 
     /**
+     * Builds the script that puts the account's bin directory first on the PATH of a shell that ssh
+     * starts for a command.
+     *
+     * @return A shell script, safe to run again.
+     */
+    static String bashrcInstall() {
+        // At the very top, because Ubuntu's default .bashrc returns early for a shell that is not
+        // interactive, which is the only kind ssh starts for a command.
+        return "f=\"$HOME/.bashrc\"; t=$(mktemp); "
+                + "{ printf '%s\\n' '"
+                + bashrcLine()
+                + "'; if [ -f \"$f\" ]; then grep -vF '"
+                + BASHRC_MARKER
+                + "' \"$f\" || true; fi; } > \"$t\"; "
+                + "cat \"$t\" > \"$f\"; rm -f \"$t\"";
+    }
+
+    private static String bashrcLine() {
+        return "export PATH=\"$HOME/" + ACCOUNT_BIN + ":$PATH\" " + BASHRC_MARKER;
+    }
+
+    /**
+     * Builds the script that removes the line {@link #bashrcInstall()} wrote.
+     *
+     * @return A shell script.
+     */
+    static String bashrcUndo() {
+        return "f=\"$HOME/.bashrc\"; if [ -f \"$f\" ]; then t=$(mktemp); grep -vF '"
+                + BASHRC_MARKER
+                + "' \"$f\" > \"$t\" || true; cat \"$t\" > \"$f\"; rm -f \"$t\"; fi";
+    }
+
+    /**
      * Builds the script that puts a package's files into the account running it.
      *
      * @param remoteDeb The package, already on the machine.
@@ -577,6 +613,8 @@ final class Deploy {
                 + "; "
                 + bin
                 + "/porelo setup; "
+                + bashrcInstall()
+                + "; "
                 + "rm -rf \"$d\" "
                 + AgentLeg.quote(remoteDeb);
     }
@@ -725,8 +763,10 @@ final class Deploy {
         out.println("  the package says: " + remote.run(PACKAGED + " --version").all().strip());
         out.println(
                 "Remove the shadowing copy, or everything after this measures the wrong binary. An account's"
-                        + " own install (--account) is undone by removing the binaries and hooks it put in ~/.local/bin and"
-                        + " ~/.config/systemd/user/porelod.service.");
+                        + " own install (--account) is undone by removing the binaries and hooks it put in ~/.local/bin,"
+                        + " ~/.config/systemd/user/porelod.service and the line marked '"
+                        + BASHRC_MARKER
+                        + "' in ~/.bashrc.");
         return false;
     }
 
