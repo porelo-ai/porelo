@@ -231,6 +231,34 @@ class TaskReviewRoleTest {
     }
 
     @Test
+    void anAuthorOffAHostWithoutBuildsPostsUnderItsOwnAuthorEntryForTheForge()
+            throws PlaceUnreadable {
+        vault.put("git.author." + FORGE, TOKEN_PREFIX + "author");
+        assertThat(role().postingEntry(TASK, PULL_REQUEST))
+                .as("author's entry off a host, the project naming no builds")
+                .isEqualTo("git.author." + FORGE)
+                .isNotEqualTo(PERSON_ENTRY);
+        assertThat(role().postingAccount(TASK, PULL_REQUEST))
+                .as("author's account off a host")
+                .isEqualTo(account("git.author." + FORGE));
+    }
+
+    @Test
+    void anAuthorOffAHostWithoutItsAuthorEntryIsRefusedNamingTheEntryToStore() {
+        final PlaceUnreadable refused =
+                catchThrowableOfType(
+                        PlaceUnreadable.class, () -> role().postingEntry(TASK, PULL_REQUEST));
+        assertThat(refused).as("author off a host with no entry of its own").isNotNull();
+        assertThat(refused.reason())
+                .as("reason")
+                .isEqualTo(PlaceUnreadable.Reason.MISSING_FORGE_TOKEN);
+        assertThat(refused.getMessage())
+                .as("the entry to add, and how")
+                .contains("git.author." + FORGE, "porelo vault put git.author." + FORGE)
+                .doesNotContain(TOKEN_PREFIX);
+    }
+
+    @Test
     void anAuthorAtItsGatePushPostsAsTheTaskWithNoForgeEntry() {
         vault.clear();
         assertThat(role().postingAccount(TASK, GATE_PUSH))

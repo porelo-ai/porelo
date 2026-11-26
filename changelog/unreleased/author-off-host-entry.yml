@@ -1,0 +1,2 @@
+title: "An author task off a host acts at its pull request in any project, writing under the vault entry `git.author.<forge host>` when its project names no builds credential; without that entry its start at a pull request and `porelo review open --role author` are refused as `MissingForgeToken`, naming the entry and how to store it"
+type: added

@@ -402,7 +402,12 @@ named by its https address is refused for a task without a gate, at a host whose
 (`UnknownForge`), and as `PlaceUnreadable` when the machine's forge file cannot be read (`ForgeFileUnreadable`),
 its forge adapter is not installed (`ForgeAdapterMissing`), or the vault does not hold its forge's token or is
 shut (`MissingForgeToken`); the vault is asked only whether it holds the token. A run at a pull request is an
-author's unless it names its role. The task's own pull request (`ownPullRequest`, `--place own`) is an author's
+author's unless it names its role. An author writes its items at a pull request as the account that opened it:
+under the project's `builds` credential, on a host under the task's own account, and otherwise under the vault entry
+`git.author.<forge host>`, such as `git.author.github.com`, which holds that account's token and is never the forge's
+own `git.token.<host>`; without it the author's start there, its own pull request included, and `porelo review open
+--role author` are refused as `PlaceUnreadable` (`MissingForgeToken`), naming the entry to store with `porelo vault
+put`. The task's own pull request (`ownPullRequest`, `--place own`) is an author's
 run at the pull request open from the task's branch, the one its builds are read from, at the upstream of its
 repository: the forge's adapter is asked at each start, with the forge's token lent for that call alone, and the
 answer is never kept. A task whose repository names no upstream, or from whose branch none is open, is refused

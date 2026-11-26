@@ -38,6 +38,9 @@ class RunPlacesTest {
 
     private static final String ENTRY = "git.token.forge.example.org";
 
+    /** The entry an author off a host writes under at that forge. */
+    private static final String AUTHOR_ENTRY = "git.author.forge.example.org";
+
     private static final Map<String, Object> OWN = Map.of("ownPullRequest", true);
 
     private final StandInAdapter adapter = new StandInAdapter();
@@ -247,6 +250,57 @@ class RunPlacesTest {
                 .isEqualTo(Map.of("pullRequest", PULL_REQUEST));
         assertThat(started).as("what reached the run's start").containsExactly(taken);
         assertThat(forges.asked).as("the vault was asked for the entry only").contains(ENTRY);
+    }
+
+    @Test
+    void anAuthorOffAHostWithoutItsAuthorEntryIsRefusedAtThePullRequestNamingTheEntry() {
+        forges.lacking.add(AUTHOR_ENTRY);
+
+        for (final Map<String, Object> place :
+                List.<Map<String, Object>>of(
+                        Map.of("place", Map.of("pullRequest", PULL_REQUEST)),
+                        Map.of("role", "AUTHOR", "place", Map.of("pullRequest", PULL_REQUEST)))) {
+            final VarlinkException refused =
+                    catchThrowableOfType(() -> takenAt(place), VarlinkException.class);
+            assertThat(refused).as("refused: %s", place).isNotNull();
+            assertThat(refused.getErrorName())
+                    .as("an author with no entry of its own: %s", place)
+                    .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+            assertThat(refused.getParameters())
+                    .as("the reason")
+                    .containsEntry("reason", "MissingForgeToken");
+            assertThat(String.valueOf(refused.getParameters().get("detail")))
+                    .as("the entry to store, and how")
+                    .contains(AUTHOR_ENTRY, "porelo vault put " + AUTHOR_ENTRY);
+        }
+        assertThat(ownRefused(Map.of("place", OWN)).getParameters())
+                .as("an author at its own pull request, with no entry of its own")
+                .containsEntry("reason", "MissingForgeToken");
+        assertThat(started).as("nothing is started").isEmpty();
+    }
+
+    @Test
+    void aReviewerNeedsNoAuthorEntry() {
+        forges.lacking.add(AUTHOR_ENTRY);
+
+        final RunPlace taken =
+                takenAt(Map.of("role", "REVIEWER", "place", Map.of("pullRequest", PULL_REQUEST)));
+
+        assertThat(taken)
+                .as("a reviewer writes under the forge's entry")
+                .isEqualTo(RunPlace.atPullRequest(RunPlace.REVIEWER, "fix", PULL_REQUEST));
+        assertThat(forges.asked)
+                .as("the author's entry is not asked for")
+                .doesNotContain(AUTHOR_ENTRY);
+    }
+
+    @Test
+    void anAuthorOffAHostIsTakenWithItsAuthorEntry() {
+        takenAt(Map.of("place", Map.of("pullRequest", PULL_REQUEST)));
+
+        assertThat(forges.asked)
+                .as("the forge's entry and the author's own, never one for the other")
+                .contains(ENTRY, AUTHOR_ENTRY);
     }
 
     @Test
@@ -578,6 +632,9 @@ class RunPlacesTest {
 
         Optional<Boolean> holds = Optional.of(true);
 
+        /** Entries the vault does not hold while it otherwise answers {@link #holds}. */
+        final java.util.Set<String> lacking = new java.util.HashSet<>();
+
         final List<String> asked = new java.util.ArrayList<>();
 
         @Override
@@ -596,7 +653,7 @@ class RunPlacesTest {
         @Override
         public Optional<Boolean> holds(final String entry) {
             asked.add(entry);
-            return holds;
+            return lacking.contains(entry) ? Optional.of(false) : holds;
         }
     }
 

@@ -46,6 +46,9 @@ public final class TaskReviewRole implements ReviewRole {
     private static final String NO_GATE_REVIEWER =
             "a reviewer at a gate push posts as no account yet";
 
+    /** Where an author's own entry for a forge is, in the vault's name space. */
+    public static final String AUTHOR_PREFIX = "git.author.";
+
     private final Function<String, Path> states;
 
     private final Entries entries;
@@ -202,6 +205,17 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
+     * Returns the vault entry an author off a host writes under at a pull request of a forge: the
+     * token of the account that opened it, apart from the forge's own credential.
+     *
+     * @param ref The pull request.
+     * @return {@code git.author.<forge host>}.
+     */
+    public static String authorEntry(final PullRequestRef ref) {
+        return AUTHOR_PREFIX + ref.forge();
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Only a task whose state holds no recorded role is an author; one whose record exists but
@@ -331,19 +345,31 @@ public final class TaskReviewRole implements ReviewRole {
         final PullRequestRef ref = pullRequest(place);
         final String entry =
                 switch (role) {
-                    case AUTHOR -> authorEntry(task);
+                    case AUTHOR -> authorEntry(task, ref);
                     case REVIEWER -> reviewerEntry(ref);
                 };
         if (!entries.held(entry)) {
             throw new PlaceUnreadable(
                     PlaceUnreadable.Reason.MISSING_FORGE_TOKEN,
-                    "the vault holds no '" + entry + "' to write this task's items with");
+                    "the vault holds no '"
+                            + entry
+                            + "' to write this task's items with"
+                            + (entry.startsWith(AUTHOR_PREFIX)
+                                    ? "; store the token of the account that opened the pull"
+                                            + " request with 'porelo vault put "
+                                            + entry
+                                            + "'"
+                                    : ""));
         }
         return new Posting(ref, entry);
     }
 
-    /** The account that opened the task's pull request: the project's own builds, else a host's. */
-    private String authorEntry(final String task) throws PlaceUnreadable {
+    /**
+     * The account that opened the task's pull request: the project's own builds, else a host's,
+     * else off a host the entry {@code git.author.<forge host>} a person keeps for it.
+     */
+    private String authorEntry(final String task, final @Nullable PullRequestRef ref)
+            throws PlaceUnreadable {
         final Optional<String> own = entries.projectBuilds(task);
         final String entry;
         if (own.isPresent()) {
@@ -352,6 +378,10 @@ public final class TaskReviewRole implements ReviewRole {
             // On a host the builds credential is the person's, whose approval the forge then
             // refuses.
             entry = entries.taskAccount(task);
+        } else if (ref != null) {
+            // Off a host, the account that opened the pull request, under a name of its own:
+            // never the forge's own credential, which is the owner account's there.
+            entry = authorEntry(ref);
         } else {
             throw new PlaceUnreadable(PlaceUnreadable.Reason.MISSING_FORGE_TOKEN, noAuthorEntry());
         }

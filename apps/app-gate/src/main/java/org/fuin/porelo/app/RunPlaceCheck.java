@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -314,6 +315,9 @@ public final class RunPlaceCheck {
             final RunPlace at =
                     RunPlace.atPullRequest(role == null ? RunPlace.AUTHOR : role, task, url);
             forge(ref.url(), ref.forge());
+            if (!RunPlace.REVIEWER.equals(role)) {
+                author(projectFile, ref);
+            }
             starts.checked(task, at, ref);
             return at;
         }
@@ -431,6 +435,7 @@ public final class RunPlaceCheck {
             throw new Refused(noPullRequest(name, "no pull request is open from " + name));
         }
         final RunPlace at = RunPlace.atPullRequest(RunPlace.AUTHOR, task, ref.url().toString());
+        author(projectFile, ref);
         starts.checked(task, at, ref);
         return at;
     }
@@ -539,6 +544,44 @@ public final class RunPlaceCheck {
                                     : "the vault holds no '" + entry + "'"));
         }
         return instance.get();
+    }
+
+    /**
+     * Refuses an author at a pull request that has no account of its own to write its items as: off
+     * a host, with a project that names no builds credential, the vault must hold the entry {@code
+     * git.author.<forge host>}. The project's builds and a host's task account are the review's to
+     * check when the items go out, as before.
+     */
+    private void author(final Path projectFile, final PullRequestRef ref) {
+        if (Files.isRegularFile(context.paths().hostProgram()) || builds(projectFile)) {
+            return;
+        }
+        final String entry = TaskReviewRole.authorEntry(ref);
+        final Optional<Boolean> held = forges.holds(entry);
+        if (held.isEmpty() || !held.get()) {
+            throw new Refused(
+                    unreadable(
+                            PlaceUnreadable.Reason.MISSING_FORGE_TOKEN,
+                            (held.isEmpty()
+                                            ? "the vault is shut, so whether it holds '"
+                                                    + entry
+                                                    + "' is not known"
+                                            : "the vault holds no '" + entry + "'")
+                                    + ", the token of the account that opened the pull request,"
+                                    + " which an author writes its items as; store it with"
+                                    + " 'porelo vault put "
+                                    + entry
+                                    + "'"));
+        }
+    }
+
+    /** Whether the project names a builds credential of its own; one that does not read, none. */
+    private static boolean builds(final Path projectFile) {
+        try {
+            return ProjectReader.read(projectFile).builds() != null;
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     private static Refusal unreadable(final PlaceUnreadable.Reason reason, final String detail) {
