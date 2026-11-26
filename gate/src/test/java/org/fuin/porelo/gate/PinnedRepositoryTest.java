@@ -142,6 +142,18 @@ class PinnedRepositoryTest {
         assertThat(dir.resolve("pinned.git.new")).as("the half-built repository").doesNotExist();
     }
 
+    @Test
+    void removingTheServedRepositoryTakesWhatAnInterruptedReplacementLeftBesideIt()
+            throws IOException {
+        final Path served = earlier();
+        Files.createDirectory(dir.resolve("pinned.git.new"));
+        Files.createDirectory(dir.resolve("pinned.git.old"));
+        PinnedRepository.remove(served);
+        try (java.util.stream.Stream<Path> left = Files.list(dir)) {
+            assertThat(left).as("what is left beside the served repository").isEmpty();
+        }
+    }
+
     private Path earlier() throws IOException {
         final Path served = Files.createDirectory(dir.resolve("pinned.git"));
         Files.writeString(served.resolve("earlier"), "");

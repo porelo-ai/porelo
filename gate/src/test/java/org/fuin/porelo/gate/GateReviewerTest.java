@@ -82,7 +82,7 @@ class GateReviewerTest {
                 later + ":" + GitGate.INCOMING + "foo-1");
         git(mirror, "update-ref", OWN, base);
         git(mirror, "update-ref", PINNED, reviewed);
-        served = PinnedRepository.in(dir);
+        served = dir.resolve("pinned").resolve("reviewer.git");
         PinnedRepository.replace(runner, mirror, served, "reviewer", reviewed, base).keep();
 
         token = TaskToken.mint();

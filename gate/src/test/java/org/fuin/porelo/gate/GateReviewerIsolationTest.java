@@ -84,7 +84,7 @@ class GateReviewerIsolationTest {
                 "refs/tags/hidden-tag:refs/tags/hidden-tag");
         git(mirror, "update-ref", PINNED, reviewed);
 
-        final Path served = PinnedRepository.in(dir.resolve("state"));
+        final Path served = dir.resolve("state").resolve("pinned").resolve(TASK + ".git");
         Files.createDirectories(served.getParent());
         PinnedRepository.build(runner, mirror, served, TASK, reviewed, base);
         // As the host's or the repository's own configuration could have it.

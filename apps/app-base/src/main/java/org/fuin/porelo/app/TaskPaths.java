@@ -216,6 +216,20 @@ public record TaskPaths(PoreloPaths paths) {
     }
 
     /**
+     * Returns the bare repository a reviewer task's gate serves, holding only what its pin reaches.
+     *
+     * <p>Under the state directory, like the repositories a task reads: the gate serves it again
+     * after a reboot until the next pin, and a repository does not belong in the runtime directory,
+     * which is memory. Never mounted into the task. Deleted when the task is removed.
+     *
+     * @param container Container name.
+     * @return The repository's directory.
+     */
+    public Path pinnedRepository(String container) {
+        return paths.xdg().state().resolve("pinned").resolve(container + ".git");
+    }
+
+    /**
      * Returns the file holding one task's clearance decisions.
      *
      * <p>Under the state directory, not beside the rest of the task's files. Everything else a task

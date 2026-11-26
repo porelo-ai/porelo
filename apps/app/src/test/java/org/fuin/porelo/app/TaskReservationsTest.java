@@ -122,6 +122,39 @@ class TaskReservationsTest {
     }
 
     @Test
+    void removingAReviewersTaskDeletesTheRepositoryItsGateServed() throws Exception {
+        final PoreloContext context = context().recognizingTasks();
+        final String container = "porelo-web-x";
+        final String id = "a".repeat(64);
+        try (var claim = new TaskReservations(context).reserve("web", "x", container, "first")) {
+            record(context, container, id);
+        }
+        final Path served = context.paths().tasks().pinnedRepository(container);
+        Files.createDirectories(served.resolve("objects"));
+        Files.createDirectories(served.resolveSibling(served.getFileName() + ".old"));
+        runner.answering("ps", container + "\tExited (0)\t\t\tweb\tguarded\tr\t\t" + id + "\n");
+        runner.answering("{{.Names}}", container + "\n");
+        assertThat(new TaskControl(context).remove(container, false, true).removed())
+                .as("the task removed")
+                .isTrue();
+        try (var left = Files.list(served.getParent())) {
+            assertThat(left).as("what is left of the served repository").isEmpty();
+        }
+    }
+
+    @Test
+    void aServedRepositoryLeftByAnUnknownTaskKeepsItsName() throws Exception {
+        final PoreloContext context = context();
+        Files.createDirectories(context.paths().tasks().pinnedRepository("porelo-web-x"));
+        assertThatThrownBy(
+                        () ->
+                                new TaskReservations(context)
+                                        .reserve("web", "x", "porelo-web-x", "first"))
+                .as("a start over another task's served repository")
+                .isInstanceOf(TaskReservations.ContainerNameTaken.class);
+    }
+
+    @Test
     void aRemovalWhoseMailboxStaysStillRetiresTheNameAndSaysSo() throws Exception {
         // The daemon wrote into the mailbox while it was deleted: the delete failed, the claim
         // stayed created with its container gone, and its project could no longer be removed.
@@ -593,6 +626,82 @@ class TaskReservationsTest {
             assertThat(next.attempt())
                     .as("the new task holds an attempt of its own")
                     .isNotEqualTo("first");
+        }
+    }
+
+    @Test
+    void reservingARetiredNameDeletesTheRepositoryItsLastReviewerServed() throws Exception {
+        final PoreloContext context = context();
+        final String container = org.fuin.porelo.runtime.ContainerName.encoded("web", "x", 1000);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("web", "x", container, "first")) {}
+        reservations.retire(container);
+        final Path served = context.paths().tasks().pinnedRepository(container);
+        Files.createDirectories(served.resolve("objects"));
+
+        try (final var next = reservations.start("web", "x", container)) {
+            assertThat(served)
+                    .as("a new reservation serves none of the removed reviewer's repository")
+                    .doesNotExist();
+        }
+    }
+
+    @Test
+    void aRetiredServedRepositoryThatCannotBeDeletedRefusesTheStartWithRecoveryGuidance()
+            throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")),
+                "root deletes from a directory without write permission");
+        final PoreloContext context = context();
+        final String container = org.fuin.porelo.runtime.ContainerName.encoded("web", "x", 1000);
+        final TaskReservations reservations = new TaskReservations(context);
+        try (final var original = reservations.reserve("web", "x", container, "first")) {}
+        reservations.retire(container);
+        final Path served = context.paths().tasks().pinnedRepository(container);
+        Files.createDirectories(served.resolve("objects"));
+        final Path stuck = served.getParent();
+        Files.setPosixFilePermissions(
+                stuck, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        final Path project =
+                Files.writeString(
+                        dir.resolve("project.yml"),
+                        "project: {name: web, security_class: guarded}\nimage: {from: 'ubuntu:24.04'}\n");
+        new ProjectRegistry(context.paths().projects().projectRegistry()).remember("web", project);
+        final var cli = PoreloCli.commandLine(context);
+        final java.io.StringWriter said = new java.io.StringWriter();
+        cli.setOut(new java.io.PrintWriter(java.io.Writer.nullWriter()));
+        cli.setErr(new java.io.PrintWriter(said, true));
+        try {
+            assertThatThrownBy(() -> reservations.start("web", "x", container))
+                    .as("the reservation reports a failed cleanup of the served repository")
+                    .isInstanceOf(java.io.IOException.class)
+                    .hasMessageContaining("leftover served repository")
+                    .hasMessageContaining("start again")
+                    .hasMessageNotContaining(served.toString());
+            assertThat(
+                            cli.execute(
+                                    "task",
+                                    "start",
+                                    "x",
+                                    "-p",
+                                    "web",
+                                    "--repository",
+                                    "web",
+                                    "--attach",
+                                    "shell",
+                                    "--no-input"))
+                    .as("a leftover served repository refuses before a new task is made: %s", said)
+                    .isEqualTo(70);
+            assertThat(said.toString())
+                    .as("the refusal names the kind without exposing its path")
+                    .contains("leftover served repository")
+                    .doesNotContain(served.toString());
+            assertThat(reservations.removed(container))
+                    .as("a failed cleanup leaves the name retired")
+                    .isTrue();
+        } finally {
+            Files.setPosixFilePermissions(
+                    stuck, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         }
     }
 

@@ -1,0 +1,2 @@
+title: "A reviewer's own repository lies under `$XDG_STATE_HOME/porelo/pinned/`, out of memory, and its pin is saved when it is made, so its gate serves the same pin again after a reboot until the next one; removing the task, or a new task of its name, deletes it"
+type: fixed

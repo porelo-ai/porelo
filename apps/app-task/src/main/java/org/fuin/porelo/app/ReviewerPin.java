@@ -22,14 +22,15 @@ final class ReviewerPin {
     /**
      * Pins a reviewer's task to a head.
      *
-     * <p>The served repository is replaced and the ref moved first, the record after: a record that
-     * cannot be written puts the earlier repository and the ref back, so the gate and the record
-     * never name two states.
+     * <p>The served repository is replaced and the ref moved first, the record after, its durable
+     * copy before the runtime one: a record that cannot be written puts the earlier repository, the
+     * ref and the durable copy back, so the gate and either record never name two states.
      *
      * @param git Runs git on the host.
      * @param mirror The task's mirror.
-     * @param state The task's state directory, where its role, place and served repository are
-     *     kept.
+     * @param state The task's runtime directory, where its role and place are kept.
+     * @param record The task's durable record, which a reviewer resumed after a reboot reads.
+     * @param served The repository its gate serves, which the pin replaces.
      * @param task The task's name, which names its pinned ref.
      * @param pin The state.
      * @throws IOException When the mirror holds no such commit, an id names a tag rather than the
@@ -40,6 +41,8 @@ final class ReviewerPin {
             final CommandRunner git,
             final Path mirror,
             final Path state,
+            final Path record,
+            final Path served,
             final String task,
             final RunPlace.Pin pin)
             throws IOException {
@@ -57,12 +60,22 @@ final class ReviewerPin {
         final RunPlace.Pin earlier = recorded.pinned();
         final String before = earlier == null ? null : earlier.head();
         final PinnedRepository.Replacement replaced =
-                PinnedRepository.replace(
-                        git, mirror, PinnedRepository.in(state), task, pin.head(), base);
+                PinnedRepository.replace(git, mirror, served, task, pin.head(), base);
+        boolean saved = false;
         try {
             moved(git, mirror, ref, pin.head());
-            recorded.pinnedTo(pin).writeTo(state);
+            final RunPlace pinned = recorded.pinnedTo(pin);
+            pinned.writeTo(record);
+            saved = true;
+            pinned.writeTo(state);
         } catch (IOException | RuntimeException ex) {
+            if (saved) {
+                try {
+                    recorded.writeTo(record);
+                } catch (IOException | RuntimeException again) {
+                    ex.addSuppressed(again);
+                }
+            }
             replaced.undo();
             putBack(git, mirror, ref, before);
             throw ex;

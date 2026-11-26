@@ -81,6 +81,8 @@ class PullRequestFetchGitTest {
 
     private Path state;
 
+    private Path record;
+
     private PullRequestRef ref;
 
     private PullRequestPins pins;
@@ -130,6 +132,7 @@ class PullRequestFetchGitTest {
         mirror = dir.resolve("mirror.git");
         git(dir, "init", "-q", "--bare", mirror.toString());
         state = Files.createDirectory(dir.resolve("state"));
+        record = Files.createDirectory(dir.resolve("record"));
         new RunPlace(RunPlace.REVIEWER, null, "shop-2").writeTo(state);
         forge = forge();
         final String origin = "https://127.0.0.1:" + forge.getAddress().getPort();
@@ -142,7 +145,14 @@ class PullRequestFetchGitTest {
                         entry -> new ForgeCredential(entry, TOKEN),
                         task ->
                                 new PullRequestPins.TaskGate(
-                                        mirror, state, TASK_NAME, "shop", "shop", "shop-2"),
+                                        mirror,
+                                        state,
+                                        record,
+                                        dir.resolve("pinned").resolve(TASK_NAME + ".git"),
+                                        TASK_NAME,
+                                        "shop",
+                                        "shop",
+                                        "shop-2"),
                         command -> {
                             final CommandResult result = real.run(command);
                             printed.add(result);
@@ -181,6 +191,18 @@ class PullRequestFetchGitTest {
         assertThat(inMirror("cat-file", "-t", base))
                 .as("the merge base in the mirror")
                 .isEqualTo("commit");
+        assertThat(
+                        git(
+                                        dir,
+                                        "--git-dir",
+                                        dir.resolve("pinned")
+                                                .resolve(TASK_NAME + ".git")
+                                                .toString(),
+                                        "rev-parse",
+                                        GitGate.PINNED + TASK_NAME)
+                                .strip())
+                .as("the pinned head in the reviewer's own repository, where its gate serves it")
+                .isEqualTo(head);
         assertThat(RunPlace.readFrom(state).pinned())
                 .as("the run's record")
                 .isEqualTo(new RunPlace.Pin(head, base, adapter.repository));

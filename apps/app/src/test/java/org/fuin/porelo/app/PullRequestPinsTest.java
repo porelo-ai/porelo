@@ -63,6 +63,10 @@ class PullRequestPinsTest {
 
     @TempDir Path state;
 
+    @TempDir Path pinned;
+
+    @TempDir Path record;
+
     private final List<Command> ran = new ArrayList<>();
 
     private final List<String> lent = new ArrayList<>();
@@ -124,7 +128,14 @@ class PullRequestPinsTest {
                         },
                         task ->
                                 new PullRequestPins.TaskGate(
-                                        mirror, state, "review-shop", "shop", "app", "shop-2"),
+                                        mirror,
+                                        state,
+                                        record,
+                                        pinned.resolve("review-shop.git"),
+                                        "review-shop",
+                                        "shop",
+                                        "app",
+                                        "shop-2"),
                         git,
                         url -> Map.of("GIT_SSL_CAINFO", "/trusted.pem"),
                         Duration.ofMinutes(2));
@@ -295,7 +306,14 @@ class PullRequestPinsTest {
                         entry -> new ForgeCredential(entry, TOKEN),
                         task ->
                                 new PullRequestPins.TaskGate(
-                                        mirror, state, "review-shop", "shop", "app", "shop-2"),
+                                        mirror,
+                                        state,
+                                        record,
+                                        pinned.resolve("review-shop.git"),
+                                        "review-shop",
+                                        "shop",
+                                        "app",
+                                        "shop-2"),
                         git,
                         url -> Map.of("GIT_CONFIG_GLOBAL", "/home/someone/.gitconfig"),
                         Duration.ofMinutes(2));
@@ -420,6 +438,102 @@ class PullRequestPinsTest {
     @Test
     void theMachinesGateFindsALiveTaskByItsRecordedIdentityWhenItsContainerCarriesNoTaskLabel()
             throws Exception {
+        final String id = "c".repeat(64);
+        final PoreloContext machine = machine(id);
+
+        final PullRequestPins.TaskGate gate = PullRequestPins.gatesOn(machine).locate(id);
+
+        assertThat(gate.taskName())
+                .as("the task's own name, from its identity")
+                .isEqualTo("review-shop");
+        assertThat(gate.project()).as("its project").isEqualTo(DefaultProject.NAME);
+        assertThat(gate.repository()).as("its repository").isEqualTo("app");
+        assertThat(gate.push()).as("the push its run reviews").isEqualTo("shop-2");
+    }
+
+    @Test
+    void aPinWhoseSavedRecordCannotBeWrittenIsRefusedAndLeavesNothingPinned() throws Exception {
+        org.junit.jupiter.api.Assumptions.assumeFalse(
+                "root".equals(System.getProperty("user.name")),
+                "root writes into a directory without write permission");
+        final String id = "c".repeat(64);
+        final PoreloContext machine = machine(id);
+        final String container = ContainerName.contract(DefaultProject.NAME, "review-shop");
+        new TaskState(machine).save(container);
+        final Path record = machine.paths().tasks().taskRecord(container);
+        Files.setPosixFilePermissions(
+                record, java.nio.file.attribute.PosixFilePermissions.fromString("r-x------"));
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    new PullRequestPins(
+                                                    adapter,
+                                                    entry -> new ForgeCredential(entry, TOKEN),
+                                                    PullRequestPins.gatesOn(machine),
+                                                    git,
+                                                    url -> Map.of("GIT_SSL_CAINFO", "/trusted.pem"),
+                                                    Duration.ofMinutes(2))
+                                            .pin(REF, id))
+                    .as("a pin whose saved record could not be written")
+                    .isInstanceOfSatisfying(
+                            PlaceUnreadable.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(PlaceUnreadable.Reason.UNREACHABLE));
+        } finally {
+            Files.setPosixFilePermissions(
+                    record, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        }
+        assertThat(machine.paths().tasks().pinnedRepository(container))
+                .as("the served repository, rolled back")
+                .doesNotExist();
+        assertThat(RunPlace.readFrom(machine.paths().tasks().containerState(container)).pinned())
+                .as("the pin the runtime record names")
+                .isNull();
+        assertThat(RunPlace.readFrom(record).pinned())
+                .as("the pin the saved record names")
+                .isNull();
+        assertThat(ran.getLast().arguments())
+                .as("the pinned ref taken back out of the mirror")
+                .containsSubsequence("update-ref", "-d", GitGate.PINNED + "review-shop");
+    }
+
+    @Test
+    void aPinIsSavedSoTheRecordBroughtBackAfterARebootNamesIt() throws Exception {
+        final String id = "c".repeat(64);
+        final PoreloContext machine = machine(id);
+        final String container = ContainerName.contract(DefaultProject.NAME, "review-shop");
+        // As its start saved it: a reviewer's run, pinned to nothing yet.
+        new TaskState(machine).save(container);
+        new PullRequestPins(
+                        adapter,
+                        entry -> new ForgeCredential(entry, TOKEN),
+                        PullRequestPins.gatesOn(machine),
+                        git,
+                        url -> Map.of("GIT_SSL_CAINFO", "/trusted.pem"),
+                        Duration.ofMinutes(2))
+                .pin(REF, id);
+        final Path runtime = machine.paths().tasks().containerState(container);
+        // A reboot empties the runtime directory.
+        try (java.util.stream.Stream<Path> tree = Files.walk(runtime)) {
+            for (final Path each : tree.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(each);
+            }
+        }
+
+        final RunPlace saved = RunPlace.readFrom(machine.paths().tasks().taskRecord(container));
+        assertThat(saved).as("the run's saved record").isNotNull();
+        assertThat(saved.pinned())
+                .as("the pin the saved record names")
+                .isEqualTo(new RunPlace.Pin(HEAD, MERGE_BASE, REPOSITORY));
+        assertThat(machine.paths().tasks().pinnedRepository(container))
+                .as("the repository its gate serves")
+                .isDirectory();
+    }
+
+    /** A machine with a live reviewer task of the given id, its gate mirror and its run place. */
+    private PoreloContext machine(final String id) throws Exception {
         final Path home = state.resolve("machine");
         final XdgPaths xdg =
                 XdgPaths.of(
@@ -432,7 +546,6 @@ class PullRequestPinsTest {
                                     default -> null;
                                 },
                         home);
-        final String id = "c".repeat(64);
         final String container = ContainerName.contract(DefaultProject.NAME, "review-shop");
         // As a start labels it: project, class and repository, but no task label.
         final FakeCommandRunner podman =
@@ -453,15 +566,7 @@ class PullRequestPinsTest {
         TaskIdentityFixture.running(
                 machine.paths(), container, DefaultProject.NAME, "review-shop", id);
         RunPlace.record(machine, container, new RunPlace(RunPlace.REVIEWER, "app", "shop-2"));
-
-        final PullRequestPins.TaskGate gate = PullRequestPins.gatesOn(machine).locate(id);
-
-        assertThat(gate.taskName())
-                .as("the task's own name, from its identity")
-                .isEqualTo("review-shop");
-        assertThat(gate.project()).as("its project").isEqualTo(DefaultProject.NAME);
-        assertThat(gate.repository()).as("its repository").isEqualTo("app");
-        assertThat(gate.push()).as("the push its run reviews").isEqualTo("shop-2");
+        return machine;
     }
 
     private Command fetch() {

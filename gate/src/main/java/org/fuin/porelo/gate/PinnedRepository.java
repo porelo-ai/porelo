@@ -21,23 +21,10 @@ import org.jspecify.annotations.Nullable;
  */
 public final class PinnedRepository {
 
-    /** Its directory in a reviewer task's state. */
-    public static final String DIRECTORY = "pinned.git";
-
     /** Where the pinned base is kept, one ref per task, so it stays while it is pinned. */
     public static final String BASE = "refs/porelo/pinned-base/";
 
     private PinnedRepository() {}
-
-    /**
-     * Returns where a reviewer task's served repository lies.
-     *
-     * @param state The task's state directory.
-     * @return The repository's directory.
-     */
-    public static Path in(final Path state) {
-        return state.resolve(DIRECTORY);
-    }
 
     /**
      * Builds a fresh bare repository holding the pinned head and base and nothing else: no
@@ -123,7 +110,7 @@ public final class PinnedRepository {
     /**
      * Builds a new repository beside the served one and moves it into place whole; the earlier one
      * waits aside until the caller keeps or undoes the replacement. A build that fails leaves the
-     * served repository as it was.
+     * served repository as it was. The directory it lies in is made the account's alone.
      *
      * @param git Runs git on the host.
      * @param mirror The mirror that holds both commits.
@@ -142,8 +129,13 @@ public final class PinnedRepository {
             final String head,
             final @Nullable String base)
             throws IOException {
-        final Path built = served.resolveSibling(served.getFileName() + ".new");
-        final Path earlier = served.resolveSibling(served.getFileName() + ".old");
+        final Path built = built(served);
+        final Path earlier = earlier(served);
+        // The new copy is built beside the served one, so the move into place stays on one file
+        // system and is atomic.
+        final Path parent = org.fuin.porelo.wire.Directories.create(served.getParent());
+        Files.setPosixFilePermissions(
+                parent, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         // What an interrupted replacement left is never served or built on.
         removed(built);
         removed(earlier);
@@ -170,13 +162,24 @@ public final class PinnedRepository {
     }
 
     /**
-     * Removes a reviewer's served repository, as removing its task does.
+     * Removes a reviewer's served repository, as removing its task does, with whatever an
+     * interrupted replacement left beside it.
      *
      * @param served Where it is served from.
      * @throws IOException When it cannot be removed.
      */
     public static void remove(final Path served) throws IOException {
+        removed(built(served));
+        removed(earlier(served));
         removed(served);
+    }
+
+    private static Path built(final Path served) {
+        return served.resolveSibling(served.getFileName() + ".new");
+    }
+
+    private static Path earlier(final Path served) {
+        return served.resolveSibling(served.getFileName() + ".old");
     }
 
     private static void removed(final Path tree) throws IOException {

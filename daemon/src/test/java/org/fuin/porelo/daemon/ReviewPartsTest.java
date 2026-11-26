@@ -102,7 +102,14 @@ class ReviewPartsTest {
         final Path state = Files.createDirectories(dir.resolve("state").resolve(TASK));
         return new ReviewParts.Author(
                 new PullRequestPins.TaskGate(
-                        dir.resolve("mirror"), state, "shop-1", "uc", "shop", "shop-1"),
+                        dir.resolve("mirror"),
+                        state,
+                        dir.resolve("record"),
+                        dir.resolve("pinned").resolve("shop-1.git"),
+                        "shop-1",
+                        "uc",
+                        "shop",
+                        "shop-1"),
                 ID,
                 UPSTREAM,
                 BRANCH);

@@ -12,7 +12,6 @@ import org.fuin.porelo.agent.api.ProviderRoute;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.gate.GitGate;
-import org.fuin.porelo.gate.PinnedRepository;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -87,14 +86,18 @@ class ReviewerStartTest {
     void aReviewersGateServesItsOwnRepositoryShowsItsPinnedRefAndPassesNothingOn() {
         final List<String> command =
                 GateWiring.reviewing(
-                        project(), "127.0.0.1", 9418, Path.of("/run/porelo/state"), TASK, "uc");
+                        project(),
+                        "127.0.0.1",
+                        9418,
+                        Path.of("/run/porelo/state"),
+                        Path.of("/state/porelo/pinned/porelo-uc-shop.git"),
+                        TASK,
+                        "uc");
         assertThat(command)
                 .as("a reviewer's gate")
                 .containsSequence("gate", "serve")
                 .containsSequence("--pinned", GitGate.PINNED + TASK)
-                .containsSequence(
-                        "--pinned-repository",
-                        PinnedRepository.in(Path.of("/run/porelo/state")).toString())
+                .containsSequence("--pinned-repository", "/state/porelo/pinned/porelo-uc-shop.git")
                 .containsSequence("--repository", "uc")
                 .doesNotContain("--ref", "--pass-on", "--host-push", "--branch", "--reads");
     }

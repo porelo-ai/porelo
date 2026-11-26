@@ -115,17 +115,38 @@ public final class TaskReservations {
         }
     }
 
-    /** A retired task's leftover mailbox could not be removed before a new reservation. */
-    public static final class MailboxNotDeleted extends IOException {
+    /**
+     * What a retired task left could not be removed before a new reservation; its message is the
+     * safe refusal, naming the leftover's kind and how to clear it, never a path.
+     */
+    public static final class LeftoverNotDeleted extends IOException {
         private static final long serialVersionUID = 1L;
 
-        /** The safe refusal, naming the leftover's kind and how to clear it. */
-        public static final String DETAIL =
+        /** The refusal for a leftover mailbox. */
+        public static final String MAILBOX =
                 "could not delete the retired task's leftover mailbox; run 'porelo prune' and"
                         + " start again";
 
-        private MailboxNotDeleted(final IOException cause) {
-            super(DETAIL, cause);
+        /** The refusal for a reviewer's leftover served repository, which no prune lists. */
+        public static final String SERVED_REPOSITORY =
+                "could not delete the retired task's leftover served repository under 'pinned' in"
+                        + " Porelo's state directory; delete it and start again";
+
+        /** The refusal this one says. */
+        private final String detail;
+
+        private LeftoverNotDeleted(final String detail, final IOException cause) {
+            super(detail, cause);
+            this.detail = detail;
+        }
+
+        /**
+         * Returns the safe refusal.
+         *
+         * @return One of {@link #MAILBOX} and {@link #SERVED_REPOSITORY}.
+         */
+        public String detail() {
+            return detail;
         }
     }
 
@@ -355,7 +376,14 @@ public final class TaskReservations {
                     new Mailbox(context.paths().messaging().mailbox(container))
                             .delete(context.limits());
                 } catch (final IOException ex) {
-                    throw new MailboxNotDeleted(ex);
+                    throw new LeftoverNotDeleted(LeftoverNotDeleted.MAILBOX, ex);
+                }
+                // Nor serve, as a new reviewer, what the removed one was pinned to.
+                try {
+                    org.fuin.porelo.gate.PinnedRepository.remove(
+                            context.paths().tasks().pinnedRepository(container));
+                } catch (final IOException ex) {
+                    throw new LeftoverNotDeleted(LeftoverNotDeleted.SERVED_REPOSITORY, ex);
                 }
                 final Claim fresh =
                         new Claim(
@@ -1199,6 +1227,7 @@ public final class TaskReservations {
                 paths.tasks().guide(container),
                 paths.tasks().repositories(container),
                 paths.tasks().readOnly(container),
+                paths.tasks().pinnedRepository(container),
                 paths.tasks().given(container),
                 paths.tasks().usageRecord(container),
                 paths.tasks().clearanceJournal(container),

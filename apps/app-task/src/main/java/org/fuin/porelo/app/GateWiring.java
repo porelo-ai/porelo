@@ -459,12 +459,13 @@ final class GateWiring {
 
     /**
      * Returns the command that serves a reviewer's gate: its pinned ref alone, from its own
-     * repository in its state, read only, and nothing passed on, judged or read beside it.
+     * repository, read only, and nothing passed on, judged or read beside it.
      *
      * @param project The task's project.
      * @param bind Where the gate listens.
      * @param port Its port.
      * @param state The task's runtime state.
+     * @param served The task's own repository, which its pins replace.
      * @param taskName The task's own name, which names its pinned ref.
      * @param repository Which repository of the project, or {@code null} for its own.
      * @return The command.
@@ -474,6 +475,7 @@ final class GateWiring {
             final String bind,
             final int port,
             final java.nio.file.Path state,
+            final java.nio.file.Path served,
             final String taskName,
             final @Nullable String repository) {
         final java.util.List<String> command =
@@ -495,7 +497,7 @@ final class GateWiring {
                                 // Its own repository, never the shared mirror the pin is taken
                                 // from.
                                 "--pinned-repository",
-                                org.fuin.porelo.gate.PinnedRepository.in(state).toString()));
+                                served.toString()));
         if (repository != null) {
             // On the recorded command line, so a resumed reviewer reads the same mirror.
             command.add("--repository");
@@ -559,6 +561,7 @@ final class GateWiring {
                                 gateBind(gateAddress, err),
                                 workspace.port(),
                                 state,
+                                context.paths().tasks().pinnedRepository(container),
                                 taskName,
                                 repository)
                         : serving(

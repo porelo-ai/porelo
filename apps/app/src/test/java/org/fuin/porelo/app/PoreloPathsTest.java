@@ -240,6 +240,26 @@ class PoreloPathsTest {
     }
 
     @Test
+    void aReviewersServedRepositoryLiesInTheStateDirectoryNotInTheRuntimeOne(@TempDir Path dir) {
+        final XdgPaths xdg =
+                new XdgPaths(
+                        dir.resolve("config"),
+                        dir.resolve("data"),
+                        dir.resolve("state"),
+                        dir.resolve("run"),
+                        dir);
+        final Path served =
+                new PoreloPaths(xdg, dir.resolve("bin")).tasks().pinnedRepository("porelo-shop-1");
+
+        assertThat(served)
+                .as("one bare repository per task, under the state directory")
+                .isEqualTo(xdg.state().resolve("pinned").resolve("porelo-shop-1.git"));
+        assertThat(served.startsWith(xdg.runtime()))
+                .as("outside the runtime directory, which a reboot clears")
+                .isFalse();
+    }
+
+    @Test
     void putsAReviewCopyWhereSomebodyWillFindIt(@TempDir Path dir) {
 
         // Two things this pins, and the second is easy to undo by accident. It must not land in the

@@ -94,6 +94,8 @@ public final class PullRequestPins implements PullRequestPinning {
      *
      * @param mirror The gate's mirror.
      * @param state The task's state directory, where its role and place are kept.
+     * @param record The task's durable record, where a pin is saved so it outlives a reboot.
+     * @param served The repository the task's gate serves, which a pin replaces.
      * @param taskName The task's name, which names its pinned ref.
      * @param project The task's project.
      * @param repository The repository in the project.
@@ -102,6 +104,8 @@ public final class PullRequestPins implements PullRequestPinning {
     public record TaskGate(
             Path mirror,
             Path state,
+            Path record,
+            Path served,
             String taskName,
             String project,
             String repository,
@@ -111,6 +115,8 @@ public final class PullRequestPins implements PullRequestPinning {
         public TaskGate {
             Objects.requireNonNull(mirror, "mirror");
             Objects.requireNonNull(state, "state");
+            Objects.requireNonNull(record, "record");
+            Objects.requireNonNull(served, "served");
             Objects.requireNonNull(taskName, "taskName");
             Objects.requireNonNull(project, "project");
             Objects.requireNonNull(repository, "repository");
@@ -182,6 +188,8 @@ public final class PullRequestPins implements PullRequestPinning {
                     git,
                     gate.mirror(),
                     gate.state(),
+                    gate.record(),
+                    gate.served(),
                     gate.taskName(),
                     new RunPlace.Pin(facts.head(), facts.mergeBase(), facts.repository()));
         } catch (IOException ex) {
@@ -389,6 +397,8 @@ public final class PullRequestPins implements PullRequestPinning {
                 return new TaskGate(
                         mirror,
                         state,
+                        context.paths().tasks().taskRecord(summary.name()),
+                        context.paths().tasks().pinnedRepository(summary.name()),
                         identity.task(),
                         project.name(),
                         repository.name(),

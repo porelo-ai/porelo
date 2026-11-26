@@ -482,6 +482,8 @@ public final class Prune {
                             mailbox.delete(context.limits());
                             new TaskGuide(context.paths(), container).delete();
                             new TaskRepositories(context.paths(), container).delete();
+                            org.fuin.porelo.gate.PinnedRepository.remove(
+                                    context.paths().tasks().pinnedRepository(container));
                             new TaskGiven(context.paths()).forget(container);
                             new TaskResult(context.paths()).forget(container);
                             reservations.retire(container);

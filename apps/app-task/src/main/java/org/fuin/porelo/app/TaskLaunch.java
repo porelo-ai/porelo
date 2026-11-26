@@ -1838,8 +1838,8 @@ public final class TaskLaunch {
             err.println("porelo: " + ex.getMessage());
             err.flush();
             return new Existing(ex.container, ex.project, 64);
-        } catch (final TaskReservations.MailboxNotDeleted ex) {
-            err.println("porelo: " + TaskReservations.MailboxNotDeleted.DETAIL);
+        } catch (final TaskReservations.LeftoverNotDeleted ex) {
+            err.println("porelo: " + ex.detail());
             err.flush();
             return new Existing("", "", 70);
         } catch (org.fuin.porelo.vault.VaultException ex) {
@@ -3264,9 +3264,9 @@ public final class TaskLaunch {
             err.flush();
             steps.finish(64);
             return 64;
-        } catch (final TaskReservations.MailboxNotDeleted ex) {
-            steps.refusal(TaskReservations.MailboxNotDeleted.DETAIL);
-            err.println("porelo: " + TaskReservations.MailboxNotDeleted.DETAIL);
+        } catch (final TaskReservations.LeftoverNotDeleted ex) {
+            steps.refusal(ex.detail());
+            err.println("porelo: " + ex.detail());
             err.flush();
             steps.finish(70);
             return 70;

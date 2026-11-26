@@ -437,9 +437,10 @@ public final class TaskControl {
 
     /**
      * Deletes what a removed task kept beside its container - its mailbox, its guide, its
-     * repositories file, then {@code more} - and retires its name whatever of that fails: a claim
-     * left behind is an unfinished start that refuses its project's removal. What could not be
-     * deleted is the removal's failure, said after the retire, and a prune takes it later.
+     * repositories file, a reviewer's served repository, then {@code more} - and retires its name
+     * whatever of that fails: a claim left behind is an unfinished start that refuses its project's
+     * removal. What could not be deleted is the removal's failure, said after the retire, and a
+     * prune takes it later.
      *
      * @param container The removed task.
      * @param more What else goes before the name is retired.
@@ -456,6 +457,9 @@ public final class TaskControl {
                                         .delete(context.limits()),
                         () -> new TaskGuide(context.paths(), container).delete(),
                         () -> new TaskRepositories(context.paths(), container).delete(),
+                        () ->
+                                org.fuin.porelo.gate.PinnedRepository.remove(
+                                        context.paths().tasks().pinnedRepository(container)),
                         () -> new TaskGiven(context.paths()).forget(container),
                         more)) {
             try {
