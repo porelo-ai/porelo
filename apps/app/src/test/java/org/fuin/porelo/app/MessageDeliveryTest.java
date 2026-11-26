@@ -79,6 +79,35 @@ class MessageDeliveryTest {
     }
 
     @Test
+    void aHeldMessageWithoutASignatureNeverLiesBesideAnOlderOnes(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.hold().resolve("m-2.json.sig"), "an older message's signature");
+        arrive(mailbox, "m-2.json", "{\"messageId\":\"m-2\"}", null);
+
+        delivery.deliver(mailbox, reviewer());
+
+        assertThat(mailbox.hold().resolve("m-2.json")).as("the message is held").exists();
+        assertThat(mailbox.hold().resolve("m-2.json.sig"))
+                .as("no signature of an older message beside it")
+                .doesNotExist();
+    }
+
+    @Test
+    void aHeldMessageWithASignatureCarriesItOverAnOlderOne(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.hold().resolve("m-2.json.sig"), "an older message's signature");
+        arrive(mailbox, "m-2.json", "{\"messageId\":\"m-2\"}", "not a signature");
+
+        delivery.deliver(mailbox, reviewer());
+
+        assertThat(mailbox.hold().resolve("m-2.json.sig"))
+                .as("its own signature replaces the older one")
+                .hasContent("not a signature");
+    }
+
+    @Test
     void holds_what_a_key_no_peer_may_use_signed(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);
         final String json = "{\"messageId\":\"m-3\"}";

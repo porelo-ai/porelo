@@ -270,7 +270,7 @@ public final class MessageDelivery {
                 try {
                     id = MessageFile.id(message);
                 } catch (final RuntimeException ex) {
-                    hold(mailbox, message, null);
+                    hold(mailbox, message);
                     Files.deleteIfExists(person);
                     held.add(new Held(name, "it is not a message that can be read"));
                     continue;
@@ -293,7 +293,7 @@ public final class MessageDelivery {
                 continue;
             }
             if (!Files.isRegularFile(signature)) {
-                hold(mailbox, message, null);
+                hold(mailbox, message);
                 held.add(new Held(name, "it arrived without a signature", "", TrustMark.UNSIGNED));
                 continue;
             }
@@ -301,12 +301,12 @@ public final class MessageDelivery {
             final String armored = Files.readString(signature, StandardCharsets.UTF_8);
             final byte[] signer = SshSignature.signerOf(armored);
             if (signer == null) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, "its signature cannot be read", "", TrustMark.UNSIGNED));
                 continue;
             }
             if (!SshSignature.verify(bytes, armored, signer, MessageIntake.NAMESPACE)) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(
                         new Held(
                                 name,
@@ -323,7 +323,7 @@ public final class MessageDelivery {
                 continue;
             }
             if (!peer.believed()) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, peer.refusal(), "", peer.mark()));
                 continue;
             }
@@ -331,7 +331,7 @@ public final class MessageDelivery {
             // name other than the key's would pass one task off as another, or as a person.
             final String from = from(bytes);
             if (from != null && !peer.named(from)) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(
                         new Held(
                                 name,
@@ -350,7 +350,7 @@ public final class MessageDelivery {
             } catch (final RuntimeException ex) {
                 // Held, not thrown: the pass ended here, the file stayed in inbound, and the task
                 // never received anything again.
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, "it is not a message that can be read", "", peer.mark()));
                 continue;
             }
@@ -370,7 +370,7 @@ public final class MessageDelivery {
             final String owner =
                     attested == null ? "" : attested.refuse(mailbox, message, peer.peer());
             if (!owner.isEmpty()) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, owner, id, peer.mark()));
                 continue;
             }
@@ -382,7 +382,7 @@ public final class MessageDelivery {
             if (!full.isEmpty()) {
                 // Held rather than refused back: this machine is the one that is full, and the
                 // message itself is nobody's fault.
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, full, id, peer.mark()));
                 continue;
             }
@@ -391,7 +391,7 @@ public final class MessageDelivery {
             // nobody can attribute, and none in reading the same one twice.
             final String refused = check == null ? "" : check.refuse(mailbox, message, peer.peer());
             if (!refused.isEmpty()) {
-                hold(mailbox, message, signature);
+                hold(mailbox, message);
                 held.add(new Held(name, refused, id, peer.mark()));
                 continue;
             }
@@ -444,8 +444,7 @@ public final class MessageDelivery {
         return metadata.get("from") instanceof String name ? name : "";
     }
 
-    private void hold(final Mailbox mailbox, final Path message, final @Nullable Path signature)
-            throws IOException {
+    private void hold(final Mailbox mailbox, final Path message) throws IOException {
         final String name = message.getFileName().toString();
         // What a transport attested travels with the message it is about: an operator looking at a
         // held message needs to see why, and "the owner was somebody else" is only readable if the
@@ -458,12 +457,7 @@ public final class MessageDelivery {
                     StandardCopyOption.REPLACE_EXISTING);
         }
         Files.move(message, mailbox.hold().resolve(name), StandardCopyOption.REPLACE_EXISTING);
-        if (signature != null) {
-            Files.move(
-                    signature,
-                    mailbox.hold().resolve(signature.getFileName().toString()),
-                    StandardCopyOption.REPLACE_EXISTING);
-        }
+        Signatures.moveBeside(message, mailbox.hold().resolve(name));
     }
 
     private List<Path> arrived(final Path inbound) throws IOException {

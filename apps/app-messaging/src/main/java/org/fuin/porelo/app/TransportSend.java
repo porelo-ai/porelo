@@ -479,14 +479,13 @@ public final class TransportSend {
         // Never the mailbox again, if its task was removed while its transport ran.
         mailbox.ensure(target);
         final String name = message.getFileName().toString();
-        for (final String suffix : new String[] {".sig", MessageDispatch.DESTINATION_SUFFIX}) {
-            final Path companion = message.resolveSibling(name + suffix);
-            if (Files.isRegularFile(companion)) {
-                Files.move(
-                        companion,
-                        target.resolve(name + suffix),
-                        StandardCopyOption.REPLACE_EXISTING);
-            }
+        Signatures.moveBeside(message, target.resolve(name));
+        final Path destination = message.resolveSibling(name + MessageDispatch.DESTINATION_SUFFIX);
+        if (Files.isRegularFile(destination)) {
+            Files.move(
+                    destination,
+                    target.resolve(name + MessageDispatch.DESTINATION_SUFFIX),
+                    StandardCopyOption.REPLACE_EXISTING);
         }
         Files.move(message, target.resolve(name), StandardCopyOption.REPLACE_EXISTING);
     }

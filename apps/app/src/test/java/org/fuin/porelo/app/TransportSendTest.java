@@ -37,7 +37,7 @@ class TransportSendTest {
     }
 
     @Test
-    void a_task_removed_while_its_transport_ran_gets_no_mailbox_again(@TempDir final Path dir)
+    void aTaskRemovedWhileItsTransportRanGetsNoMailboxAgain(@TempDir final Path dir)
             throws IOException {
         // The task was removed while its transport ran: moving the message to wait for the next
         // try made the mailbox again, and the task's retired name stayed taken.
@@ -75,7 +75,7 @@ class TransportSendTest {
     }
 
     @Test
-    void a_message_the_transport_took_moves_to_sent_with_its_receipt(@TempDir final Path dir)
+    void aMessageTheTransportTookMovesToSentWithItsReceipt(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = queued(dir);
         runner.answering("send", "{\"delivered\":true}");
@@ -96,7 +96,7 @@ class TransportSendTest {
     }
 
     @Test
-    void a_temporary_failure_waits_and_is_tried_again(@TempDir final Path dir) throws IOException {
+    void aTemporaryFailureWaitsAndIsTriedAgain(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = queued(dir);
         final TransportDirectory transports = withAdapter(dir);
         runner.failing("send", TransportSend.TEMPORARY, "the mailbox is not writable yet");
@@ -119,7 +119,7 @@ class TransportSendTest {
     }
 
     @Test
-    void a_permanent_failure_is_not_retried(@TempDir final Path dir) throws IOException {
+    void aPermanentFailureIsNotRetried(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = queued(dir);
         runner.failing("send", 1, "no such destination");
 
@@ -136,13 +136,45 @@ class TransportSendTest {
         assertThat(mailbox.queueDeferred("local")).doesNotExist();
     }
 
+    @Test
+    void aRefusedMessageWithoutASignatureNeverLiesBesideAnOlderOnes(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = queued(dir);
+        Files.delete(mailbox.queueActive("local").resolve("m-1.json.sig"));
+        Files.writeString(mailbox.hold().resolve("m-1.json.sig"), "an older message's signature");
+        runner.failing("send", 1, "no such destination");
+
+        new TransportSend(runner, withAdapter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .send(mailbox, "local");
+
+        assertThat(mailbox.hold().resolve("m-1.json")).as("the message is held").exists();
+        assertThat(mailbox.hold().resolve("m-1.json.sig"))
+                .as("no signature of an older message beside it")
+                .doesNotExist();
+    }
+
+    @Test
+    void aRefusedMessageWithASignatureCarriesItOverAnOlderOne(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = queued(dir);
+        Files.writeString(mailbox.hold().resolve("m-1.json.sig"), "an older message's signature");
+        runner.failing("send", 1, "no such destination");
+
+        new TransportSend(runner, withAdapter(dir), org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .send(mailbox, "local");
+
+        assertThat(mailbox.hold().resolve("m-1.json.sig"))
+                .as("its own signature replaces the older one")
+                .hasContent("-----BEGIN SSH SIGNATURE-----");
+    }
+
     /**
      * A machine without the adapter has lost nothing. The message waits, and installing the
      * transport later is what makes the queue move - it is not a refusal, and the sender is not
      * told the peer is gone.
      */
     @Test
-    void a_transport_that_is_not_installed_leaves_the_message_waiting(@TempDir final Path dir)
+    void aTransportThatIsNotInstalledLeavesTheMessageWaiting(@TempDir final Path dir)
             throws IOException {
         final Mailbox mailbox = queued(dir);
 
@@ -160,8 +192,8 @@ class TransportSendTest {
     }
 
     @Test
-    void a_transport_that_shows_a_line_to_a_person_is_given_one_and_one_that_does_not_is_not(
-            @TempDir final Path dir) throws IOException {
+    void aTransportThatShowsALineToAPersonIsGivenOneAndOneThatDoesNotIsNot(@TempDir final Path dir)
+            throws IOException {
 
         // A person reading the room saw the message as JSON: the line they read is Porelo's, made
         // here from the checked message alone, and passed only to a transport that says it takes
