@@ -1,4 +1,4 @@
-package org.fuin.porelo.app;
+package org.fuin.porelo.daemon;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,12 +12,14 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import java.util.Set;
+import org.fuin.porelo.app.TaskReviewRole;
 import org.fuin.porelo.gate.review.Role;
 import org.junit.jupiter.api.Test;
 
 /**
  * Keeps what a task's role decides in {@link TaskReviewRole} alone: every other part asks it, so a
- * {@code switch} or {@code ==} over {@link Role} anywhere else in the apps fails here.
+ * {@code switch} or {@code ==} over {@link Role} in any main class of Porelo, the daemon included,
+ * fails here. It lives in the daemon's tests because only the daemon sees every module.
  */
 class ReviewRoleBranchTest {
 
@@ -33,23 +35,26 @@ class ReviewRoleBranchTest {
 
     private static final DescribedPredicate<JavaClass> THE_ONE_PLACE =
             DescribedPredicate.describe(
-                    "TaskReviewRole or a class nested in it",
-                    type ->
-                            type.isEquivalentTo(TaskReviewRole.class)
-                                    || type.getName()
-                                            .startsWith(TaskReviewRole.class.getName() + "$"));
+                    "TaskReviewRole, Role itself or a class nested in either",
+                    type -> within(type, TaskReviewRole.class) || within(type, Role.class));
 
     @Test
-    void noClassOfTheAppsButTaskReviewRoleBranchesOnARole() {
-        rule().check(apps());
+    void noMainClassButTaskReviewRoleBranchesOnARole() {
+        rule().check(porelo());
+    }
+
+    @Test
+    void theImportHoldsTheDaemonTheGateAndTheApps() {
+        final JavaClasses porelo = porelo();
+        assertThat(porelo.contain(GateMethods.class)).as("a daemon class is imported").isTrue();
+        assertThat(porelo.contain(Role.class)).as("a gate class is imported").isTrue();
+        assertThat(porelo.contain(TaskReviewRole.class)).as("an app class is imported").isTrue();
     }
 
     @Test
     void theRuleFindsTheOneClassThatDoesBranch() {
-        final JavaClasses apps = apps();
-        assertThat(apps.contain(TaskReviewRole.class)).as("TaskReviewRole is imported").isTrue();
-        assertThatThrownBy(() -> anywhere().check(apps))
-                .as("the rule without its one exemption, on the apps")
+        assertThatThrownBy(() -> anywhere().check(porelo()))
+                .as("the rule without its exemptions, on Porelo's main classes")
                 .hasMessageContaining(TaskReviewRole.class.getName());
     }
 
@@ -63,10 +68,14 @@ class ReviewRoleBranchTest {
                 .hasMessageContaining(Compares.class.getSimpleName());
     }
 
-    private static JavaClasses apps() {
+    private static boolean within(final JavaClass type, final Class<?> owner) {
+        return type.isEquivalentTo(owner) || type.getName().startsWith(owner.getName() + "$");
+    }
+
+    private static JavaClasses porelo() {
         return new ClassFileImporter()
                 .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                .importPackages("org.fuin.porelo.app");
+                .importPackages("org.fuin.porelo");
     }
 
     private static ArchRule rule() {
@@ -81,7 +90,7 @@ class ReviewRoleBranchTest {
         return noClasses().should().accessTargetWhere(ON_ROLE);
     }
 
-    /** Branches on a role with a switch, as no class of the apps may. */
+    /** Branches on a role with a switch, as no main class may. */
     static final class Switches {
         static boolean pushes(final Role role) {
             return switch (role) {
@@ -91,7 +100,7 @@ class ReviewRoleBranchTest {
         }
     }
 
-    /** Branches on a role with {@code ==}, as no class of the apps may. */
+    /** Branches on a role with {@code ==}, as no main class may. */
     static final class Compares {
         static boolean pushes(final Role role) {
             return role == Role.AUTHOR;

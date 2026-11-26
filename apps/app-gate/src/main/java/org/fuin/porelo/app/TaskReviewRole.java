@@ -216,6 +216,16 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
+     * Returns whether a role asks from the author's side, the side whose work it is.
+     *
+     * @param role The asking role; null is the author's, as an answer asked without one is.
+     * @return {@code true} for the author's side.
+     */
+    public static boolean asksAsAuthor(final @Nullable Role role) {
+        return role == null || role == Role.AUTHOR;
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Only a task whose state holds no recorded role is an author; one whose record exists but

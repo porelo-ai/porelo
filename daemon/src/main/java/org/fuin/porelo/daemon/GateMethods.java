@@ -1078,7 +1078,7 @@ final class GateMethods {
                     }
                     // The parameters are refused as such before anything is read.
                     final String project = text(parameters, "project");
-                    final org.fuin.porelo.app.ReviewOpen.Role role = role(parameters);
+                    final org.fuin.porelo.gate.review.Role role = role(parameters);
                     final Map<String, Object> answer;
                     try {
                         answer = open.answer(project, place, role, task).fields();
@@ -1328,19 +1328,20 @@ final class GateMethods {
     }
 
     /** The role a ReviewOpen names: absent is the author's, a name the contract lacks refused. */
-    private static org.fuin.porelo.app.ReviewOpen.@org.jspecify.annotations.Nullable Role role(
+    private static org.fuin.porelo.gate.review.@org.jspecify.annotations.Nullable Role role(
             final Map<String, Object> parameters) {
         final Object role = parameters.get("role");
         if (role == null) {
             return null;
         }
-        if ("AUTHOR".equals(role)) {
-            return org.fuin.porelo.app.ReviewOpen.Role.AUTHOR;
+        if (!(role instanceof String word)) {
+            throw invalid("role");
         }
-        if ("REVIEWER".equals(role)) {
-            return org.fuin.porelo.app.ReviewOpen.Role.REVIEWER;
+        try {
+            return org.fuin.porelo.gate.review.Role.of(word);
+        } catch (IllegalArgumentException ex) {
+            throw invalid("role");
         }
-        throw invalid("role");
     }
 
     private static VarlinkException invalid(final String parameter) {

@@ -48,6 +48,7 @@ import org.fuin.porelo.gate.review.ReviewRole;
 import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewThread;
+import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Task;
 import org.fuin.porelo.gate.review.ThreadState;
 import org.fuin.porelo.wire.Json;
@@ -117,7 +118,7 @@ public final class ReviewOpen {
         Objects.requireNonNull(project, "project");
         Objects.requireNonNull(place, "place");
         return switch (place) {
-            case GatePush push -> atGate(project, push, role == null ? Role.AUTHOR : role);
+            case GatePush push -> atGate(project, push, TaskReviewRole.asksAsAuthor(role));
             case PullRequest pullRequest -> {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
@@ -134,7 +135,7 @@ public final class ReviewOpen {
         };
     }
 
-    private Answer atGate(final String project, final GatePush place, final Role role)
+    private Answer atGate(final String project, final GatePush place, final boolean asAuthor)
             throws Refused {
         final Standing standing = parts.gate().standing(project, place.repository(), place.name());
         final Reading reading = new Reading();
@@ -205,7 +206,7 @@ public final class ReviewOpen {
         if (push != null) {
             try {
                 for (final ReviewThread thread : parts.store().threads(push)) {
-                    final Point point = point(thread, standing, role, untimed, since, reading);
+                    final Point point = point(thread, standing, asAuthor, untimed, since, reading);
                     if (point != null) {
                         points.add(point);
                     }
@@ -450,7 +451,7 @@ public final class ReviewOpen {
     private static @Nullable Point point(
             final ReviewThread thread,
             final Standing standing,
-            final Role role,
+            final boolean asAuthor,
             final @Nullable Instant untimed,
             final @Nullable Instant decided,
             final Reading reading) {
@@ -459,7 +460,7 @@ public final class ReviewOpen {
         }
         final Kept last = thread.items().getLast();
         final boolean authors = authors(last.origin().producer(), standing.taskName());
-        if (authors == (role == Role.AUTHOR)) {
+        if (authors == asAuthor) {
             // The asking role's side wrote last: the thread waits for the other side.
             return null;
         }
@@ -506,14 +507,6 @@ public final class ReviewOpen {
                 reason = why;
             }
         }
-    }
-
-    /** The role asking. */
-    public enum Role {
-        /** The task whose work it is. */
-        AUTHOR,
-        /** Whoever reviews it. */
-        REVIEWER
     }
 
     /** A place's decision, as the contract names it. */

@@ -97,6 +97,13 @@ class TaskReviewRoleTest {
     }
 
     @Test
+    void theAuthorsSideIsAskedByTheAuthorAndByNoRoleTheReviewerAsksFromTheOther() {
+        assertThat(TaskReviewRole.asksAsAuthor(null)).as("no role asks as the author").isTrue();
+        assertThat(TaskReviewRole.asksAsAuthor(Role.AUTHOR)).as("the author").isTrue();
+        assertThat(TaskReviewRole.asksAsAuthor(Role.REVIEWER)).as("the reviewer").isFalse();
+    }
+
+    @Test
     void aTaskWhoseRunRecordedNoRoleIsAnAuthor() {
         assertThat(role().role(TASK))
                 .as("role without a recorded run place")

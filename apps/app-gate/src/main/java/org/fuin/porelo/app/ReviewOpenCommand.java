@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.gate.review.PullRequestRef;
+import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -104,8 +105,7 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
             return 64;
         }
         final ReviewOpen.Place place = place();
-        final ReviewOpen.Role asking =
-                role == null ? null : ReviewOpen.Role.valueOf(role.toUpperCase(Locale.ROOT));
+        final @Nullable Role asking = role == null ? null : Role.of(role.toUpperCase(Locale.ROOT));
         final ReviewOpen.Answer answer;
         try {
             answer =
