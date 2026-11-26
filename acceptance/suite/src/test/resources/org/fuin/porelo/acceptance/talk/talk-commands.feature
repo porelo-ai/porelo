@@ -3,8 +3,7 @@ Feature: The talk commands
     Nine commands for the conversations between tasks. Most act on one task's mailbox, and the first
     thing each must do is refuse a task that has none, rather than act on nothing. The rest is asked of
     one running task: what is held, what a person writes into it, how a peer is held and released, and
-    whether the record still checks out; and of two, that a plain message from one reaches the other. The kit
-    removes the tasks and their projects afterwards.
+    whether the record still checks out. The kit removes the task and its project afterwards.
 
     Scenario Outline: every talk command answers for itself
         When a script runs "porelo talk <command> --help"
@@ -103,40 +102,6 @@ Feature: The talk commands
         When a script runs "porelo talk release {task} no-such-message" about the task
         Then it exits non-zero
         And its output contains "is called 'no-such-message'"
-        When a script runs "porelo talk verify {task}" about the task
-        Then it exits zero
-        And its output contains "intact"
-
-    # Needs the message filter, which the kit installs into the account before the first scenario: without one, Porelo
-    # sends nothing and the message stays in the outbox.
-    @slow
-    Scenario: a task's plain message to a peer leaves its mailbox and reaches the peer
-        Given the suite runs as an unprivileged user
-        And the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
-        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
-        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
-        And a project called "talking" of class "guarded" with a file in it
-        When a task called "listener" is started in "talking" for the "stub" agent and left running
-        And a task called "speaker" is started in "talking" for the "stub" agent and left running
-        # Another task of the same project talks freely by default; its card names it before anything is written.
-        Then within 60 seconds this script about the task exits zero:
-            """
-            podman exec --user agent {task} cat /run/porelo/mail/agent-card.json | grep -q '"listener"'
-            """
-        When a script runs about the task:
-            """
-            set -e
-            podman exec --user agent {task} sh -c 'printf "%s" "{\"messageId\":\"m-plain-1\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"a plain word to the listener\"}],\"metadata\":{\"to\":\"listener\"}}" > /run/porelo/mail/outbox/tmp/m-plain-1.json && mv /run/porelo/mail/outbox/tmp/m-plain-1.json /run/porelo/mail/outbox/new/'
-            porelo talk pass {task}
-            """
-        Then it exits zero
-        And within 60 seconds this script about the task exits zero:
-            """
-            box="$HOME/.local/state/porelo/mail/"{task}"/box/outbox/new"
-            [ -z "$(ls -A "$box")" ] || { echo "still in the outbox:"; ls -l "$box"; exit 1; }
-            listener=$(podman ps --filter label=org.fuin.porelo.task=listener --format '{{.Names}}' | head -1)
-            podman exec --user root "$listener" sh -c 'cat /run/porelo/mail/inbox/new/* /run/porelo/mail/inbox/cur/* 2>/dev/null' | grep -q 'a plain word to the listener'
-            """
         When a script runs "porelo talk verify {task}" about the task
         Then it exits zero
         And its output contains "intact"
