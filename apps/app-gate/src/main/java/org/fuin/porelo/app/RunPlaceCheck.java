@@ -598,7 +598,14 @@ public final class RunPlaceCheck {
         }
     }
 
-    private static Refusal unreadable(final PlaceUnreadable.Reason reason, final String detail) {
+    /**
+     * A place that could not be read.
+     *
+     * @param reason Why.
+     * @param detail A short cause for a person; never a secret.
+     * @return The refusal.
+     */
+    public static Refusal unreadable(final PlaceUnreadable.Reason reason, final String detail) {
         return Refusal.unavailable(
                 "PlaceUnreadable",
                 Map.of("reason", reason.wireName(), "detail", detail),

@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -12045,6 +12046,86 @@ class TaskRunCommandTest {
         assertThat(runner.lines())
                 .as("nothing is made")
                 .noneMatch(line -> line.contains("podman create"));
+    }
+
+    /** Makes the task {@code shell} and leaves it stopped, as the runtime lists it. */
+    private void stoppedTask(PoreloContext context, String project) {
+        execute(context, "task", "start", "--attach", "shell", "--detach", "-p", project);
+        runner.answering(
+                "ps",
+                "porelo-uc_shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        recordedTasks(context);
+        runner.answering("{{.Id}}", String.valueOf(context.recordedId("porelo-uc_shell")));
+        err.getBuffer().setLength(0);
+    }
+
+    /** Starts the stopped task {@code shell} at its own pull request, naming {@code more}. */
+    private int startAtOwnPullRequest(PoreloContext context, String project, String... more) {
+        final CommandLine cmd = PoreloCli.commandLine(context);
+        cmd.setOut(new PrintWriter(out));
+        cmd.setErr(new PrintWriter(err));
+        final List<String> arguments =
+                new ArrayList<>(
+                        List.of(
+                                "task",
+                                "start",
+                                "shell",
+                                "--project",
+                                project,
+                                "--role",
+                                "author",
+                                "--place",
+                                "own",
+                                "--detach",
+                                "--prompt",
+                                "x"));
+        arguments.addAll(List.of(more));
+        return cmd.execute(arguments.toArray(String[]::new));
+    }
+
+    @ParameterizedTest(name = "repository named: \"{0}\"")
+    @ValueSource(strings = {"", "uc"})
+    void aStartOfAnExistingTaskAtItsOwnPullRequestIsRefusedWhenNoneIsOpenWhateverItNames(
+            String named, @TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final String project = projectFile(dir, MINIMAL);
+        stoppedTask(context, project);
+        final int before = runner.lines().size();
+
+        final int code =
+                named.isEmpty()
+                        ? startAtOwnPullRequest(context, project)
+                        : startAtOwnPullRequest(context, project, "-r", named);
+
+        assertThat(code).as("no pull request of its own: %s", err).isEqualTo(69);
+        assertThat(err.toString())
+                .as("the refusal's name and the task's branch")
+                .contains("NoPullRequest")
+                .contains("porelo/shell");
+        assertThat(runner.lines().subList(before, runner.lines().size()))
+                .as("the agent does not run at a place that does not exist")
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman exec"));
+    }
+
+    @Test
+    void aStartOfAnExistingTaskWhoseRuntimeListingFailsIsNeverCheckedAsIfItWereNew(
+            @TempDir Path dir) throws IOException {
+        final PoreloContext context = context(dir, true);
+        final String project = projectFile(dir, MINIMAL);
+        stoppedTask(context, project);
+        runner.failing("ps", 125, "podman is down");
+        final int before = runner.lines().size();
+
+        assertThatThrownBy(() -> TaskBranch.recorded(context, dir.resolve("project.yml"), "shell"))
+                .as("the lookup refuses rather than answering 'no such task'")
+                .isInstanceOf(TaskBranch.Unreadable.class)
+                .hasMessageContaining("could not be looked up");
+        final int code = startAtOwnPullRequest(context, project);
+
+        assertThat(code).as("the start ends loudly: %s", err).isNotZero();
+        assertThat(runner.lines().subList(before, runner.lines().size()))
+                .as("nothing is started")
+                .noneMatch(line -> line.contains("podman start") || line.contains("podman exec"));
     }
 
     @Test

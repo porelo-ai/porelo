@@ -40,7 +40,14 @@ final class RunPlaces {
             final String task,
             final @Nullable String repository,
             final boolean gated) {
-        return taken(parameters, projectFile, task, repository, gated, RunPlaceCheck.of(context));
+        return taken(
+                parameters,
+                projectFile,
+                task,
+                repository,
+                gated,
+                RunPlaceCheck.of(context),
+                recorded(context, parameters, projectFile, task));
     }
 
     /**
@@ -79,7 +86,8 @@ final class RunPlaces {
                 task,
                 repository,
                 gated,
-                new RunPlaceCheck(context, forges, starts));
+                new RunPlaceCheck(context, forges, starts),
+                recorded(context, parameters, projectFile, task));
     }
 
     /**
@@ -113,7 +121,8 @@ final class RunPlaces {
                 task,
                 repository,
                 gated,
-                new RunPlaceCheck(context, forges, own, starts));
+                new RunPlaceCheck(context, forges, own, starts),
+                recorded(context, parameters, projectFile, task));
     }
 
     private static @Nullable RunPlace taken(
@@ -122,20 +131,56 @@ final class RunPlaces {
             final String task,
             final @Nullable String repository,
             final boolean gated,
-            final RunPlaceCheck check) {
+            final RunPlaceCheck check,
+            final TaskBranch.@Nullable Recorded recorded) {
         final String role = role(parameters);
         final RunPlaceCheck.Place place = place(parameters);
+        // An existing task is checked at the repository and branch it recorded, whatever the call
+        // names (the launch refuses a mismatch), never at the ones its parameters would make for
+        // a new task.
+        final String placeRepository =
+                recorded != null && recorded.repository() != null
+                        ? recorded.repository()
+                        : repository;
         try {
             return check.taken(
                     projectFile,
                     task,
-                    repository,
+                    placeRepository,
                     gated,
                     role,
                     place,
-                    () -> branch(parameters, projectFile, task, repository));
+                    () ->
+                            recorded != null && recorded.branch() != null
+                                    ? recorded.branch()
+                                    : branch(parameters, projectFile, task, placeRepository));
         } catch (RunPlaceCheck.Refused refused) {
             throw new VarlinkException(refused.refusal().error(), refused.refusal().fields());
+        }
+    }
+
+    /**
+     * What an existing task recorded, read only when the call names a role or a place that is not a
+     * pull request's address, which uses neither.
+     */
+    private static TaskBranch.@Nullable Recorded recorded(
+            final PoreloContext context,
+            final Map<String, Object> parameters,
+            final Path projectFile,
+            final String task) {
+        final Object place = parameters.get("place");
+        if (parameters.get("role") == null && place == null
+                || place instanceof Map<?, ?> given && given.get("pullRequest") != null) {
+            return null;
+        }
+        try {
+            return TaskBranch.recorded(context, projectFile, task);
+        } catch (TaskBranch.Unreadable unreadable) {
+            final RunPlaceCheck.Refusal refusal =
+                    RunPlaceCheck.unreadable(
+                            org.fuin.porelo.gate.review.PlaceUnreadable.Reason.UNREACHABLE,
+                            String.valueOf(unreadable.getMessage()));
+            throw new VarlinkException(refusal.error(), refusal.fields());
         }
     }
 

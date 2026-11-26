@@ -171,8 +171,9 @@ class RunPlacesTest {
                     .isEqualTo(Map.of("head", ""));
         }
         assertThat(runner.invocations())
-                .as("no mirror of a repository the project does not have is looked into")
-                .isEmpty();
+                .as(
+                        "only the runtime is listed, no mirror of a repository the project lacks is looked into")
+                .allMatch(command -> command.describe().startsWith("podman ps "));
     }
 
     @Test
@@ -204,6 +205,156 @@ class RunPlacesTest {
                 .as("the branch it was looked for from")
                 .isEqualTo(Map.of("branch", "porelo/fix"));
         assertThat(started).as("nothing is started").isEmpty();
+    }
+
+    /** A project with an upstream of its own and two repositories with theirs. */
+    private void upstreams() throws IOException {
+        Files.writeString(
+                projectFile,
+                """
+                project:
+                  name: "demo"
+                  security_class: "guarded"
+                  upstream: "https://forge.example.org/uc/demo.git"
+                image:
+                  from: "ubuntu:24.04"
+                repositories:
+                  web:
+                    upstream: "https://forge.example.org/uc/web-app.git"
+                  api:
+                    upstream: "https://forge.example.org/uc/api-app.git"
+                """);
+    }
+
+    /** Leaves the record of the task {@code fix} and its runtime row at {@code repository}. */
+    private void recordedAt(final String repository, final boolean listed) throws IOException {
+        final String container =
+                context.tasks()
+                        .containerName(
+                                org.fuin.porelo.core.project.ProjectReader.read(projectFile),
+                                "fix",
+                                null);
+        final Path runtime = context.paths().tasks().containerState(container);
+        final Path durable = context.paths().tasks().taskRecord(container);
+        org.fuin.porelo.wire.Sidecar.recordId(durable, "0123456789abcdef");
+        new org.fuin.porelo.wire.Sidecar(
+                        org.fuin.porelo.wire.Sidecar.VERSION,
+                        "demo",
+                        "guarded",
+                        runtime.resolve("ruleset.nft").toString(),
+                        runtime.resolve("dns.conf").toString(),
+                        "/usr/bin/porelo",
+                        runtime.toString())
+                .writeTo(durable.resolve("sidecar.json"));
+        runner.answering(
+                "ps",
+                listed
+                        ? container
+                                + "\tExited (0) 4 minutes ago\t1788500000\t0\tdemo\tguarded\t"
+                                + repository
+                                + "\t\t0123456789abcdef\tfix\n"
+                        : "");
+    }
+
+    /** Takes the own pull request of the task {@code fix}, naming {@code repository} or none. */
+    private RunPlace ownTaken(final @org.jspecify.annotations.Nullable String repository) {
+        return RunPlaces.taken(
+                context,
+                Map.of("place", OWN),
+                projectFile,
+                "fix",
+                repository,
+                true,
+                forges,
+                new OwnPullRequests(adapter, entry -> new ForgeCredential(entry, "lent")),
+                (task, place, ref) -> started.add(place));
+    }
+
+    @Test
+    void anExistingTaskStartedWithNoRepositoryNamedIsCheckedAtTheRepositoryItRecorded()
+            throws IOException {
+        upstreams();
+        recordedAt("web", true);
+        adapter.open = Optional.empty();
+
+        final VarlinkException refused =
+                catchThrowableOfType(() -> ownTaken(null), VarlinkException.class);
+
+        assertThat(refused).as("an unnamed repository is the recorded one").isNotNull();
+        assertThat(refused.getErrorName())
+                .as("none open")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".NoPullRequest");
+        assertThat(refused.getParameters())
+                .as("the branch it was looked for from")
+                .isEqualTo(Map.of("branch", "porelo/fix"));
+        assertThat(adapter.asked)
+                .as("the recorded repository's upstream, not the project's")
+                .containsExactly(
+                        "forgejo "
+                                + ENTRY
+                                + " https://forge.example.org/uc/web-app.git porelo/fix");
+        assertThat(started).as("nothing is started").isEmpty();
+    }
+
+    @Test
+    void aRepositoryNamedOtherThanTheRecordedOneDoesNotChangeWhereTheTaskIsChecked()
+            throws IOException {
+        upstreams();
+        recordedAt("web", true);
+
+        ownTaken("api");
+
+        assertThat(adapter.asked)
+                .as("the recorded repository's upstream, whatever the call names")
+                .containsExactly(
+                        "forgejo "
+                                + ENTRY
+                                + " https://forge.example.org/uc/web-app.git porelo/fix");
+    }
+
+    @Test
+    void aTaskTheRuntimeDoesNotListIsCheckedAtWhatTheCallNames() throws IOException {
+        upstreams();
+        recordedAt("web", false);
+
+        ownTaken("api");
+
+        assertThat(adapter.asked)
+                .as("no row, no recorded repository: the call's own")
+                .containsExactly(
+                        "forgejo "
+                                + ENTRY
+                                + " https://forge.example.org/uc/api-app.git porelo/fix");
+    }
+
+    @Test
+    void aRuntimeListingThatFailsRefusesTheStartAsPlaceUnreadable() throws IOException {
+        upstreams();
+        runner.failing("ps", 125, "podman is down");
+
+        final VarlinkException refused =
+                catchThrowableOfType(() -> ownTaken("web"), VarlinkException.class);
+
+        assertThat(refused).as("unchecked is refused").isNotNull();
+        assertThat(refused.getErrorName())
+                .as("by the place's own refusal")
+                .isEqualTo(PoreloDaemon.INTERFACE + ".PlaceUnreadable");
+        assertThat(refused.getParameters())
+                .as("with its reason and a short cause")
+                .containsEntry("reason", "Unreachable")
+                .containsKey("detail");
+        assertThat(adapter.asked).as("the forge is not asked").isEmpty();
+    }
+
+    @Test
+    void aStartAtAPullRequestOfAnExistingTaskDoesNotLookTheTaskUp() throws IOException {
+        runner.failing("ps", 125, "podman is down");
+
+        takenAt(pullRequest());
+
+        assertThat(runner.invocations())
+                .as("a pull request's address uses nothing of the task's record")
+                .noneMatch(command -> command.describe().contains(" ps "));
     }
 
     @Test

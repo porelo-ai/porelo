@@ -1303,17 +1303,43 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
 
         // Before anything is made, whether the task runs or not, as the daemon's Start checks them.
         final RunPlace runPlace;
+        // An existing task is checked at the repository and branch it recorded, whatever -r says
+        // (the launch refuses a mismatch in its own words), never at the ones this start's
+        // arguments would make for a new task. A pull request's address uses neither.
+        final TaskBranch.Recorded recorded;
+        try {
+            recorded =
+                    role == null && place == null || place != null && place.contains("://")
+                            ? null
+                            : TaskBranch.recorded(context, projectFile, task);
+        } catch (TaskBranch.Unreadable notLooked) {
+            err.println("porelo: PlaceUnreadable: Unreachable, " + notLooked.getMessage());
+            err.flush();
+            return 69;
+        }
+        final String placeRepository =
+                recorded != null && recorded.repository() != null
+                        ? recorded.repository()
+                        : repository;
         try {
             runPlace =
                     places.taken(
                             context,
                             projectFile,
                             task,
-                            repository,
+                            placeRepository,
                             !noGate && !readOnly && !allRepositories,
                             role,
                             place,
-                            () -> TaskBranch.of(projectFile, repository, task, given, branch));
+                            () ->
+                                    recorded != null && recorded.branch() != null
+                                            ? recorded.branch()
+                                            : TaskBranch.of(
+                                                    projectFile,
+                                                    placeRepository,
+                                                    task,
+                                                    given,
+                                                    branch));
         } catch (StartPlaces.Refused refused) {
             err.println("porelo: " + refused.getMessage());
             err.flush();

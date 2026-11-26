@@ -51,6 +51,96 @@ public final class TaskBranch {
     }
 
     /**
+     * What an existing task recorded of where it works.
+     *
+     * @param repository The repository it was labelled with, or {@code null} when it has none.
+     * @param branch The branch its work carries beyond the gate, or {@code null} when it has none.
+     */
+    public record Recorded(@Nullable String repository, @Nullable String branch) {}
+
+    /** A task's record or its runtime listing could not be read, so no place can be checked. */
+    public static final class Unreadable extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Constructor.
+         *
+         * @param cause A short cause for a person; never a secret.
+         */
+        public Unreadable(final String cause) {
+            super(cause, null, false, false);
+        }
+    }
+
+    /**
+     * Returns what an existing task recorded of its repository and branch, so a start of it is
+     * checked against the task it resumes and not against the ones its arguments would make anew.
+     *
+     * @param context The machine.
+     * @param projectFile The start's project file.
+     * @param task The task's name within the project.
+     * @return What it recorded, or {@code null} only when there is no such task: its project does
+     *     not read, no task of that name is recorded, or the runtime lists no container for it; the
+     *     arguments and the launch then decide.
+     * @throws Unreadable When the runtime cannot be listed, or the task's identity is ambiguous or
+     *     cannot be read: the start is refused, never carried on unchecked.
+     */
+    public static @Nullable Recorded recorded(
+            final PoreloContext context, final java.nio.file.Path projectFile, final String task) {
+        final Project project;
+        try {
+            project = org.fuin.porelo.core.project.ProjectReader.read(projectFile);
+        } catch (RuntimeException ex) {
+            // Refused by the launch, in its own words.
+            return null;
+        }
+        final TaskIdentities.Result found;
+        final java.util.List<org.fuin.porelo.runtime.ContainerSummary> rows;
+        try {
+            found = new TaskIdentities(context).lookup(task, project.name());
+            rows = context.podman().poreloTasks();
+        } catch (RuntimeException ex) {
+            throw new Unreadable(
+                    "the task's container could not be looked up: "
+                            + ex.getClass().getSimpleName());
+        }
+        if (found instanceof TaskIdentities.Refused refused) {
+            return switch (refused.reason()) {
+                case MISSING, MISSING_RECORD, PROJECT_MISMATCH -> null;
+                default -> throw new Unreadable(refused.said());
+            };
+        }
+        final String container = ((TaskIdentities.Found) found).identity().container();
+        final org.fuin.porelo.runtime.ContainerSummary row =
+                rows.stream()
+                        .filter(each -> each.name().equals(container))
+                        .findFirst()
+                        .orElse(null);
+        if (row == null) {
+            return null;
+        }
+        final org.fuin.porelo.wire.TaskProfile profile;
+        try {
+            final org.fuin.porelo.wire.TaskProfile state =
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().containerState(container));
+            profile =
+                    state != null
+                            ? state
+                            : org.fuin.porelo.wire.TaskProfile.readFrom(
+                                    context.paths().tasks().taskRecord(container));
+        } catch (RuntimeException ex) {
+            throw new Unreadable(
+                    "the task's profile could not be read: " + ex.getClass().getSimpleName());
+        }
+        final String repository = row.repository();
+        return new Recorded(
+                repository == null || repository.isBlank() ? null : repository,
+                profile == null ? null : profile.forgeBranchOrToday());
+    }
+
+    /**
      * What came of making a task's branch.
      *
      * @param name The branch, or {@code null} when it is refused.
