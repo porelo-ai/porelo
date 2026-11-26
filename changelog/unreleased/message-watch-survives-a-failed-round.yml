@@ -1,0 +1,2 @@
+title: A message watch thread whose round throws a runtime exception goes on with the next round, where it used to end and move no message on its timer until the daemon restarted; the daemon log names the thread, the exception's class and where it was thrown once, and again only after a round went through
+type: fixed

@@ -585,6 +585,10 @@ public final class MessageWatch implements AutoCloseable {
                 "porelo-messages",
                 () -> {
                     final long look = context.limits().polling(VAULT_LOOK).toMillis();
+                    // Apart, so the pass that goes through does not make a look's lasting fault
+                    // new.
+                    final RoundFaults lookFaults = new RoundFaults();
+                    final RoundFaults passFaults = new RoundFaults();
                     while (running) {
                         // The pass's wait in short steps, each looking whether the vault opened for
                         // what waits for it.
@@ -602,15 +606,25 @@ public final class MessageWatch implements AutoCloseable {
                                 Thread.currentThread().interrupt();
                                 return;
                             }
-                            if (running && opened()) {
-                                // What waited for the vault leaves once it opens, not at the first
-                                // pass a minute on.
-                                moveOnce("the vault open");
+                            try {
+                                if (running && opened()) {
+                                    // What waited for the vault leaves once it opens, not at the
+                                    // first pass a minute on.
+                                    moveOnce("the vault open");
+                                }
+                                passed = running && afterTheVault(this::passOnce);
+                                lookFaults.cleared();
+                            } catch (final RuntimeException ex) {
+                                lookFaults.failed(ex);
                             }
-                            passed = running && afterTheVault(this::passOnce);
                         }
                         if (running && !passed) {
-                            passOnce();
+                            try {
+                                passOnce();
+                                passFaults.cleared();
+                            } catch (final RuntimeException ex) {
+                                passFaults.failed(ex);
+                            }
                         }
                     }
                 });
@@ -666,6 +680,7 @@ public final class MessageWatch implements AutoCloseable {
         if (service == null) {
             return;
         }
+        final RoundFaults faults = new RoundFaults();
         while (running) {
             final java.nio.file.WatchKey key;
             try {
@@ -676,11 +691,17 @@ public final class MessageWatch implements AutoCloseable {
             }
             // A new mailbox brings two more directories to watch, and nothing else here would ever
             // look at it again.
+            boolean failed = false;
             for (final java.nio.file.WatchEvent<?> event : key.pollEvents()) {
-                if (key.watchable() instanceof Path directory
-                        && event.context() instanceof Path name
-                        && Files.isDirectory(directory.resolve(name))) {
-                    watch(directory.resolve(name));
+                try {
+                    if (key.watchable() instanceof Path directory
+                            && event.context() instanceof Path name
+                            && Files.isDirectory(directory.resolve(name))) {
+                        newMailbox.accept(directory.resolve(name));
+                    }
+                } catch (final RuntimeException ex) {
+                    failed = true;
+                    faults.failed(ex);
                 }
             }
             key.reset();
@@ -695,9 +716,63 @@ public final class MessageWatch implements AutoCloseable {
             if (running) {
                 // Only the moving: a written message leaves now, not after every conversation was
                 // asked.
-                moveOnce("a notice");
+                try {
+                    moveOnce("a notice");
+                    if (!failed) {
+                        faults.cleared();
+                    }
+                } catch (final RuntimeException ex) {
+                    faults.failed(ex);
+                }
             }
         }
+    }
+
+    /**
+     * What one loop says about its failing rounds: the first at once, the same fault again only
+     * after a round succeeded in between, so a fault that stays does not fill the journal.
+     */
+    private static final class RoundFaults {
+
+        private @Nullable String lastSaid;
+
+        /** Says the failure unless the previous round said the same one. */
+        void failed(final RuntimeException ex) {
+            // Class and first frame, no message: a round runs transports whose messages can hold a
+            // destination or part of a message.
+            final StackTraceElement[] frames = ex.getStackTrace();
+            final String where = frames.length == 0 ? "no frame" : frames[0].toString();
+            final String what = ex.getClass().getName() + " at " + where;
+            if (what.equals(lastSaid)) {
+                return;
+            }
+            lastSaid = what;
+            System.err.println(
+                    "porelod: "
+                            + Thread.currentThread().getName()
+                            + ": a round failed and the next one goes on: "
+                            + what);
+        }
+
+        /** A round went through: the next failure is said again. */
+        void cleared() {
+            lastSaid = null;
+        }
+    }
+
+    /**
+     * What the notice loop does for a mailbox that appeared; a test replaces it with one that
+     * fails.
+     */
+    private volatile java.util.function.Consumer<Path> newMailbox = this::watch;
+
+    /**
+     * Replaces what the notice loop does for a mailbox that appeared.
+     *
+     * @param action Called with the new mailbox's directory.
+     */
+    void onNewMailbox(final java.util.function.Consumer<Path> action) {
+        newMailbox = action;
     }
 
     private void watch(final Path mailbox) {
