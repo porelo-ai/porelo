@@ -409,7 +409,10 @@ public final class UpstreamProbe {
                     overSsh
                             ? "nothing is stored for it, so ssh offered only its default key files and, at a terminal, your"
                                     + " ssh agent"
-                            : "nothing is stored for it, so no token was offered";
+                            : GitCredentialNames.impliesNoToken(url)
+                                    ? "no token was offered, since "
+                                            + CredentialDeclarations.NO_IMPLIED_TOKEN
+                                    : "nothing is stored for it, so no token was offered";
             return new Answer(
                     Cause.KEY_REFUSED,
                     host + " refused this machine: " + offered + "." + daemon,

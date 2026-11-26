@@ -1,5 +1,7 @@
 package org.fuin.porelo.app;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -50,6 +52,13 @@ public final class GitCredentialNames {
     private static final Pattern HOST_AND_PORT =
             Pattern.compile("(\\[[^\\]\\s=@]+]|[^\\[\\]:=@*\\s\\p{Cntrl}]+)(:\\d+)?");
 
+    /** A scheme an address begins with, and its {@code ://}. */
+    private static final Pattern SCHEME = Pattern.compile("([A-Za-z][A-Za-z0-9+.-]*)://");
+
+    /** The host and port of an ssh authority, as {@link #HOST_AND_PORT}, the port maybe empty. */
+    private static final Pattern SSH_HOST_AND_PORT =
+            Pattern.compile("(\\[[^\\]\\s=@]+]|[^\\[\\]:=@*\\s\\p{Cntrl}]+)(:\\d*)?");
+
     private GitCredentialNames() {
         throw new UnsupportedOperationException("Utility class");
     }
@@ -90,6 +99,17 @@ public final class GitCredentialNames {
     /**
      * Returns the host a URL names, which is what an entry may be keyed by.
      *
+     * <p>The host is the one the address's reader connects to, so the scheme decides where the
+     * authority ends. Of an {@code http://} or {@code https://} address, as libcurl reads it: the
+     * authority as {@link URI} parses it, ending at the first {@code /}, {@code ?} or {@code #},
+     * and the host after its last {@code @}, so {@code https://evil.example#@github.com/x} names
+     * evil.example. Only the scheme and authority are parsed, so a character a URI may not hold in
+     * its path still leaves the host; an authority the parser refuses names none. Of any other
+     * {@code scheme://} address, as git hands it to ssh: all before the first {@code /}, and the
+     * host after its last {@code @}, so {@code ssh://evil.example#@github.com/x} names github.com;
+     * a host that cannot stand there names none. Of {@code user@host:path}, the host between the
+     * {@code @} and the colon. The host is kept as written, in its case.
+     *
      * @param url The repository.
      * @return The host, or {@code null} when the URL names none.
      */
@@ -100,19 +120,78 @@ public final class GitCredentialNames {
         final String trimmed = url.strip();
         final int scheme = trimmed.indexOf("://");
         if (scheme >= 0) {
-            final String rest = trimmed.substring(scheme + 3);
-            // A user only in the authority: an '@' in the path made
-            // 'ssh://forge.example/x/@github.com/y' read as github.com, and that host's key was
-            // lent to the other.
-            final int slash = rest.indexOf('/');
-            final int at = (slash < 0 ? rest : rest.substring(0, slash)).lastIndexOf('@');
-            final String host = leadingHost(at >= 0 ? rest.substring(at + 1) : rest);
-            return host.isEmpty() ? null : host;
+            final Matcher named = SCHEME.matcher(trimmed);
+            if (!named.lookingAt() || named.end() != scheme + "://".length()) {
+                return null;
+            }
+            final String protocol = named.group(1).toLowerCase(java.util.Locale.ROOT);
+            return "http".equals(protocol) || "https".equals(protocol)
+                    ? httpHost(trimmed, scheme)
+                    : sshHost(trimmed.substring(named.end()));
         }
         if (trimmed.matches("^[^/@]+@[^/:]+:.*")) {
             return leadingHost(trimmed.substring(trimmed.indexOf('@') + 1));
         }
         return null;
+    }
+
+    /**
+     * The host of an http(s) address: of its authority as {@link URI} parses it, after the last
+     * {@code @}.
+     *
+     * @param address The address, stripped.
+     * @param scheme Where its {@code ://} begins.
+     * @return The host, or {@code null} when the parser refuses the authority or finds no host.
+     */
+    private static @Nullable String httpHost(final String address, final int scheme) {
+        final int start = scheme + "://".length();
+        final Matcher end = AUTHORITY_END.matcher(address).region(start, address.length());
+        final int cut = end.find() ? end.start() : address.length();
+        final String authority;
+        try {
+            authority = new URI(address.substring(0, cut)).getRawAuthority();
+        } catch (URISyntaxException ex) {
+            return null;
+        }
+        if (authority == null) {
+            return null;
+        }
+        final String host = leadingHost(authority.substring(authority.lastIndexOf('@') + 1));
+        return host.isEmpty() ? null : host;
+    }
+
+    /**
+     * The host of an address git hands to ssh: after the last {@code @} before the first {@code /}.
+     *
+     * @param afterScheme The address after its {@code ://}.
+     * @return The host, or {@code null} when what stands there is no host and port.
+     */
+    private static @Nullable String sshHost(final String afterScheme) {
+        final int slash = afterScheme.indexOf('/');
+        final String authority = slash < 0 ? afterScheme : afterScheme.substring(0, slash);
+        final Matcher parts =
+                SSH_HOST_AND_PORT.matcher(authority.substring(authority.lastIndexOf('@') + 1));
+        return parts.matches() ? parts.group(1) : null;
+    }
+
+    /**
+     * Whether a token address holds an {@code @} anywhere: in its user part, which a reader may
+     * take for a host, or outside its authority, where another reader ends the host elsewhere.
+     */
+    private static boolean tokenWithAt(final Kind kind, final @Nullable String url) {
+        return kind == Kind.TOKEN && url != null && url.indexOf('@') >= 0;
+    }
+
+    /**
+     * Tells whether an address is taken by a token and holds an {@code @}, so that it implies no
+     * vault entry: in its user part, which a reader may take for a host, or outside its authority,
+     * where another reader ends the host elsewhere.
+     *
+     * @param url The repository.
+     * @return {@code true} for such an address; a declared credential may still reach it.
+     */
+    public static boolean impliesNoToken(final @Nullable String url) {
+        return tokenWithAt(kindOf(url), url);
     }
 
     /**
@@ -124,7 +203,8 @@ public final class GitCredentialNames {
      * @param url The repository.
      * @return The key, or {@code null} when the address is not {@code https://} - over {@code
      *     http://} a token crosses the wire in the clear - or names no host that can stand in a
-     *     key, or a host other than the one {@link #hostOf} reads.
+     *     key, or a host other than the one {@link #hostOf} reads, or than a reader that ends the
+     *     authority only at its first {@code /} takes.
      */
     public static @Nullable String helperScopeOf(final @Nullable String url) {
         if (url == null) {
@@ -140,11 +220,20 @@ public final class GitCredentialNames {
         final String authority = end.find() ? rest.substring(0, end.start()) : rest;
         final String hostAndPort = authority.substring(authority.indexOf('@') + 1);
         final Matcher parts = HOST_AND_PORT.matcher(hostAndPort);
-        // The credential is chosen by hostOf: where it reads another host, that host's token would
-        // be keyed for this one.
-        return parts.matches() && parts.group(1).equals(hostOf(trimmed))
+        // A declaration's match is read up to the first '/': where that or hostOf reads another
+        // host, that host's token would be keyed for this one.
+        return parts.matches()
+                        && parts.group(1).equals(hostOf(trimmed))
+                        && parts.group(1).equals(hostBeforeSlash(rest))
                 ? HTTPS + hostAndPort
                 : null;
+    }
+
+    /** The host after the last '@' before the first '/', as a reader that ends it there takes. */
+    private static String hostBeforeSlash(final String afterScheme) {
+        final int slash = afterScheme.indexOf('/');
+        final String upToSlash = slash < 0 ? afterScheme : afterScheme.substring(0, slash);
+        return leadingHost(upToSlash.substring(upToSlash.lastIndexOf('@') + 1));
     }
 
     /**
@@ -152,11 +241,13 @@ public final class GitCredentialNames {
      * address before it ends the host, so {@code ssh://forge.example%2F@other.example/x} connects
      * to forge.example while {@link #hostOf} and the registry read other.example, and that host's
      * key would be offered to the other. Over http the address reaches libcurl undecoded and they
-     * agree.
+     * agree. git also ends an {@code ssh://} host only at its first {@code /}, so {@code
+     * ssh://forge.example#@other.example/x} connects to other.example while {@link #hostOf} reads
+     * forge.example.
      *
      * @param url The repository.
-     * @return {@code false} for an {@code ssh://} address with an encoded character in its
-     *     authority.
+     * @return {@code false} for an {@code ssh://} address with an encoded character, a {@code ?} or
+     *     a {@code #} before its first {@code /}.
      */
     public static boolean namesOneHost(final @Nullable String url) {
         if (url == null) {
@@ -180,7 +271,10 @@ public final class GitCredentialNames {
             return true;
         }
         final int slash = rest.indexOf('/');
-        return (slash < 0 ? rest : rest.substring(0, slash)).indexOf('%') < 0;
+        final String authority = slash < 0 ? rest : rest.substring(0, slash);
+        return authority.indexOf('%') < 0
+                && authority.indexOf('?') < 0
+                && authority.indexOf('#') < 0;
     }
 
     /** The host a host and its path begin with; an IPv6 host keeps the colons in its brackets. */
@@ -196,19 +290,24 @@ public final class GitCredentialNames {
     /**
      * Returns the entries to look in for a URL, most specific first.
      *
+     * <p>Fails closed: an address that names no host, or that git and this class read as two hosts
+     * ({@link #namesOneHost}), names no entry, not even the plain one. An address taken by a token
+     * names none when it holds an {@code @}: in its user part, or outside its authority, as in
+     * {@code https://forge.example/x/@github.com/y}. A key's address keeps its user, as an ssh
+     * address normally carries one.
+     *
      * @param url The repository.
-     * @return Names to try in order, empty when the URL needs no credential.
+     * @return Names to try in order, empty when the URL needs no credential or names none.
      */
     public static List<String> candidatesFor(final @Nullable String url) {
+        final Kind kind = kindOf(url);
         final String host = hostOf(url);
-        return switch (kindOf(url)) {
-            case KEY ->
-                    host == null
-                            ? List.of(SSH, LEGACY_SSH)
-                            : List.of(SSH + "." + host, SSH, LEGACY_SSH);
-            case TOKEN -> host == null ? List.of(TOKEN) : List.of(TOKEN + "." + host, TOKEN);
-            case NONE -> List.of();
-        };
+        if (kind == Kind.NONE || host == null || !namesOneHost(url) || tokenWithAt(kind, url)) {
+            return List.of();
+        }
+        return kind == Kind.KEY
+                ? List.of(SSH + "." + host, SSH, LEGACY_SSH)
+                : List.of(TOKEN + "." + host, TOKEN);
     }
 
     /**
@@ -233,13 +332,17 @@ public final class GitCredentialNames {
      * <p>The same name the fallback already looks in, so a credential declared without a name and
      * one stored without a declaration are the same entry rather than two that shadow each other.
      *
+     * <p>The host is {@link #hostOf}'s, and a destination names none where {@link #candidatesFor}
+     * offers none: one git reads as another host, or a token's that holds an {@code @}.
+     *
      * @param kind What the destination wants.
      * @param match The destination, normalised.
-     * @return The name, or {@code null} when the destination names no host to build one from.
+     * @return The name, or {@code null} when the destination names no host to build one from, is
+     *     read as two hosts, or is a token's and holds an {@code @}.
      */
     public static @Nullable String impliedName(final Kind kind, final String match) {
         final String host = hostOf(match);
-        if (host == null) {
+        if (host == null || !namesOneHost(match) || tokenWithAt(kind, match)) {
             return null;
         }
         return switch (kind) {

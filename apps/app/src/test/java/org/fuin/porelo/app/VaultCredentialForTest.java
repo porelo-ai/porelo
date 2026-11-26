@@ -483,7 +483,9 @@ class VaultCredentialForTest {
     }
 
     @Test
-    void aUserInTheForAddressIsNoHost() throws Exception {
+    void aUserInTheForAddressTakesNoVaultToken() throws Exception {
+        // An https address with a user part is one a reader may take for two hosts: it names no
+        // token of either, nor the plain one.
         final String address = "https://other.example.org@forge.example.org/acme/p.git";
 
         run(impliedOnly(), request("other.example.org", "acme/p.git"), "--for", address);
@@ -491,7 +493,8 @@ class VaultCredentialForTest {
         assertNoTokenAnywhere();
 
         run(impliedOnly(), request("forge.example.org", "acme/p.git"), "--for", address);
-        assertThat(out.toString()).contains("password=" + IMPLIED);
+        assertThat(out.toString()).as("nor does the host after it take a token").isEmpty();
+        assertNoTokenAnywhere();
     }
 
     @ParameterizedTest

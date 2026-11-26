@@ -122,4 +122,17 @@ class ForgeIdentityTest {
         assertThat(answer).isNull();
         assertThat(sshRuns()).as("no ssh was run").isEmpty();
     }
+
+    @Test
+    void anAddressItsReadersTakeForTwoHostsIsNotAsked() {
+        // git connects to forge.example and this class would ask other.example.
+        assertThat(
+                        ForgeIdentity.ask(
+                                context(),
+                                "ssh://git@forge.example%2F@other.example/x.git",
+                                "probe"))
+                .as("nothing asked")
+                .isNull();
+        assertThat(sshRuns()).as("no ssh run").isEmpty();
+    }
 }

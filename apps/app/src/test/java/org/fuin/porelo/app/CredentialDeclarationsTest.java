@@ -9,6 +9,8 @@ import java.nio.file.Path;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.credential.Credential;
 import org.fuin.porelo.testing.FakeCommandRunner;
+import org.fuin.porelo.vault.VaultEntry;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,6 +25,11 @@ import org.junit.jupiter.api.io.TempDir;
 class CredentialDeclarationsTest {
 
     private Path root;
+
+    @AfterEach
+    void forgetThePassphrase() {
+        PoreloContext.forgetAsked();
+    }
 
     private PoreloContext context(final Path dir) {
         root = dir;
@@ -397,5 +404,104 @@ class CredentialDeclarationsTest {
                                                         Credential.Source.FILE)))
                 .isInstanceOf(org.fuin.porelo.core.credential.CredentialException.class)
                 .hasMessageContaining("nothing authenticates to");
+    }
+
+    /** A context whose vault holds these entries, opened as a typed passphrase opens it. */
+    private PoreloContext holding(final Path dir, final java.util.Map<String, VaultEntry> entries) {
+        final char[] passphrase = "test-passphrase".toCharArray();
+        final PoreloContext writing = context(dir).asking(prompt -> passphrase.clone());
+        writing.vault().write(entries, passphrase);
+        assertThat(
+                        writing.openerAsking(
+                                false, new java.io.PrintWriter(java.io.Writer.nullWriter())))
+                .as("the fixture opens its own vault")
+                .isPresent();
+        return context(dir);
+    }
+
+    @Test
+    void aFragmentBeforeAnAtNamesNoOtherHostsToken(@TempDir final Path dir) {
+        // git connects to evil.example; read past the '#', this address took github.com's token.
+        final PoreloContext context =
+                holding(
+                        dir,
+                        java.util.Map.of(
+                                "git.token.github.com", VaultEntry.of("github-test-value"),
+                                "git.token", VaultEntry.of("plain-test-value")));
+
+        final CredentialDeclarations.Check check =
+                new CredentialDeclarations(context)
+                        .check("https://evil.example#@github.com/x", "git");
+
+        assertThat(check.outcome())
+                .as("neither github.com's token nor the plain one reaches evil.example")
+                .isNotEqualTo(CredentialDeclarations.Outcome.READY);
+        assertThat(check.credential()).as("no entry is chosen for it").isNull();
+    }
+
+    @Test
+    void anSshAddressItsReadersTakeForTwoHostsIsReachedByNoKey(@TempDir final Path dir) {
+        // ssh connects to github.com; a key chosen for evil.example would be offered there.
+        final PoreloContext context =
+                holding(
+                        dir,
+                        java.util.Map.of(
+                                "git.ssh.evil.example", VaultEntry.of("evil-test-value"),
+                                "git.ssh.github.com", VaultEntry.of("github-test-value"),
+                                "git.ssh", VaultEntry.of("plain-test-value")));
+
+        final CredentialDeclarations.Check check =
+                new CredentialDeclarations(context)
+                        .check("ssh://evil.example#@github.com/x", "git");
+
+        assertThat(check.outcome())
+                .as("no key reaches an address two readers take for two hosts")
+                .isNotEqualTo(CredentialDeclarations.Outcome.READY);
+        assertThat(check.credential()).as("no entry is chosen for it").isNull();
+        assertThat(check.storeCommand()).as("nothing to store for it").isEmpty();
+    }
+
+    @Test
+    void aDeclarationForTheHostAfterAFragmentDoesNotReachTheAddress(@TempDir final Path dir)
+            throws IOException {
+        // The record's match was read up to the first '/', so github.com's record covered an
+        // address git takes to evil.example.
+        final PoreloContext context =
+                holding(dir, java.util.Map.of("forge", VaultEntry.of("github-test-value")));
+        new CredentialDeclarations(context)
+                .declare(
+                        new Credential(
+                                "forge",
+                                Credential.Kind.TOKEN,
+                                "https://github.com",
+                                null,
+                                "git",
+                                Credential.Source.VAULT));
+
+        final CredentialDeclarations.Check check =
+                new CredentialDeclarations(context)
+                        .check("https://evil.example#@github.com/x", "git");
+
+        assertThat(check.outcome())
+                .as("github.com's record does not reach evil.example")
+                .isNotEqualTo(CredentialDeclarations.Outcome.READY);
+        assertThat(check.credential()).as("no record is chosen for it").isNull();
+    }
+
+    @Test
+    void anHttpsAddressWithAUserIsToldItTakesNoImpliedToken(@TempDir final Path dir) {
+        final CredentialDeclarations.Check check =
+                new CredentialDeclarations(holding(dir, java.util.Map.of()))
+                        .check("https://someone@forge.example/x.git", "git");
+
+        assertThat(check.outcome())
+                .as("nothing reaches it")
+                .isEqualTo(CredentialDeclarations.Outcome.NO_CREDENTIAL);
+        assertThat(check.detail())
+                .as("the fix that works, not a name that implies nothing")
+                .contains("holding an '@' takes no implied token")
+                .contains("drop the user part")
+                .contains("declare a credential")
+                .doesNotContain("under a name it implies");
     }
 }

@@ -184,11 +184,18 @@ public final class CredentialDeclarations {
                     GitCredentialNames.storeCommandFor(url),
                     "nothing here reaches "
                             + url
-                            + " - declare a credential for it, or store one"
-                            + " under a name it implies");
+                            + (GitCredentialNames.impliesNoToken(url)
+                                    ? " - " + NO_IMPLIED_TOKEN
+                                    : " - declare a credential for it, or store one"
+                                            + " under a name it implies"));
         }
         return checkDeclared(declared, url);
     }
+
+    /** Why an https address holding an '@' finds no vault entry by name, and what reaches it. */
+    static final String NO_IMPLIED_TOKEN =
+            "an https address holding an '@' takes no implied token: drop the user part from the"
+                    + " address, or declare a credential for it";
 
     private Check checkDeclared(final Credential declared, final String url) {
         if (declared.expiredAt(java.time.Instant.now())) {

@@ -40,7 +40,8 @@ public final class ForgeIdentity {
      * @param context The machine.
      * @param url The destination.
      * @param label Names the agent socket.
-     * @return What it said, or {@code null} when nothing could be asked.
+     * @return What it said, or {@code null} when nothing could be asked, or the address is one git
+     *     reads as another host than this class does.
      */
     public static @Nullable Answer ask(
             final PoreloContext context, final String url, final String label) {
@@ -63,7 +64,9 @@ public final class ForgeIdentity {
             final String url,
             final String label,
             final org.fuin.porelo.core.credential.@Nullable Credential offered) {
-        if (GitCredentialNames.kindOf(url) != GitCredentialNames.Kind.KEY) {
+        // An address git takes to another host than the one read here is asked nothing.
+        if (GitCredentialNames.kindOf(url) != GitCredentialNames.Kind.KEY
+                || !GitCredentialNames.namesOneHost(url)) {
             return null;
         }
         final String host = GitCredentialNames.hostOf(url);

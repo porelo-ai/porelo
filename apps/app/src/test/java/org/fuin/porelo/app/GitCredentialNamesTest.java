@@ -171,8 +171,8 @@ class GitCredentialNamesTest {
 
     @Test
     void anAddressTwoReadersTakeForTwoHostsHasNoScope() {
-        // git connects to the host before the '#' or '?', and the entry and the record are chosen
-        // by the host after the '@': that host's token would go to the other one.
+        // git connects to the host before the '#' or '?', and a declaration's match is read up to
+        // the first '/', as the host after the '@': that host's token would go to the other one.
         assertThat(GitCredentialNames.helperScopeOf("https://forge.example#@other.example/x.git"))
                 .as("the token chosen for other.example must not be keyed for forge.example")
                 .isNull();
@@ -311,5 +311,124 @@ class GitCredentialNamesTest {
             })
     void anAddressGitReadsAsOneHostNamesOne(final String url) {
         assertThat(GitCredentialNames.namesOneHost(url)).as("the host git connects to").isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {"https://evil.example#@github.com/x", "https://evil.example?@github.com/x"})
+    void aFragmentOrQueryEndsTheHost(final String url) {
+        // git and libcurl connect to evil.example; read past the '#' or '?', it was github.com.
+        assertThat(GitCredentialNames.hostOf(url))
+                .as("the host of the parsed authority")
+                .isEqualTo("evil.example");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "https://evil.example#@github.com/x",
+                "https://evil.example?@github.com/x",
+                "https://someone@forge.example/x.git",
+                "https://forge.example.org/x/@github.com/y.git"
+            })
+    void anHttpsAddressHoldingAnAtNamesNoToken(final String url) {
+        // A user part or an '@' outside the authority makes two readers take two hosts; no token
+        // of either, nor the plain one, is offered.
+        assertThat(GitCredentialNames.candidatesFor(url)).as("no entry to look in").isEmpty();
+        assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.TOKEN, url))
+                .as("no name to store a token under")
+                .isNull();
+        assertThat(GitCredentialNames.storeCommandFor(url))
+                .as("nothing to tell somebody to store")
+                .isEmpty();
+    }
+
+    @Test
+    void anSshAddressKeepsItsUserAndItsHostsKey() {
+        assertThat(GitCredentialNames.candidatesFor("ssh://git@forge.example/x.git"))
+                .as("a user is what an ssh address normally carries")
+                .containsExactly("git.ssh.forge.example", "git.ssh", "ssh.default");
+        assertThat(
+                        GitCredentialNames.impliedName(
+                                GitCredentialNames.Kind.KEY, "git@forge.example:x"))
+                .as("a user is what an ssh address normally carries")
+                .isEqualTo("git.ssh.forge.example");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ssh://evil.example#@github.com/x", "ssh://evil.example?@github.com/x"})
+    void anSshAddressWithAFragmentOrQueryInItsHostNamesNoHostToLendTo(final String url) {
+        // git ends an ssh host only at '/', so ssh connects to github.com while the key is chosen
+        // for evil.example.
+        assertThat(GitCredentialNames.namesOneHost(url)).as("two hosts in one address").isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "ssh://git@forge.example/a|b.git",
+                "ssh://git@forge.example/100%.git",
+                "https://forge.example/a{b}.git",
+                "https://forge.example/a b.git"
+            })
+    void aPathTheParserRefusesStillNamesItsHost(final String url) {
+        // Only the authority is parsed: a character a URI may not hold in its path says nothing of
+        // the host, and a remote address must not read as a path on this machine.
+        assertThat(GitCredentialNames.hostOf(url))
+                .as("the host of the authority")
+                .isEqualTo("forge.example");
+    }
+
+    @Test
+    void anAuthorityTheParserRefusesNamesNoHost() {
+        assertThat(GitCredentialNames.hostOf("https://forge example/x.git"))
+                .as("a host holding a blank is not one")
+                .isNull();
+        assertThat(GitCredentialNames.hostOf("https://evil.example\\@chat.example/x.git"))
+                .as("a backslash in the authority is no host")
+                .isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"ssh://evil.example#@github.com/x", "ssh://evil.example?@github.com/x"})
+    void anSshHostEndsOnlyAtItsFirstSlash(final String url) {
+        // git hands ssh all before the first '/', and ssh takes the host after its last '@'.
+        assertThat(GitCredentialNames.hostOf(url))
+                .as("the host ssh connects to")
+                .isEqualTo("github.com");
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "ssh://evil.example#@github.com/x",
+                "ssh://evil.example?@github.com/x",
+                "ssh://forge.example%2F@other.example/x.git",
+                "git@forge.example:x@[other.example]:r.git"
+            })
+    void anAddressItsReadersTakeForTwoHostsNamesNoEntry(final String url) {
+        assertThat(GitCredentialNames.candidatesFor(url)).as("no entry to look in").isEmpty();
+        assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.KEY, url))
+                .as("no name to store a key under")
+                .isNull();
+        assertThat(GitCredentialNames.storeCommandFor(url))
+                .as("nothing to tell somebody to store")
+                .isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "ssh://git@/x.git",
+                "ssh://git@forge example/x.git",
+                "ssh://git@forge.example=x/y.git",
+                "ssh://"
+            })
+    void anSshAddressWhoseHostCannotBeReadNamesNoEntry(final String url) {
+        // Not the plain key: an address that names no host names no credential either.
+        assertThat(GitCredentialNames.candidatesFor(url)).as("no entry to look in").isEmpty();
+        assertThat(GitCredentialNames.impliedName(GitCredentialNames.Kind.KEY, url))
+                .as("no name to store a key under")
+                .isNull();
     }
 }

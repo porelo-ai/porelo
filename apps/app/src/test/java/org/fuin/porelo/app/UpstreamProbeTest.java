@@ -269,6 +269,63 @@ class UpstreamProbeTest {
                 .isEqualTo("porelo credentials list");
     }
 
+    @Test
+    void aKeyIsNotOfferedForAHostTheAddressDoesNotReach(@TempDir final Path dir) throws Exception {
+        // ssh connects to github.com, so a key stored as git.ssh.evil.example would be offered
+        // there.
+        final var questions = new java.util.ArrayList<String>();
+        final var launch =
+                new TaskLaunch(
+                                context(dir),
+                                new TaskLaunch.Request(
+                                        "task",
+                                        dir.resolve("project.yml"),
+                                        null,
+                                        null,
+                                        null,
+                                        8,
+                                        "ssh://evil.example#@github.com/x",
+                                        false,
+                                        false,
+                                        "deny",
+                                        true))
+                        .offering(
+                                new Offer(
+                                        question -> {
+                                            questions.add(question);
+                                            return null;
+                                        },
+                                        false,
+                                        false,
+                                        new java.io.PrintWriter(new java.io.StringWriter())));
+        final var finding =
+                new UpstreamProbe.Finding(
+                        new UpstreamProbe.Answer(UpstreamProbe.Cause.KEY_REFUSED, "refused", ""),
+                        true);
+
+        launch.storeRefusedKey(
+                finding,
+                project(dir, "guarded"),
+                new java.io.PrintWriter(new java.io.StringWriter()));
+
+        assertThat(questions).as("no key name is offered for an address of two hosts").isEmpty();
+    }
+
+    @Test
+    void aRefusedHttpsAddressWithAUserIsToldItTakesNoImpliedToken(@TempDir final Path dir) {
+        final UpstreamProbe.Answer answer =
+                UpstreamProbe.answer(
+                        context(dir),
+                        "https://someone@forge.example.org/project/backend.git",
+                        "fatal: Authentication failed");
+
+        assertThat(answer.detail())
+                .as("the fix that works, not a name that implies nothing")
+                .contains("holding an '@' takes no implied token")
+                .contains("drop the user part")
+                .contains("declare a credential");
+    }
+
     private static final String UPSTREAM = "ssh://git@forge.example.org:7999/project/backend.git";
 
     private final FakeCommandRunner runner = new FakeCommandRunner();

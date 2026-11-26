@@ -210,6 +210,11 @@ public final class CredentialRegistry {
      * <p>{@code git@github.com:acme/x.git} and {@code ssh://git@github.com/acme/x.git} are the same
      * destination written two ways, and a person should not have to write a record for each.
      *
+     * <p>A user part is dropped only inside the authority, up to its last {@code @}: an http(s)
+     * authority ends at the first {@code /}, {@code ?} or {@code #}, where libcurl ends it, and any
+     * other at the first {@code /}, where git ends what it hands to ssh. So {@code
+     * https://evil.example#@github.com/x} stays an address on evil.example.
+     *
      * @param url Any git-style URL.
      * @return The normalised form, lower-cased in its host.
      */
@@ -219,9 +224,13 @@ public final class CredentialRegistry {
         if (scheme >= 0) {
             final String protocol = trimmed.substring(0, scheme).toLowerCase(Locale.ROOT);
             String rest = trimmed.substring(scheme + 3);
-            final int at = rest.indexOf('@');
-            final int slash = rest.indexOf('/');
-            if (at >= 0 && (slash < 0 || at < slash)) {
+            final boolean http = "http".equals(protocol) || "https".equals(protocol);
+            int end = 0;
+            while (end < rest.length() && (http ? "/?#" : "/").indexOf(rest.charAt(end)) < 0) {
+                end++;
+            }
+            final int at = rest.lastIndexOf('@', end - 1);
+            if (at >= 0) {
                 // The user in a URL is not part of the destination: one record should cover
                 // 'https://me@forge' and 'https://forge'.
                 rest = rest.substring(at + 1);

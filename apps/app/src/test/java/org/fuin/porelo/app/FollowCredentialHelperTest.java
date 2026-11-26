@@ -279,14 +279,15 @@ class FollowCredentialHelperTest {
     /**
      * A stand-in for ssh prints where git would connect and which key it was told to offer. git
      * decodes an {@code ssh://} address before it ends the host, and the key is chosen by the host
-     * after the '@', so a project file could have one forge's key offered to another.
+     * after the '@', so a project file could have one forge's key offered to another. An address
+     * its readers take for two hosts, as one with a '#' before the '@', is offered no key at all.
      */
     @ParameterizedTest
     @CsvSource({
         "ssh://forge.example%2F@other.example/x.git, forge.example, false",
         "ssh://git@forge.example%2F@other.example/x.git, git@forge.example, false",
         "ssh://git@other.example/x.git, git@other.example, true",
-        "ssh://forge.example#@other.example/x.git, forge.example#@other.example, true"
+        "ssh://forge.example#@other.example/x.git, forge.example#@other.example, false"
     })
     void aKeyIsOfferedOnlyToTheHostItWasChosenFor(
             final String url, final String connectsTo, final boolean offered, @TempDir Path dir)

@@ -615,6 +615,10 @@ porelo credentials check git@github.com:acme/x.git    # what would be used, and 
   keeps the choice for the address, and the existing approval command forwards the reviewed work.
 - **With no `credentials.yml`** a git URL falls back to vault entries named after its host, an IPv6 host with
   its brackets (`git.token.[2001:db8::1]`): for ssh `git.ssh.<host>`, `git.ssh`, then `ssh.default`; for https `git.token.<host>`, then `git.token`.
+  The host is the one git connects to: for https up to the first `/`, `?` or `#`, for ssh up to the first `/`, each
+  after the last `@`. An https address with a user part or any `@` takes neither `git.token.<host>` nor `git.token`;
+  drop the user part, or declare a credential, which still applies by its normalized address. An address that names
+  no host, or one git reads as another host, takes no entry at all.
 - **A key never leaves the vault.** Porelo serves an ssh-agent for the length of the command. A token
   reaches git through git's credential helper over a pipe, for that address only; nothing is written to
   a config and no value is on a command line.
