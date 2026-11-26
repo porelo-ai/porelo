@@ -1,6 +1,5 @@
 package org.fuin.porelo.app;
 
-import java.nio.file.Path;
 import org.fuin.porelo.core.project.BranchScheme;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectException;
@@ -13,8 +12,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>In a project with a {@code branch} block, the task's own branch, as its start recorded it,
  * unless a person names another, and a named one only when the forge's pattern accepts it: so work
- * reaches only branches the forge's rules cover. Without a scheme, new tasks approve onto their
- * recorded starting branch, or {@code porelo/<task>} on the host's own forge.
+ * reaches only branches the forge's rules cover. Without a scheme, onto the task's branch, {@code
+ * porelo/<task>} unless its start named another, whatever the upstream is; the starting branch only
+ * when a person names it.
  */
 public final class ApprovalBranch {
 
@@ -86,45 +86,17 @@ public final class ApprovalBranch {
      * @param repository The repository the task worked on.
      * @param task The task's name, which is the pending push's.
      * @param named The branch a person named, or {@code null} or empty for none.
-     * @return The branch; {@code null} when the project names no scheme and nobody named one, where
-     *     the caller's own default applies as before.
+     * @return The branch named, else the task's own.
      * @throws Refused When the project has a scheme and the named branch does not match it.
-     * @throws ProjectException When the project has a scheme, nobody named a branch and the task's
-     *     is not recorded.
+     * @throws ProjectException When nobody named a branch and the task's is not known: in a project
+     *     with a scheme, not recorded; without one, not recorded and the push's name is no task's.
      */
-    public static @Nullable String of(
+    public static String of(
             final PoreloContext context,
             final Project project,
             final Repository repository,
             final String task,
             final @Nullable String named) {
-        return of(
-                context,
-                project,
-                repository,
-                task,
-                named,
-                context.paths().hostDirectory().resolve("forge.conf"));
-    }
-
-    /**
-     * Returns the approval branch using the given host configuration.
-     *
-     * @param context The machine.
-     * @param project The project.
-     * @param repository The repository.
-     * @param task The pending task.
-     * @param named The explicit branch, or {@code null}.
-     * @param forgeConf Where this host names its forge.
-     * @return The branch, or {@code null} when the caller must choose one.
-     */
-    public static @Nullable String of(
-            final PoreloContext context,
-            final Project project,
-            final Repository repository,
-            final String task,
-            final @Nullable String named,
-            final Path forgeConf) {
         final BranchScheme scheme = project.branchScheme(repository.name());
         final boolean declared = declared(project, repository);
         if (named != null && !named.isEmpty()) {
@@ -133,31 +105,20 @@ public final class ApprovalBranch {
             }
             return named;
         }
-        if (!declared) {
-            final String upstream = repository.upstream();
-            if (upstream != null && HostForgeLending.onTheForge(upstream, forgeConf)) {
-                return "porelo/" + task;
-            }
-            final TaskBase pending =
-                    TaskBase.waiting(GateSupport.mirror(context, project, repository), task);
-            final TaskBase base =
-                    pending != null ? pending : recordedBase(context, project.name(), task);
-            return base == null ? null : base.branch();
-        }
         final TaskIdentity identity = TaskHistory.forPush(context, project.name(), task);
+        final String recorded = identity == null ? null : recorded(context, identity.container());
+        if (!declared) {
+            if (recorded != null) return recorded;
+            // Pending work outlives its task's records, and its push still carries the task's name.
+            if (!task.matches(Project.TASK_NAME_PATTERN)) {
+                throw new ProjectException(
+                        "no branch of " + task + " is recorded; name the branch to approve onto");
+            }
+            return "porelo/" + task;
+        }
         if (identity == null)
             throw new ProjectException(
                     "no branch of " + task + " is recorded; name the branch to approve onto");
-        final String container = identity.container();
-        org.fuin.porelo.wire.TaskProfile profile =
-                org.fuin.porelo.wire.TaskProfile.readFrom(
-                        context.paths().tasks().containerState(container));
-        if (profile == null) {
-            profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(
-                            context.paths().tasks().taskRecord(container));
-        }
-        final String recorded = profile == null ? null : profile.forgeBranchOrToday();
         if (recorded == null || !scheme.accepts(recorded)) {
             throw new ProjectException(
                     "no branch of "
@@ -169,10 +130,17 @@ public final class ApprovalBranch {
         return recorded;
     }
 
-    private static @Nullable TaskBase recordedBase(
-            PoreloContext context, String project, String task) {
-        final TaskIdentity identity = TaskHistory.forPush(context, project, task);
-        return identity == null ? null : TaskBase.recorded(context, identity.container());
+    private static @Nullable String recorded(final PoreloContext context, final String container) {
+        org.fuin.porelo.wire.TaskProfile profile =
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
+        if (profile == null) {
+            // Kept over a restart, when the runtime directory is gone.
+            profile =
+                    org.fuin.porelo.wire.TaskProfile.readFrom(
+                            context.paths().tasks().taskRecord(container));
+        }
+        return profile == null ? null : profile.forgeBranchOrToday();
     }
 
     /**

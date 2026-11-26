@@ -399,7 +399,9 @@ class UnattendedGateTest {
             // This fixture's upstream is the checkout itself; a forge's is bare.
             git(checkout, "config", "receive.denyCurrentBranch", "updateInstead");
 
-            assertThat(execute("approve", "--signed")).as(err.toString()).isZero();
+            assertThat(execute("approve", "--signed", "--branch", "main"))
+                    .as(err.toString())
+                    .isZero();
             assertThat(git(checkout, "cat-file", "commit", "main"))
                     .as("the forwarded merge is actually signed")
                     .contains("gpgsig -----BEGIN SSH SIGNATURE-----");

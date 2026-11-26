@@ -401,9 +401,9 @@ method ReviewPage(
 error ReviewTooLarge(name: string, bytes: int, limit: int, command: []string)
 
 # Forwards a pending push upstream. The only call in this interface that sends anything
-# anywhere, and it makes the caller name the branch rather than inferring one - except in a project
-# with a branch block, where the task's own recorded branch is used, or on the host's own forge,
-# where porelo/<task> is the default. On that forge approval opens or reuses a pull request with
+# anywhere. Without a branch named it goes to the task's branch - porelo/<task> unless the task's start
+# named another - on every upstream, the host's own forge or a plain git remote alike; the starting
+# branch only when named. On the host's own forge approval opens or reuses a pull request with
 # the task's token, targeting the repository's default branch. If the API refuses, Failed says
 # the push happened and why the forge refused; the approval stays pending for a retry.
 method Approve(
@@ -412,10 +412,10 @@ method Approve(
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # Branch to push to. On the host's forge, omitted means porelo/<task> without a branch block.
-  # Elsewhere required in a project without a branch block (BranchRequired otherwise). In a
-  # project with one, empty means the task's own branch (Task.forgeBranch), and a named one must match its
-  # branch.pattern, or the answer is BranchRefused.
+  # Branch to push to. Omitted or empty means the task's own branch (Task.forgeBranch), porelo/<task> for
+  # work whose task is no longer recorded; BranchRequired when neither is known. In a project with a branch
+  # block the task's must be recorded, and a named one must match its branch.pattern, or the answer is
+  # BranchRefused.
   branch: ?string,
   # Merge the work onto the branch as a commit signed with the signing key the daemon's user has configured
   # in git (user.signingkey; gpg.format ssh for an ssh key), and push that, rather than pushing the work as
@@ -448,8 +448,8 @@ method PendingBundle(
   # Which repository of the project. Default: the project's own.
   repository: ?string,
   name: string,
-  # The branch it is to be merged onto. Default: the recorded starting branch (main for older tasks); with a branch block, the task's own
-  # branch, and a named one must match its branch.pattern (BranchRefused otherwise).
+  # The branch it is to be merged onto. Default: the task's own branch, as Approve chooses it; with a branch
+  # block, a named one must match its branch.pattern (BranchRefused otherwise).
   branch: ?string
 ) -> (
   # The bundle, base64.
@@ -499,8 +499,8 @@ error MovedSinceReview(name: string, reviewed: string, now: string)
 # SARIF verdicts, suppressions, baselines and empty findings never authorize forwarding.
 error CommitNotNamed(name: string, waiting: string)
 
-# Approve was called without a branch to push to, in a project with no branch block - or in one with
-# a block, for a task whose branch was not recorded.
+# Approve was called without a branch to push to, and the task's own is not known: in a project with a
+# branch block, not recorded; without one, not recorded and the pending push's name is no task's.
 error BranchRequired(name: string)
 
 # Approve or PendingBundle named a branch the project's branch.pattern does not accept, so the forge's

@@ -682,11 +682,6 @@ final class GateMethods {
                                 Map.of("name", name, "waiting", waiting.commit()));
                     }
                     final String branch = approvalBranch(parameters, context);
-                    if (branch == null) {
-                        throw new VarlinkException(
-                                INTERFACE + ".BranchRequired",
-                                Map.of("name", text(parameters, "name")));
-                    }
                     final String pullRequest;
                     try {
                         if (flag(parameters, "signed")) {
@@ -746,8 +741,7 @@ final class GateMethods {
                 "PendingBundle",
                 (parameters, replies) -> {
                     final GitGate gate = gate(parameters, context);
-                    final String chosen = approvalBranch(parameters, context);
-                    final String branch = chosen == null ? "main" : chosen;
+                    final String branch = approvalBranch(parameters, context);
                     final java.nio.file.Path scratch;
                     try {
                         // In a directory of its own, owner-only: a file made and then deleted in
@@ -1589,16 +1583,16 @@ final class GateMethods {
     }
 
     /**
-     * Returns the branch a call approves onto: the one named, or in a project with a branch block
-     * the task's own.
+     * Returns the branch a call approves onto: the one named, else the task's own, as {@code porelo
+     * gate approve} chooses it.
      *
      * @param parameters {@code project}, {@code repository}, {@code name} and {@code branch}.
      * @param context The machine.
-     * @return The branch, or {@code null} when the project names no scheme and none was named.
+     * @return The branch.
      * @throws VarlinkException {@code BranchRefused} for a named branch the pattern does not
-     *     accept; {@code BranchRequired} when the task's own is not recorded.
+     *     accept; {@code BranchRequired} when the task's own is not known.
      */
-    static @org.jspecify.annotations.Nullable String approvalBranch(
+    static String approvalBranch(
             final Map<String, Object> parameters, final PoreloContext context) {
         final org.fuin.porelo.core.project.Project project =
                 GateSupport.project(projectFile(parameters, context));

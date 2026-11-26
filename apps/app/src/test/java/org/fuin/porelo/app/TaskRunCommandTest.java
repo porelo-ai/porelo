@@ -8955,9 +8955,13 @@ class TaskRunCommandTest {
                 context.paths().tasks().containerState(containerName()).resolve(TaskBase.FILE));
         new TaskState(context).forget(containerName());
         final var project = GateSupport.byName(context, "uc");
-        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "shell", null))
-                .as("pending work keeps its starting branch after the task's state is removed")
-                .isEqualTo("develop");
+        assertThat(
+                        TaskBase.waiting(
+                                GateSupport.mirror(context, project, project.ownRepository()),
+                                "shell"))
+                .as(
+                        "pending work keeps its starting branch for review after the task's state is removed")
+                .isEqualTo(new TaskBase("develop", "FROM"));
         assertThat(out.toString())
                 .as("the person sees the choice before work starts")
                 .contains("starts from    develop (named with --from)");

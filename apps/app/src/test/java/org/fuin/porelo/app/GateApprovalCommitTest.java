@@ -135,9 +135,33 @@ class GateApprovalCommitTest {
                 .isEqualTo(base);
         final Run matching = run("approve", "--commit", moved);
         assertThat(matching.code()).as(matching.err()).isZero();
-        assertThat(git(upstream, "rev-parse", "main"))
+        assertThat(git(upstream, "rev-parse", "refs/heads/porelo/writer"))
                 .as("the named revision arrived")
                 .isEqualTo(moved);
+    }
+
+    @Test
+    void anApprovalWithoutABranchGoesToTheTasksBranchOnAPlainGitUpstream() {
+        // Off a host, too, the starting branch takes work only when the person names it.
+        final Run approval = run("approve", "--commit", reviewed);
+
+        assertThat(approval.code()).as(approval.err()).isZero();
+        assertThat(git(upstream, "rev-parse", "refs/heads/porelo/writer"))
+                .as("the work arrived on the task's branch")
+                .isEqualTo(reviewed);
+        assertThat(git(upstream, "rev-parse", "refs/heads/main"))
+                .as("the starting branch is untouched")
+                .isEqualTo(base);
+    }
+
+    @Test
+    void anApprovalNamingMainGoesToMain() {
+        final Run approval = run("approve", "--commit", reviewed, "--branch", "main");
+
+        assertThat(approval.code()).as(approval.err()).isZero();
+        assertThat(git(upstream, "rev-parse", "refs/heads/main"))
+                .as("the branch named explicitly")
+                .isEqualTo(reviewed);
     }
 
     @Test
@@ -202,7 +226,11 @@ class GateApprovalCommitTest {
         assertThat(approval.code()).as("no commit was named").isEqualTo(70);
         assertThat(approval.err())
                 .as("the retry remains signed and bound")
-                .contains("--commit " + reviewed, "--signed", "--branch main", "--repository app");
+                .contains(
+                        "--commit " + reviewed,
+                        "--signed",
+                        "--branch porelo/writer",
+                        "--repository app");
         assertThat(git(upstream, "rev-parse", "main")).as("nothing left").isEqualTo(base);
     }
 

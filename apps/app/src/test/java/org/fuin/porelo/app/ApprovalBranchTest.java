@@ -15,6 +15,8 @@ import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Where a guarded task's approved work goes, and the branch a task records: in a project with a
@@ -49,7 +51,7 @@ class ApprovalBranchTest {
 
     @Test
     void approvalAndReviewUseTheRetainedActualOwner() throws Exception {
-        // Rebuilding the old spelling can approve another project's starting branch.
+        // Rebuilding the old spelling can approve another task's branch or review its base.
         final PoreloContext context = context();
         final Project project = project("");
         TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
@@ -59,10 +61,12 @@ class ApprovalBranchTest {
                 .writeTo(context.paths().tasks().taskRecord("porelo-uc-fix"));
         new TaskBase("develop", "FROM")
                 .writeTo(context.paths().tasks().taskRecord("porelo-uc_other"));
+        profile(context.paths().tasks().taskRecord("porelo-uc-fix"), "porelo/fix");
+        profile(context.paths().tasks().taskRecord("porelo-uc_other"), "feature/other");
 
         assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "other", null))
                 .as("approval uses the encoded task's retained branch")
-                .isEqualTo("develop");
+                .isEqualTo("feature/other");
         assertThat(TaskBase.reviewAgainst(context, project, "fix"))
                 .as("the old task still uses its original branch")
                 .isEqualTo("refs/heads/release");
@@ -112,12 +116,16 @@ class ApprovalBranchTest {
             final PoreloContext context, final Project project, final String forgeBranch)
             throws Exception {
         TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
-        final Path state =
+        profile(
                 Files.createDirectories(
                         context.paths()
                                 .tasks()
                                 .containerState(
-                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
+                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix"))),
+                forgeBranch);
+    }
+
+    private static void profile(final Path state, final String forgeBranch) throws Exception {
         new TaskProfile(
                         TaskProfile.VERSION,
                         "a",
@@ -134,84 +142,78 @@ class ApprovalBranchTest {
     }
 
     @Test
-    void withoutABranchSchemeApprovalFollowsTheRecordedStartingBranch() throws Exception {
-        // Work started on develop must not be forwarded onto main by default.
+    void withoutABranchBlockApprovalGoesToTheTasksBranchNotItsStartingBranch() throws Exception {
+        // Work started on develop goes up beside it for review, never onto it by default.
         final PoreloContext context = context();
         final Project project = project("");
-        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
-        final Path state =
-                Files.createDirectories(
+        recorded(context, project, "porelo/fix");
+        new TaskBase("develop", "CHECKOUT")
+                .writeTo(
                         context.paths()
                                 .tasks()
                                 .containerState(
                                         org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
-        new TaskBase("develop", "CHECKOUT").writeTo(state);
+
         assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", null))
-                .as("approval retains the line of development selected at start")
-                .isEqualTo("develop");
-    }
-
-    // On the host, a direct approval to the starting branch would bypass the forge's review.
-    @Test
-    void aHostUsesTheTasksBranchOnlyForItsOwnForgeAndAnExplicitBranchStillWins() throws Exception {
-        final PoreloContext context = context();
-        final Project project =
-                project(
-                        """
-                repositories:
-                  repo:
-                    upstream: "http://127.0.0.1:3001/acme/repo.git"
-                """);
-        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
-        final var repository = project.repository("repo");
-        final Path state =
-                Files.createDirectories(
-                        context.paths()
-                                .tasks()
-                                .containerState(
-                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
-        new TaskBase("develop", "FROM").writeTo(state);
-        final Path conf = dir.resolve("forge.conf");
-        Files.writeString(conf, "git_port=3001\n");
-
-        assertThat(ApprovalBranch.of(context, project, repository, "fix", null, conf))
-                .as("the host's own forge takes a task branch for review")
+                .as("the task's branch, not the starting branch")
                 .isEqualTo("porelo/fix");
-        assertThat(ApprovalBranch.of(context, project, repository, "fix", "release", conf))
-                .as("an explicit branch wins")
-                .isEqualTo("release");
-        Files.writeString(conf, "git_port=3002\n");
-        assertThat(ApprovalBranch.of(context, project, repository, "fix", null, conf))
-                .as("another loopback port is not the host's forge")
+        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", "develop"))
+                .as("the starting branch is reached by naming it")
                 .isEqualTo("develop");
     }
 
-    // A unit test on a machine with the host package must not read that machine's forge.conf.
     @Test
-    void anApprovalReadsTheHostsForgeFromItsContextNeverFromTheMachine() throws Exception {
+    void aTaskStartedWithANamedBranchApprovesOntoThatBranch() throws Exception {
+        final PoreloContext context = context();
+        final Project project = project("");
+        recorded(context, project, "feature/login");
+
+        assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", null))
+                .as("the branch the task's start recorded")
+                .isEqualTo("feature/login");
+    }
+
+    // The host's own forge and any other upstream take the same default, so a plain git remote
+    // never receives work on its starting branch unasked.
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "http://127.0.0.1:3001/acme/repo.git",
+                "https://forge.example.org/acme/repo.git",
+                "git@example.org:acme/repo.git",
+                "/srv/git/repo.git"
+            })
+    void everyUpstreamTakesTheTasksBranchAndANamedBranchStillWins(final String upstream)
+            throws Exception {
         final PoreloContext context = context();
         final Project project =
-                project(
-                        """
-                repositories:
-                  repo:
-                    upstream: "http://127.0.0.1:3001/acme/repo.git"
-                """);
-        TaskIdentityFixture.record(context.paths(), "porelo-uc-fix", "uc", "fix", "a".repeat(64));
-        final Path state =
-                Files.createDirectories(
-                        context.paths()
-                                .tasks()
-                                .containerState(
-                                        org.fuin.porelo.runtime.ContainerName.of(project, "fix")));
-        new TaskBase("develop", "FROM").writeTo(state);
+                project("repositories:\n  repo:\n    upstream: \"" + upstream + "\"\n");
+        final var repository = project.repository("repo");
         final Path conf = context.paths().hostDirectory().resolve("forge.conf");
         Files.createDirectories(conf.getParent());
         Files.writeString(conf, "git_port=3001\n");
 
-        assertThat(ApprovalBranch.of(context, project, project.repository("repo"), "fix", null))
-                .as("the context's host forge, not /etc/porelo-host, decides the task branch")
+        assertThat(ApprovalBranch.of(context, project, repository, "fix", null))
+                .as("the task's branch on %s", upstream)
                 .isEqualTo("porelo/fix");
+        assertThat(ApprovalBranch.of(context, project, repository, "fix", "main"))
+                .as("an explicit branch wins on %s", upstream)
+                .isEqualTo("main");
+    }
+
+    @Test
+    void aPushWhoseNameIsNoTaskNameNeedsABranchNamed() {
+        // Without a task's name there is no task branch, and falling back to main would be silent.
+        final PoreloContext context = context();
+        final Project project = project("");
+
+        assertThatThrownBy(
+                        () ->
+                                ApprovalBranch.of(
+                                        context, project, project.ownRepository(), "Fix_it", null))
+                .as("no default without a task's name")
+                .isInstanceOf(ProjectException.class)
+                .hasMessageContaining("name the branch");
     }
 
     @Test
@@ -286,17 +288,20 @@ class ApprovalBranchTest {
     }
 
     @Test
-    void aProjectWithoutABlockApprovesAsBefore() {
+    void aProjectWithoutABlockApprovesOntoTheTasksBranchUnlessOneIsNamed() {
+        // Pending work outlives its task's records: its push name is still the task's name.
         final PoreloContext context = context();
         final Project project = project("");
 
         assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", null))
-                .as("the caller's own default, main, applies")
-                .isNull();
+                .as("the task's branch, never main")
+                .isEqualTo("porelo/fix");
         assertThat(ApprovalBranch.of(context, project, project.ownRepository(), "fix", "release"))
                 .as("any branch named")
                 .isEqualTo("release");
-        assertThat(ApprovalBranch.offerable(project, project.ownRepository(), "main-2")).isTrue();
+        assertThat(ApprovalBranch.offerable(project, project.ownRepository(), "main-2"))
+                .as("without a block any next branch may be offered")
+                .isTrue();
     }
 
     @Test

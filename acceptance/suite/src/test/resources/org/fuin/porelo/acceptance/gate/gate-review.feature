@@ -116,7 +116,7 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
             printf '%s\n' "$review"
             second=$(printf '%s\n' "$review" | sed -n 's/^reviewed  //p')
             test -n "$second" && test "$first" != "$second"
-            porelo gate approve -p bound --commit "$second" reviewed
+            porelo gate approve -p bound --branch main --commit "$second" reviewed
             test "$second" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
             if git --git-dir "$mirror" show-ref --verify --quiet refs/porelo/incoming/reviewed; then exit 1; fi
             echo "running revision forwarded"
@@ -130,7 +130,7 @@ Feature: Work waiting at the gate, reviewed, backed up and restored
             if porelo gate approve -p bound --no-input reviewed; then exit 1; else test "$?" = 70; fi
             if porelo gate approve -p bound --commit "$second" reviewed; then exit 1; else test "$?" = 70; fi
             test "$second" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
-            porelo gate approve -p bound --commit "$stopped" reviewed
+            porelo gate approve -p bound --branch main --commit "$stopped" reviewed
             test "$stopped" = "$(git --git-dir "$upstream" rev-parse refs/heads/main)"
             if git --git-dir "$mirror" show-ref --verify --quiet refs/porelo/incoming/reviewed; then exit 1; fi
             echo "stopped revision forwarded"

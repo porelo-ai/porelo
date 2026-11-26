@@ -310,9 +310,9 @@ task made since is refused. Merge or cherry-pick `porelo/myproject` when you are
 
 For a `guarded` project whose repository names a remote `central:` in `project.yml`, use
 `porelo gate approve -p <project> [-r <repo>] --commit <full-id> <task>`: it pushes the approved work to that `upstream`
-(or `--upstream <url>`), onto `--branch` (the recorded starting branch by default, `main` for older tasks;
-on the host's forge, `porelo/<task>`; with a [`branch` block](project-file.md#branch), the task's recorded
-branch). On the host's forge it opens or reuses a pull request to the repository's default branch as
+(or `--upstream <url>`), onto `--branch` (the task's branch by default, `porelo/<task>` unless its start named another, on every
+upstream; `--branch main` for the starting branch; with a [`branch` block](project-file.md#branch), the
+task's recorded branch). On the host's forge it opens or reuses a pull request to the repository's default branch as
 the task's forge account and prints its URL for the person who reviews and merges it. An amended
 approval there replaces only this gate's last push for that task, with a lease. A failed pull request call
 leaves the push on the forge and the approval pending for a retry, and exits non-zero. With no `upstream` it refuses: "No

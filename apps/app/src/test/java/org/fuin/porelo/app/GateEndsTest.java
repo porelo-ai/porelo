@@ -106,9 +106,9 @@ class GateEndsTest {
         assertThat(end.end()).as("approved").isEqualTo(PushEnd.End.APPROVED);
         assertThat(end.commit()).as("the commit that waited").isEqualTo(waiting);
         assertThat(end.mergedCommit())
-                .as("the commit the upstream's main took")
-                .isEqualTo(git(upstream, "rev-parse", "refs/heads/main"));
-        assertThat(end.branch()).as("the branch").isEqualTo("main");
+                .as("the commit the task's branch at the upstream took")
+                .isEqualTo(git(upstream, "rev-parse", "refs/heads/porelo/writer"));
+        assertThat(end.branch()).as("the task's branch, by default").isEqualTo("porelo/writer");
         assertThat(end.at()).as("when it was recorded").isBetween(before, Instant.now());
     }
 

@@ -182,14 +182,24 @@ class GateApprovalBranchTest {
     }
 
     @Test
-    void aProjectWithoutABlockApprovesOntoWhatIsNamedAsBefore() throws Exception {
-        final PoreloContext context = context("");
+    void aProjectWithoutABlockApprovesOntoTheTasksBranchUnlessOneIsNamed() throws Exception {
+        // The daemon and 'porelo gate approve' share one default, so they never disagree.
+        final PoreloContext context =
+                context("repositories:\n  plain:\n    upstream: \"/srv/git/plain.git\"\n");
 
         assertThat(
                         GateMethods.approvalBranch(
                                 Map.of("project", "uc", "name", "t", "branch", "release"), context))
+                .as("a named branch")
                 .isEqualTo("release");
         assertThat(GateMethods.approvalBranch(Map.of("project", "uc", "name", "t"), context))
-                .isNull();
+                .as("no branch named: the task's branch")
+                .isEqualTo("porelo/t");
+        assertThat(
+                        GateMethods.approvalBranch(
+                                Map.of("project", "uc", "repository", "plain", "name", "t"),
+                                context))
+                .as("an upstream that is a plain git remote takes the same default")
+                .isEqualTo("porelo/t");
     }
 }

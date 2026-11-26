@@ -47,12 +47,13 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
             names = "--branch",
             paramLabel = "<name>",
             description =
-                    "Upstream branch. Default: porelo/<task> on a host's forge, otherwise the starting branch (main for older tasks); with a branch block, the task's own"
-                            + " branch, and a named one must match its branch.pattern.")
+                    "Upstream branch. Default: the task's branch, porelo/<task> unless its start named another,"
+                            + " on every upstream; --branch main for the starting branch. With a branch block, a named"
+                            + " one must match its branch.pattern.")
     private @Nullable String branch;
 
-    /** The branch this run approves onto, once settled. */
-    private String onto = "main";
+    /** The branch this run approves onto, settled before anything is forwarded. */
+    private String onto = "";
 
     @Option(
             names = "--commit",
@@ -116,15 +117,13 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
         // than loops.
         try {
             final Project project = GateSupport.byName(context, projectName);
-            final String chosen =
+            onto =
                     ApprovalBranch.of(
                             context,
                             project,
                             GateSupport.repository(context, project, repository, name),
                             name,
-                            branch,
-                            forgeConf());
-            onto = chosen == null ? "main" : chosen;
+                            branch);
         } catch (RuntimeException ex) {
             err.println("porelo: " + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
             err.flush();

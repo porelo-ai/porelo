@@ -340,8 +340,8 @@ one; otherwise the repository's default branch is used. The start prints the bra
 A detached checkout needs `--from`. A branch absent from the mirror is refused before a container is
 created: publish it to the repository's source and fetch, or choose an available branch.
 
-Review compares with the recorded starting branch, including after a restart. Without a `branch`
-scheme, approval defaults to that branch; a declared scheme still chooses the task's forge branch.
+Review compares with the recorded starting branch, including after a restart. Approval does not
+default to it: it goes to the task's forge branch, with or without a `branch` scheme, unless a branch is named.
 An `online` task still forwards to its own forge branch. The starting branch does not change where
 Porelo reads trusted image settings: `porelo.yml` still comes from the mirror's default branch.
 
@@ -359,8 +359,9 @@ A forge commonly allows branches only under its own paths, one per kind of work,
   tasks of one repository never share a branch.
 - **A `guarded` task's approval goes to it**: `porelo gate approve --commit FULL_ID` with no branch approves onto the task's own branch,
   and a branch a person names must match `pattern`, so work reaches only branches the forge's rules cover. A project
-  without the block approves onto its recorded starting branch (`main` for older tasks), or `porelo/<task>` on the
-  host's own forge; an explicit branch still wins. Host approval opens or reuses a pull request to the default branch. The full commit ID comes from the review;
+  without the block approves onto the task's branch too, `porelo/<task>` unless its start named another, on the
+  host's own forge and on any other upstream; an explicit branch still wins, and `--branch main` reaches the
+  starting branch. Host approval opens or reuses a pull request to the default branch. The full commit ID comes from the review;
   a later push needs a new review and approval, including when approval is signed.
 - **The pattern also keeps those branches from every task**: the gate drops every branch it matches from the mirror
   an agent fetches from, as it drops `porelo/*` without one, so no task sees another task's work at the forge. A

@@ -5762,9 +5762,9 @@ class PoreloDaemonTest {
     }
 
     @Test
-    void approvingWithoutABranchIsRefused(@TempDir Path dir) throws Exception {
+    void approvingWithoutACommitIsRefused(@TempDir Path dir) throws Exception {
 
-        // The single call that sends anything anywhere makes the caller name where.
+        // The single call that sends anything anywhere makes the caller name what was reviewed.
         serving(
                 dir,
                 socket -> {
