@@ -305,8 +305,23 @@ public final class HeldStandIns {
      * @return What it did.
      */
     public static Ran held(final ReviewHolds holds, final String... arguments) {
+        return held(holds, name -> true, arguments);
+    }
+
+    /**
+     * Runs {@code porelo gate held} over a store, knowing only the tasks a test names.
+     *
+     * @param holds The store.
+     * @param known Whether a container name is a task of the machine.
+     * @param arguments The command's arguments.
+     * @return What it did.
+     */
+    public static Ran held(
+            final ReviewHolds holds,
+            final java.util.function.Predicate<String> known,
+            final String... arguments) {
         final GateHeldCommand command = new GateHeldCommand();
-        command.use(holds);
+        command.use(holds, known);
         return run(command, arguments);
     }
 

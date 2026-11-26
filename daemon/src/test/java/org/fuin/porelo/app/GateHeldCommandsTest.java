@@ -58,6 +58,23 @@ class GateHeldCommandsTest {
     }
 
     @Test
+    void aNameNoTaskOfTheMachineHasIsRefusedNeverAnsweredAsNothingHeld() {
+        final HeldStandIns.Ran ran = HeldStandIns.held(holds, name -> false, "porelo-uc_gone");
+
+        assertThat(ran.code()).as(ran.err()).isEqualTo(69);
+        assertThat(ran.out()).as("no listing").doesNotContain("nothing held");
+        assertThat(ran.err()).as("the name refused").contains("no task called porelo-uc_gone");
+    }
+
+    @Test
+    void aKnownTaskWithNothingHeldSaysSo() {
+        final HeldStandIns.Ran ran = HeldStandIns.held(holds, TASK::equals, TASK);
+
+        assertThat(ran.code()).as(ran.err()).isZero();
+        assertThat(ran.out()).as("the known task's empty listing").contains("nothing held");
+    }
+
+    @Test
     void aTasksHeldItemsAsJsonHaveTheContractsShape() {
         holds.with(outgoing("h1", "Keep the order.", 1), incoming("h2", 2));
 
