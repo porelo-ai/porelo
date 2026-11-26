@@ -1,0 +1,2 @@
+title: '`porelo review open` counts a pull request''s open findings as it does at a gate push, and says `JournalUnreadable` when they cannot be counted'
+type: fixed

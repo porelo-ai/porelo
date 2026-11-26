@@ -655,9 +655,10 @@ method ReviewOpen(
   held: int,
   # False when part of the answer could not be read; reason then says which part.
   complete: bool,
-  # Why complete is false; absent when complete. TimeMissing: a forge answered no time for an item. On a pull
-  # request also RateLimited (the forge asked to wait before every page was read), PagePartial (a page was cut
-  # short) and PageRefused (a page broke the review profile and was not read).
+  # Why complete is false; absent when complete. TimeMissing: a forge answered no time for an item.
+  # JournalUnreadable: the review journal could not be read, so findings is 0. On a pull request also
+  # RateLimited (the forge asked to wait before every page was read), PagePartial (a page was cut short) and
+  # PageRefused (a page broke the review profile and was not read).
   reason: ?string,
   # A digest of this answer; equal versions are equal answers.
   version: string

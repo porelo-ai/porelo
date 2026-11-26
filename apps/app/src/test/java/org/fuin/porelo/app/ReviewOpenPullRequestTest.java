@@ -41,6 +41,7 @@ import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
@@ -286,6 +287,9 @@ class ReviewOpenPullRequestTest {
                                     : Optional.empty(),
                     holds);
 
+    /** What the review journal counts for the pinned push; none unless a test says. */
+    ReviewCounts counts = push -> new ReviewCounts.Counts(0, 0, List.of());
+
     /** Knows github.com only, read by the github adapter. */
     final ReviewOpen open =
             new ReviewOpen(
@@ -294,9 +298,7 @@ class ReviewOpenPullRequestTest {
                                 throw new AssertionError("no gate push is asked about");
                             },
                             new ReviewStandIns.Store(),
-                            push -> {
-                                throw new AssertionError("no gate push is counted");
-                            },
+                            push -> counts.of(push),
                             task -> Optional.empty(),
                             url ->
                                     FORGE.equals(url.getHost())
@@ -426,9 +428,8 @@ class ReviewOpenPullRequestTest {
                                     throw new AssertionError("no gate push is asked about");
                                 },
                                 new ReviewStandIns.Store(),
-                                push -> {
-                                    throw new AssertionError("no gate push is counted");
-                                },
+                                // The pinned push's findings, counted as at the gate: none here.
+                                push -> new ReviewCounts.Counts(0, 0, List.of()),
                                 task -> Optional.empty(),
                                 url ->
                                         Optional.of(
@@ -499,6 +500,33 @@ class ReviewOpenPullRequestTest {
     }
 
     @Test
+    void theFindingsOfThePinnedPushAreCountedAsAtTheGate() throws Exception {
+        page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
+        counts = push -> new ReviewCounts.Counts(3, 0, List.of());
+
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+
+        assertThat(answer.findings()).as("the journal's open findings").isEqualTo(3);
+        assertThat(answer.complete()).as("everything was read").isTrue();
+    }
+
+    @Test
+    void aJournalThatCannotBeCountedAnswersNoFindingsAndIncomplete() throws Exception {
+        page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
+        counts =
+                push -> {
+                    throw new IllegalStateException("the journal does not read");
+                };
+
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+
+        assertThat(answer.findings()).as("nothing counted").isZero();
+        assertThat(answer.complete()).as("the journal is missing").isFalse();
+        assertThat(answer.reason()).as("which part").isEqualTo("JournalUnreadable");
+        assertThat(answer.points()).as("the forge's threads still count").hasSize(1);
+    }
+
+    @Test
     void aRateLimitedReadAnswersIncompleteWithItsReason() throws Exception {
         page(Completeness.PARTIAL, opening("101", OCTOCAT, AT));
         adapterReason = "RateLimited";
@@ -556,9 +584,8 @@ class ReviewOpenPullRequestTest {
                                     throw new AssertionError("no gate push is asked about");
                                 },
                                 new ReviewStandIns.Store(),
-                                push -> {
-                                    throw new AssertionError("no gate push is counted");
-                                },
+                                // The pinned push's findings, counted as at the gate: none here.
+                                push -> new ReviewCounts.Counts(0, 0, List.of()),
                                 task -> Optional.empty(),
                                 url ->
                                         Optional.of(

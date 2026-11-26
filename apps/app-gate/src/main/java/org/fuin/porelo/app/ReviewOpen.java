@@ -324,6 +324,13 @@ public final class ReviewOpen {
             reading.incomplete("Unreachable");
         }
         final List<Point> points = forgePoints(items, side, reading);
+        int findings = 0;
+        try {
+            findings = parts.counts().of(pinned.push()).openFindings();
+        } catch (RuntimeException ex) {
+            // As at the gate: a journal refused is never read as no finding at all.
+            reading.incomplete(JOURNAL_UNREADABLE);
+        }
         final int held =
                 (int)
                         reader.holds().undecided(recorded.container()).stream()
@@ -343,7 +350,7 @@ public final class ReviewOpen {
                 facts.mergedHead(),
                 decided == null ? null : decided.truncatedTo(ChronoUnit.SECONDS).toString(),
                 points,
-                0,
+                findings,
                 held,
                 reading.reason);
     }
