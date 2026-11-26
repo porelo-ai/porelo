@@ -103,7 +103,7 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
      * <p>Each thread's items follow its opening comment, threads in the order they opened; a reply
      * stands at its thread's place. Every page but the last says {@code partial}, the last the
      * conversation's completeness. Profile 2 has no field for an incomplete conversation's reason,
-     * so it is not written.
+     * so it is not written here; the delivery's note text carries it.
      *
      * @throws IllegalArgumentException When an item is not a forge account's at this forge or
      *     carries no time, a reply's thread opens with no comment of the conversation, or one item

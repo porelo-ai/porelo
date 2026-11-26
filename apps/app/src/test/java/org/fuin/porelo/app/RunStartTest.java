@@ -345,6 +345,7 @@ class RunStartTest {
                 .isEqualTo(Completeness.PARTIAL);
         assertThat(outcome.reason()).as("with the reason").isEqualTo("RateLimited");
         assertThat(delivery.runs).as("it was delivered").containsExactly(1);
+        assertThat(delivery.reasons).as("with the reason").containsExactly("RateLimited");
     }
 
     /** Numbers runs per task and place, and records each call. */
@@ -463,6 +464,7 @@ class RunStartTest {
         final List<Integer> withheld = new ArrayList<>();
         final List<Integer> held = new ArrayList<>();
         final List<Integer> unread = new ArrayList<>();
+        final List<@Nullable String> reasons = new ArrayList<>();
         @Nullable RuntimeException failure;
 
         @Override
@@ -472,7 +474,8 @@ class RunStartTest {
                 final String where,
                 final List<byte[]> pages,
                 final int heldCount,
-                final int unreadCount) {
+                final int unreadCount,
+                final @Nullable String reason) {
             events.add("deliver");
             if (failure != null) {
                 throw failure;
@@ -481,6 +484,7 @@ class RunStartTest {
             withheld.add(heldCount + unreadCount);
             held.add(heldCount);
             unread.add(unreadCount);
+            reasons.add(reason);
         }
     }
 

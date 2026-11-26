@@ -1,0 +1,2 @@
+title: "A run's task learns from the first conversation note's text why its pull request conversation is incomplete, by the contract word (`RateLimited`, `PagePartial` or `PageRefused`) only, and the task guide no longer says the pages always hold the whole conversation"
+type: fixed

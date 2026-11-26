@@ -183,7 +183,7 @@ class PullRequestRunStartTest {
                 runs,
                 writing,
                 (peer, data) -> Optional.empty(),
-                (task, run, place, pages, held, unread) ->
+                (task, run, place, pages, held, unread, reason) ->
                         delivered.add(
                                 task
                                         + " run "

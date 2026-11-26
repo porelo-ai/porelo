@@ -79,7 +79,7 @@ adapter, the reviewer task and Porelo exchange one format. Its schema is
 `review-profile-2.schema.json`, beside profile 1's in `porelo-build-api`; the tests jar of
 `porelo-build-api` (`<type>test-jar</type>`) carries one passing fixture each for a forge page, a
 submitted comment and a submitted reply, under `org/fuin/porelo/build/api/review/fixtures/`, and the
-failing ones under `fixtures/failing/`. Porelo itself still writes profile 1 only.
+failing ones under `fixtures/failing/`. Porelo writes profile 2 for a forge's conversation.
 
 Everything profile 1 says holds, but for these points:
 

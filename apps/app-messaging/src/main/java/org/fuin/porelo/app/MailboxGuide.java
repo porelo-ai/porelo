@@ -190,7 +190,8 @@ public final class MailboxGuide {
                 `metadata.pages`: a conversation may come in several notes of one run, each with one data part
                 holding one page of review documents; a conversation without comments is one page without
                 results. The first note's text names the run and the pull request.
-                Together the pages hold the whole conversation: every thread with its `@THREAD@`, its anchor and
+                Together the pages hold the whole conversation unless the first note's text says it is not
+                (`RateLimited`, `PagePartial` or `PageRefused`): every thread with its `@THREAD@`, its anchor and
                 its comments in order, each with the forge account that wrote it, your own earlier comments
                 among them. Read all pages of the newest run; an earlier run's notes are older.
 

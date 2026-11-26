@@ -159,7 +159,8 @@ public final class RunStart {
                     place.name(),
                     place.pages(pinned, delivered),
                     gated,
-                    read.withheld().size());
+                    read.withheld().size(),
+                    read.reason());
         } catch (final RuntimeException undelivered) {
             // Never a run without its conversation.
             runs.end(task);
