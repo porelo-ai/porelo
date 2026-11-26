@@ -128,8 +128,9 @@ type StartAction (
   # It exists and is stopped. Start brings it back with the workspace, the branch and the
   # uncommitted changes it already has.
   RESUME,
-  # It is already running. Start refuses rather than starting a second one; Attach is what
-  # somebody wants.
+  # It is already running: its container is up and its agent's run still goes on, or the run has
+  # ended in a task that is not UNATTENDED and the start gave no prompt. Start refuses rather than
+  # starting a second one; Attach is what somebody wants.
   RUNNING,
   # It would be resumed, but the gate token it has to come back holding is in a vault that is
   # locked. The per-task face of StartOutcome's VAULT_LOCKED, and for the same reason: the one
@@ -145,7 +146,11 @@ type StartAction (
   PREDATES_RESTART,
   # Something not specific to this task is in the way - project file, agent, provider or
   # credential. 'startDetail' carries the StartOutcome value naming which.
-  NOT_READY
+  NOT_READY,
+  # Its container was up and its agent's run had ended. Start ran the agent again in it, continuing
+  # its session: with the prompt given or, for an UNATTENDED task given none, with Porelo's line to
+  # read its inbox. Only on Start's reply, never as a task's startAction.
+  RERUN
 )
 
 # One task on this machine, running or not.
@@ -656,7 +661,8 @@ type StartStep (
 #
 # One verb, because the caller cannot know which case they are in - and pressing is not how
 # somebody should find out. That is what startAction on the listing is for. A task that is already
-# running is refused rather than started twice.
+# running is refused rather than started twice. One whose container is up but whose agent's run has
+# ended is run again (action RERUN, answered only when the agent ran).
 #
 # With "more" it streams lines as they happen; steps: true adds step-only replies. An interface should show
 # them: building an image takes minutes, and showing nothing for that long is indistinguishable
@@ -898,8 +904,8 @@ method Start(
   nameNote: ?string,
   # Everything that was printed, for a caller that did not ask to stream. Empty when it did.
   output: ?[]string,
-  # What it did, or the refusal it answered with. Set on the final reply: CREATE or RESUME for what
-  # it did; RUNNING, NEEDS_VAULT or PREDATES_RESTART for a refusal.
+  # What it did, or the refusal it answered with. Set on the final reply: CREATE, RESUME or RERUN
+  # for what it did; RUNNING, NEEDS_VAULT or PREDATES_RESTART for a refusal.
   #
   # A refusal is an ordinary reply, not an error, and carries container and exitCode like any
   # other - the exit code is the refusal's. NEEDS_VAULT in particular arrives this way, so an
@@ -914,14 +920,17 @@ method Start(
   problems: ?[]string,
   # Set when the image the container was built from has changed since it was created.
   imageDrift: ?string,
-  # One line the run itself wrote, as its agent shows it, on a streamed reply while a start with a
-  # prompt runs. Apart from line, which is Porelo's own. A caller that reads too slowly loses lines
-  # rather than holding the run; a last runLine then says how many, and Logs has them all.
+  # One line the run itself wrote, as its agent shows it, on a streamed reply while this start's own
+  # run goes on: a start given a prompt, or one that runs an UNATTENDED task's agent again from its
+  # inbox without one (action RESUME or RERUN). Apart from line, which is Porelo's own. A caller
+  # that reads too slowly loses lines rather than holding the run; a last runLine then says how
+  # many, and Logs has them all.
   runLine: ?string,
-  # What this start's own run answered, on the final reply of a start with a prompt that ran its
-  # agent, streamed or not: the record its agent declares as its last message, or else the run's
-  # last lines. At most 16 KiB of UTF-8, cut at a code point. Absent when this call ran nothing: a
-  # refusal, a task found running, or one brought back without a prompt.
+  # What this start's own run answered, on the final reply of a start that ran its agent, streamed
+  # or not - given a prompt, or an UNATTENDED task's run from its inbox without one: the record its
+  # agent declares as its last message, or else the run's last lines. At most 16 KiB of UTF-8, cut
+  # at a code point. Absent when this call ran nothing: a refusal, a task found running, or a task
+  # that is not UNATTENDED brought back without a prompt.
   result: ?string,
   # ANSWER for the agent's own answer, LAST_LINES for the run's last lines in its stead.
   resultKind: ?string,

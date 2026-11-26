@@ -1420,8 +1420,10 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
         }
 
         // A person at a terminal who typed 'start' wants to work in the task, running or not; a
-        // script is answered with RUNNING as before, so it never hangs in a session.
-        final boolean goingIn = terminal.getAsBoolean() && !noInput;
+        // script is answered with RUNNING as before, so it never hangs in a session. One who gave
+        // --detach asked not to go in: its start is answered as a script's, and a run that ended
+        // is run again as for one.
+        final boolean goingIn = terminal.getAsBoolean() && !noInput && !detach;
         final TaskLaunch.Existing existing = launch.startExisting(out, err, goingIn);
         if (existing != null) {
             if ("RUNNING".equals(existing.action()) && existing.code() == 0) {
@@ -1443,7 +1445,24 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                         ? code
                         : 70;
             }
-            if (detach) {
+            // Found up with its run ended, an unattended task given no prompt runs from its inbox
+            // as a detached start does: nobody goes into it.
+            if (detach || TaskLaunch.RERUN.equals(existing.action())) {
+                if (launch.continuesFromInbox(existing.container())) {
+                    // Unattended and started again with no prompt: its session goes on with what
+                    // waits in its inbox, not with its first prompt, which would redo the task.
+                    final int code =
+                            launch.runAgentFromInbox(
+                                    existing.container(),
+                                    (agent, container) -> render(agent, container, out, err),
+                                    out,
+                                    err);
+                    return code == 0
+                                    || code == TaskLaunch.NO_AGENT
+                                    || code == TaskLaunch.EFFORT_GONE
+                            ? code
+                            : 70;
+                }
                 return existing.code();
             }
             // An agent task whose session is gone starts its agent again, continuing where it can.

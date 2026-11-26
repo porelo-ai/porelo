@@ -185,10 +185,14 @@ another shape, which would bring a version of its own.
 `porelo task start` on a task that is running, typed by a person at a terminal, goes into its session through the code
 `porelo task attach` runs: after a reboot the container is back with its agent's session gone, and someone who typed
 `start` wants to work in it, not to be sent to a second command. An option that takes effect only when a task is
-created or brought up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and their kind) is refused
-with 64, naming each, since it would be dropped without a word. Without a terminal, or with `--no-input`, a start
+created or brought up (`--prompt`, `--model`, `--agent`, `--attach`, `--rm` and their kind) is refused with 64,
+naming each, since it would be dropped without a word. Without a terminal, with `--no-input` or with `--detach`, a start
 answers "is already running" and 65 as before, so a script never ends in a session; a playbook takes that as "already
-so". `attach` stays the verb that never creates anything. **What would change it:** a start over the daemon that
+so". A task whose container is up but whose agent's run has ended is not running: a start with `--prompt` runs its
+agent again there, at a terminal or not; a start without one goes into it at a terminal, as into a running task,
+and without a terminal runs an unattended task's agent with Porelo's line to read its inbox, while any other start
+without one says the run ended rather than that it runs. `attach` stays
+the verb that never creates anything. **What would change it:** a start over the daemon that
 should go in too, which has no terminal to go into.
 
 ## A task has a CPU quota and may still read the host's cores

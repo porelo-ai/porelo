@@ -397,6 +397,31 @@ class PodmanTest {
     }
 
     @Test
+    void readsAContainersProcessesByTheWordsOfEach() {
+
+        runner.answering(
+                "top porelo-uc-shell-1 args",
+                "COMMAND\nsleep infinity\n/usr/bin/node /usr/local/bin/agent -p go\n\n");
+
+        assertThat(podman.processes("porelo-uc-shell-1"))
+                .contains(
+                        List.of(
+                                List.of("sleep", "infinity"),
+                                List.of("/usr/bin/node", "/usr/local/bin/agent", "-p", "go")));
+    }
+
+    @Test
+    void aProcessTableThatIsNotOneOrIsRefusedSaysNothing() {
+
+        // Empty, not "no process": a caller reads that as nothing running.
+        runner.answering("top porelo-uc-shell-1 args", "");
+        assertThat(podman.processes("porelo-uc-shell-1")).isEmpty();
+
+        runner.failing("top porelo-uc-shell-1 args", 125, "no such container");
+        assertThat(podman.processes("porelo-uc-shell-1")).isEmpty();
+    }
+
+    @Test
     void readsTheContainerPid() {
 
         runner.answering("State.Pid", "48213");

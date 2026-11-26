@@ -193,6 +193,37 @@ public final class RunLimit {
     }
 
     /**
+     * Says whether something may still wait on the task's last run: its record is open and its
+     * waiter runs. A record that is there and cannot be read, or names no waiter, may be waited on:
+     * what cannot be read is no proof that a run ended.
+     *
+     * @param state The task's state directory.
+     * @param alive Whether a waiter still runs.
+     * @return {@code false} only when no record is there, it is closed, or its waiter is gone.
+     */
+    public static boolean mayBeWaitedOn(Path state, java.util.function.Predicate<Waiter> alive) {
+        final Path given = state.resolve(GIVEN);
+        if (!Files.exists(given, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        if (!(read(given) instanceof Map<?, ?> map)) {
+            return true;
+        }
+        if (Boolean.TRUE.equals(map.get("closed"))) {
+            return false;
+        }
+        if (!(map.get("waiterPid") instanceof Number pid)) {
+            return true;
+        }
+        final Waiter waiter =
+                new Waiter(
+                        pid.longValue(),
+                        map.get("waiterStarted") instanceof String started ? started : null);
+        // This process knows which runs it still waits on; any other is asked whether it runs.
+        return waiter.equals(Waiter.current()) ? WAITING.contains(key(state)) : alive.test(waiter);
+    }
+
+    /**
      * The process waiting on a run: its pid, and when it started, so a pid used again is not taken
      * for it.
      *

@@ -989,6 +989,39 @@ public class Podman {
     }
 
     /**
+     * Lists the processes running in a container, each by the words of its command line, as the
+     * host's process table shows them: nothing runs inside the container, whose image carries no
+     * {@code ps}.
+     *
+     * @param container Container name or id.
+     * @return The words of each process, or empty when the runtime did not say: a container that is
+     *     not running, or an answer that is not the table asked for.
+     */
+    public Optional<List<List<String>>> processes(String container) {
+        final CommandResult result;
+        try {
+            result = runner.run(podman("top", target(container), "args"));
+        } catch (RuntimeException ex) {
+            return Optional.empty();
+        }
+        if (!result.successful()) {
+            return Optional.empty();
+        }
+        final List<String> lines = result.standardOutput().lines().toList();
+        // The table's heading is how an answer is told from one that is no table at all.
+        if (lines.isEmpty() || !lines.getFirst().strip().equals("COMMAND")) {
+            return Optional.empty();
+        }
+        final List<List<String>> processes = new ArrayList<>();
+        for (final String line : lines.subList(1, lines.size())) {
+            if (!line.isBlank()) {
+                processes.add(List.of(line.strip().split("\\s+")));
+            }
+        }
+        return Optional.of(List.copyOf(processes));
+    }
+
+    /**
      * Stops a container without removing it.
      *
      * <p>A stopped container keeps its filesystem, so the task's workspace and everything the agent

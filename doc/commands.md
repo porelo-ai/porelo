@@ -291,9 +291,17 @@ At a terminal a shut vault asks for its passphrase; a script must unlock it firs
   is another name for a task brought back. See [a file the task hands back](running.md#a-file-the-task-hands-back).
 - **A running task is gone into**, as `attach` does: at a terminal, `start` on it starts its agent again where the
   session is gone, continuing its conversation. An option that takes effect only when a task is created or brought
-  up (`--prompt`, `--model`, `--agent`, `--attach`, `--detach`, `--rm` and the like) is refused, naming each, since it
-  would be dropped: stop the task first. Without a terminal, or with `--no-input`, `start` says the task is running
-  and exits 65, so a script never ends up in a session.
+  up (`--prompt`, `--model`, `--agent`, `--attach`, `--rm` and the like) is refused, naming each, since it would be
+  dropped: stop the task first. Without a terminal, with `--no-input` or with `--detach`, `start` says the task is
+  running and exits 65, so a script never ends up in a session.
+- **A task that is up but whose agent's run has ended is not running**: given `--prompt`, `start` runs its agent
+  again in it, continuing its session, as for a stopped task, at a terminal too. Given none, a start at a terminal
+  goes into it, as into a running task; a start that does not go in (no terminal, `--no-input` or `--detach`) runs
+  an unattended task with Porelo's line to read what waits in its inbox, as a detached start of a stopped one does,
+  and refuses any other task with 65, telling it the run has ended. Its run counts as ended as `task list` says
+  `ended` (its log names its end and has been still for 10 seconds, or its time limit ended it) and only while no
+  waiter of the run lives and no agent process runs in the container; what cannot be read counts as running.
+  "Already running" is said only while the run goes on.
 - **What is missing is offered, not only named.** At a terminal a start asks what it would otherwise tell you
   to type: at a host this machine never met, it shows the keys the host offers and asks whether to trust its
   key (no by default, compare it with what the host's owner publishes). Before anything is made, the start

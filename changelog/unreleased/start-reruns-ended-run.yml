@@ -1,0 +1,2 @@
+title: "`porelo task start` on a task whose container is up but whose agent's run has ended runs the agent again there, continuing its session, and Start answers `RERUN`; an unattended task started detached without `--prompt`, up or stopped, runs its agent with Porelo's line to read its inbox; \"already running\" is said only while the run goes on"
+type: fixed

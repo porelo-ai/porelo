@@ -1598,7 +1598,17 @@ final class TaskMethods {
                                         : launch.opening() != null
                                                 ? 64
                                                 : empty(parameters, "prompt") == null
-                                                        ? 0
+                                                        ? (!"RUNNING".equals(existing.action())
+                                                                        && launch
+                                                                                .continuesFromInbox(
+                                                                                        existing
+                                                                                                .container())
+                                                                ? launch.runAgentFromInbox(
+                                                                        existing.container(),
+                                                                        null,
+                                                                        sink,
+                                                                        sink)
+                                                                : 0)
                                                         : launch.runAgentInExisting(
                                                                 existing.container(),
                                                                 null,
@@ -1719,7 +1729,15 @@ final class TaskMethods {
                                     ? List.of()
                                     : List.of(collected.toString().split("\n", -1)));
                     if (action != null) {
-                        reply.put("action", action);
+                        // A run again is answered only when the agent's run began: a start refused
+                        // before it (its opening text, no agent installed, its binary refused) left
+                        // the task as it was.
+                        final boolean ranAgain = existing == null || launch.runBegun();
+                        reply.put(
+                                "action",
+                                !ranAgain && org.fuin.porelo.app.TaskLaunch.RERUN.equals(action)
+                                        ? "RUNNING"
+                                        : action);
                     }
                     final org.fuin.porelo.app.RunResult result = launch.runResult();
                     if (result != null) {

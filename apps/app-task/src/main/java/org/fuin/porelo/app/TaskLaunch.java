@@ -1231,6 +1231,8 @@ public final class TaskLaunch {
 
     private @Nullable RunResult runResult;
 
+    private boolean runBegun;
+
     private long runLinesDropped;
 
     private final PoreloContext context;
@@ -1245,6 +1247,9 @@ public final class TaskLaunch {
 
     /** What to start. Replaced once, when a container name given as the task is taken apart. */
     private Request request;
+
+    /** What a start without a prompt runs an unattended task's agent with, or {@code null}. */
+    private @Nullable String inboxPrompt;
 
     /**
      * The repository the task works on, once the start has settled it; its agent is taken when
@@ -1782,8 +1787,8 @@ public final class TaskLaunch {
      * @param project Name of the project it belongs to.
      * @param code Exit code: 0 when it is up again, a refusal otherwise.
      * @param action What Start did or refused with, in the contract's words - {@code RESUME},
-     *     {@code RUNNING}, {@code NEEDS_VAULT} or {@code PREDATES_RESTART} - or {@code null} for a
-     *     refusal that has no word there.
+     *     {@code RERUN}, {@code RUNNING}, {@code NEEDS_VAULT} or {@code PREDATES_RESTART} - or
+     *     {@code null} for a refusal that has no word there.
      */
     public record Existing(String container, String project, int code, @Nullable String action) {
 
@@ -1797,6 +1802,85 @@ public final class TaskLaunch {
         public Existing(String container, String project, int code) {
             this(container, project, code, null);
         }
+    }
+
+    /**
+     * What Start did with a task whose container was up and whose agent's run had ended: its run
+     * goes on in that container.
+     */
+    public static final String RERUN = "RERUN";
+
+    /**
+     * Says whether the agent of a task whose container is up has ended its run, by the reading the
+     * task list takes for {@code ENDED}, and with nothing of it still live.
+     *
+     * <p>That reading alone let a second agent start beside a live one: an end at the time limit is
+     * recorded before the stop that may fail, a log can read as ended while its waiter still waits,
+     * and a person's agent in the task's session writes no log at all. So a run counts as ended
+     * only when nothing waits on it and no agent runs in the container; what cannot be read counts
+     * as running, and the start then refuses.
+     */
+    private boolean runEnded(final String container) {
+        final org.fuin.porelo.wire.TaskProfile profile = keptProfile(container);
+        if (profile == null || profile.agent() == null) {
+            return false;
+        }
+        final Path state = context.paths().tasks().containerState(container);
+        if (AgentEnding.of(context).about(container, true, profile.agent(), state) == null) {
+            return false;
+        }
+        return !RunLimit.mayBeWaitedOn(state, RunLimit.Waiter::alive)
+                && !agentMayRunIn(container, profile.agent());
+    }
+
+    /**
+     * Says whether the task's agent may run in its container: a process of its binary is there,
+     * started by a run or by a person in the session alike, or the container's processes or the
+     * agent's binary cannot be read.
+     */
+    private boolean agentMayRunIn(final String container, final String agent) {
+        final String binary = agentBinaryName(agent);
+        if (binary == null) {
+            return true;
+        }
+        final java.util.Optional<java.util.List<java.util.List<String>>> processes =
+                context.podman().processes(container);
+        return processes.isEmpty()
+                || processes.get().stream().anyMatch(words -> runsBinary(words, binary));
+    }
+
+    /** Returns the bare name of an installed agent's binary, or {@code null} when none is read. */
+    private @Nullable String agentBinaryName(final String agent) {
+        try (org.fuin.porelo.agent.api.InstalledAgents agents = context.agents()) {
+            return agents.find(agent).map(found -> found.definition().binary()).orElse(null);
+        } catch (RuntimeException ex) {
+            // An agent that cannot be asked has no binary to tell its process by.
+            return null;
+        }
+    }
+
+    /**
+     * Says whether a process runs a binary: by any of its words, which may be the binary's path
+     * after an interpreter and its options, a script named after it, or the title the program gave
+     * itself. A tmux process is not the agent, though its command line may name the agent it
+     * started.
+     */
+    private static boolean runsBinary(final java.util.List<String> words, final String binary) {
+        if (words.isEmpty() || baseName(words.get(0)).equals("tmux")) {
+            return false;
+        }
+        return words.stream()
+                .map(TaskLaunch::baseName)
+                .anyMatch(
+                        name ->
+                                name.equals(binary)
+                                        || name.equals(binary + ".js")
+                                        || name.equals(binary + ".mjs")
+                                        || name.equals(binary + ".cjs"));
+    }
+
+    private static String baseName(final String word) {
+        return word.substring(word.lastIndexOf('/') + 1);
     }
 
     /**
@@ -1831,8 +1915,18 @@ public final class TaskLaunch {
      *     to be created.
      */
     public @Nullable Existing startExisting(PrintWriter out, PrintWriter err, boolean goingIn) {
+        boolean heldForRun = false;
         try {
-            return startExistingSteps(out, err, goingIn);
+            final Existing found = startExistingSteps(out, err, goingIn);
+            // A run to begin again keeps the task's reservation until it has begun, so a second
+            // start in between is refused rather than finding the run ended too and running a
+            // second agent beside it. Not for an opening text, which the daemon refuses unrun.
+            heldForRun =
+                    found != null
+                            && found.code() == 0
+                            && RERUN.equals(found.action())
+                            && opening() == null;
+            return found;
         } catch (TaskReservations.ContainerNameTaken ex) {
             nameTaken = ex;
             err.println("porelo: " + ex.getMessage());
@@ -1851,7 +1945,9 @@ public final class TaskLaunch {
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         } finally {
-            releaseReservation();
+            if (!heldForRun) {
+                releaseReservation();
+            }
         }
     }
 
@@ -2157,8 +2253,29 @@ public final class TaskLaunch {
             if (!hooksReady(out, err)) {
                 return new Existing(container, project.name(), 69);
             }
+            // A person at a terminal who gave no prompt goes into it, whatever its agent does.
+            if (goingIn && request.prompt() == null) {
+                return new Existing(container, project.name(), 0, "RUNNING");
+            }
+            // Up is not running: an agent whose run ended in a container still up is started
+            // again in it, as the task list says of it, and only a run still going is refused.
+            // Without a prompt only an unattended task's is, from its inbox.
+            final boolean ended = runEnded(container);
+            if (ended && (request.prompt() != null || continuesFromInbox(container))) {
+                return new Existing(container, project.name(), 0, RERUN);
+            }
             if (goingIn) {
                 return new Existing(container, project.name(), 0, "RUNNING");
+            }
+            if (ended) {
+                err.println(
+                        "porelo: "
+                                + container
+                                + " is up and its agent's run has ended; start it again with"
+                                + " --prompt to run it,");
+                err.println("       or go into it with 'porelo task attach " + container + "'.");
+                err.flush();
+                return new Existing(container, project.name(), 65, "RUNNING");
             }
             err.println("porelo: " + container + " is already running");
             err.println("       go into it with 'porelo task attach " + container + "'.");
@@ -4926,7 +5043,7 @@ public final class TaskLaunch {
             java.util.Map<String, String> environment,
             PrintWriter out,
             PrintWriter err) {
-        if (request.prompt() == null) {
+        if (runPrompt() == null) {
             return runAgentSteps(runner, selected, container, environment, out, err);
         }
         steps.at(container);
@@ -4962,6 +5079,15 @@ public final class TaskLaunch {
      */
     public @Nullable RunResult runResult() {
         return runResult;
+    }
+
+    /**
+     * Says whether this start's own agent run began: its log restarted and its time limit open.
+     *
+     * @return {@code false} when the start ran no agent, or one refused before its run began.
+     */
+    public boolean runBegun() {
+        return runBegun;
     }
 
     /**
@@ -5041,13 +5167,14 @@ public final class TaskLaunch {
             PrintWriter err) {
         // What a run of this call says, never what an earlier call's did.
         runResult = null;
+        runBegun = false;
         runLinesDropped = 0;
         if (selected == null) {
             err.println("porelo: a prompt needs an agent, and none is installed");
             err.flush();
             return NO_AGENT;
         }
-        final String prompt = request.prompt();
+        final String prompt = runPrompt();
         if (prompt == null) {
             err.println(
                     "porelo: this task was started without a prompt, so there is nothing to run");
@@ -5107,6 +5234,14 @@ public final class TaskLaunch {
             err.println("porelo: could not record this run's time limit: " + ex.getMessage());
             err.flush();
         }
+        // Begun: its log is this run's and its limit open, so a start from now on finds it running.
+        runBegun = true;
+        // A run answers for itself: the last run's declared end and its handed-back file are not
+        // this run's, as a stopped task brought back clears them; a run refused before this point
+        // leaves them.
+        new TaskDone(context.paths()).clear(container);
+        new TaskResult(context.paths()).clear(container);
+        releaseReservation();
         final TaskWorkRecords records = new TaskWorkRecords(context);
         try {
             records.runStarted(container);
@@ -5244,6 +5379,69 @@ public final class TaskLaunch {
             java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered,
             PrintWriter out,
             PrintWriter err) {
+        return runAgentInExisting(container, rendered, null, out, err);
+    }
+
+    /**
+     * Says whether a start of this task without a prompt runs its agent: the task is unattended, so
+     * nobody is at a terminal to go in, and what waits in its inbox is what the agent is for.
+     *
+     * @param container The task's container.
+     * @return Whether its profile records the unattended mode.
+     */
+    public boolean continuesFromInbox(final String container) {
+        final org.fuin.porelo.wire.TaskProfile profile =
+                org.fuin.porelo.wire.TaskProfile.readFrom(
+                        context.paths().tasks().containerState(container));
+        return profile != null && profile.mode() == org.fuin.porelo.wire.TaskMode.UNATTENDED;
+    }
+
+    /**
+     * Runs the agent of a task that existed already with the one fixed line that tells it to read
+     * its inbox and go on, continuing its session where the agent can.
+     *
+     * <p>Not the task's stored first prompt: that would do the task's work again.
+     *
+     * @param container The task's container, running.
+     * @param rendered What shows the run to a person afterwards, given the agent; the daemon passes
+     *     nothing.
+     * @param out Where progress is reported.
+     * @param err Where a failure is reported.
+     * @return Exit code of the agent, or {@link #NO_AGENT} when its agent is not installed.
+     */
+    public int runAgentFromInbox(
+            String container,
+            java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered,
+            PrintWriter out,
+            PrintWriter err) {
+        return runAgentInExisting(container, rendered, AgentWake.LINE, out, err);
+    }
+
+    private @Nullable String runPrompt() {
+        return request.prompt() != null ? request.prompt() : inboxPrompt;
+    }
+
+    private int runAgentInExisting(
+            String container,
+            java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered,
+            @Nullable String prompt,
+            PrintWriter out,
+            PrintWriter err) {
+        try {
+            return runAgentInExistingSteps(container, rendered, prompt, out, err);
+        } finally {
+            // A run that never began, refused or failed before it, frees the task it held.
+            releaseReservation();
+        }
+    }
+
+    private int runAgentInExistingSteps(
+            String container,
+            java.util.function.@Nullable BiConsumer<InstalledAgent, String> rendered,
+            @Nullable String prompt,
+            PrintWriter out,
+            PrintWriter err) {
+        inboxPrompt = prompt;
         final org.fuin.porelo.wire.TaskProfile profile =
                 org.fuin.porelo.wire.TaskProfile.readFrom(
                         context.paths().tasks().containerState(container));

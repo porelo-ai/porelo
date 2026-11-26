@@ -577,6 +577,22 @@ class TaskRunCommandTest {
                             }
                             replies.last(java.util.Map.of("command", command));
                         });
+                // Its end is the line "ended", as a real agent knows its own end line.
+                server.method(
+                        "Ended",
+                        (parameters, replies) ->
+                                replies.last(
+                                        "ended".equals(parameters.get("line"))
+                                                ? java.util.Map.of(
+                                                        "ended",
+                                                        java.util.Map.of(
+                                                                "finished",
+                                                                Boolean.TRUE,
+                                                                "error",
+                                                                "",
+                                                                "source",
+                                                                "agent"))
+                                                : java.util.Map.of()));
                 server.method(
                         "ContainerSetup",
                         (parameters, replies) -> {
@@ -3040,6 +3056,524 @@ class TaskRunCommandTest {
     }
 
     @Test
+    void aTaskUpWhoseRunEndedRunsItsAgentAgainWithThePromptGiven(@TempDir Path dir)
+            throws IOException {
+        // A task whose agent had ended its run was refused as "already running", and a prompt for
+        // it reached nobody.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(err.toString()).doesNotContain("already running");
+        assertThat(out.toString())
+                .as("its agent ran again in it")
+                .contains("running   preview")
+                .contains("session   ");
+        assertThat(taskLog(context))
+                .as("with the prompt given, never its first one")
+                .contains("preview read the refusal")
+                .doesNotContain("do the work");
+    }
+
+    @Test
+    void aRunAgainForgetsWhatTheRunBeforeDeclaredAndHandedBack(@TempDir Path dir)
+            throws IOException {
+        // Brought back from a stop, a task's earlier "done" and result are cleared; a run again in
+        // a container that stayed up kept showing them on the task list.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+        new TaskDone(context.paths()).record("porelo-uc-shell");
+        assertThat(new TaskDone(context.paths()).read("porelo-uc-shell"))
+                .as("declared by the run before")
+                .isNotNull();
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(new TaskDone(context.paths()).read("porelo-uc-shell"))
+                .as("the new run has declared nothing yet")
+                .isNull();
+    }
+
+    @Test
+    void aRunAgainContinuesTheSessionRecordedForTheTask(@TempDir Path dir) throws IOException {
+        final PoreloContext context = endedRunContext(dir, true, SESSIONS);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+        new TaskSession(context).record("porelo-uc-shell", "earlier-session-7");
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(out.toString())
+                .as("the recorded session, not a fresh one")
+                .contains("session   continuing earlier-session-7")
+                .doesNotContain("a fresh one");
+    }
+
+    private static final String SESSIONS =
+            """
+            session:
+              supports_resume: true
+              resume_flag: "--resume"
+              session_id:
+                record: { stub: session }
+                key: id
+                directory: ".porelo-stub-sessions"
+                suffix: ".session"
+            """;
+
+    @Test
+    void aTaskWhoseRunStillWritesIsAlreadyRunningWhateverItsPrompt(@TempDir Path dir)
+            throws IOException {
+        // Only a run still going is "already running"; a log written to lately is one.
+        final PoreloContext context = endedRunContext(dir, false);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isEqualTo(65);
+        assertThat(err.toString()).contains("porelo-uc-shell is already running");
+        assertThat(taskLog(context)).as("nothing was run").isEqualTo("ended\n");
+    }
+
+    @Test
+    void anUnattendedTaskUpWhoseRunEndedStartedDetachedWithoutAPromptRunsOnceOnItsInbox(
+            @TempDir Path dir) throws IOException {
+        // The walk's case: a Reject delivered to a task whose run had ended was answered "already
+        // running", and its agent never read it.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(dir, () -> startAt(context, false, "-p", project, "--detach"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(err.toString()).doesNotContain("already running");
+        assertThat(out.toString().split("running   preview", -1))
+                .as("its agent ran exactly once: %s", out)
+                .hasSize(2);
+        assertThat(taskLog(context))
+                .as("on Porelo's line to read its inbox, never its first prompt")
+                .contains("preview " + AgentWake.LINE)
+                .doesNotContain("do the work");
+    }
+
+    @Test
+    void aTaskNotUnattendedUpWhoseRunEndedStartedWithoutAPromptIsNotCalledRunning(@TempDir Path dir)
+            throws IOException {
+        // Nothing to run again, so it is refused as before, but by what is true of it.
+        final PoreloContext context = endedRunContext(dir, true);
+        recordSubagents(
+                context.paths().tasks().containerState("porelo-uc-shell"),
+                "preview",
+                0,
+                org.fuin.porelo.wire.TaskMode.AGENT);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(dir, () -> startAt(context, false, "-p", project, "--detach"));
+
+        assertThat(code).as("said: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell is up and its agent's run has ended")
+                .doesNotContain("already running");
+        assertThat(taskLog(context)).as("nothing was run").isEqualTo("ended\n");
+    }
+
+    @Test
+    void aDetachedStartAtATerminalOfAnUnattendedTaskUpWhoseRunEndedRunsItOnItsInbox(
+            @TempDir Path dir) throws IOException {
+        // At a terminal the start went in, refused --detach as an option it would drop, and said
+        // the task was already running.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(dir, () -> startAt(context, true, "-p", project, "--detach"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(err.toString()).doesNotContain("already running");
+        assertThat(execCalls).as("nothing gone into").isEmpty();
+        assertThat(taskLog(context)).contains("preview " + AgentWake.LINE);
+    }
+
+    @Test
+    void aDetachedStartAtATerminalOfATaskNotUnattendedUpWhoseRunEndedSaysItsRunEnded(
+            @TempDir Path dir) throws IOException {
+        final PoreloContext context = endedRunContext(dir, true);
+        recordSubagents(
+                context.paths().tasks().containerState("porelo-uc-shell"),
+                "preview",
+                0,
+                org.fuin.porelo.wire.TaskMode.AGENT);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(dir, () -> startAt(context, true, "-p", project, "--detach"));
+
+        assertThat(code).as("said: %s", err).isEqualTo(65);
+        assertThat(err.toString())
+                .contains("porelo-uc-shell is up and its agent's run has ended")
+                .doesNotContain("already running");
+        assertThat(execCalls).as("nothing gone into").isEmpty();
+        assertThat(taskLog(context)).as("nothing was run").isEqualTo("ended\n");
+    }
+
+    @Test
+    void aBareStartAtATerminalOfATaskUpWhoseRunEndedStillGoesIn(@TempDir Path dir)
+            throws IOException {
+        // A person who typed 'start' with nothing more wants to work in it, whatever its agent did.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        runner.answering("stty -g", "saved-settings\n");
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code = withEchoingPodman(dir, () -> startAt(context, true, "-p", project));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(execCalls).as("the session it went into").hasSize(1);
+        assertThat(taskLog(context)).as("nothing was run").isEqualTo("ended\n");
+    }
+
+    @Test
+    void aStartAtATerminalWithAPromptOfATaskUpWhoseRunEndedRunsIt(@TempDir Path dir)
+            throws IOException {
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        true,
+                                        "-p",
+                                        project,
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(execCalls).as("nothing gone into").isEmpty();
+        assertThat(taskLog(context)).contains("preview read the refusal");
+    }
+
+    @Test
+    void aSecondStartOfATaskUpWhoseRunEndedDoesNotRunItAgainBeforeTheFirstRunBegins(
+            @TempDir Path dir) throws IOException {
+        // The first start released the task before its run began, and a second start that came in
+        // between found the run still ended and ran a second agent beside it.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering("ps", RUNNING_SHELL);
+        projectFile(dir, MINIMAL);
+        recordedTasks(context);
+        final TaskLaunch first = rerunLaunch(context, dir);
+        final TaskLaunch second = rerunLaunch(context, dir);
+        final PrintWriter said = new PrintWriter(err);
+
+        final TaskLaunch.Existing found = first.startExisting(said, said);
+        assertThat(found).isNotNull();
+        assertThat(found.action()).as("said: %s", err).isEqualTo(TaskLaunch.RERUN);
+        final TaskLaunch.Existing between = second.startExisting(said, said);
+
+        assertThat(between).isNotNull();
+        assertThat(between.action())
+                .as("a start before the first run began is not a second run: %s", err)
+                .isNotEqualTo(TaskLaunch.RERUN);
+        assertThat(between.code()).isNotZero();
+
+        final int ran =
+                withEchoingPodman(
+                        dir, () -> first.runAgentInExisting("porelo-uc-shell", null, said, said));
+        assertThat(ran).as("said: %s", err).isZero();
+        final TaskLaunch.Existing after = rerunLaunch(context, dir).startExisting(said, said);
+        assertThat(after).isNotNull();
+        assertThat(after.code())
+                .as("once its run began, the task is free and runs: %s", err)
+                .isEqualTo(65);
+        assertThat(err.toString()).contains("porelo-uc-shell is already running");
+    }
+
+    /** A start of the task with a prompt, as the command line or the daemon makes one. */
+    private static TaskLaunch rerunLaunch(PoreloContext context, Path dir) {
+        return new TaskLaunch(
+                context,
+                new TaskLaunch.Request(
+                        "shell",
+                        dir.resolve("project.yml"),
+                        null,
+                        null,
+                        null,
+                        8,
+                        null,
+                        true,
+                        false,
+                        "deny",
+                        true,
+                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                        "go on",
+                        null,
+                        null,
+                        1,
+                        "uc",
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        null,
+                        null));
+    }
+
+    /**
+     * A machine with the preview agent and its unattended task, whose log ends with its agent's end
+     * line, quiet for two minutes or written just now.
+     */
+    private PoreloContext endedRunContext(Path dir, boolean quiet) throws IOException {
+        return endedRunContext(dir, quiet, "");
+    }
+
+    private PoreloContext endedRunContext(Path dir, boolean quiet, String declared)
+            throws IOException {
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview", declared);
+        recordSubagents(context, "preview", 0);
+        final Path log =
+                Files.writeString(
+                        context.paths()
+                                .tasks()
+                                .containerState("porelo-uc-shell")
+                                .resolve("task.log"),
+                        "ended\n");
+        if (quiet) {
+            Files.setLastModifiedTime(
+                    log,
+                    java.nio.file.attribute.FileTime.from(
+                            java.time.Instant.now().minusSeconds(120)));
+        }
+        runner.answering(" top ", NO_AGENT_RUNS);
+        return context;
+    }
+
+    /** The processes of a task's container in which no agent runs, as podman's table lists them. */
+    private static final String NO_AGENT_RUNS =
+            "COMMAND\n"
+                    + "/run/podman-init -- sleep infinity\n"
+                    + "sleep infinity\n"
+                    + "tmux new-session -A -s porelo\n"
+                    + "/bin/bash\n";
+
+    @Test
+    void aTaskWhoseLimitEndedItsRunWhileItsAgentStillRunsIsAlreadyRunning(@TempDir Path dir)
+            throws IOException {
+        // The end at the limit is recorded before the stop, and a stop that failed left the agent
+        // running: a second one was started beside it.
+        final PoreloContext context = endedRunContext(dir, true);
+        final Path state = context.paths().tasks().containerState("porelo-uc-shell");
+        Files.writeString(state.resolve("task.log"), "working\n");
+        RunLimit.started(state, 30, java.time.Instant.now().minusSeconds(1900), GONE_WAITER);
+        RunLimit.ended(state, 30, java.time.Instant.now().minusSeconds(100));
+        runner.answering(" top ", NO_AGENT_RUNS + "/usr/local/bin/preview -p do the work\n");
+
+        assertRefusedAsRunning(context, dir, "working\n");
+    }
+
+    @Test
+    void aTaskWhoseLogReadsAsEndedWhileItsRunIsStillWaitedOnIsAlreadyRunning(@TempDir Path dir)
+            throws IOException {
+        // A log that reads as ended and was quiet is not a run that ended while its waiter waits.
+        final PoreloContext context = endedRunContext(dir, true);
+        final Path state = context.paths().tasks().containerState("porelo-uc-shell");
+        final ProcessHandle parent =
+                ProcessHandle.current()
+                        .parent()
+                        .orElseThrow(() -> new IllegalStateException("a parent"));
+        RunLimit.started(
+                state,
+                30,
+                java.time.Instant.now().minusSeconds(60),
+                new RunLimit.Waiter(
+                        parent.pid(),
+                        parent.info()
+                                .startInstant()
+                                .map(java.time.Instant::toString)
+                                .orElse(null)));
+
+        assertRefusedAsRunning(context, dir, "ended\n");
+    }
+
+    @Test
+    void aTaskWhoseAgentAPersonRunsInItsSessionIsAlreadyRunning(@TempDir Path dir)
+            throws IOException {
+        // An agent run in the task's session writes no log, and an earlier run's log read as ended.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering(" top ", NO_AGENT_RUNS + "/usr/bin/node /usr/local/bin/preview\n");
+
+        assertRefusedAsRunning(context, dir, "ended\n");
+    }
+
+    @Test
+    void aTaskWhoseAgentRunsBehindAnInterpretersOptionsIsAlreadyRunning(@TempDir Path dir)
+            throws IOException {
+        // Its path was the fourth word, and only the first three were read.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering(
+                " top ",
+                NO_AGENT_RUNS
+                        + "/usr/bin/node --enable-source-maps --no-warnings /opt/preview.mjs\n");
+
+        assertRefusedAsRunning(context, dir, "ended\n");
+    }
+
+    @Test
+    void aTmuxThatNamesTheAgentItStartedIsNotTheAgentRunning(@TempDir Path dir) throws IOException {
+        // The session's tmux names the agent on its command line, which is no agent running.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.answering(
+                " top ", NO_AGENT_RUNS + "tmux new-session -d -s porelo /usr/local/bin/preview\n");
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isZero();
+        assertThat(err.toString()).doesNotContain("already running");
+        assertThat(taskLog(context)).contains("preview read the refusal");
+    }
+
+    @Test
+    void aTaskWhoseProcessesCannotBeReadIsAlreadyRunning(@TempDir Path dir) throws IOException {
+        // What cannot be read is no proof that nothing runs.
+        final PoreloContext context = endedRunContext(dir, true);
+        runner.failing(" top ", 125, "Error: no such container\n");
+
+        assertRefusedAsRunning(context, dir, "ended\n");
+    }
+
+    @Test
+    void aTaskWhoseRunLimitRecordCannotBeReadIsAlreadyRunning(@TempDir Path dir)
+            throws IOException {
+        // A record that cannot be read may name a waiter that still waits.
+        final PoreloContext context = endedRunContext(dir, true);
+        Files.writeString(
+                context.paths().tasks().containerState("porelo-uc-shell").resolve(RunLimit.GIVEN),
+                "{\"minutes\": 30, \"waiterPid\":");
+
+        assertRefusedAsRunning(context, dir, "ended\n");
+    }
+
+    /** A waiter that is gone: no process has this pid. */
+    private static final RunLimit.Waiter GONE_WAITER =
+            new RunLimit.Waiter(Integer.MAX_VALUE, "2026-11-14T08:59:00Z");
+
+    /** Starts the up task with a prompt and finds it refused as running, with nothing run. */
+    private void assertRefusedAsRunning(PoreloContext context, Path dir, String log)
+            throws IOException {
+        runner.answering("ps", RUNNING_SHELL);
+        final String project = projectFile(dir, MINIMAL);
+
+        final int code =
+                withEchoingPodman(
+                        dir,
+                        () ->
+                                startAt(
+                                        context,
+                                        false,
+                                        "-p",
+                                        project,
+                                        "--detach",
+                                        "--prompt",
+                                        "read the refusal"));
+
+        assertThat(code).as("said: %s", err).isEqualTo(65);
+        assertThat(err.toString()).contains("porelo-uc-shell is already running");
+        assertThat(taskLog(context)).as("nothing was run").isEqualTo(log);
+    }
+
+    /** Runs a start with a podman that writes what it was asked to run into the task's log. */
+    private static int withEchoingPodman(Path dir, java.util.function.IntSupplier start)
+            throws IOException {
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        try {
+            return start.getAsInt();
+        } finally {
+            if (standIn == null) {
+                System.clearProperty(org.fuin.porelo.runtime.Podman.NAMED);
+            } else {
+                System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+            }
+        }
+    }
+
+    @Test
     void aScriptsStartOnARunningTaskSaysItRunsAndEndsAsBefore(@TempDir Path dir)
             throws IOException {
         final PoreloContext context = context(dir, true);
@@ -3675,11 +4209,17 @@ class TaskRunCommandTest {
 
     private static void recordSubagents(Path directory, String agent, int subagents)
             throws IOException {
+        recordSubagents(directory, agent, subagents, org.fuin.porelo.wire.TaskMode.UNATTENDED);
+    }
+
+    private static void recordSubagents(
+            Path directory, String agent, int subagents, org.fuin.porelo.wire.TaskMode mode)
+            throws IOException {
         final Path state = Files.createDirectories(directory);
         new org.fuin.porelo.wire.TaskProfile(
                         org.fuin.porelo.wire.TaskProfile.VERSION,
                         agent,
-                        org.fuin.porelo.wire.TaskMode.UNATTENDED,
+                        mode,
                         "do the work",
                         null,
                         "2026-10-31T00:00:00Z",
@@ -6450,7 +6990,13 @@ class TaskRunCommandTest {
         runner.answering(
                 "ps",
                 "porelo-uc-shell\tExited (0) 4 minutes ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
-        recordSubagents(context.paths().tasks().taskRecord("porelo-uc-shell"), "preview", 2);
+        // Not unattended: a detached start of an unattended task runs its agent, which this test
+        // is not about.
+        recordSubagents(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "preview",
+                2,
+                org.fuin.porelo.wire.TaskMode.AGENT);
         // The container a reboot leaves, under the id its durable record keeps.
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"), "0123456789abcdef");
@@ -6658,6 +7204,87 @@ class TaskRunCommandTest {
                                         .resolve("task.log")))
                 .as("the agent is asked for its run with the task's own number")
                 .contains("go on subagents=2");
+    }
+
+    /** Runs a start of the stopped task with no prompt, its podman echoing what it is asked. */
+    private String startedWithoutAPromptThatEchoes(
+            final Path dir, final org.fuin.porelo.wire.TaskMode mode) throws IOException {
+        final PoreloContext context = previewContext(dir, true);
+        previewAgent(context, "preview");
+        final String id = "c".repeat(64);
+        runner.answering(
+                "ps",
+                RUNNING_SHELL.replace("Up 4 minutes", "Exited (0) 4 minutes ago").stripTrailing()
+                        + "\t"
+                        + id
+                        + "\n");
+        runner.answering("{{.Id}}", id);
+        runner.answering("container inspect", id + "\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"), id);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell"), id);
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "preview",
+                        mode,
+                        "do the work",
+                        null,
+                        "2026-10-31T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0)
+                .writeTo(
+                        Files.createDirectories(
+                                context.paths().tasks().containerState("porelo-uc-shell")));
+        final Path podman = dir.resolve("echoing-podman");
+        Files.writeString(podman, "#!/bin/sh\necho \"$@\"\n");
+        Files.setPosixFilePermissions(
+                podman, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        final String standIn = System.getProperty(org.fuin.porelo.runtime.Podman.NAMED);
+        System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, podman.toString());
+        try {
+            final int code =
+                    execute(
+                            context,
+                            "task",
+                            "start",
+                            "shell",
+                            "-p",
+                            projectFile(dir, MINIMAL),
+                            "--detach");
+            assertThat(code).as("said: %s", err).isZero();
+        } finally {
+            System.setProperty(org.fuin.porelo.runtime.Podman.NAMED, standIn);
+        }
+        final Path log =
+                context.paths().tasks().containerState("porelo-uc-shell").resolve("task.log");
+        return Files.exists(log) ? Files.readString(log) : "";
+    }
+
+    @Test
+    void aDetachedStartOfAStoppedUnattendedTaskWithoutAPromptRunsItsAgentOnItsInbox(
+            @TempDir Path dir) throws IOException {
+
+        final String log =
+                startedWithoutAPromptThatEchoes(dir, org.fuin.porelo.wire.TaskMode.UNATTENDED);
+
+        assertThat(log)
+                .as("the agent is asked for the one fixed line, never the task's first prompt")
+                .contains(AgentWake.LINE)
+                .doesNotContain("do the work");
+    }
+
+    @Test
+    void aDetachedStartOfAStoppedTaskThatIsNotUnattendedWithoutAPromptRunsNoAgent(@TempDir Path dir)
+            throws IOException {
+
+        assertThat(startedWithoutAPromptThatEchoes(dir, org.fuin.porelo.wire.TaskMode.AGENT))
+                .as("nothing was run")
+                .isEmpty();
     }
 
     @Test

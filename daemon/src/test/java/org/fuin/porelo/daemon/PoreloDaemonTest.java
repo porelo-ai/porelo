@@ -688,6 +688,82 @@ class PoreloDaemonTest {
                 .doesNotExist();
     }
 
+    private List<String> startedWithoutAPrompt(
+            final Path dir, final org.fuin.porelo.wire.TaskMode mode) throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        final String id = "c0ffee0000000000000000000000000000000000000000000000000000000000";
+        runner.answering("container inspect", id + "\n");
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tExited (0) 1 minute ago\t1700000000\t1700000100\tuc\tguarded\tuc\t\t"
+                        + id
+                        + "\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"), id);
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().containerState("porelo-uc-shell"), id);
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "gone",
+                        mode,
+                        "do the work",
+                        null,
+                        "2026-10-31T00:00:00Z",
+                        "deny",
+                        null,
+                        null,
+                        null,
+                        null,
+                        0)
+                .writeTo(
+                        java.nio.file.Files.createDirectories(
+                                context.paths().tasks().containerState("porelo-uc-shell")));
+        final List<String> said = new java.util.ArrayList<>();
+        final List<Integer> codes = new java.util.ArrayList<>();
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of("project", PROJECT, "task", "shell"));
+                        codes.add(((Number) reply.get("exitCode")).intValue());
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        said.addAll(output);
+                    }
+                });
+        said.add(0, String.valueOf(codes.getFirst()));
+        return said;
+    }
+
+    @Test
+    void aStartOfAStoppedUnattendedTaskWithoutAPromptRunsItsAgentOnItsInbox(@TempDir Path dir)
+            throws Exception {
+
+        // Its agent is not installed here, which is how a run that was attempted shows itself: the
+        // run refuses where it used to say nothing and exit 0.
+        final List<String> said =
+                startedWithoutAPrompt(dir, org.fuin.porelo.wire.TaskMode.UNATTENDED);
+
+        assertThat(said.getFirst())
+                .as("the run was attempted: " + said)
+                .isEqualTo(String.valueOf(69));
+        assertThat(String.join("\n", said)).contains("none is installed");
+    }
+
+    @Test
+    void aStartOfAStoppedTaskThatIsNotUnattendedWithoutAPromptRunsNothing(@TempDir Path dir)
+            throws Exception {
+
+        final List<String> said = startedWithoutAPrompt(dir, org.fuin.porelo.wire.TaskMode.AGENT);
+
+        assertThat(said.getFirst()).as("brought up, nothing run: " + said).isEqualTo("0");
+    }
+
     @Test
     void aStartWithNoNameCarriesTheNoteOfTheNameItFoundHeld(@TempDir Path dir) throws Exception {
         final PoreloContext context = hooked(dir);
@@ -907,6 +983,196 @@ class PoreloDaemonTest {
                         assertThat(String.join("\n", output)).contains("is already running");
                     }
                 });
+    }
+
+    @Test
+    void startRunsTheAgentAgainInATaskUpWhoseRunEnded(@TempDir Path dir) throws Exception {
+
+        // Up is not running: a task whose agent's run ended takes the prompt it is started with, an
+        // unattended one given none runs on its inbox, and only a run still going, or a task of
+        // another mode given no prompt, is answered RUNNING.
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        profile(state, org.fuin.porelo.wire.TaskMode.AGENT);
+        // Ended by its time limit, which needs no agent to read its end.
+        org.fuin.porelo.app.RunLimit.ended(state, 30, java.time.Instant.now().minusSeconds(120));
+        // Its agent installed, so that its process is told apart, and none of it left running.
+        installedExample(context);
+        runner.answering(" top ", "COMMAND\n/run/podman-init -- sleep infinity\nsleep infinity\n");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> unprompted =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of("project", PROJECT, "task", "shell"));
+                        assertThat(((Number) unprompted.get("exitCode")).intValue()).isEqualTo(65);
+                        @SuppressWarnings("unchecked")
+                        final List<String> said = (List<String>) unprompted.get("output");
+                        assertThat(String.join("\n", said))
+                                .contains("its agent's run has ended")
+                                .doesNotContain("already running");
+
+                        // The walk's case: unattended, up, its run ended, no prompt.
+                        profile(state, org.fuin.porelo.wire.TaskMode.UNATTENDED);
+                        final Map<String, Object> fromInbox =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of("project", PROJECT, "task", "shell"));
+                        // It went on to run the agent, whose stand-in here cannot begin a run:
+                        // RERUN is answered only for a run that began.
+                        @SuppressWarnings("unchecked")
+                        final List<String> ran = (List<String>) fromInbox.get("output");
+                        assertThat(String.join("\n", ran))
+                                .as("it was not called running")
+                                .doesNotContain("already running")
+                                .doesNotContain("its agent's run has ended");
+                        assertThat(fromInbox)
+                                .as("no run began: %s", ran)
+                                .containsEntry("action", "RUNNING");
+                        assertThat(((Number) fromInbox.get("exitCode")).intValue())
+                                .as("refused past the start's own check: %s", ran)
+                                .isNotIn(0, 65);
+
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "prompt",
+                                                "read the refusal"));
+
+                        @SuppressWarnings("unchecked")
+                        final List<String> output = (List<String>) reply.get("output");
+                        assertThat(reply)
+                                .as("no run began: %s", output)
+                                .containsEntry("action", "RUNNING");
+                        assertThat(String.join("\n", output))
+                                .as("it went on to run the task's agent")
+                                .doesNotContain("already running")
+                                .doesNotContain("its agent's run has ended");
+                        assertThat(((Number) reply.get("exitCode")).intValue())
+                                .as("refused past the start's own check: %s", output)
+                                .isNotIn(0, 65);
+                    }
+                });
+    }
+
+    /** Installs the agent example, whose binary is example, with the provider alpha. */
+    private static void installedExample(final PoreloContext context) throws IOException {
+        final Path providers =
+                Files.createDirectories(context.paths().xdg().data().resolve("providers"));
+        Files.writeString(
+                providers.resolve("alpha.yaml"),
+                """
+                name: alpha
+                upstream: https://alpha.example.com
+                dialects: { preview: "" }
+                auth_header: { _default: Authorization }
+                auth_prefix: { _default: "Bearer " }
+                """);
+        final Path agents = Files.createDirectories(context.paths().xdg().data().resolve("agents"));
+        final Path definition = agents.resolve("example.yaml");
+        Files.writeString(
+                definition,
+                """
+                name: example
+                binary: example
+                git_identity: { name: Example, email: example@example.com }
+                headless: { prompt_flag: "-p" }
+                allowed_domains: [agent.example.com]
+                provider:
+                  dialect: preview
+                  default: alpha
+                  endpoint: url
+                  base_url_env: EXAMPLE_BASE_URL
+                """);
+        Files.writeString(Path.of(definition + ".behavior"), "none");
+        final Path executable =
+                agents.resolve(org.fuin.porelo.agent.api.AgentDirectory.PREFIX + "example");
+        Files.writeString(
+                executable,
+                "#!/bin/sh\nexec '"
+                        + Path.of(System.getProperty("java.home"), "bin", "java")
+                        + "' -cp '"
+                        + System.getProperty("java.class.path")
+                        + "' '"
+                        + CredentialCarryingTest.SignedIn.class.getName()
+                        + "' '"
+                        + definition
+                        + "' \"$@\"\n");
+        Files.setPosixFilePermissions(
+                executable, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+    }
+
+    @Test
+    void aStartRefusedForItsOpeningTextOnATaskUpWhoseRunEndedIsNotAnsweredRerun(@TempDir Path dir)
+            throws Exception {
+        final PoreloContext context = hooked(dir);
+        projectFile(dir);
+        runner.answering(
+                "ps",
+                "porelo-uc-shell\tUp 4 minutes\t1700000000\t0\tuc\tguarded\tuc\t\tc0ffee0000000000000000000000000000000000000000000000000000000000\n");
+        org.fuin.porelo.wire.Sidecar.recordId(
+                context.paths().tasks().taskRecord("porelo-uc-shell"),
+                "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
+        profile(state, org.fuin.porelo.wire.TaskMode.AGENT);
+        org.fuin.porelo.app.RunLimit.ended(state, 30, java.time.Instant.now().minusSeconds(120));
+        installedExample(context);
+        runner.answering(" top ", "COMMAND\n/run/podman-init -- sleep infinity\nsleep infinity\n");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> reply =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Start",
+                                        Map.of(
+                                                "project",
+                                                PROJECT,
+                                                "task",
+                                                "shell",
+                                                "mode",
+                                                "AGENT",
+                                                "prompt",
+                                                "start here"));
+
+                        assertThat(((Number) reply.get("exitCode")).intValue()).isEqualTo(64);
+                        assertThat(reply)
+                                .as("the start ran nothing, so it did not run the agent again")
+                                .containsEntry("action", "RUNNING");
+                    }
+                });
+    }
+
+    private static void profile(Path state, org.fuin.porelo.wire.TaskMode mode) throws IOException {
+        new org.fuin.porelo.wire.TaskProfile(
+                        org.fuin.porelo.wire.TaskProfile.VERSION,
+                        "example",
+                        mode,
+                        "do the work",
+                        null,
+                        "2026-11-01T00:00:00Z",
+                        "deny")
+                .writeTo(state);
     }
 
     @Test
