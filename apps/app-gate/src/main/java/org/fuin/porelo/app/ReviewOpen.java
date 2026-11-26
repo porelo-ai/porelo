@@ -21,6 +21,7 @@ import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GateException;
 import org.fuin.porelo.gate.GitGate;
 import org.fuin.porelo.gate.review.CommentCheck;
+import org.fuin.porelo.gate.review.CommitNotInMirror;
 import org.fuin.porelo.gate.review.Conversation;
 import org.fuin.porelo.gate.review.ForgeAccount;
 import org.fuin.porelo.gate.review.ForgeCredential;
@@ -107,7 +108,8 @@ public final class ReviewOpen {
      * @return The answer.
      * @throws Refused As {@code PlaceUnreadable} when the place cannot be read, as {@code
      *     UnknownForge} for a host no forge of this machine is, as {@code NoSuchPullRequest} for an
-     *     address the forge does not know.
+     *     address the forge does not know, as {@code HeadNotInGate} for a pull request whose head
+     *     the asking task's gate never forwarded.
      * @throws IllegalArgumentException For a pull request of no task.
      */
     public Answer answer(
@@ -318,6 +320,9 @@ public final class ReviewOpen {
             if (conversation.reason() != null) {
                 reading.incomplete(conversation.reason());
             }
+        } catch (CommitNotInMirror ex) {
+            // The run pinned a head its gate never forwarded: nothing there can be judged.
+            throw new Refused("HeadNotInGate", Map.of("head", facts.head()));
         } catch (PlaceUnreadable ex) {
             if (ex.reason() != PlaceUnreadable.Reason.UNREACHABLE) {
                 throw refused(ex, ref);

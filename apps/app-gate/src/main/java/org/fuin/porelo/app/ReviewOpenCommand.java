@@ -190,7 +190,7 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
 
     private static String sentence(final ReviewOpen.Refused refused) {
         final Object reason = refused.fields().get("reason");
-        final Object detail = refused.fields().get("detail");
+        final Object detail = refused.fields().getOrDefault("detail", refused.fields().get("head"));
         return "the place cannot be read ("
                 + TerminalText.line(refused.error())
                 + (reason == null ? "" : ", " + TerminalText.line(String.valueOf(reason)))

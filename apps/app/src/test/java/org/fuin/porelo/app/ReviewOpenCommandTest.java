@@ -55,6 +55,8 @@ class ReviewOpenCommandTest {
 
     private @Nullable RuntimeException broken;
 
+    private ReviewOpen.@Nullable Refused refusing;
+
     private ReviewComments journal;
 
     private PushEnds ends;
@@ -80,6 +82,9 @@ class ReviewOpenCommandTest {
                         (project, repository, name) -> {
                             if (broken != null) {
                                 throw broken;
+                            }
+                            if (refusing != null) {
+                                throw refusing;
                             }
                             if (!name.equals("shop-2")) {
                                 throw ReviewOpen.Refused.placeUnreadable(
@@ -206,6 +211,21 @@ class ReviewOpenCommandTest {
                                 "detail",
                                 "no task is recorded for cart-1"));
         assertThat(err.toString()).as("a sentence").contains("NoSuchPush");
+    }
+
+    @Test
+    void aHeadNotInTheGateIsRefusedWithTheHeadOnBothStreams() {
+        refusing = new ReviewOpen.Refused("HeadNotInGate", Map.of("head", HEAD));
+
+        final int code = run("-p", "uc", "--gate-push", "shop-2", "--json");
+
+        assertThat(code).as("a typed refusal, never 70").isEqualTo(69);
+        assertThat(Json.parse(out.toString()))
+                .as("the error and the head looked for")
+                .isEqualTo(Map.of("refused", "HeadNotInGate", "head", HEAD));
+        assertThat(err.toString())
+                .as("the sentence names the head")
+                .contains("HeadNotInGate", HEAD);
     }
 
     @Test

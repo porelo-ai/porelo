@@ -169,8 +169,30 @@ public final class ReviewAnchors implements CommentCheck {
         } catch (DuplicateEntry ex) {
             return refused(ReviewError.NOT_A_REGULAR_FILE, "duplicate entry");
         } catch (IOException ex) {
+            if (!holds(mirror, commit)) {
+                throw new CommitNotInMirror(commit);
+            }
             throw new UncheckedIOException("The side's tree could not be read", ex);
         }
+    }
+
+    /**
+     * Returns whether the mirror holds the commit, asked only after its tree could not be read: Git
+     * answers a missing object as {@code missing}, so a commit the gate never forwarded is told
+     * apart from a mirror that cannot be read at all.
+     */
+    private boolean holds(final Path mirror, final String commit) {
+        final byte[] answer;
+        try {
+            answer =
+                    git.runOrFail(
+                            List.of("--git-dir=" + mirror, "cat-file", "--batch-check"),
+                            (commit + "^{commit}\n").getBytes(StandardCharsets.US_ASCII));
+        } catch (IOException ex) {
+            // Git did not answer at all: the mirror is unreadable, not missing a commit.
+            return true;
+        }
+        return !new String(answer, StandardCharsets.US_ASCII).strip().endsWith(" missing");
     }
 
     private Optional<ReviewRefusal> blob(

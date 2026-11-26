@@ -1,0 +1,2 @@
+title: "`porelo review open` refuses a pull request whose head the task's gate never forwarded as `HeadNotInGate` with the head, exit 69, where it exited 70"
+type: fixed

@@ -557,7 +557,8 @@ class InterfaceDescriptionTest {
                                 + " string,(?s:.*?)comments: \\?string,(?s:.*?)unreadable: \\?string"
                                 + "\\s*\\)")
                 .as("a pull request's reasons and its refusal")
-                .contains("error NoSuchPullRequest(url: string)")
+                .contains(
+                        "error NoSuchPullRequest(url: string)", "error HeadNotInGate(head: string)")
                 .containsPattern(
                         "RateLimited(?s:.*?)PagePartial(?s:.*?)PageRefused(?s:.*?)reason: \\?string");
     }

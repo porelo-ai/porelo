@@ -621,8 +621,9 @@ type ReviewRun (
 # What is open at a place for one role, and the place's decision, read anew from the gate's records and
 # the forge's answer at each call; Porelo stores nothing for it and starts nothing. Every time is UTC,
 # RFC 3339, in whole seconds. Never offered through MCP. 'porelo review open --json' answers the same.
-# Refused as PlaceUnreadable, UnknownForge, NoPullRequest or, for a pull request address the forge does not
-# know, NoSuchPullRequest; pullRequest or ownPullRequest without task is org.varlink.service.InvalidParameter.
+# Refused as PlaceUnreadable, UnknownForge, NoPullRequest, for a pull request address the forge does not
+# know as NoSuchPullRequest, and as HeadNotInGate for a pull request whose head the asking task's gate never
+# forwarded; pullRequest or ownPullRequest without task is org.varlink.service.InvalidParameter.
 method ReviewOpen(
   project: string,
   place: Place,
@@ -680,6 +681,10 @@ type OpenPoint (
 
 # A pull request address the forge does not know; nothing was made.
 error NoSuchPullRequest(url: string)
+
+# A pull request's head the asking task's gate never forwarded, so no comment on it can be judged; 'head' is
+# the commit looked for.
+error HeadNotInGate(head: string)
 
 # One review item held for the owner account's decision. Outgoing items come from a task's run and go to its
 # place once released; incoming items come from the place and reach the run once passed. Only undecided items

@@ -1,6 +1,7 @@
 package org.fuin.porelo.gate.review;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -68,6 +69,19 @@ class ReviewAnchorsTest {
                 .contains(new ReviewRefusal(ReviewError.ANCHOR_OUTSIDE_BLOB, "past the end"));
         assertThat(anchors.check(push, comment("a.txt", Side.NEW, 9, 9)))
                 .contains(new ReviewRefusal(ReviewError.ANCHOR_OUTSIDE_BLOB, "past the end"));
+    }
+
+    @Test
+    void aHeadTheMirrorDoesNotHoldIsNamedNeverReadAsABrokenTree() throws Exception {
+        commit(Map.of("a.txt", "1\n"));
+        final String absent = "c".repeat(40);
+
+        assertThatThrownBy(
+                        () -> anchors.check(push(absent, null), comment("a.txt", Side.NEW, 1, 1)))
+                .as("the head the gate never forwarded")
+                .isInstanceOfSatisfying(
+                        CommitNotInMirror.class,
+                        missing -> assertThat(missing.commit()).isEqualTo(absent));
     }
 
     @Test

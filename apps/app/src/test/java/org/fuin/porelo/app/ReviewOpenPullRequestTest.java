@@ -16,6 +16,7 @@ import java.util.Set;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentFields;
 import org.fuin.porelo.gate.review.CommentReading;
+import org.fuin.porelo.gate.review.CommitNotInMirror;
 import org.fuin.porelo.gate.review.Completeness;
 import org.fuin.porelo.gate.review.Conversation;
 import org.fuin.porelo.gate.review.Decision;
@@ -110,6 +111,9 @@ class ReviewOpenPullRequestTest {
 
     /** The repository each anchor check was given, by its push. */
     final List<String> checkedIn = new ArrayList<>();
+
+    /** Whether the anchor check finds the head missing from the mirror. */
+    boolean headMissing;
 
     /** The task each side was asked for. */
     final List<String> sidesAsked = new ArrayList<>();
@@ -272,6 +276,9 @@ class ReviewOpenPullRequestTest {
                     },
                     (push, item) -> {
                         checkedIn.add(push.repository());
+                        if (headMissing) {
+                            throw new CommitNotInMirror(push.head());
+                        }
                         return CommentFields.check(item);
                     },
                     entry -> {
@@ -372,6 +379,23 @@ class ReviewOpenPullRequestTest {
         assertThat(checkedIn)
                 .as("the mirror of the project's repository, where the head's tree is")
                 .containsOnly(REPOSITORY);
+    }
+
+    @Test
+    void aHeadTheGateNeverForwardedIsRefusedWithTheHeadNeverAsAnUnreadablePlace() throws Exception {
+        page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
+        headMissing = true;
+
+        assertThatThrownBy(() -> open.answer("uc", PLACE, null, TASK))
+                .as("the head is not in the task's gate")
+                .isInstanceOfSatisfying(
+                        ReviewOpen.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).as("the error").isEqualTo("HeadNotInGate");
+                            assertThat(refused.fields())
+                                    .as("the head looked for")
+                                    .isEqualTo(Map.of("head", HEAD));
+                        });
     }
 
     @Test
