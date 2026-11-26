@@ -29,6 +29,9 @@ import org.fuin.porelo.gate.review.Task;
  * passes. It keeps nothing itself; whether a named thread exists is the place's to say when a
  * released item is written.
  *
+ * <p>A submission no certified key signed is judged the same, and each of its items is held marked
+ * unsigned, so the owner account sees it as such before deciding.
+ *
  * <p>A refusal holds nothing of the submission. A failure of the hold store itself may leave the
  * items before it held: undecided and shown to the owner account, never released by this class.
  */
@@ -90,7 +93,8 @@ public final class RunIntake implements ReviewerComments {
     }
 
     @Override
-    public void take(final String task, final byte[] document) throws ProfileRefused {
+    public void take(final String task, final byte[] document, final boolean unsigned)
+            throws ProfileRefused {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(document, "document");
         final Optional<Run> found = currentRuns.of(task);
@@ -129,7 +133,7 @@ public final class RunIntake implements ReviewerComments {
             }
         }
         for (final ProfileItem each : items) {
-            holds.hold(run, task, Direction.OUTGOING, each.item(), null, null);
+            holds.hold(run, task, Direction.OUTGOING, each.item(), null, null, unsigned);
         }
     }
 

@@ -93,6 +93,30 @@ public final class HeldStandIns {
         return held(TASK, id, Direction.INCOMING, reply, received, "extended: passed", second);
     }
 
+    /**
+     * Returns an outgoing item as held when no certified key signed it.
+     *
+     * @param held The item.
+     * @return The same item, marked unsigned.
+     */
+    public static Held unsigned(final Held held) {
+        return new Held(
+                held.id(),
+                held.direction(),
+                held.task(),
+                held.run(),
+                held.place(),
+                held.commit(),
+                held.item(),
+                held.received(),
+                held.digest(),
+                held.at(),
+                held.state(),
+                held.reason(),
+                held.retryAt(),
+                true);
+    }
+
     private static Held held(
             final String task,
             final String id,

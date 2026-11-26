@@ -25,6 +25,9 @@ import org.jspecify.annotations.Nullable;
  * @param reason The place's reason for {@link HeldState#NOT_DELIVERED}, or the rule an incoming
  *     item was withheld by; null otherwise.
  * @param retryAt When a {@link HeldState#RETRY} item may be written again; null otherwise.
+ * @param unsigned Whether no certified key signed the message an outgoing item came in: its task
+ *     has none, so this host's own word is that it came through the task's mailbox, nothing more.
+ *     Never set on an incoming item.
  */
 public record Held(
         String id,
@@ -39,7 +42,8 @@ public record Held(
         Instant at,
         HeldState state,
         @Nullable String reason,
-        @Nullable Instant retryAt) {
+        @Nullable Instant retryAt,
+        boolean unsigned) {
 
     private static final Pattern COMMIT = Pattern.compile("[0-9a-f]{40}|[0-9a-f]{64}");
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
@@ -50,7 +54,7 @@ public record Held(
      * item without its rule, an outgoing one with a reason in any state but {@link
      * HeldState#NOT_DELIVERED} or without one in it, a blank reason, a state that is not one of its
      * direction (a write's states are an outgoing item's, passed and dismissed an incoming one's),
-     * and a retry time on any state but {@link HeldState#RETRY}.
+     * a retry time on any state but {@link HeldState#RETRY}, and an incoming item marked unsigned.
      */
     public Held {
         Objects.requireNonNull(id, "id");
@@ -97,10 +101,49 @@ public record Held(
         if ((state == HeldState.RETRY) != (retryAt != null)) {
             throw new IllegalArgumentException("a retry time is given exactly when retried");
         }
+        if (unsigned && direction == Direction.INCOMING) {
+            throw new IllegalArgumentException("only an outgoing item is marked unsigned");
+        }
         at = at.truncatedTo(ChronoUnit.SECONDS);
         if (retryAt != null) {
             retryAt = retryAt.truncatedTo(ChronoUnit.SECONDS);
         }
+    }
+
+    /**
+     * An item a certified key signed, or an incoming one: every field but the mark.
+     *
+     * @param id The hold's own id.
+     * @param direction Outgoing from the run, or incoming to it.
+     * @param task The task whose run it belongs to.
+     * @param run The run's number at the place.
+     * @param place The place's name.
+     * @param commit The commit the run pinned, in full.
+     * @param item The item, unchanged.
+     * @param received What its place gave an incoming item; null for an outgoing one.
+     * @param digest The SHA-256 of the item's canonical content, in lowercase hex.
+     * @param at When it was held.
+     * @param state Where it stands.
+     * @param reason The place's reason or the rule; null otherwise.
+     * @param retryAt When a retried item may be written again; null otherwise.
+     */
+    public Held(
+            final String id,
+            final Direction direction,
+            final String task,
+            final int run,
+            final String place,
+            final String commit,
+            final ReviewItem item,
+            final @Nullable Kept received,
+            final String digest,
+            final Instant at,
+            final HeldState state,
+            final @Nullable String reason,
+            final @Nullable Instant retryAt) {
+        this(
+                id, direction, task, run, place, commit, item, received, digest, at, state, reason,
+                retryAt, false);
     }
 
     // A write's states are an outgoing item's, a run's an incoming one's; the rest are both's.
@@ -126,7 +169,7 @@ public record Held(
     }
 
     /**
-     * Returns this item in another state, keeping everything else.
+     * Returns this item in another state, keeping everything else, its mark included.
      *
      * @param next The new state.
      * @param why The place's reason or the rule, or null.
@@ -137,6 +180,6 @@ public record Held(
             final HeldState next, final @Nullable String why, final @Nullable Instant retry) {
         return new Held(
                 id, direction, task, run, place, commit, item, received, digest, at, next, why,
-                retry);
+                retry, unsigned);
     }
 }

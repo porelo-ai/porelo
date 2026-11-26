@@ -121,6 +121,23 @@ class GateHeldMethodsTest {
     }
 
     @Test
+    void heldItemsMarksAnItemNoCertifiedKeySignedAndLeavesTheMarkOutOfEveryOther()
+            throws Exception {
+        holds.with(
+                org.fuin.porelo.app.HeldStandIns.unsigned(outgoing("h1", "Keep the order.", 10)),
+                outgoing("h2", "ok", 20),
+                incoming("h3", 30));
+
+        final Map<String, Object> answer =
+                serving().call(PoreloDaemon.INTERFACE + ".HeldItems", Map.of());
+
+        final List<?> items = (List<?>) answer.get("items");
+        assertThat(fields(items.get(0))).as("the unsigned item").containsEntry("mark", "unsigned");
+        assertThat(fields(items.get(1))).as("the signed item").doesNotContainKey("mark");
+        assertThat(fields(items.get(2))).as("the incoming item").doesNotContainKey("mark");
+    }
+
+    @Test
     void heldItemsPagesOldestFirstAndRefusesACursorNoPageGave() throws Exception {
         for (int i = 0; i < 30; i++) {
             holds.with(outgoing("h" + i, "Item " + i, i));

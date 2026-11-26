@@ -223,4 +223,122 @@ class MessageIntakeTest {
                 .hasMessageContaining("link");
         assertThat(elsewhere.resolve("precious.json")).exists();
     }
+
+    /** A profile 2 submission to the review, as a reviewer's run writes it. */
+    private static final String SUBMISSION =
+            "{\"messageId\":\"m-20\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"data\":"
+                    + "{\"version\":\"2.1.0\",\"runs\":[]}}],"
+                    + "\"metadata\":{\"to\":\"review\",\"kind\":\"comment\"}}";
+
+    private static MessageIntake uncertified() {
+        return new MessageIntake(
+                () -> {
+                    throw new MessageSigners.Unsigned("no key of its own", false);
+                });
+    }
+
+    private static List<Path> answers(final Mailbox mailbox) throws IOException {
+        try (var answers = Files.list(mailbox.feedback())) {
+            return answers.toList();
+        }
+    }
+
+    @Test
+    void anUncertifiedTasksSubmissionToTheReviewGoesOnUnsignedAndIsNeitherHeldNorAnswered(
+            @TempDir final Path dir) throws IOException {
+        // Its items wait in the gate's holds for the owner account, which is the decision a
+        // person takes on an unsigned review; held here, they never reached that decision.
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.outboxNew().resolve("m-20.json"), SUBMISSION);
+        final List<MessageDelivery.Held> holds = new java.util.ArrayList<>();
+        final MessageIntake intake =
+                new MessageIntake(
+                        () -> {
+                            throw new MessageSigners.Unsigned("no key of its own", false);
+                        },
+                        holds::add);
+
+        final List<String> taken = intake.take(mailbox);
+
+        assertThat(taken).as("passed on to the filter").containsExactly("m-20.json");
+        assertThat(mailbox.incoming().resolve("m-20.json"))
+                .as("the host's copy, as the task wrote it")
+                .hasContent(SUBMISSION);
+        assertThat(mailbox.incoming().resolve("m-20.json.sig"))
+                .as("no signature, which no key made")
+                .doesNotExist();
+        assertThat(mailbox.hold()).as("nothing held in the mailbox").isEmptyDirectory();
+        assertThat(holds).as("no hold recorded").isEmpty();
+        assertThat(intake.heldUnsigned()).as("nothing held unsigned").isEmpty();
+        assertThat(intake.takenUnsigned()).as("taken unsigned").containsExactly("m-20.json");
+        assertThat(answers(mailbox)).as("the task is not told it was held").isEmpty();
+    }
+
+    @Test
+    void anUncertifiedTasksMessageOfAnyOtherKindIsStillHeldAndAnswered(@TempDir final Path dir)
+            throws IOException {
+        // Only a submission goes on to a decision of the owner account; anything else unsigned
+        // would reach a receiver that cannot believe it.
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(
+                mailbox.outboxNew().resolve("a.json"),
+                SUBMISSION.replace("\"to\":\"review\"", "\"to\":\"alice\""));
+        Files.writeString(
+                mailbox.outboxNew().resolve("b.json"),
+                "{\"messageId\":\"b\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"text\":\"ok\"}],"
+                        + "\"metadata\":{\"to\":\"review\",\"kind\":\"comment\",\"thread\":\"t-1\"}}");
+        Files.writeString(
+                mailbox.outboxNew().resolve("c.json"),
+                SUBMISSION.replace("\"to\":\"review\"", "\"to\":[\"review\",\"alice\"]"));
+        final MessageIntake intake = uncertified();
+
+        final List<String> taken = intake.take(mailbox);
+
+        assertThat(taken).as("nothing passed on").isEmpty();
+        assertThat(mailbox.incoming()).as("nothing for the filter").isEmptyDirectory();
+        assertThat(intake.heldUnsigned())
+                .as("each held, marked unsigned")
+                .extracting(MessageDelivery.Held::message, MessageDelivery.Held::mark)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("a.json", TrustMark.UNSIGNED),
+                        org.assertj.core.groups.Tuple.tuple("b.json", TrustMark.UNSIGNED),
+                        org.assertj.core.groups.Tuple.tuple("c.json", TrustMark.UNSIGNED));
+        assertThat(answers(mailbox)).as("the task is told of each").hasSize(3);
+    }
+
+    @Test
+    void aSignatureACrashLeftUnderTheSameNameNeverTravelsWithAnUnsignedSubmission(
+            @TempDir final Path dir) throws IOException {
+        // Carried along by the filter, it would make the unsigned item show signed.
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.incoming().resolve("m-20.json.sig"), "left by a crash");
+        Files.writeString(mailbox.outboxNew().resolve("m-20.json"), SUBMISSION);
+
+        uncertified().take(mailbox);
+
+        assertThat(mailbox.incoming().resolve("m-20.json")).as("passed on").exists();
+        assertThat(mailbox.incoming().resolve("m-20.json.sig"))
+                .as("no signature beside it")
+                .doesNotExist();
+    }
+
+    @Test
+    void aSubmissionOfATaskWhoseVaultIsLockedStillWaitsInItsOutbox(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(mailbox.outboxNew().resolve("m-20.json"), SUBMISSION);
+
+        final List<String> taken =
+                new MessageIntake(
+                                () -> {
+                                    throw new MessageSigners.Unsigned("the vault is locked", true);
+                                })
+                        .take(mailbox);
+
+        assertThat(taken).as("nothing taken").isEmpty();
+        assertThat(mailbox.outboxNew().resolve("m-20.json"))
+                .as("taken signed once the vault opens")
+                .exists();
+        assertThat(mailbox.incoming()).as("nothing for the filter").isEmptyDirectory();
+    }
 }

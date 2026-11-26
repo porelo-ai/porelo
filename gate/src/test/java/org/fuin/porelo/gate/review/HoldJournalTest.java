@@ -962,6 +962,84 @@ class HoldJournalTest {
                 .containsExactly(held);
     }
 
+    @Test
+    void anItemHeldUnsignedKeepsItsMarkThroughTheJournalItsDecisionAndItsWrite() throws Exception {
+        // The owner account decides on a review no certified key signed knowing it is one, after a
+        // restart too; a signed item beside it carries no mark.
+        final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
+        final Run run = run(holds, PLACE, FIRST_HEAD);
+        final Held unsigned =
+                holds.hold(run, TASK, Direction.OUTGOING, comment("unsigned"), null, null, true);
+        final Held signed =
+                holds.hold(run, TASK, Direction.OUTGOING, comment("signed"), null, null);
+        final HoldJournal reread = new HoldJournal(dir.resolve("holds"), ticking());
+
+        assertThat(unsigned.unsigned()).as("the item as held").isTrue();
+        assertThat(signed.unsigned()).as("the signed item as held").isFalse();
+        assertThat(unsigned.digest())
+                .as("the mark is no part of the item's content")
+                .isEqualTo(HoldJournal.digest(comment("unsigned")));
+        assertThat(reread.undecided(TASK))
+                .as("both items, read back")
+                .extracting(Held::id, Held::unsigned)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple(unsigned.id(), true),
+                        org.assertj.core.groups.Tuple.tuple(signed.id(), false));
+        assertThat(reread.decide(TASK, unsigned.id(), unsigned.digest(), Decision.RELEASE))
+                .as("the item released")
+                .extracting(Held::unsigned)
+                .isEqualTo(true);
+        assertThat(reread.due(LATER))
+                .as("due for its write, still marked")
+                .singleElement()
+                .extracting(Held::unsigned)
+                .isEqualTo(true);
+        assertThat(reread.sending(TASK, unsigned.id()).unsigned())
+                .as("being sent, still marked")
+                .isTrue();
+        assertThat(Files.readString(dir.resolve("holds").resolve(TASK).resolve("holds")))
+                .as("journaled on the unsigned item alone")
+                .containsOnlyOnce("\"unsigned\":true");
+    }
+
+    @Test
+    void anIncomingItemIsNeverHeldUnsigned() throws Exception {
+        final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
+        final Run run = run(holds, PLACE, FIRST_HEAD);
+        final ReviewReply item = reply("t-1", "see");
+
+        assertThatThrownBy(
+                        () ->
+                                holds.hold(
+                                        run,
+                                        TASK,
+                                        Direction.INCOMING,
+                                        item,
+                                        received("c-1", item, "alice"),
+                                        RULE,
+                                        true))
+                .as("an incoming item marked unsigned")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(holds.undecided(TASK)).as("nothing held").isEmpty();
+    }
+
+    @Test
+    void aJournalWhoseUnsignedMarkIsNotTrueIsRefused() throws Exception {
+        // Read as signed, a damaged mark would hide from the owner account what it decides on.
+        final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
+        final Run run = run(holds, PLACE, FIRST_HEAD);
+        holds.hold(run, TASK, Direction.OUTGOING, comment("unsigned"), null, null, true);
+        final Path journal = dir.resolve("holds").resolve(TASK).resolve("holds");
+        Files.writeString(
+                journal,
+                Files.readString(journal).replace("\"unsigned\":true", "\"unsigned\":false"));
+
+        assertThatThrownBy(() -> holds.undecided(TASK))
+                .as("a journal with a mark that is not true")
+                .isInstanceOf(UncheckedIOException.class)
+                .hasMessageContaining("cannot be read");
+    }
+
     // Helpers -----------------------------------------------------------------------------------
 
     private static Run run(final HoldJournal holds, final String place, final String head) {

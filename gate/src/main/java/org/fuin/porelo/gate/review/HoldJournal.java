@@ -53,18 +53,19 @@ import org.jspecify.annotations.Nullable;
  * format version and the task; each later one records a run started at a place, an item held (an
  * incoming one with what its place gave: its id and thread there, the forge account that wrote it
  * and its time, and the rule it was withheld by), a decision on it, or what became of a released
- * item's write. A state is only replayed: an undecided item of a run lapses when a later run of its
- * task starts at its place; a released one stays until it is handed to its place's write, recorded
- * as being sent before the write, and its answer marked: delivered, not delivered (with the place's
- * reason), to be retried (with the time, rounded up to a whole second) or of unknown outcome. Only
- * a released item or a retry whose time passed is due for a write; one left being sent is shown as
- * it is and never sent again by itself. Every write takes the store's lock (in this process and,
- * through a file lock, in every other) and appends one line, which it forces to the disk. A last
- * line without its line feed is the rest of a write cut off: it is ignored, and cut away by the
- * next write. Any other line that cannot be read, an item whose digest is not its content's, or a
- * newer format refuses the journal with an exception, never read as empty. Nothing is followed
- * through a symbolic link, and a task's directory or journal another account can reach is refused.
- * Removing a task's hold deletes its journal without reading it.
+ * item's write. An outgoing item no certified key signed carries {@code "unsigned": true}, kept
+ * through every later state. A state is only replayed: an undecided item of a run lapses when a
+ * later run of its task starts at its place; a released one stays until it is handed to its place's
+ * write, recorded as being sent before the write, and its answer marked: delivered, not delivered
+ * (with the place's reason), to be retried (with the time, rounded up to a whole second) or of
+ * unknown outcome. Only a released item or a retry whose time passed is due for a write; one left
+ * being sent is shown as it is and never sent again by itself. Every write takes the store's lock
+ * (in this process and, through a file lock, in every other) and appends one line, which it forces
+ * to the disk. A last line without its line feed is the rest of a write cut off: it is ignored, and
+ * cut away by the next write. Any other line that cannot be read, an item whose digest is not its
+ * content's, or a newer format refuses the journal with an exception, never read as empty. Nothing
+ * is followed through a symbolic link, and a task's directory or journal another account can reach
+ * is refused. Removing a task's hold deletes its journal without reading it.
  *
  * <p>An item's digest is the SHA-256, in lowercase hex, of its canonical form: its fields in a
  * fixed order, each written as its length in UTF-8 bytes in decimal, a colon, its UTF-8 bytes and a
@@ -208,6 +209,23 @@ public final class HoldJournal implements ReviewHolds {
             final ReviewItem item,
             final @Nullable Kept received,
             final @Nullable String rule) {
+        return hold(run, task, direction, item, received, rule, false);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The mark is journaled with the item and read back with it, never part of its digest.
+     */
+    @Override
+    public Held hold(
+            final Run run,
+            final String task,
+            final Direction direction,
+            final ReviewItem item,
+            final @Nullable Kept received,
+            final @Nullable String rule,
+            final boolean unsigned) {
         Objects.requireNonNull(run, "run");
         named(task);
         if (received != null && !(received.origin().producer() instanceof ForgeAccount)) {
@@ -227,7 +245,8 @@ public final class HoldJournal implements ReviewHolds {
                         clock.instant(),
                         HeldState.UNDECIDED,
                         rule,
-                        null);
+                        null,
+                        unsigned);
         return locked(
                         task,
                         true,
@@ -739,6 +758,10 @@ public final class HoldJournal implements ReviewHolds {
         final Kept received = held.received();
         entry.put("received", received == null ? null : received(received));
         entry.put("rule", held.reason());
+        // Only when set, so a signed item's entry reads as it always did.
+        if (held.unsigned()) {
+            entry.put("unsigned", true);
+        }
         return Json.write(entry);
     }
 
@@ -848,7 +871,19 @@ public final class HoldJournal implements ReviewHolds {
                 at,
                 HeldState.UNDECIDED,
                 ReviewComments.optional(entry, "rule"),
-                null);
+                null,
+                unsigned(entry));
+    }
+
+    // Absent or true; anything else is no entry this class wrote.
+    private static boolean unsigned(final Map<?, ?> entry) {
+        if (!entry.containsKey("unsigned")) {
+            return false;
+        }
+        if (!Boolean.TRUE.equals(entry.get("unsigned"))) {
+            throw new IllegalArgumentException("an unsigned mark that is not true");
+        }
+        return true;
     }
 
     private static Kept received(final Map<?, ?> received, final ReviewItem item) {

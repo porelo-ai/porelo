@@ -124,15 +124,19 @@ public final class HeldItemRows {
         if (from != null) {
             row.put("from", from);
         }
+        if (held.unsigned()) {
+            row.put("mark", TrustMark.UNSIGNED);
+        }
         row.put("at", held.at().toString());
         row.put("run", held.run());
         return row;
     }
 
     /**
-     * Returns held items as text: each item's id, task, direction, operation, run and time, then
-     * its destination, commit, digest, anchor or thread and writer, and every line of its text and
-     * suggestion, escaped and indented below.
+     * Returns held items as text: each item's id, task, direction, operation, run and time, and the
+     * word {@code unsigned} when no certified key signed it, then its destination, commit, digest,
+     * anchor or thread and writer, and every line of its text and suggestion, escaped and indented
+     * below.
      *
      * <p>What a producer wrote goes through the terminal's escaping line by line and is indented
      * deeper than every header, so no text can draw an item of its own.
@@ -158,6 +162,8 @@ public final class HeldItemRows {
                     .append(each.run())
                     .append("  ")
                     .append(row.get("at"))
+                    // On the item's own line, so no reader of the list can miss it.
+                    .append(each.unsigned() ? "  " + TrustMark.UNSIGNED : "")
                     .append('\n');
             text.append("  to ").append(TerminalText.line(destination(each))).append('\n');
             text.append("  commit ").append(each.commit()).append('\n');

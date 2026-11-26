@@ -33,7 +33,7 @@ class MessageDispatchTest {
 
     /** No message here is a submission; one taken as such fails the test. */
     private static final ReviewerComments NO_SUBMISSIONS =
-            (task, document) -> {
+            (task, document, unsigned) -> {
                 throw new AssertionError("no submission here");
             };
 
@@ -399,6 +399,7 @@ class MessageDispatchTest {
     private static final class Submissions implements ReviewerComments {
         final List<String> tasks = new ArrayList<>();
         final List<String> documents = new ArrayList<>();
+        final List<Boolean> unsigned = new ArrayList<>();
         private final @Nullable String rule;
 
         Submissions(final @Nullable String rule) {
@@ -406,8 +407,10 @@ class MessageDispatchTest {
         }
 
         @Override
-        public void take(final String task, final byte[] document) throws ProfileRefused {
+        public void take(final String task, final byte[] document, final boolean marked)
+                throws ProfileRefused {
             tasks.add(task);
+            unsigned.add(marked);
             documents.add(new String(document, StandardCharsets.UTF_8));
             if (rule != null) {
                 throw new ProfileRefused(rule);
@@ -681,6 +684,146 @@ class MessageDispatchTest {
                                 assertThat(bounce)
                                         .as("the rule in the answer")
                                         .contains("run: none for the task"));
+    }
+
+    /** Never asked: a reply here must not reach the review. */
+    private static final ReviewReplies NO_REPLY =
+            (task, thread, text) -> {
+                throw new AssertionError("no reply reaches the review here");
+            };
+
+    @Test
+    void anUnsignedMessageToAPeerIsHeldWithItsReasonAndNeverQueued(@TempDir final Path dir)
+            throws IOException {
+        // Only a submission to the review goes on unsigned; anything else would reach a receiver
+        // that cannot believe it, so it waits for a person.
+        final Mailbox mailbox =
+                accepted(
+                        dir,
+                        "m-1.json",
+                        "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"question\",\"to\":\"reviewer\"}}");
+        Files.delete(mailbox.accepted().resolve("m-1.json.sig"));
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        .dispatch(mailbox, mail, allowing(mailbox));
+
+        assertThat(outcome.queued()).as("no transport carries it").isEmpty();
+        assertThat(outcome.held())
+                .as("held, saying why")
+                .singleElement()
+                .satisfies(
+                        held ->
+                                assertThat(held.reason())
+                                        .as("the reason")
+                                        .contains("no certified key signed it"));
+        assertThat(mailbox.hold().resolve("m-1.json")).as("in the mailbox's hold").exists();
+        assertThat(mailbox.queueActive("local").resolve("m-1.json"))
+                .as("not in the transport's queue")
+                .doesNotExist();
+    }
+
+    @Test
+    void anUnsignedReplyToTheReviewIsHeldAndReachesNoReview(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox =
+                accepted(
+                        dir,
+                        "m-20.json",
+                        toReview(",\"thread\":\"t-1\"", "[{\"text\":\"Agreed.\"}]"));
+        Files.delete(mailbox.accepted().resolve("m-20.json.sig"));
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REPLY, NO_SUBMISSIONS, OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(outcome.held())
+                .as("held, saying why")
+                .singleElement()
+                .satisfies(
+                        held ->
+                                assertThat(held.reason())
+                                        .as("the reason")
+                                        .contains("no certified key signed it"));
+        assertThat(outcome.refused()).as("not refused for good").isEmpty();
+        assertThat(mailbox.hold().resolve("m-20.json")).as("in the mailbox's hold").exists();
+    }
+
+    @Test
+    void anUnsignedSubmissionReachesTheReviewMarkedUnsignedAndASignedOneUnmarked(
+            @TempDir final Path dir) throws IOException {
+        // No signature beside it in accepted/, the host's side: its task has no certified key.
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+        accepted(
+                dir,
+                "m-21.json",
+                toReview("", "[{\"data\":" + SUBMISSION + "}]").replace("m-20", "m-21"));
+        Files.delete(mailbox.accepted().resolve("m-21.json.sig"));
+        final Submissions review = new Submissions(null);
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, review, OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(review.documents).as("both handed to the review").hasSize(2);
+        assertThat(review.unsigned)
+                .as("the signed one unmarked, the unsigned one marked")
+                .containsExactly(false, true);
+        assertThat(outcome.held()).as("nothing held").isEmpty();
+        assertThat(outcome.refused()).as("nothing refused").isEmpty();
+        assertThat(mailbox.accepted()).as("taken from the mailbox").isEmptyDirectory();
+    }
+
+    @Test
+    void anOlderSignatureUnderTheSameNameNeverMakesAReleasedUnsignedSubmissionLookSigned(
+            @TempDir final Path dir) throws IOException {
+        // Held over an older signed message of its name, it kept that message's signature, and a
+        // release carried it on: the items reached the review as signed.
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+        Files.delete(mailbox.accepted().resolve("m-20.json.sig"));
+        Files.writeString(mailbox.hold().resolve("m-20.json"), "{\"messageId\":\"older\"}");
+        Files.writeString(mailbox.hold().resolve("m-20.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+        Files.writeString(
+                mailbox.feedback().resolve("answer-m-20.json"),
+                "{\"messageId\":\"a-20\",\"metadata\":{\"inReplyToMessageId\":\"m-20\"},"
+                        + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":true,"
+                        + "\"decidingRule\":\"ENCODING/HEX\"}}]}");
+        final Submissions review = new Submissions(null);
+        final MessageDispatch dispatch = new MessageDispatch(NO_REVIEW, review, OWNED);
+
+        dispatch.dispatch(mailbox, mail, undecided(mailbox));
+        final MessageRelease.Result released =
+                new MessageRelease().decide(mailbox, "m-20.json", false);
+        dispatch.dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(released.outcome())
+                .as("released by a person")
+                .isEqualTo(MessageRelease.Outcome.RELEASED);
+        assertThat(review.unsigned)
+                .as("handed to the review, marked unsigned")
+                .containsExactly(true);
+    }
+
+    @Test
+    void anUnsignedMessageAPersonReleasedIsQueuedAsThePersonDecided(@TempDir final Path dir)
+            throws IOException {
+        // A person who read it released it unsigned: that decision is theirs, as before.
+        final Mailbox mailbox =
+                accepted(
+                        dir,
+                        "m-1.json",
+                        "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"question\",\"to\":\"reviewer\"}}");
+        Files.delete(mailbox.accepted().resolve("m-1.json.sig"));
+        Files.writeString(mailbox.accepted().resolve("m-1.json.released"), "");
+
+        final MessageDispatch.Outcome outcome =
+                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        .dispatch(mailbox, mail, allowing(mailbox));
+
+        assertThat(outcome.queued()).as("queued").containsEntry("m-1.json", "local");
+        assertThat(outcome.held()).as("nothing held").isEmpty();
     }
 
     private static Moderation undecided(final Mailbox mailbox) {

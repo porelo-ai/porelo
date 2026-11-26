@@ -430,6 +430,19 @@ public final class MessageRelease {
                 + " start it again to take it in, then release it";
     }
 
+    /**
+     * Moves a held message's signature to where the message goes; without one, removes any there,
+     * so no signature of another message's bytes ever lies beside it.
+     */
+    private static void signatureBeside(final Path signature, final Path target)
+            throws IOException {
+        if (Files.isRegularFile(signature)) {
+            Files.move(signature, target, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+            Files.deleteIfExists(target);
+        }
+    }
+
     private Result held(final Mailbox mailbox, final Path held, final boolean refuse)
             throws IOException {
         final String name = held.getFileName().toString();
@@ -441,12 +454,7 @@ public final class MessageRelease {
             // 2026-09-30). Back into inbound, so the next pass delivers it and checks it as it
             // checks every arrival: a message held for its signature is held again unless its
             // sender's key is trusted.
-            if (Files.isRegularFile(signature)) {
-                Files.move(
-                        signature,
-                        mailbox.inbound().resolve(name + ".sig"),
-                        StandardCopyOption.REPLACE_EXISTING);
-            }
+            signatureBeside(signature, mailbox.inbound().resolve(name + ".sig"));
             Files.move(held, mailbox.inbound().resolve(name), StandardCopyOption.REPLACE_EXISTING);
             return new Result(Outcome.RELEASED, name, messageId, INWARD);
         }
@@ -457,12 +465,9 @@ public final class MessageRelease {
             // is a repeat at worst, and a message gone with no answer is a sender left waiting.
             new HostBounce().write(mailbox, held, refusedBy("a person refused to send it"), true);
         }
-        if (Files.isRegularFile(signature)) {
-            // The signature travels with it. It was made over these exact bytes on the way in, and
-            // re-signing on release would put the host's name on a decision a person made.
-            Files.move(
-                    signature, target.resolve(name + ".sig"), StandardCopyOption.REPLACE_EXISTING);
-        }
+        // The signature travels with it. It was made over these exact bytes on the way in, and
+        // re-signing on release would put the host's name on a decision a person made.
+        signatureBeside(signature, target.resolve(name + ".sig"));
         if (!refuse) {
             // A person released this message: the next pass sends it whatever the peer's mode or
             // hold says - asking that mode again held it again, for ever (found on 2026-09-30). A

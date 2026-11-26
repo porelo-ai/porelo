@@ -146,9 +146,21 @@ public final class MessageDispatch {
                                                 + " peers, and sending to more than one is not built"));
                 continue;
             }
+            // No signature beside it in accepted/, the host's side: its task has no certified key.
+            final boolean unsigned =
+                    !Files.isRegularFile(
+                            mailbox.accepted().resolve(name + ".sig"),
+                            java.nio.file.LinkOption.NOFOLLOW_LINKS);
             // Before the peer lookup: the review is no peer, and no project can make it one.
             if (Mail.REVIEW.equals(addressed.get(0))) {
-                review(mailbox, message, name, held, refused);
+                review(mailbox, message, name, unsigned, held, refused);
+                continue;
+            }
+            if (unsigned
+                    && !Files.isRegularFile(mailbox.accepted().resolve(name + RELEASED_SUFFIX))) {
+                // Fail closed: only a submission goes on unsigned, unless a person released it.
+                hold(mailbox, message, name);
+                held.add(new MessageDelivery.Held(name, UNSIGNED));
                 continue;
             }
             final Mail.Peer peer = mail.peer(addressed.get(0));
@@ -226,6 +238,7 @@ public final class MessageDispatch {
             final Mailbox mailbox,
             final Path message,
             final String name,
+            final boolean unsigned,
             final List<MessageDelivery.Held> held,
             final List<MessageDelivery.Held> refused)
             throws IOException {
@@ -249,16 +262,49 @@ public final class MessageDispatch {
             reject(mailbox, message, name, UNREADABLE, refused);
             return;
         }
+        final boolean submission = Submission.claims(parsed);
+        if (unsigned && !submission && !Files.isRegularFile(released)) {
+            // A reply speaks at the task's own push; unsigned, it waits for a person.
+            hold(mailbox, message, name);
+            held.add(new MessageDelivery.Held(name, UNSIGNED));
+            return;
+        }
         final TaskIdentity task = tasks.of(mailbox.root().getFileName().toString());
-        final String why = Submission.claims(parsed) ? submit(parsed, task) : reply(parsed, task);
+        final String why = submission ? submit(parsed, task, unsigned) : reply(parsed, task);
         Files.deleteIfExists(released);
         if (why.isEmpty()) {
-            // Kept by the review, which holds it from now on.
-            Files.deleteIfExists(mailbox.accepted().resolve(name + ".sig"));
+            // Kept by the review, which holds it from now on. The message first: a crash between
+            // the two leaves an orphan signature, which the intake clears, never a message the
+            // next dispatch takes again as unsigned.
             Files.delete(message);
+            Files.deleteIfExists(mailbox.accepted().resolve(name + ".sig"));
             return;
         }
         reject(mailbox, message, name, "it was not taken by the review: " + why, refused);
+    }
+
+    /**
+     * Said of an unsigned message that is no submission to the review, which waits for a person.
+     */
+    static final String UNSIGNED =
+            "no certified key signed it, and only a submission to the review goes on without one";
+
+    /**
+     * Returns whether a message's bytes are a run's submission to the review: addressed to the
+     * review alone, with a data part. Read as the dispatch reads it, so the intake passes on
+     * unsigned exactly what the dispatch hands to the review; its shape is judged there.
+     *
+     * @param bytes The message, as taken.
+     * @return Whether it is one.
+     */
+    static boolean submissionToReview(final byte[] bytes) {
+        final Object parsed;
+        try {
+            parsed = Json.parse(new String(bytes, StandardCharsets.UTF_8));
+        } catch (final JsonException ex) {
+            return false;
+        }
+        return List.of(Mail.REVIEW).equals(addressees(parsed)) && Submission.claims(parsed);
     }
 
     /** Said of a message no JSON reader here takes, whatever it holds. */
@@ -306,7 +352,8 @@ public final class MessageDispatch {
      */
     private String submit(
             final @org.jspecify.annotations.Nullable Object parsed,
-            final @org.jspecify.annotations.Nullable TaskIdentity task) {
+            final @org.jspecify.annotations.Nullable TaskIdentity task,
+            final boolean unsigned) {
         final Submission submission = Submission.of(parsed);
         if (!submission.refusal().isEmpty()) {
             return submission.refusal();
@@ -317,7 +364,8 @@ public final class MessageDispatch {
         try {
             comments.take(
                     task.container(),
-                    Json.write(submission.document()).getBytes(StandardCharsets.UTF_8));
+                    Json.write(submission.document()).getBytes(StandardCharsets.UTF_8),
+                    unsigned);
             return "";
         } catch (final ProfileRefused ex) {
             return SHOWN_RULE.matcher(ex.rule()).matches() ? ex.rule() : UNSHOWN_RULE;
@@ -426,7 +474,10 @@ public final class MessageDispatch {
     }
 
     private List<String> addressees(final Path message) throws IOException {
-        final Object parsed = Json.parse(Files.readString(message, StandardCharsets.UTF_8));
+        return addressees(Json.parse(Files.readString(message, StandardCharsets.UTF_8)));
+    }
+
+    private static List<String> addressees(final @org.jspecify.annotations.Nullable Object parsed) {
         if (!(parsed instanceof Map<?, ?> document)
                 || !(document.get("metadata") instanceof Map<?, ?> metadata)) {
             return List.of();
@@ -449,9 +500,16 @@ public final class MessageDispatch {
         Files.move(message, mailbox.hold().resolve(name), StandardCopyOption.REPLACE_EXISTING);
     }
 
+    /**
+     * Moves a message's signature beside it; without one, removes any at the destination, so a
+     * signature there always belongs to the bytes beside it: an older message's, left under the
+     * name, made an unsigned one look signed once a person released it.
+     */
     private void move(final Path from, final Path to) throws IOException {
         if (Files.isRegularFile(from)) {
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING);
+        } else {
+            Files.deleteIfExists(to);
         }
     }
 

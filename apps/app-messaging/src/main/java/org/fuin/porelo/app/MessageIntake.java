@@ -30,8 +30,10 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>The signature is made over the bytes as they are, by the task's own key</strong>, and
  * nothing downstream may rewrite them - not the filter, not a transport. The key is held on the
  * host, never in the container; the far end traces it to its certificate by its fingerprint. A task
- * without a key of its own sends nothing: its messages are held and it is told why. While only the
- * vault is locked they wait in the outbox.
+ * without a key of its own sends nothing signed: its messages are held and it is told why, all but
+ * a run's submission to the review, which goes on to the filter without a signature and is held for
+ * the owner account's decision, marked unsigned. While only the vault is locked they wait in the
+ * outbox.
  */
 public final class MessageIntake {
 
@@ -47,6 +49,8 @@ public final class MessageIntake {
     private final MessageSigners.Own key;
 
     private final List<MessageDelivery.Held> unsigned = new ArrayList<>();
+
+    private final List<String> passedUnsigned = new ArrayList<>();
 
     private final Holding holding;
 
@@ -98,6 +102,7 @@ public final class MessageIntake {
      */
     public List<String> take(final Mailbox mailbox) throws IOException {
         unsigned.clear();
+        passedUnsigned.clear();
         mailbox.refuseLinks();
         final List<String> taken = new ArrayList<>(take(mailbox, mailbox.outboxNew(), false));
         taken.addAll(take(mailbox, mailbox.person(), true));
@@ -160,7 +165,12 @@ public final class MessageIntake {
                 continue;
             }
 
-            if (signing == null) {
+            // A submission to the review goes on unsigned: it reaches no receiver but the gate's
+            // holds, where the owner account decides each item, marked so. Never from a person's
+            // directory, whose words are no run's.
+            final boolean review =
+                    signing == null && !person && MessageDispatch.submissionToReview(bytes);
+            if (signing == null && !review) {
                 // Held, with the sender told: unsigned, no receiver could believe it. Recorded
                 // before the sender is told, so nothing after the hold can lose the verdict.
                 final Path held = mailbox.hold().resolve(name);
@@ -184,6 +194,18 @@ public final class MessageIntake {
                                 + " bytes";
                 held(new MessageDelivery.Held(name, why, "", ""));
                 new HostBounce().write(mailbox, held, why, true);
+                continue;
+            }
+
+            if (signing == null) {
+                // No signature beside it, which is how everything after the filter knows it is
+                // unsigned: incoming/ is the host's, and a task can neither add one nor take one
+                // away. One a crash left from an earlier signed message of that name goes first, or
+                // the filter would carry it along and the item would show signed.
+                Files.deleteIfExists(mailbox.incoming().resolve(name + ".sig"));
+                place(bytes, mailbox.incoming().resolve(name));
+                taken.add(name);
+                passedUnsigned.add(name);
                 continue;
             }
 
@@ -220,6 +242,16 @@ public final class MessageIntake {
      */
     public List<MessageDelivery.Held> heldUnsigned() {
         return List.copyOf(unsigned);
+    }
+
+    /**
+     * Returns what the last {@link #take} passed on without a signature: a run's submission to the
+     * review from a task with no key of its own.
+     *
+     * @return Their file names, in the order they were taken.
+     */
+    public List<String> takenUnsigned() {
+        return List.copyOf(passedUnsigned);
     }
 
     /**

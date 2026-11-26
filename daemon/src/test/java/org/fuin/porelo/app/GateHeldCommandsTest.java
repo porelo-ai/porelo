@@ -36,6 +36,28 @@ class GateHeldCommandsTest {
     }
 
     @Test
+    void anItemNoCertifiedKeySignedShowsTheWordUnsignedOnItsLineAndItsMarkInJson() {
+        // The owner account decides on a review knowing no certified key of its task signed it.
+        holds.with(
+                HeldStandIns.unsigned(outgoing("h1", "Keep the order.", 1)),
+                outgoing("h2", "ok", 2));
+
+        final HeldStandIns.Ran text = HeldStandIns.held(holds);
+        final HeldStandIns.Ran json = HeldStandIns.held(holds, "--json");
+
+        assertThat(text.code()).as(text.err()).isZero();
+        assertThat(text.out().lines().filter(line -> line.startsWith("h")).toList())
+                .as("each item's own line")
+                .satisfiesExactly(
+                        line -> assertThat(line).as("the unsigned item").endsWith("  unsigned"),
+                        line -> assertThat(line).as("the signed item").doesNotContain("unsigned"));
+        assertThat(json.code()).as(json.err()).isZero();
+        final List<?> items = (List<?>) Json.parse(json.out());
+        assertThat(fields(items.get(0))).as("the unsigned item").containsEntry("mark", "unsigned");
+        assertThat(fields(items.get(1))).as("the signed item").doesNotContainKey("mark");
+    }
+
+    @Test
     void aTasksHeldItemsAsJsonHaveTheContractsShape() {
         holds.with(outgoing("h1", "Keep the order.", 1), incoming("h2", 2));
 

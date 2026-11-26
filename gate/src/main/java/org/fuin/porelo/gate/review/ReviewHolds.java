@@ -52,6 +52,38 @@ public interface ReviewHolds {
             @Nullable String rule);
 
     /**
+     * Holds an item of a run as {@link #hold(Run, String, Direction, ReviewItem, Kept, String)}
+     * does, marked unsigned when no certified key signed the message it came in.
+     *
+     * <p>A store that keeps no mark refuses an unsigned item rather than hold it unmarked.
+     *
+     * @param run The run it belongs to.
+     * @param task The task's name.
+     * @param direction Outgoing from the run, or incoming to it.
+     * @param item The item.
+     * @param received For an incoming item what its place gave; null for an outgoing one.
+     * @param rule For an incoming item the rule it was withheld by; null for an outgoing one.
+     * @param unsigned Whether no certified key signed it; only an outgoing item is.
+     * @return The item as held, undecided or lapsed, with its mark.
+     * @throws IllegalArgumentException As the other form does, and for an incoming item marked
+     *     unsigned.
+     * @throws UnsupportedOperationException When the item is unsigned and this store keeps no mark.
+     */
+    default Held hold(
+            final Run run,
+            final String task,
+            final Direction direction,
+            final ReviewItem item,
+            final @Nullable Kept received,
+            final @Nullable String rule,
+            final boolean unsigned) {
+        if (unsigned) {
+            throw new UnsupportedOperationException("this store keeps no item marked unsigned");
+        }
+        return hold(run, task, direction, item, received, rule);
+    }
+
+    /**
      * Finds the hold of an incoming item at a place by the item's id there, in any state, so a
      * comment read again in a later run keeps its decision.
      *

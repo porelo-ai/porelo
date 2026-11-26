@@ -533,7 +533,8 @@ class InterfaceDescriptionTest {
                                 + " \\?int,(?s:.*?)endLine: \\?int,(?s:.*?)thread:"
                                 + " \\?string,(?s:.*?)suggestion: \\?string,(?s:.*?)commit:"
                                 + " string,(?s:.*?)text: string,(?s:.*?)digest: string,(?s:.*?)from:"
-                                + " \\?string,(?s:.*?)at: string,(?s:.*?)run: int\\s*\\)")
+                                + " \\?string,(?s:.*?)mark: \\?\\(unsigned\\),(?s:.*?)at:"
+                                + " string,(?s:.*?)run: int\\s*\\)")
                 .as("a decision names the digest it was shown and answers nothing")
                 .containsPattern(
                         "method DecideItem\\(\\s*task: string,\\s*id: string,(?s:.*?)digest:"

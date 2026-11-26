@@ -129,8 +129,10 @@ either.
   is locked, what arrives for it waits; a task whose project file cannot be read accepts nobody. A task's project
   is the one its container is labelled with, else, once the container is gone, the one its start recorded, else
   its name when it fits one project alone; so a removed task keeps its own project's conversation and certifiers.
-  A task with no certified key sends nothing: its messages are held and it is told; while only the vault is locked
-  they wait. Anyone can check a signature with OpenSSH, given the task's public key as the certificate names it:
+  A task with no certified key sends nothing signed: its messages are held and it is told, all but a run's
+  submission to the review, which goes on unsigned through the filter into the gate's holds, each item marked
+  `unsigned` there for the owner account's decision; while only the vault is locked they wait. Anyone can check
+  a signature with OpenSSH, given the task's public key as the certificate names it:
 
   ```
   echo "task <task key>" > allowed_signers

@@ -15,7 +15,8 @@ public interface ReviewerComments {
      *
      * @param task The task whose mailbox the message came through.
      * @param document The message's data part, a profile 2 submission, as bytes.
+     * @param unsigned Whether no certified key signed the message, so each item is held marked so.
      * @throws ProfileRefused When it is refused whole, by rule; nothing of it is held.
      */
-    void take(String task, byte[] document) throws ProfileRefused;
+    void take(String task, byte[] document, boolean unsigned) throws ProfileRefused;
 }

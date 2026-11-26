@@ -103,7 +103,7 @@ class RunIntakeTest {
         // Without a run there is no place and pinned commit a release could be bound to.
         reading.items = List.of(submitted(REPLY));
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("a task without a run")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -122,7 +122,7 @@ class RunIntakeTest {
         runAs(Role.REVIEWER);
         reading.items = List.of(submitted(REPLY));
 
-        assertThatThrownBy(() -> intake.take("shop-3", DOCUMENT))
+        assertThatThrownBy(() -> intake.take("shop-3", DOCUMENT, false))
                 .as("a second task without a run")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -149,7 +149,7 @@ class RunIntakeTest {
         for (final ProfileItem item : foreign) {
             reading.items = List.of(submitted(COMMENT), item);
 
-            assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+            assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                     .as("an item %s", item)
                     .isInstanceOfSatisfying(
                             ProfileRefused.class,
@@ -167,7 +167,7 @@ class RunIntakeTest {
         runAs(Role.REVIEWER);
         reading.items = List.of();
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("a submission without items")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -184,7 +184,7 @@ class RunIntakeTest {
         runAs(Role.REVIEWER);
         reading.items = List.of(submitted(COMMENT), submitted(REPLY));
 
-        intake.take(TASK, DOCUMENT);
+        intake.take(TASK, DOCUMENT, false);
 
         assertThat(reading.channels)
                 .as("read as the task's submission")
@@ -207,6 +207,22 @@ class RunIntakeTest {
     }
 
     @Test
+    void anUnsignedSubmissionsItemsAreEachHeldMarkedUnsignedAndASignedOnesUnmarked()
+            throws Exception {
+        // The owner account sees which review no certified key signed before it decides.
+        runAs(Role.REVIEWER);
+        reading.items = List.of(submitted(COMMENT), submitted(REPLY));
+
+        intake.take(TASK, DOCUMENT, true);
+        intake.take(TASK, DOCUMENT, false);
+
+        assertThat(holds.held)
+                .as("the unsigned submission's items marked, the signed one's not")
+                .extracting(Held::unsigned)
+                .containsExactly(true, true, false, false);
+    }
+
+    @Test
     void aRefusedCheckRefusesTheWholeSubmissionAndHoldsNothing() {
         // Half a submission held would show the owner account a review its task never sent.
         runAs(Role.REVIEWER);
@@ -214,7 +230,7 @@ class RunIntakeTest {
         reading.items = List.of(submitted(COMMENT), submitted(REPLY), submitted(later));
         check.refuse.add(REPLY);
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("the second item refused by the check")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -232,7 +248,7 @@ class RunIntakeTest {
         runAs(Role.AUTHOR);
         reading.items = List.of(submitted(REPLY), submitted(COMMENT));
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("an author's new comment")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -249,7 +265,7 @@ class RunIntakeTest {
         runAs(Role.AUTHOR);
         reading.items = List.of(submitted(REPLY));
 
-        intake.take(TASK, DOCUMENT);
+        intake.take(TASK, DOCUMENT, false);
 
         assertThat(holds.held).extracting(Held::item).as("the reply held").containsExactly(REPLY);
     }
@@ -259,7 +275,7 @@ class RunIntakeTest {
         runAs(Role.REVIEWER);
         reading.items = List.of(submitted(COMMENT));
 
-        intake.take(TASK, DOCUMENT);
+        intake.take(TASK, DOCUMENT, false);
 
         assertThat(holds.held)
                 .extracting(Held::item)
@@ -272,7 +288,7 @@ class RunIntakeTest {
         runAs(Role.REVIEWER);
         reading.refusal = new ProfileRefused("schema: porelo/sourceKind in a submission");
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("the reading's refusal")
                 .isSameAs(reading.refusal);
         assertThat(holds.held).as("nothing held").isEmpty();
@@ -285,7 +301,7 @@ class RunIntakeTest {
         places.clear();
         reading.items = List.of(submitted(REPLY));
 
-        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT))
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
                 .as("a run whose place is gone")
                 .isInstanceOfSatisfying(
                         ProfileRefused.class,
@@ -409,6 +425,18 @@ class RunIntakeTest {
                 final ReviewItem item,
                 final @Nullable Kept received,
                 final @Nullable String rule) {
+            return hold(run, task, direction, item, received, rule, false);
+        }
+
+        @Override
+        public Held hold(
+                final Run run,
+                final String task,
+                final Direction direction,
+                final ReviewItem item,
+                final @Nullable Kept received,
+                final @Nullable String rule,
+                final boolean unsigned) {
             final Held one =
                     new Held(
                             "h" + held.size(),
@@ -423,7 +451,8 @@ class RunIntakeTest {
                             Instant.EPOCH,
                             HeldState.UNDECIDED,
                             rule,
-                            null);
+                            null,
+                            unsigned);
             held.add(one);
             return one;
         }

@@ -43,7 +43,7 @@ class ReviewReplyDispatchTest {
 
     /** No message here is a submission; one taken as such fails the test. */
     private static final ReviewerComments NO_SUBMISSIONS =
-            (task, document) -> {
+            (task, document, unsigned) -> {
                 throw new AssertionError("no submission here");
             };
 

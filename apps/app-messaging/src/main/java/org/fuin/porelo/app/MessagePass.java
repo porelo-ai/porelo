@@ -72,7 +72,7 @@ public final class MessagePass {
 
     /** Refuses every submission as the review refuses one of a task without a current run. */
     static final ReviewerComments UNTOLD =
-            (task, document) -> {
+            (task, document, unsigned) -> {
                 throw new org.fuin.porelo.gate.review.ProfileRefused("run: none for the task");
             };
 
@@ -176,6 +176,7 @@ public final class MessagePass {
                                         MessageRecord.OUT,
                                         held.mark()));
         final List<String> taken = intake.take(mailbox);
+        final List<String> unsigned = intake.takenUnsigned();
         for (final String message : taken) {
             // The role goes into the record: a person writing into a conversation has to be
             // distinguishable from the agent afterwards, and the message itself may be gone by the
@@ -185,7 +186,9 @@ public final class MessagePass {
                     message,
                     "",
                     "",
-                    MessageFile.role(mailbox.incoming().resolve(message)));
+                    MessageFile.role(mailbox.incoming().resolve(message)),
+                    "",
+                    unsigned.contains(message) ? TrustMark.UNSIGNED : "");
         }
         final MessageFiltering.Outcome filtered =
                 new MessageFiltering(runner, filter, limits).run(mailbox, mail.outgoingReported());

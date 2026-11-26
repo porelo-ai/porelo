@@ -716,6 +716,9 @@ type HeldItem (
   # The name of the forge account that wrote an incoming item, such as "octocat", which a client shows as
   # "forge account octocat"; absent for an outgoing one.
   from: ?string,
+  # Absent: the item came through a message its task signed with its certified key. unsigned: no certified key
+  # of the task signed it, as for a reviewer task off a host. Only an outgoing item carries it.
+  mark: ?(unsigned),
   # When it was held, UTC, RFC 3339, whole seconds.
   at: string,
   # The run's number at its place for its task, from 1.

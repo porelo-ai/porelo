@@ -174,6 +174,49 @@ class MessageMarkTest {
     }
 
     @Test
+    void aSubmissionToTheReviewOfATaskWithNoKeyIsRecordedTakenUnsignedAndNeverHeld()
+            throws IOException {
+        // Its items wait in the gate's holds; the record says it left the outbox without a
+        // signature, never that the mailbox held it.
+        final Mailbox mailbox = mailbox();
+        Files.writeString(
+                mailbox.outboxNew().resolve("out-1.json"),
+                "{\"messageId\":\"out-1\",\"role\":\"ROLE_AGENT\",\"parts\":[{\"data\":"
+                        + "{\"runs\":[]}}],\"metadata\":{\"to\":\"review\",\"kind\":\"comment\"}}");
+
+        new MessagePass(
+                        new TransportTestRunner(),
+                        null,
+                        new TransportDirectory(List.of(dir.resolve("none"))),
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
+                .run(
+                        mailbox,
+                        new Mail(List.of()),
+                        () -> {
+                            throw new MessageSigners.Unsigned("no key of its own", false);
+                        },
+                        PeerKeys.NONE,
+                        new Moderation(dir.resolve("moderation").resolve("p.json")));
+
+        final List<Map<String, Object>> lines = new MessageRecord(mailbox).entries();
+        assertThat(lines)
+                .as("taken, marked unsigned")
+                .filteredOn(line -> MessageRecord.TAKEN.equals(line.get("event")))
+                .singleElement()
+                .satisfies(
+                        line -> {
+                            assertThat(line.get("message")).as("message").isEqualTo("out-1.json");
+                            assertThat(line.get("mark")).as("mark").isEqualTo(TrustMark.UNSIGNED);
+                        });
+        assertThat(lines)
+                .as("never held by the mailbox")
+                .noneMatch(line -> MessageRecord.HELD.equals(line.get("event")));
+        assertThat(mailbox.incoming().resolve("out-1.json"))
+                .as("left for the filter, which this machine lacks")
+                .exists();
+    }
+
+    @Test
     void theLineTheRoomShowsCarriesTheSendersMarkAndNothingElseChanges() {
         assertThat(TransportSend.marked(TrustMark.UNVERIFIED, "hello"))
                 .isEqualTo("[unverified] hello");
