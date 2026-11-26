@@ -305,6 +305,10 @@ jobs:
                 || vars.PORELO_PUBLISH == 'false')
             && github.event_name == 'push'
             && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        # Central answers 429 to a burst of downloads too, and this job fetches plugins no earlier job used: every
+        # Maven call here tries a throttled request again after a pause rather than failing the publish.
+        env:
+            MAVEN_ARGS: -Daether.connector.http.retryHandler.count=8 -Daether.connector.http.retryHandler.interval=15000
 
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -368,10 +372,11 @@ jobs:
             # Plain jars, for the packaging to resolve, and nothing else. The unit tests passed in this
             # run, on this commit, before this job could start; javadoc was built there too. The signed
             # jars are built once, by the step that publishes them - this step used to build them as well,
-            # 4m10s with the tests, and the deploy then built them again.
+            # 4m10s with the tests, and the deploy then built them again. No clean: the checkout is fresh, and the
+            # plugin would be one more download from Central at publish time.
             - name: Build and install
               if: vars.PORELO_PUBLISH != 'false'
-              run: ./mvnw -B clean install -s settings.xml -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true
+              run: ./mvnw -B install -s settings.xml -DskipTests -Dmaven.javadoc.skip=true -Dmaven.source.skip=true
 
 
             # The binaries come from the ubuntu acceptance leg, or, when the legs were taken from a proof, from the job that

@@ -289,6 +289,30 @@ class PublishWorkflowTest {
     }
 
     @Test
+    void everyMavenCallOfThePublishJobTriesAThrottledDownloadAgain() throws IOException {
+        final Map<?, ?> env = (Map<?, ?>) deployJob().get("env");
+        assertThat(env).as("the Publish job's own environment").isNotNull();
+        assertThat(String.valueOf(env.get("MAVEN_ARGS")))
+                .as("read by every Maven call of the job, the 429 at Central included")
+                .contains(
+                        "-Daether.connector.http.retryHandler.count=8",
+                        "-Daether.connector.http.retryHandler.interval=15000");
+    }
+
+    @Test
+    void thePublishJobsBuildFetchesNoCleanPluginFromCentral() throws IOException {
+        final Map<?, ?> build =
+                steps(deployJob()).stream()
+                        .filter(step -> "Build and install".equals(step.get("name")))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(String.valueOf(build.get("run")))
+                .as("a fresh checkout has nothing to clean, and no earlier job fetched the plugin")
+                .contains(" install ")
+                .doesNotContain("clean");
+    }
+
+    @Test
     void theDryRunStillChecksCentral() throws IOException {
         final Map<?, ?> build = (Map<?, ?>) jobs().get("build");
         final Map<?, ?> dryRun =
