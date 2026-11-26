@@ -2,6 +2,7 @@ package org.fuin.porelo.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -65,7 +66,23 @@ class DaemonRunStartsTest {
             assertThatThrownBy(() -> starts().begin(TASK, AT))
                     .as("refused as the daemon refused it")
                     .isInstanceOf(TaskLaunch.RunStarts.Refused.class)
-                    .hasMessageStartingWith("NotTheTasksPush");
+                    .hasMessageContaining("NotTheTasksPush");
+        }
+    }
+
+    @Test
+    void aTypedRefusalIsSaidAsItsNameAndFieldsNeverAsAJavaMap() throws Exception {
+        try (VarlinkServer server =
+                daemon(
+                        (parameters, replies) -> {
+                            throw new VarlinkException(
+                                    TasksContract.INTERFACE + ".NotTheTasksPush",
+                                    Map.of("head", "a".repeat(40)));
+                        })) {
+            final Throwable refused = catchThrowable(() -> starts().begin(TASK, AT));
+            assertThat(org.fuin.porelo.wire.Json.parse(String.valueOf(refused.getMessage())))
+                    .as("the refusal as the CLI's other refusals say it")
+                    .isEqualTo(Map.of("refused", "NotTheTasksPush", "head", "a".repeat(40)));
         }
     }
 

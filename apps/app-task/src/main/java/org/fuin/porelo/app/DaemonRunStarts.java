@@ -1,8 +1,10 @@
 package org.fuin.porelo.app;
 
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.LimitFactors;
 import org.fuin.porelo.wire.varlink.TasksContract;
 import org.fuin.porelo.wire.varlink.VarlinkClient;
@@ -61,14 +63,22 @@ public final class DaemonRunStarts implements TaskLaunch.RunStarts {
         } catch (VarlinkException ex) {
             final String error = Objects.requireNonNullElse(ex.getErrorName(), "Refused");
             final String name = error.substring(error.lastIndexOf('.') + 1);
-            throw new Refused(name + ": " + said(ex.getParameters()), ex);
+            throw new Refused(said(name, ex.getParameters()), ex);
         } catch (java.io.IOException ex) {
             // Closed after the daemon answered: the run began.
         }
     }
 
-    /** The refusal's fields, for a person; never a credential, since none is in them. */
-    private static String said(final @Nullable Map<String, Object> fields) {
-        return fields == null || fields.isEmpty() ? "the run could not begin" : fields.toString();
+    /**
+     * The refusal as the CLI says a typed refusal, {@code {"refused": NAME, ...its fields}}; never
+     * a credential, since none is in them.
+     */
+    private static String said(final String name, final @Nullable Map<String, Object> fields) {
+        final Map<String, Object> said = new LinkedHashMap<>();
+        said.put("refused", name);
+        if (fields != null) {
+            fields.forEach(said::putIfAbsent);
+        }
+        return Json.write(said);
     }
 }

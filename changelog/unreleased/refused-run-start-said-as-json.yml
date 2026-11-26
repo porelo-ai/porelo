@@ -1,0 +1,2 @@
+title: 'A start the daemon refuses at a pull request says its refusal as `{"refused": NAME, ...}` with its fields, never as a raw map'
+type: fixed
