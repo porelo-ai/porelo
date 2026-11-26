@@ -132,7 +132,7 @@ public final class ReviewOpen {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
                 }
-                if (role == Role.REVIEWER) {
+                if (!TaskReviewRole.asksAsAuthor(role)) {
                     // As a start refuses it, before the forge is asked.
                     throw new Refused(
                             "RoleNotAllowed",
