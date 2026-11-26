@@ -91,6 +91,17 @@ class ReviewOpenPullRequestTest {
 
     static final ReviewOpen.Place PLACE = new ReviewOpen.PullRequest(REF);
 
+    /** The branch the task's start recorded at the forge. */
+    static final String BRANCH = "porelo/shop-2";
+
+    static final ReviewOpen.Place OWN = new ReviewOpen.OwnPullRequest();
+
+    /** The tasks whose own pull request was looked for. */
+    final List<String> ownAsked = new ArrayList<>();
+
+    /** Whether no pull request is open from the task's branch. */
+    boolean noneOpen;
+
     PullRequestState state = PullRequestState.OPEN;
 
     boolean approved;
@@ -317,7 +328,15 @@ class ReviewOpenPullRequestTest {
                                                             CommentReading.EXTENDED,
                                                             null))
                                             : Optional.empty(),
-                            instance -> Optional.of(pullRequests)));
+                            instance -> Optional.of(pullRequests),
+                            (project, task) -> {
+                                ownAsked.add(task);
+                                if (noneOpen) {
+                                    throw new ReviewOpen.Refused(
+                                            "NoPullRequest", Map.of("branch", BRANCH));
+                                }
+                                return REF;
+                            }));
 
     /** A place known by its name alone, the only part a side is told by. */
     record Named(String name) implements ReviewPlace {
@@ -463,6 +482,53 @@ class ReviewOpenPullRequestTest {
     }
 
     @Test
+    void anAuthorsOwnPullRequestAnswersAsItsPullRequestWould() throws Exception {
+        page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
+        held.add(held("h1", ADDRESS));
+
+        final ReviewOpen.Answer own = open.answer("uc", OWN, Role.AUTHOR, TASK);
+
+        assertThat(own)
+                .as("the same decision, head, points and held as the address would answer")
+                .isEqualTo(open.answer("uc", PLACE, null, TASK));
+        assertThat(own.points()).as("the open thread is read, not an empty answer").hasSize(1);
+        assertThat(own.held()).as("the held item is counted").isEqualTo(1);
+        assertThat(ownAsked).as("the task whose branch is looked for").containsExactly(TASK);
+    }
+
+    @Test
+    void anOwnPullRequestWithNoneOpenFromTheTasksBranchIsRefusedNamingTheBranch() {
+        noneOpen = true;
+
+        assertThatThrownBy(() -> open.answer("uc", OWN, null, TASK))
+                .as("no pull request is open from the branch")
+                .isInstanceOfSatisfying(
+                        ReviewOpen.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).as("the error").isEqualTo("NoPullRequest");
+                            assertThat(refused.fields())
+                                    .as("the branch it names")
+                                    .containsEntry("branch", BRANCH);
+                        });
+    }
+
+    @Test
+    void aReviewerAtItsOwnPullRequestIsRefusedBeforeTheForgeIsAsked() {
+        assertThatThrownBy(() -> open.answer("uc", OWN, Role.REVIEWER, TASK))
+                .as("a reviewer does not review its own task's pull request")
+                .isInstanceOfSatisfying(
+                        ReviewOpen.Refused.class,
+                        refused -> {
+                            assertThat(refused.error()).as("the error").isEqualTo("RoleNotAllowed");
+                            assertThat(refused.fields())
+                                    .as("the role and the place")
+                                    .containsEntry("role", "REVIEWER")
+                                    .containsEntry("place", Map.of("ownPullRequest", true));
+                        });
+        assertThat(ownAsked).as("no pull request was looked for").isEmpty();
+    }
+
+    @Test
     void aResolvedThreadWhoseLastWordIsTheOtherSidesIsNoPoint() throws Exception {
         final String resolved =
                 FORGE_PAGE.replace(
@@ -505,7 +571,10 @@ class ReviewOpenPullRequestTest {
                                                 pullRequests.places(),
                                                 role,
                                                 pullRequests.containers(),
-                                                holds))));
+                                                holds)),
+                        (project, task) -> {
+                            throw new AssertionError("no own pull request is asked about");
+                        }));
     }
 
     @Test
@@ -651,7 +720,10 @@ class ReviewOpenPullRequestTest {
                                                         pullRequests.places(),
                                                         role,
                                                         pullRequests.containers(),
-                                                        holds))));
+                                                        holds)),
+                                (project, task) -> {
+                                    throw new AssertionError("no own pull request is asked about");
+                                }));
 
         assertThatThrownBy(() -> withoutToken.answer("uc", PLACE, null, TASK))
                 .as("no read credential")

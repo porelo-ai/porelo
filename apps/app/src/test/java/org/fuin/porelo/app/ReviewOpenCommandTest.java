@@ -102,7 +102,10 @@ class ReviewOpenCommandTest {
                         journal,
                         ends::read,
                         url -> java.util.Optional.empty(),
-                        instance -> java.util.Optional.empty()));
+                        instance -> java.util.Optional.empty(),
+                        (project, task) -> {
+                            throw new AssertionError("no own pull request is asked about");
+                        }));
     }
 
     private int run(final String... arguments) {

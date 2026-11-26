@@ -416,33 +416,47 @@ public final class RunPlaceCheck {
             // A branch the start refuses is refused by the launch, in its own words.
             return null;
         }
-        final @Nullable String host = upstream == null ? null : GitCredentialNames.hostOf(upstream);
-        if (upstream == null || host == null) {
-            throw new Refused(
-                    noPullRequest(
-                            name,
-                            "no pull request is open from "
-                                    + name
-                                    + ": the task's repository names no upstream at a forge"));
-        }
-        final ForgeInstance instance = forge(URI.create("https://" + host + "/"), host);
-        final PullRequestRef ref;
-        try {
-            ref = own.of(instance, upstream, name);
-        } catch (PlaceUnreadable ex) {
-            throw new Refused(unreadable(ex.reason(), String.valueOf(ex.getMessage())));
-        } catch (OwnPullRequests.NoneOpen ex) {
-            throw new Refused(noPullRequest(name, "no pull request is open from " + name));
-        }
+        final PullRequestRef ref = openFrom(upstream, name);
         final RunPlace at = RunPlace.atPullRequest(RunPlace.AUTHOR, task, ref.url().toString());
         author(projectFile, ref);
         starts.checked(task, at, ref);
         return at;
     }
 
+    /**
+     * Returns the pull request open from a task's branch at its forge, asked of the forge's adapter
+     * with the forge's read credential lent for the call alone: the one lookup a start at the own
+     * pull request and a review open of it share.
+     *
+     * @param upstream The repository the branch is pushed to, as the project file names it, or null
+     *     when the task's repository names none.
+     * @param branch The task's branch at the forge.
+     * @return The pull request.
+     * @throws Refused As {@code NoPullRequest} when none is open, {@code UnknownForge} or {@code
+     *     PlaceUnreadable} as the forge and its adapter answer.
+     */
+    public PullRequestRef openFrom(final @Nullable String upstream, final String branch) {
+        final @Nullable String host = upstream == null ? null : GitCredentialNames.hostOf(upstream);
+        if (upstream == null || host == null) {
+            throw new Refused(
+                    noPullRequest(
+                            branch,
+                            "no pull request is open from "
+                                    + branch
+                                    + ": the task's repository names no upstream at a forge"));
+        }
+        final ForgeInstance instance = forge(URI.create("https://" + host + "/"), host);
+        try {
+            return own.of(instance, upstream, branch);
+        } catch (PlaceUnreadable ex) {
+            throw new Refused(unreadable(ex.reason(), String.valueOf(ex.getMessage())));
+        } catch (OwnPullRequests.NoneOpen ex) {
+            throw new Refused(noPullRequest(branch, "no pull request is open from " + branch));
+        }
+    }
+
     /** The repository the task's branch is pushed to, as the builds of its push are read. */
-    private static @Nullable String upstream(
-            final Project project, final @Nullable String repository) {
+    static @Nullable String upstream(final Project project, final @Nullable String repository) {
         final String own = project.upstream();
         if (repository == null) {
             return own;

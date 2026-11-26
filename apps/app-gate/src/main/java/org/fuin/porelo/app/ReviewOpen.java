@@ -63,7 +63,7 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>The one implementation for the daemon's {@code ReviewOpen} and {@code porelo review open}, so
  * both answer alike. A pull request is read through its forge's adapter for the task whose run
- * asks; the task's own pull request is refused until it is found by its branch.
+ * asks; the task's own pull request is found by its branch at the forge, as a start finds it.
  */
 public final class ReviewOpen {
 
@@ -132,8 +132,13 @@ public final class ReviewOpen {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
                 }
-                throw Refused.placeUnreadable(
-                        "ForgeAdapterMissing", "a pull request place is not read yet");
+                if (role == Role.REVIEWER) {
+                    // As a start refuses it, before the forge is asked.
+                    throw new Refused(
+                            "RoleNotAllowed",
+                            Map.of("role", "REVIEWER", "place", Map.of("ownPullRequest", true)));
+                }
+                yield atPullRequest(project, parts.own().of(project, task), task);
             }
         };
     }
@@ -744,7 +749,8 @@ public final class ReviewOpen {
      * A typed refusal of the contract: its error's name and fields.
      *
      * <p>{@code PlaceUnreadable} at either place; {@code UnknownForge} and {@code
-     * NoSuchPullRequest} at a pull request.
+     * NoSuchPullRequest} at a pull request; {@code NoPullRequest} and {@code RoleNotAllowed} at a
+     * task's own.
      */
     public static final class Refused extends Exception {
 
@@ -970,6 +976,7 @@ public final class ReviewOpen {
      * @param ends The kept ends.
      * @param forges The forge instances this machine knows.
      * @param adapters What reads pull requests at an instance.
+     * @param own Finds a task's own pull request.
      */
     public record Parts(
             Gate gate,
@@ -977,7 +984,8 @@ public final class ReviewOpen {
             ReviewCounts counts,
             Ends ends,
             Forges forges,
-            Adapters adapters) {
+            Adapters adapters,
+            Own own) {
 
         /** Refuses a missing part. */
         public Parts {
@@ -987,6 +995,7 @@ public final class ReviewOpen {
             Objects.requireNonNull(ends, "ends");
             Objects.requireNonNull(forges, "forges");
             Objects.requireNonNull(adapters, "adapters");
+            Objects.requireNonNull(own, "own");
         }
 
         /**
@@ -1005,8 +1014,57 @@ public final class ReviewOpen {
                     comments.counts(),
                     new GateEnds(context).store()::read,
                     forges::of,
-                    pullRequestsAt(context, forges, ForgeAdapters.of(context)));
+                    pullRequestsAt(context, forges, ForgeAdapters.of(context)),
+                    ownAt(context, RunPlaceCheck.of(context)));
         }
+    }
+
+    /**
+     * Returns what finds a task's own pull request: the pull request open at its forge from the
+     * branch the task's start recorded, found as a start at it finds it.
+     *
+     * @param context The machine.
+     * @param check The lookup a start at the own pull request shares.
+     * @return The finder.
+     */
+    static Own ownAt(final PoreloContext context, final RunPlaceCheck check) {
+        return (projectName, task) -> {
+            final Project project;
+            final Repository repository;
+            try {
+                project = GateSupport.byName(context, projectName);
+                repository = GateSupport.repository(context, project, null, task);
+            } catch (RuntimeException ex) {
+                throw Refused.placeUnreadable(
+                        "NotInProject", "this machine has no project " + projectName);
+            }
+            final @Nullable String branch = RecordedBranch.of(context, project.name(), task);
+            if (branch == null) {
+                throw Refused.placeUnreadable(
+                        "NoSuchPush", "no branch at the forge is recorded for " + task);
+            }
+            try {
+                return check.openFrom(RunPlaceCheck.upstream(project, repository.name()), branch);
+            } catch (RunPlaceCheck.Refused ex) {
+                throw new Refused(ex.refusal().name(), ex.refusal().fields());
+            }
+        };
+    }
+
+    /** Finds the pull request open from a task's own branch at its forge. */
+    @FunctionalInterface
+    public interface Own {
+
+        /**
+         * Returns the task's own pull request.
+         *
+         * @param project The project's name.
+         * @param task The task's name.
+         * @return The pull request.
+         * @throws Refused As {@code NoPullRequest} when none is open, or {@code PlaceUnreadable} or
+         *     {@code UnknownForge} as the forge answers.
+         */
+        PullRequestRef of(String project, String task) throws Refused;
     }
 
     /**

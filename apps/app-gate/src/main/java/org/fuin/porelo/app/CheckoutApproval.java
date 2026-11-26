@@ -309,19 +309,7 @@ final class CheckoutApproval {
      */
     private String branchOf(final String task) {
         if (gateProject != null) {
-            final TaskIdentity identity = TaskHistory.forPush(context, gateProject.name(), task);
-            if (identity == null) return "porelo/" + task;
-            final String container = identity.container();
-            org.fuin.porelo.wire.TaskProfile profile =
-                    org.fuin.porelo.wire.TaskProfile.readFrom(
-                            context.paths().tasks().containerState(container));
-            if (profile == null) {
-                // Kept over a restart, when the runtime directory is gone.
-                profile =
-                        org.fuin.porelo.wire.TaskProfile.readFrom(
-                                context.paths().tasks().taskRecord(container));
-            }
-            final String recorded = profile == null ? null : profile.forgeBranchOrToday();
+            final String recorded = RecordedBranch.of(context, gateProject.name(), task);
             if (recorded != null) {
                 return recorded;
             }

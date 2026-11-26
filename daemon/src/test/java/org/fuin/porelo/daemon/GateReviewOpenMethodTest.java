@@ -89,7 +89,11 @@ class GateReviewOpenMethodTest {
                                 journal,
                                 ends::read,
                                 url -> java.util.Optional.empty(),
-                                instance -> java.util.Optional.empty())));
+                                instance -> java.util.Optional.empty(),
+                                (project, task) -> {
+                                    throw new ReviewOpen.Refused(
+                                            "NoPullRequest", Map.of("branch", "porelo/" + task));
+                                })));
         Thread.ofVirtual().start(server);
         client = new VarlinkClient(server.socketPath());
     }
@@ -262,6 +266,51 @@ class GateReviewOpenMethodTest {
                 asked(Map.of("gatePush", Map.of("name", "shop-2"), "pullRequest", "feature")),
                 "place");
         invalid(asked(gatePush("shop-2"), "role", "OWNER"), "role");
+    }
+
+    @Test
+    void theOwnPullRequestWithNoneOpenIsRefusedByTheContractsNameWithTheBranch() {
+        assertThatThrownBy(
+                        () ->
+                                client.call(
+                                        method("ReviewOpen"),
+                                        asked(Map.of("ownPullRequest", true), "task", "shop-2")))
+                .as("no pull request is open from the task's branch")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex -> {
+                            assertThat(ex.getErrorName())
+                                    .as("the error")
+                                    .isEqualTo(method("NoPullRequest"));
+                            assertThat(ex.getParameters())
+                                    .as("the branch")
+                                    .containsEntry("branch", "porelo/shop-2");
+                        });
+    }
+
+    @Test
+    void aReviewerAtTheOwnPullRequestIsRefusedAsRoleNotAllowed() {
+        assertThatThrownBy(
+                        () ->
+                                client.call(
+                                        method("ReviewOpen"),
+                                        asked(
+                                                Map.of("ownPullRequest", true),
+                                                "task",
+                                                "shop-2",
+                                                "role",
+                                                "REVIEWER")))
+                .as("a reviewer does not review its own task's pull request")
+                .isInstanceOfSatisfying(
+                        VarlinkException.class,
+                        ex -> {
+                            assertThat(ex.getErrorName())
+                                    .as("the error")
+                                    .isEqualTo(method("RoleNotAllowed"));
+                            assertThat(ex.getParameters())
+                                    .as("the role")
+                                    .containsEntry("role", "REVIEWER");
+                        });
     }
 
     private void invalid(final Map<String, Object> call, final String parameter) {
