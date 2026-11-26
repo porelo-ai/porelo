@@ -1,0 +1,2 @@
+title: Removing a task drops its review holds, so a new task of the same name starts with none held
+type: fixed

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.process.CommandResult;
+import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.runtime.Podman.ContainerState;
@@ -461,6 +462,10 @@ public final class TaskControl {
                                 org.fuin.porelo.gate.PinnedRepository.remove(
                                         context.paths().tasks().pinnedRepository(container)),
                         () -> new TaskGiven(context.paths()).forget(container),
+                        // Keyed by the task's name, so a new task of the name starts with none.
+                        () ->
+                                new HoldJournal(context.paths().gate().reviewHolds())
+                                        .remove(container),
                         more)) {
             try {
                 deletion.run();
