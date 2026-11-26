@@ -37,6 +37,9 @@ class ProfileTranslatorTest {
         assertThat(read.completeness())
                 .as("the page's completeness")
                 .isEqualTo(Completeness.COMPLETE);
+        assertThat(read.resolved())
+                .as("the thread both of whose results say resolved")
+                .containsExactly("1834530112");
         assertThat(read.items())
                 .as("the forge page's items, each at the time the forge gave it")
                 .containsExactly(
@@ -91,6 +94,7 @@ class ProfileTranslatorTest {
         assertThat(read.completeness())
                 .as("a submission's completeness")
                 .isEqualTo(Completeness.COMPLETE);
+        assertThat(read.resolved()).as("a submission's resolved threads").isEmpty();
         assertThat(read.items())
                 .as("the submitted comment")
                 .containsExactly(
@@ -185,6 +189,20 @@ class ProfileTranslatorTest {
         assertThat(refused.getMessage())
                 .as("%s's refusal, never its text", fixture)
                 .doesNotContain("MARKER");
+    }
+
+    @Test
+    void aThreadWhoseResultsDisagreeOnItsStateReadsAsOpen() throws Exception {
+        final String page = text("fixtures/forge-page.sarif.json");
+        final String resolved = "\"porelo/threadState\": \"resolved\"";
+        final int last = page.lastIndexOf(resolved);
+        final String mixed =
+                page.substring(0, last)
+                        + "\"porelo/threadState\": \"open\""
+                        + page.substring(last + resolved.length());
+        assertThat(translator.read(mixed.getBytes(StandardCharsets.UTF_8), ADAPTER).resolved())
+                .as("the resolved threads of a page whose reply calls its thread open")
+                .isEmpty();
     }
 
     @Test

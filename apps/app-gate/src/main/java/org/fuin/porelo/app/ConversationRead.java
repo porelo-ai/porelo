@@ -80,7 +80,8 @@ public final class ConversationRead {
      * @param ref The pull request.
      * @param pinned The state the run reviews; each comment is checked against its push.
      * @param credential The read credential, lent for this call and kept nowhere.
-     * @return Every comment kept or withheld, and how completely it was read.
+     * @return Every comment kept or withheld, the threads every item of which the forge marks
+     *     resolved, and how completely it was read.
      * @throws PlaceUnreadable As the adapter answered, when nothing could be read.
      */
     public Conversation read(
@@ -98,6 +99,8 @@ public final class ConversationRead {
         // A forge answers at least one page, so none at all is a short read.
         boolean shortened = answered.isEmpty();
         final List<ForgeComment> read = new ArrayList<>();
+        final Set<String> resolved = new HashSet<>();
+        final Set<String> open = new HashSet<>();
         for (int index = 0; index < answered.size(); index++) {
             final Optional<Page> page = page(answered.get(index), channel, ref.forge());
             if (page.isEmpty() || !fresh(page.get(), ids, opened)) {
@@ -111,7 +114,13 @@ public final class ConversationRead {
                 shortened = true;
             }
             read.addAll(page.get().comments());
+            for (final ForgeComment comment : page.get().comments()) {
+                (page.get().resolved().contains(comment.thread()) ? resolved : open)
+                        .add(comment.thread());
+            }
         }
+        // A thread whose items disagree reads as open, so no point is ever hidden.
+        resolved.removeAll(open);
         // Every opening comment the run keeps, wherever the read lists it: a reply listed before
         // its thread's opening comment still has a thread the run sees.
         final java.util.Map<ForgeComment, Optional<String>> opening =
@@ -141,6 +150,7 @@ public final class ConversationRead {
                         : refused ? PAGE_REFUSED : shortened ? PAGE_PARTIAL : null;
         return new Conversation(
                 items,
+                resolved,
                 withheld,
                 reason == null ? Completeness.COMPLETE : Completeness.PARTIAL,
                 reason);
@@ -209,11 +219,14 @@ public final class ConversationRead {
             }
             comments.add(comment);
         }
-        return Optional.of(new Page(comments, read.completeness()));
+        return Optional.of(new Page(comments, read.resolved(), read.completeness()));
     }
 
-    /** A page taken whole: its comments and what it says of itself. */
-    private record Page(List<ForgeComment> comments, Completeness completeness) {}
+    /**
+     * A page taken whole: its comments, the threads it calls resolved and what it says of itself.
+     */
+    private record Page(
+            List<ForgeComment> comments, Set<String> resolved, Completeness completeness) {}
 
     /**
      * Returns an item as a forge's comment, or null when the input path answered one that no forge

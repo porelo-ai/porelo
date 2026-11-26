@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentFields;
 import org.fuin.porelo.gate.review.CommentReading;
@@ -359,7 +360,7 @@ class ReviewOpenPullRequestTest {
     void page(final Completeness completeness, final ProfileItem... items) {
         final String name = "page-" + pages.size();
         pages.add(name);
-        reads.put(name, new ProfileRead(List.of(items), completeness));
+        reads.put(name, new ProfileRead(List.of(items), Set.of(), completeness));
     }
 
     @Test
@@ -421,36 +422,7 @@ class ReviewOpenPullRequestTest {
             throws Exception {
         pages.add(FORGE_PAGE);
         held.add(held("h1", ADDRESS));
-        final ReviewOpen translated =
-                new ReviewOpen(
-                        new ReviewOpen.Parts(
-                                (project, repository, name) -> {
-                                    throw new AssertionError("no gate push is asked about");
-                                },
-                                new ReviewStandIns.Store(),
-                                // The pinned push's findings, counted as at the gate: none here.
-                                push -> new ReviewCounts.Counts(0, 0, List.of()),
-                                task -> Optional.empty(),
-                                url ->
-                                        Optional.of(
-                                                new ForgeInstance(
-                                                        FORGE,
-                                                        "github",
-                                                        CommentReading.EXTENDED,
-                                                        null)),
-                                instance ->
-                                        Optional.of(
-                                                new ReviewOpen.PullRequestParts(
-                                                        forge,
-                                                        new ProfileTranslator(),
-                                                        pullRequests.check(),
-                                                        pullRequests.credentials(),
-                                                        pullRequests.places(),
-                                                        role,
-                                                        pullRequests.containers(),
-                                                        holds))));
-
-        final ReviewOpen.Answer answer = translated.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, null, TASK);
 
         assertThat(answer.points())
                 .as("octocat's open thread, its last word at the time the forge gave it")
@@ -464,6 +436,52 @@ class ReviewOpenPullRequestTest {
         assertThat(answer.held()).as("the one item held at this pull request").isEqualTo(1);
         assertThat(answer.reason()).as("no part missing").isNull();
         assertThat(answer.complete()).as("every item read with its time").isTrue();
+    }
+
+    @Test
+    void aResolvedThreadWhoseLastWordIsTheOtherSidesIsNoPoint() throws Exception {
+        final String resolved =
+                FORGE_PAGE.replace(
+                        "\"porelo/threadState\": \"open\"", "\"porelo/threadState\": \"resolved\"");
+        assertThat(resolved)
+                .as("the page with its thread marked resolved")
+                .isNotEqualTo(FORGE_PAGE);
+        pages.add(resolved);
+
+        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, null, TASK);
+
+        assertThat(answer.points())
+                .as("octocat wrote last, but the forge marks the thread resolved")
+                .isEmpty();
+        assertThat(answer.complete()).as("every item read with its time").isTrue();
+    }
+
+    /** The answer's parts with the one real input path, which reads an adapter's page as it is. */
+    private ReviewOpen translated() {
+        return new ReviewOpen(
+                new ReviewOpen.Parts(
+                        (project, repository, name) -> {
+                            throw new AssertionError("no gate push is asked about");
+                        },
+                        new ReviewStandIns.Store(),
+                        // The pinned push's findings, counted as at the gate: none here.
+                        push -> new ReviewCounts.Counts(0, 0, List.of()),
+                        task -> Optional.empty(),
+                        url ->
+                                Optional.of(
+                                        new ForgeInstance(
+                                                FORGE, "github", CommentReading.EXTENDED, null)),
+                        instance ->
+                                Optional.of(
+                                        new ReviewOpen.PullRequestParts(
+                                                forge,
+                                                new ProfileTranslator(),
+                                                pullRequests.check(),
+                                                pullRequests.credentials(),
+                                                pullRequests.places(),
+                                                role,
+                                                pullRequests.containers(),
+                                                holds))));
     }
 
     @Test
@@ -647,6 +665,7 @@ class ReviewOpenPullRequestTest {
                 pages.getFirst(),
                 new ProfileRead(
                         List.of(opening("101", OCTOCAT, AT), reply("102", "101", AUTHOR)),
+                        Set.of(),
                         Completeness.COMPLETE));
         final String answered = open.answer("uc", PLACE, null, TASK).version();
 

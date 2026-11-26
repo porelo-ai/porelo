@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.Completeness;
@@ -306,6 +307,7 @@ class PullRequestPlacesTest {
                         pinned,
                         new Conversation(
                                 List.of(),
+                                Set.of(),
                                 List.of(),
                                 org.fuin.porelo.gate.review.Completeness.COMPLETE,
                                 null));
@@ -429,6 +431,7 @@ class PullRequestPlacesTest {
                                         new ForgeAccount("review.stub.invalid", "7", "octocat"),
                                         new ReviewComment(at, new Body("Why?"), null),
                                         null)),
+                        Set.of(),
                         Completeness.COMPLETE));
     }
 

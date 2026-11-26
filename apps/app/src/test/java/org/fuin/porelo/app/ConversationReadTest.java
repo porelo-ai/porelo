@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentFields;
 import org.fuin.porelo.gate.review.Completeness;
@@ -124,6 +125,40 @@ class ConversationReadTest {
                 .as("the adapter given the lent credential")
                 .containsExactly(LENT);
         assertThat(adapter.refs).as("the adapter asked for the pull request").containsExactly(REF);
+    }
+
+    @Test
+    void aPageWithAResolvedThreadGivesAConversationNamingItAndNoOther() throws Exception {
+        final ProfileItem done = opening("401", OCTOCAT, "Rename this.");
+        final ProfileItem answer = reply("402", "401", REVIEWER, "Renamed.");
+        final ProfileItem open = opening("501", OCTOCAT, "Why twice?");
+        adapter.answer("p1");
+        reading.resolving("p1", Set.of("401"), Completeness.COMPLETE, done, answer, open);
+
+        final Conversation conversation = read.read(REF, PINNED, LENT);
+
+        assertThat(conversation.resolved())
+                .as("the threads the forge marks resolved")
+                .containsExactly("401");
+    }
+
+    @Test
+    void aThreadWhoseItemsDisagreeOnItsStateIsOpen() throws Exception {
+        // A page that calls a thread open must never be outvoted, or a point is hidden.
+        final ProfileItem first = opening("601", OCTOCAT, "Check the bound.");
+        final ProfileItem answer = reply("602", "601", OCTOCAT, "Still off by one.");
+        adapter.answer("p1", "p2");
+        reading.resolving("p1", Set.of("601"), Completeness.PARTIAL, first);
+        reading.resolving("p2", Set.of(), Completeness.COMPLETE, answer);
+
+        final Conversation conversation = read.read(REF, PINNED, LENT);
+
+        assertThat(conversation.items())
+                .as("both items read")
+                .containsExactly(kept(first), kept(answer));
+        assertThat(conversation.resolved())
+                .as("the resolved threads when one page calls the thread open")
+                .isEmpty();
     }
 
     @Test
@@ -571,17 +606,26 @@ class ConversationReadTest {
 
         /** A page that says more follow it. */
         void page(final String key, final ProfileItem... items) {
-            pages.put(key, new ProfileRead(List.of(items), Completeness.PARTIAL));
+            pages.put(key, new ProfileRead(List.of(items), Set.of(), Completeness.PARTIAL));
         }
 
         /** A page that says it is the last. */
         void last(final String key, final ProfileItem... items) {
-            pages.put(key, new ProfileRead(List.of(items), Completeness.COMPLETE));
+            pages.put(key, new ProfileRead(List.of(items), Set.of(), Completeness.COMPLETE));
         }
 
         /** A page that says the given word of itself. */
         void saying(final String key, final Completeness word, final ProfileItem... items) {
-            pages.put(key, new ProfileRead(List.of(items), word));
+            pages.put(key, new ProfileRead(List.of(items), Set.of(), word));
+        }
+
+        /** A page that says the given word of itself and names its resolved threads. */
+        void resolving(
+                final String key,
+                final Set<String> resolved,
+                final Completeness word,
+                final ProfileItem... items) {
+            pages.put(key, new ProfileRead(List.of(items), resolved, word));
         }
 
         void refuse(final String key) {

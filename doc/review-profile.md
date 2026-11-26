@@ -39,7 +39,7 @@ theirs.
 | `porelo/diffSide` | `old` (the base's version of the file) or `new` (the reviewed commit's) |
 | `porelo/threadId` | the thread the item belongs to |
 | `porelo/replyTo` | a reply only: the thread it answers |
-| `porelo/threadState` | `open` or `resolved`; resolving clears no finding and approves nothing |
+| `porelo/threadState` | `open` or `resolved`; resolving clears no finding and approves nothing. On the pages Porelo writes for a task, each result says `resolved` when its thread is among the conversation's resolved threads, else `open`; a thread reads as resolved only when every result of it says so |
 | `porelo/sourceKind` | who gave the item, by channel |
 | `porelo/taskId` | with `task` only: the task's name |
 

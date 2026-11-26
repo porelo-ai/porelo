@@ -49,9 +49,6 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
     /** The most bytes of UTF-8 one result takes, as every profile reader holds it. */
     static final int MAX_RESULT_BYTES = 32 << 10;
 
-    // No conversation keeps a thread's state, and open withholds nothing from the run.
-    private static final String THREAD_STATE = "open";
-
     private static final Pattern UUID4 =
             Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
 
@@ -102,8 +99,10 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
      *
      * <p>Each thread's items follow its opening comment, threads in the order they opened; a reply
      * stands at its thread's place. Every page but the last says {@code partial}, the last the
-     * conversation's completeness. Profile 2 has no field for an incomplete conversation's reason,
-     * so it is not written here; the delivery's note text carries it.
+     * conversation's completeness. Each result says {@code resolved} when its thread is among the
+     * conversation's resolved threads, {@code open} otherwise. Profile 2 has no field for an
+     * incomplete conversation's reason, so it is not written here; the delivery's note text carries
+     * it.
      *
      * @throws IllegalArgumentException When an item is not a forge account's at this forge or
      *     carries no time, a reply's thread opens with no comment of the conversation, or one item
@@ -129,7 +128,14 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
                     throw new IllegalArgumentException(
                             "a reply's thread opens with no comment of the conversation");
                 }
-                results.add(bounded(Json.write(pageResult(facts, kept, place))));
+                results.add(
+                        bounded(
+                                Json.write(
+                                        pageResult(
+                                                facts,
+                                                kept,
+                                                place,
+                                                conversation.resolved().contains(kept.thread())))));
             }
         }
         final List<byte[]> pages = new ArrayList<>();
@@ -161,6 +167,9 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
     /**
      * {@inheritDoc}
      *
+     * <p>The item's thread is written {@code open}: the filter judges the item's own text, which a
+     * thread's state does not change.
+     *
      * @throws IllegalArgumentException When the root is not the item's thread's opening comment (a
      *     comment's own root is itself), the item is not a forge account's at this forge or carries
      *     no time, or it passes a result's bound.
@@ -173,7 +182,8 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
             throw new IllegalArgumentException(
                     "the root is not the item's thread's opening comment");
         }
-        final String result = bounded(Json.write(pageResult(facts, item, line(opening.anchor()))));
+        final String result =
+                bounded(Json.write(pageResult(facts, item, line(opening.anchor()), false)));
         return pullRequestDocument(facts, List.of(result), Completeness.COMPLETE.word())
                 .getBytes(StandardCharsets.UTF_8);
     }
@@ -218,10 +228,14 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
 
     /**
      * A conversation's item as a page's result: its guid, the forge's ids, its account and the time
-     * the forge gave it, which the profile requires of every forge account's item.
+     * the forge gave it, which the profile requires of every forge account's item, and its thread's
+     * state.
      */
     private static Map<String, Object> pageResult(
-            final PullRequestFacts facts, final Kept kept, final LineAnchor place) {
+            final PullRequestFacts facts,
+            final Kept kept,
+            final LineAnchor place,
+            final boolean resolved) {
         if (!(kept.origin().producer() instanceof ForgeAccount account)
                 || !account.forge().equals(facts.ref().forge())) {
             throw new IllegalArgumentException(
@@ -255,7 +269,7 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
                 properties.put("porelo/replyTo", reply.thread());
             }
         }
-        properties.put("porelo/threadState", THREAD_STATE);
+        properties.put("porelo/threadState", resolved ? "resolved" : "open");
         properties.put("porelo/sourceKind", "forge-account");
         properties.put("porelo/forgeAccountId", account.id());
         properties.put("porelo/forgeAccountName", account.name());

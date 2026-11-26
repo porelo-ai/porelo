@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.Completeness;
 import org.fuin.porelo.gate.review.Conversation;
@@ -158,7 +159,8 @@ class PullRequestRunStartTest {
                                                 HEAD,
                                                 "b".repeat(40),
                                                 "c".repeat(64)),
-                        (document, channel) -> new ProfileRead(List.of(), Completeness.COMPLETE),
+                        (document, channel) ->
+                                new ProfileRead(List.of(), Set.of(), Completeness.COMPLETE),
                         new ReviewStandIns.Check(),
                         writing,
                         entry -> new ForgeCredential(entry, "t"),

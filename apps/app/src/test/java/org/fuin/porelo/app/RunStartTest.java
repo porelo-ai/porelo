@@ -154,6 +154,26 @@ class RunStartTest {
     }
 
     @Test
+    void theDeliveredConversationCarriesTheThreadsTheForgeMarksResolved() throws Exception {
+        place.items =
+                List.of(
+                        comment("101", OCTOCAT, "This loses the order."),
+                        comment("201", OCTOCAT, "Name this better."));
+        place.resolved = Set.of("101");
+
+        start.start(TASK, Role.REVIEWER, place);
+
+        assertThat(place.written)
+                .as("the conversation the pages are written from")
+                .singleElement()
+                .satisfies(
+                        conversation ->
+                                assertThat(conversation.resolved())
+                                        .as("its resolved threads")
+                                        .containsExactly("101"));
+    }
+
+    @Test
     void aSecondStartDeliversTheWholeConversationAgainTheFirstRunsAnswersIncluded()
             throws Exception {
         // Core knows no sequence of runs: every run reads and delivers all of it.
@@ -493,6 +513,7 @@ class RunStartTest {
         final Pinned pinned = new Pinned(SHOP, null);
         List<Kept> items = List.of();
         List<Withheld> withheld = List.of();
+        Set<String> resolved = Set.of();
         Completeness completeness = Completeness.COMPLETE;
         @Nullable String reason;
         @Nullable PlaceUnreadable unreadable;
@@ -522,7 +543,7 @@ class RunStartTest {
             if (unreadable != null) {
                 throw unreadable;
             }
-            return new Conversation(items, withheld, completeness, reason);
+            return new Conversation(items, resolved, withheld, completeness, reason);
         }
 
         @Override

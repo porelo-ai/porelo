@@ -151,7 +151,12 @@ public final class RunStart {
             throw new RunRefused(RunRefused.Step.JUDGE, unjudged);
         }
         final Conversation delivered =
-                new Conversation(passed, read.withheld(), read.completeness(), read.reason());
+                new Conversation(
+                        passed,
+                        read.resolved(),
+                        read.withheld(),
+                        read.completeness(),
+                        read.reason());
         try {
             delivery.deliver(
                     task,

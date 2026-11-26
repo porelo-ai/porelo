@@ -325,7 +325,7 @@ class RunIntakeTest {
             if (refusal != null) {
                 throw refusal;
             }
-            return new ProfileRead(items, Completeness.COMPLETE);
+            return new ProfileRead(items, Set.of(), Completeness.COMPLETE);
         }
     }
 

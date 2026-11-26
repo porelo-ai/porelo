@@ -11,6 +11,7 @@ import com.contrastsecurity.sarif.Run;
 import com.contrastsecurity.sarif.SarifSchema210;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +29,9 @@ import org.jspecify.annotations.Nullable;
  * forge's accounts, named by the fields the profile requires of a forge page, each item at the time
  * the forge says it was written; a task's submission is the task's, without an id, a thread or a
  * time. A refusal names a rule and a JSON Pointer, never the document's text.
+ *
+ * <p>An adapter's page also names its resolved threads: those every one of whose results on the
+ * page says {@code resolved}.
  */
 public final class ProfileTranslator implements ProfileReading {
 
@@ -47,6 +51,8 @@ public final class ProfileTranslator implements ProfileReading {
             throw new ProfileRefused(rule(e));
         }
         final List<ProfileItem> items = new ArrayList<>();
+        final Set<String> resolved = new HashSet<>();
+        final Set<String> open = new HashSet<>();
         Completeness completeness = Completeness.COMPLETE;
         final List<Run> runs = sarif.getRuns();
         for (int i = 0; i < runs.size(); i++) {
@@ -56,6 +62,9 @@ public final class ProfileTranslator implements ProfileReading {
             }
             final List<Result> results = run.getResults();
             for (int j = 0; j < results.size(); j++) {
+                if (channel instanceof ProfileChannel.Adapter) {
+                    state(results.get(j), resolved, open);
+                }
                 try {
                     items.add(item(results.get(j), channel));
                 } catch (final RuntimeException e) {
@@ -70,7 +79,30 @@ public final class ProfileTranslator implements ProfileReading {
                 }
             }
         }
-        return new ProfileRead(items, completeness);
+        // A thread one of whose results says open stays open, so no point is ever hidden.
+        resolved.removeAll(open);
+        return new ProfileRead(items, resolved, completeness);
+    }
+
+    /**
+     * Takes a forge result's thread into the threads it calls resolved or the ones it calls open.
+     */
+    private static void state(
+            final Result result, final Set<String> resolved, final Set<String> open) {
+        final Map<String, Object> properties = bag(result.getProperties());
+        String thread = text(properties, "porelo/threadId");
+        if (thread == null) {
+            thread = text(properties, "porelo/replyTo");
+        }
+        if (thread == null) {
+            // Not reached by a checked page: its schema requires porelo/threadId on every result.
+            return;
+        }
+        if ("resolved".equals(properties.get("porelo/threadState"))) {
+            resolved.add(thread);
+        } else {
+            open.add(thread);
+        }
     }
 
     private static ProfileItem item(final Result result, final ProfileChannel channel) {

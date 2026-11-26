@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.fuin.porelo.build.api.review.ProfileCheck;
 import org.fuin.porelo.build.api.review.SarifReading;
@@ -110,6 +111,39 @@ class ProfileWritingTest {
     }
 
     @Test
+    void aResolvedThreadIsWrittenResolvedOnEachOfItsResultsAndAnOpenOneOpen() throws Exception {
+        final Conversation conversation =
+                new Conversation(
+                        twoThreads().items(),
+                        Set.of("1834530112"),
+                        List.of(),
+                        Completeness.COMPLETE,
+                        null);
+        final byte[] page = writer.pages(FACTS, conversation).get(0);
+        assertThatCode(
+                        () ->
+                                ProfileCheck.check(
+                                        ProfileCheck.Channel.ADAPTER, SarifReading.read(page)))
+                .as("the page with a resolved thread read and checked as an adapter's page")
+                .doesNotThrowAnyException();
+        assertThat(
+                        results(parse(page)).stream()
+                                .map(result -> map(result.get("properties")))
+                                .map(
+                                        properties ->
+                                                properties.get("porelo/threadId")
+                                                        + " "
+                                                        + properties.get("porelo/threadState"))
+                                .toList())
+                .as("each result's thread and its state")
+                .containsExactly(
+                        "1834527690 open",
+                        "1834527690 open",
+                        "1834530112 resolved",
+                        "1834530112 resolved");
+    }
+
+    @Test
     void theItemsComeInThreadOrderEachThreadsItemsInTheirs() {
         final Kept first = comment("100", OCTOCAT, LOGIN, "First thread.", null);
         final Kept second = comment("200", MONA, SESSION, "Second thread.", null);
@@ -121,6 +155,7 @@ class ProfileWritingTest {
                                                 FACTS,
                                                 new Conversation(
                                                         List.of(first, second, answer),
+                                                        Set.of(),
                                                         List.of(),
                                                         Completeness.COMPLETE,
                                                         null))
@@ -134,7 +169,11 @@ class ProfileWritingTest {
     void anIncompleteConversationSaysSoOnItsLastPage() {
         final Conversation partial =
                 new Conversation(
-                        twoThreads().items(), List.of(), Completeness.PARTIAL, "RateLimited");
+                        twoThreads().items(),
+                        Set.of(),
+                        List.of(),
+                        Completeness.PARTIAL,
+                        "RateLimited");
         assertThat(map(run(parse(writer.pages(FACTS, partial).get(0))).get("properties")))
                 .as("the last page's properties")
                 .containsEntry("porelo/completeness", "partial");
@@ -148,7 +187,8 @@ class ProfileWritingTest {
         }
         final List<byte[]> pages =
                 writer.pages(
-                        FACTS, new Conversation(items, List.of(), Completeness.COMPLETE, null));
+                        FACTS,
+                        new Conversation(items, Set.of(), List.of(), Completeness.COMPLETE, null));
         assertThat(pages.stream().map(page -> results(parse(page)).size()).toList())
                 .as("the results per page")
                 .containsExactly(100, 50);
@@ -177,7 +217,8 @@ class ProfileWritingTest {
         }
         final List<byte[]> pages =
                 writer.pages(
-                        FACTS, new Conversation(items, List.of(), Completeness.COMPLETE, null));
+                        FACTS,
+                        new Conversation(items, Set.of(), List.of(), Completeness.COMPLETE, null));
         assertThat(pages).as("a conversation of over a page's bytes").hasSizeGreaterThan(1);
         for (final byte[] page : pages) {
             assertThat(page.length)
@@ -217,6 +258,7 @@ class ProfileWritingTest {
                                         FACTS,
                                         new Conversation(
                                                 List.of(huge),
+                                                Set.of(),
                                                 List.of(),
                                                 Completeness.COMPLETE,
                                                 null)))
@@ -229,7 +271,9 @@ class ProfileWritingTest {
     void anEmptyConversationIsOnePageWithoutResults() throws Exception {
         final List<byte[]> pages =
                 writer.pages(
-                        FACTS, new Conversation(List.of(), List.of(), Completeness.COMPLETE, null));
+                        FACTS,
+                        new Conversation(
+                                List.of(), Set.of(), List.of(), Completeness.COMPLETE, null));
         assertThat(pages).as("the pages of an empty conversation").hasSize(1);
         assertThat(
                         ProfileCheck.check(
@@ -259,6 +303,7 @@ class ProfileWritingTest {
                                             FACTS,
                                             new Conversation(
                                                     List.of(kept),
+                                                    Set.of(),
                                                     List.of(),
                                                     Completeness.COMPLETE,
                                                     null)))
@@ -281,6 +326,7 @@ class ProfileWritingTest {
                                         FACTS,
                                         new Conversation(
                                                 List.of(untimed),
+                                                Set.of(),
                                                 List.of(),
                                                 Completeness.COMPLETE,
                                                 null)))
@@ -299,6 +345,7 @@ class ProfileWritingTest {
                                         FACTS,
                                         new Conversation(
                                                 List.of(reply("9", MONA, "Lost.")),
+                                                Set.of(),
                                                 List.of(),
                                                 Completeness.COMPLETE,
                                                 null)))
@@ -447,6 +494,7 @@ class ProfileWritingTest {
                                 "Was this fallback removed on purpose?",
                                 null),
                         reply("1834530112", OCTOCAT, "Yes: the gateway sets {the} cookie.")),
+                Set.of(),
                 List.of(),
                 Completeness.COMPLETE,
                 null);

@@ -11,7 +11,9 @@ import static org.fuin.porelo.gate.review.ProfileWritingTest.reply;
 import static org.fuin.porelo.gate.review.ProfileWritingTest.twoThreads;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,6 +43,29 @@ class ProfileRoundTripTest {
         assertThat(read.completeness())
                 .as("the completeness read back")
                 .isEqualTo(Completeness.COMPLETE);
+        assertThat(read.resolved()).as("the resolved threads read back").isEmpty();
+    }
+
+    @Test
+    void aResolvedThreadReadsBackResolvedOverSeveralPages() throws ProfileRefused {
+        final List<Kept> kept = new ArrayList<>();
+        final Set<String> resolved = new HashSet<>();
+        for (int i = 0; i < 130; i++) {
+            final String thread = String.valueOf(5000 + i);
+            kept.add(comment(thread, OCTOCAT, LOGIN, "Comment " + i + ".", null));
+            kept.add(reply(thread, MONA, "Reply " + i + "."));
+            if (i % 3 == 0) {
+                resolved.add(thread);
+            }
+        }
+        final Set<String> read = new HashSet<>();
+        for (final byte[] page :
+                writer.pages(
+                        FACTS,
+                        new Conversation(kept, resolved, List.of(), Completeness.COMPLETE, null))) {
+            read.addAll(translator.read(page, ADAPTER).resolved());
+        }
+        assertThat(read).as("the resolved threads read back").isEqualTo(resolved);
     }
 
     @Test
@@ -58,7 +83,8 @@ class ProfileRoundTripTest {
         for (final byte[] page :
                 writer.pages(
                         FACTS,
-                        new Conversation(kept, List.of(), Completeness.PARTIAL, "PagePartial"))) {
+                        new Conversation(
+                                kept, Set.of(), List.of(), Completeness.PARTIAL, "PagePartial"))) {
             final ProfileRead one = translator.read(page, ADAPTER);
             read.addAll(one.items());
             last = one.completeness();
@@ -128,6 +154,7 @@ class ProfileRoundTripTest {
                                                         FACTS,
                                                         new Conversation(
                                                                 List.of(kept),
+                                                                Set.of(),
                                                                 List.of(),
                                                                 Completeness.COMPLETE,
                                                                 null))

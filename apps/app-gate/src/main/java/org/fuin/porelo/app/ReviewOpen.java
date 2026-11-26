@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.Repository;
 import org.fuin.porelo.gate.GateException;
@@ -307,11 +308,13 @@ public final class ReviewOpen {
                                 recorded.recordedId()),
                         facts);
         List<Kept> items;
+        Set<String> resolved;
         try {
             final Conversation conversation =
                     new ConversationRead(reader.forge(), reader.reading(), reader.check())
                             .read(ref, pinned, credential);
             items = conversation.items();
+            resolved = conversation.resolved();
             if (conversation.reason() != null) {
                 reading.incomplete(conversation.reason());
             }
@@ -321,9 +324,10 @@ public final class ReviewOpen {
             }
             // The facts were read, so the decision stands; the threads are what is missing.
             items = List.of();
+            resolved = Set.of();
             reading.incomplete("Unreachable");
         }
-        final List<Point> points = forgePoints(items, side, reading);
+        final List<Point> points = forgePoints(items, resolved, side, reading);
         int findings = 0;
         try {
             findings = parts.counts().of(pinned.push()).openFindings();
@@ -384,11 +388,14 @@ public final class ReviewOpen {
     }
 
     /**
-     * The open points of a pull request's conversation: each thread, in the order it was read,
-     * whose last item is not the asking side's.
+     * The open points of a pull request's conversation: each thread, in the order it was read, not
+     * resolved on the forge and whose last item is not the asking side's.
      */
     private static List<Point> forgePoints(
-            final List<Kept> items, final Producer side, final Reading reading) {
+            final List<Kept> items,
+            final Set<String> resolved,
+            final Producer side,
+            final Reading reading) {
         final Map<String, List<Kept>> threads = new LinkedHashMap<>();
         for (final Kept item : items) {
             threads.computeIfAbsent(item.thread(), id -> new ArrayList<>()).add(item);
@@ -397,7 +404,7 @@ public final class ReviewOpen {
         for (final Map.Entry<String, List<Kept>> thread : threads.entrySet()) {
             final Kept last = thread.getValue().getLast();
             final Producer by = last.origin().producer();
-            if (same(by, side)) {
+            if (resolved.contains(thread.getKey()) || same(by, side)) {
                 continue;
             }
             Instant at = last.at();
