@@ -104,6 +104,43 @@ class PublishWorkflowTest {
                 .isEqualTo(List.of("build", "proven", "legs", "native"));
     }
 
+    @Test
+    void aDispatchOnMainWithPublishOnlyPublishesAfterTheNativeBinariesAlone() throws IOException {
+        for (final String nativeResult : List.of("success", "skipped", "failure", "cancelled")) {
+            final Map<String, String> inputs = publishOnly("true", "refs/heads/main");
+            inputs.put("needs.native.result", nativeResult);
+            assertThat(runs(deployJob(), inputs))
+                    .as("native " + nativeResult)
+                    .isEqualTo(nativeResult.equals("success"));
+        }
+        final Map<String, String> branch = publishOnly("true", "refs/heads/porelo/x");
+        assertThat(runs(deployJob(), branch)).as("a branch").isFalse();
+        final Map<String, String> canceled = publishOnly("true", "refs/heads/main");
+        canceled.put("cancelled", "true");
+        assertThat(runs(deployJob(), canceled)).as("canceled workflow").isFalse();
+        for (final String value : List.of("false", "")) {
+            assertThat(runs(deployJob(), publishOnly(value, "refs/heads/main")))
+                    .as("publish_only '" + value + "'")
+                    .isFalse();
+        }
+        assertThat(runs(nativeJob(), publishOnly("true", "refs/heads/main"))).isTrue();
+        assertThat(runs(nativeJob(), publishOnly("false", "refs/heads/main"))).isFalse();
+        assertThat(runs(nativeJob(), publishOnly("true", "refs/heads/porelo/x"))).isFalse();
+        assertThat(runningSteps(publishOnly("true", "refs/heads/main")))
+                .contains("Build and install", "Build the packages", "Deploy the jars");
+    }
+
+    /** A dispatch with the unit job, the proof and the legs skipped and the binaries built. */
+    private static Map<String, String> publishOnly(final String value, final String ref) {
+        final Map<String, String> inputs = inputs("", ref);
+        inputs.put("github.event_name", "workflow_dispatch");
+        inputs.put("github.event.inputs.publish_only", value);
+        inputs.put("needs.build.result", "skipped");
+        inputs.put("needs.legs.result", "skipped");
+        inputs.put("needs.native.result", "success");
+        return inputs;
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "true", "other"})
     void centralKeepsEveryPackageStep(final String publish) throws IOException {
@@ -324,28 +361,31 @@ class PublishWorkflowTest {
     }
 
     private static Map<String, String> inputs(final String publish, final String ref) {
-        return new HashMap<>(
-                Map.of(
-                        "cancelled",
-                        "false",
-                        "needs.build.result",
-                        "success",
-                        "needs.legs.result",
-                        "skipped",
-                        "needs.proven.outputs.proven",
-                        "",
-                        "needs.native.result",
-                        "skipped",
-                        "vars.PORELO_PUBLISH",
-                        publish,
-                        "github.event_name",
-                        "push",
-                        "github.ref",
-                        ref,
-                        "steps.channel.outputs.channel",
-                        ref.startsWith("refs/tags/") ? "releases" : "snapshots",
-                        "steps.packages-cache.outputs.cache-hit",
-                        ""));
+        final Map<String, String> inputs =
+                new HashMap<>(
+                        Map.of(
+                                "cancelled",
+                                "false",
+                                "needs.build.result",
+                                "success",
+                                "needs.legs.result",
+                                "skipped",
+                                "needs.proven.outputs.proven",
+                                "",
+                                "needs.native.result",
+                                "skipped",
+                                "vars.PORELO_PUBLISH",
+                                publish,
+                                "github.event_name",
+                                "push",
+                                "github.ref",
+                                ref,
+                                "steps.channel.outputs.channel",
+                                ref.startsWith("refs/tags/") ? "releases" : "snapshots",
+                                "steps.packages-cache.outputs.cache-hit",
+                                ""));
+        inputs.put("github.event.inputs.publish_only", "");
+        return inputs;
     }
 
     private static Map<String, String> qualifiedInputs(final String publish) {
@@ -396,6 +436,10 @@ class PublishWorkflowTest {
 
     private static Map<?, ?> deployJob() throws IOException {
         return (Map<?, ?>) jobs().get("deploy");
+    }
+
+    private static Map<?, ?> nativeJob() throws IOException {
+        return (Map<?, ?>) jobs().get("native");
     }
 
     private static Map<?, ?> jobs() throws IOException {

@@ -18,6 +18,7 @@ on:
     workflow_dispatch:
         inputs:
             # On main only: the native binaries on the runner and Publish, with no unit tests, no proof and no legs.
+            # Read as github.event.inputs.publish_only, the string 'true' or 'false', the same in every condition.
             publish_only:
                 description: Publish a snapshot from main without any tests
                 type: boolean
@@ -47,7 +48,7 @@ jobs:
         # About three times a normal run (20 min on 2026-10-31: 18 for the verify, then the FFM check): GitHub's
         # default is six hours, and a slow runner once took 14 times as long.
         timeout-minutes: 75
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.publish_only) }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && github.event.inputs.publish_only == 'true') }}
         # To cancel this run's legs when it fails, and nothing else.
         permissions:
             contents: read
@@ -168,7 +169,7 @@ jobs:
         # Not when a run already proved this tree: 'proven' is skipped on a tag and a dispatch, which always run.
         if: >-
             !cancelled() && needs.proven.outputs.proven != 'yes'
-            && !(github.event_name == 'workflow_dispatch' && inputs.publish_only)
+            && !(github.event_name == 'workflow_dispatch' && github.event.inputs.publish_only == 'true')
             && github.server_url == 'https://github.com'
             && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push'
                 && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))))
@@ -233,7 +234,7 @@ jobs:
         # Or a dispatch on main that publishes without tests, where 'proven' is skipped.
         if: >-
             !cancelled() && (needs.proven.outputs.proven == 'yes'
-                || (github.event_name == 'workflow_dispatch' && inputs.publish_only
+                || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_only == 'true'
                     && github.ref == 'refs/heads/main'))
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -318,7 +319,7 @@ jobs:
                     || vars.PORELO_PUBLISH == 'false')
                 && github.event_name == 'push'
                 && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
-            || (github.event_name == 'workflow_dispatch' && inputs.publish_only
+            || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish_only == 'true'
                 && github.ref == 'refs/heads/main' && needs.native.result == 'success'))
         # Central answers 429 to a burst of downloads too, and this job fetches plugins no earlier job used: every
         # Maven call here tries a throttled request again after a pause rather than failing the publish.
