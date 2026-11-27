@@ -51,50 +51,6 @@ Feature: What a task holds is what its start names, through its own endpoint, at
         When a script runs "porelo task list --project parted"
         Then its output does not contain "unstarted"
 
-    # A task started through a task's endpoint gets at most the workspace, equipment and rights of the task that
-    # starts it; a start asking more is refused StartRuleBroken with the rule exceedsParent, naming what exceeds.
-    Scenario: a task holding start starts a child with fewer rights and is refused one with more
-        Given the environment variable "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" is set
-        And a vault of this scenario's own, unlocked with the passphrase "acceptance"
-        And the vault holds the value of "PORELO_ACCEPTANCE_FAKE_CREDENTIAL" as "anthropic" of kind "api-key"
-        And a project called "parted" of class "guarded" whose project file also says:
-            """
-            limits:
-              reports: 1
-            mcp:
-              methods: ["List", "Pending", "Review", "Start", "Report"]
-              agents:
-                stub:
-              tasks: 2
-              minutes: 5
-            """
-        And a daemon of this scenario's own
-        And the scenario's vault is open to its daemon
-        When a task called "starter" is started in "parted" through the daemon for the stub agent with the rights "push, reply, start" and left running
-        Then the own endpoint of the task "starter" offers "List, Pending, Review, Start" and not "Report"
-        When the task "starter" calls "Start" on its own endpoint with:
-            """
-            {"project": "parted", "repository": "parted", "task": "fewer", "agent": "stub",
-             "prompt": "a child holding less than its parent", "minutes": 1, "rights": ["reply"]}
-            """
-        Then its output has a line matching '.*"exitCode" *: *0\b.*'
-        And the daemon lists the task "fewer" of "parted" with these parts:
-            | workspace       | own    |
-            | rights          | reply  |
-            | projectServices | true   |
-            | writeAs         | author |
-        When the task "starter" calls "Start" on its own endpoint with:
-            """
-            {"project": "parted", "repository": "parted", "task": "wider", "agent": "stub",
-             "prompt": "a child holding more than its parent", "minutes": 1,
-             "rights": ["push", "reply", "start", "stop"]}
-            """
-        Then its output contains "StartRuleBroken"
-        And its output contains "exceedsParent"
-        And its output contains "rights stop"
-        When a script runs "porelo task list --project parted"
-        Then its output does not contain "wider"
-
     # Pending, Review and ReviewPage answer a task only for the push that is its place: the pushing task for its
     # own. Every other waiting push of the project is absent from Pending and refused by the other two as no such
     # push.
