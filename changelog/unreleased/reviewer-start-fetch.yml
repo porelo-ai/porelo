@@ -1,0 +1,2 @@
+title: A reviewer's start no longer says its workspace starts without its remote while its pinned state is still being made; it is fetched once pinned
+type: fixed

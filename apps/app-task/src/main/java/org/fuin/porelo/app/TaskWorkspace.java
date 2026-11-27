@@ -399,15 +399,18 @@ public class TaskWorkspace {
                 // Within a limit, where the image has 'timeout': a remote that never answers - an
                 // ssh port dropped on the way - held the launch for its whole time, with nothing
                 // said. What became of it is printed for the launch to report; the task starts
-                // without the remote either way.
+                // without the remote either way. A reviewer's gate serves only its pinned
+                // repository, which a first start makes after the workspace and fetches with the
+                // pin: its failing here is no fault to report.
                 + "if command -v timeout >/dev/null 2>&1; then timeout "
                 + fetchSeconds
                 + " git fetch -q --multiple porelo origin; "
-                + "else git fetch -q --multiple porelo origin; fi >/dev/null 2>.git/porelo-fetch.err && fetched=1 || { echo \""
+                + "else git fetch -q --multiple porelo origin; fi >/dev/null 2>.git/porelo-fetch.err && fetched=1 || { rc=$?;"
+                + " if [ -z \"${PORELO_PINNED_REF:-}\" ]; then echo \""
                 + FETCH_FAILED
-                + " $?\"; tail -n 5 .git/porelo-fetch.err | sed 's/^/"
+                + " $rc\"; tail -n 5 .git/porelo-fetch.err | sed 's/^/"
                 + FETCH_SAID
-                + " /'; }; "
+                + " /'; fi; }; "
                 + "if ! git rev-parse HEAD >/dev/null 2>&1; then "
                 // Which branch the mirror calls its own, asked rather than assumed: a repository
                 // seeded from a checkout on 'master' has no 'main' at all. Asks the remote again,
@@ -434,8 +437,8 @@ public class TaskWorkspace {
                 // and nothing ever appears for review. A push that silently misses the gate is the
                 // failure this whole product exists to prevent, and it was one obvious command
                 // away. Said for the launch: a workspace with nothing in it after a fetch that
-                // failed has nothing to work on.
-                + "if ! git rev-parse -q --verify HEAD >/dev/null 2>&1; then echo \""
+                // failed has nothing to work on; a reviewer's has nothing until its pin.
+                + "if [ -z \"${PORELO_PINNED_REF:-}\" ] && ! git rev-parse -q --verify HEAD >/dev/null 2>&1; then echo \""
                 + EMPTY
                 + "\"; fi; "
                 + "if [ -n \"$PORELO_TASK_REF\" ]; then "

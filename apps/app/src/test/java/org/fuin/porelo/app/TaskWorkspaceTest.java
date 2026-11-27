@@ -314,6 +314,64 @@ class TaskWorkspaceTest {
                 .isNull();
     }
 
+    @Test
+    void aReviewerIsNotSaidToStartWithoutItsRemoteBeforeItsRunIsPinned(@TempDir Path root)
+            throws Exception {
+
+        // Harm: every reviewer's start said its workspace started without its remote. Its gate
+        // serves the pinned repository alone, made only after the workspace, so the first fetch
+        // could not succeed; the pinned head is fetched after the pin.
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        final String script =
+                TaskWorkspace.cloneScript(10)
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
+        builder.environment()
+                .put("PORELO_REMOTE_URL", root.resolve("not-pinned-yet.git").toString());
+        builder.environment().put("PORELO_PINNED_REF", "refs/porelo/pinned/review");
+        builder.environment().put("GIT_TERMINAL_PROMPT", "0");
+        final Process process = builder.start();
+        assertThat(process.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        final String said =
+                new String(
+                        process.getInputStream().readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(process.exitValue()).as(said).isZero();
+        assertThat(said)
+                .as("what the launch would report for a reviewer")
+                .doesNotContain(TaskWorkspace.FETCH_FAILED)
+                .doesNotContain(TaskWorkspace.EMPTY);
+        assertThat(
+                        git(workspace, "config", "--get-all", "remote.porelo.fetch")
+                                .contains("refs/porelo/pinned/review"))
+                .as("its pinned ref is still mapped for the fetch after the pin")
+                .isTrue();
+    }
+
+    @Test
+    void aTaskThatIsNoReviewerStillSaysItsRemoteCouldNotBeFetched(@TempDir Path root)
+            throws Exception {
+
+        final Path workspace = Files.createDirectories(root.resolve("workspace"));
+        final String script =
+                TaskWorkspace.cloneScript(10)
+                        .replace("cd " + TaskWorkspace.MOUNT + ";", "cd " + workspace + ";");
+        final ProcessBuilder builder =
+                new ProcessBuilder("sh", "-c", script).redirectErrorStream(true);
+        builder.environment().put("PORELO_REMOTE_URL", root.resolve("missing.git").toString());
+        builder.environment().put("GIT_TERMINAL_PROMPT", "0");
+        final Process process = builder.start();
+        assertThat(process.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        final String said =
+                new String(
+                        process.getInputStream().readAllBytes(),
+                        java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(said).contains(TaskWorkspace.FETCH_FAILED).contains(TaskWorkspace.EMPTY);
+    }
+
     /**
      * Runs the script with a remote whose ssh refuses, as GitHub refuses a task holding no key;
      * returns its output.
