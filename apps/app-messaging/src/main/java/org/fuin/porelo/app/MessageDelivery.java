@@ -282,9 +282,7 @@ public final class MessageDelivery {
                     continue;
                 }
                 mailbox.refuseLinks();
-                final Path staged = mailbox.inboxTmp().resolve(name);
-                Files.move(message, staged, StandardCopyOption.REPLACE_EXISTING);
-                mailbox.intoInbox(staged);
+                mailbox.intoInbox(InboxStaging.stage(mailbox, message));
                 Files.move(
                         person,
                         mailbox.record().resolve(name + PERSON_SUFFIX),
@@ -399,9 +397,7 @@ public final class MessageDelivery {
             // Into the agent's half through tmp and a rename, so a reader in the container never
             // sees half a message - the same discipline the agent is asked to use on the way out.
             mailbox.refuseLinks();
-            final Path staged = mailbox.inboxTmp().resolve(name);
-            Files.move(message, staged, StandardCopyOption.REPLACE_EXISTING);
-            mailbox.intoInbox(staged);
+            mailbox.intoInbox(InboxStaging.stage(mailbox, message));
             // The signature stays on the host's side: it is evidence about the message, and the
             // container has no key to check it with anyway.
             Files.move(

@@ -38,8 +38,9 @@ public final class BounceDelivery {
         mailbox.refuseLinks();
         for (final Path answer : answers(mailbox.feedback())) {
             final String name = answer.getFileName().toString();
-            // Through tmp and a rename, so the agent never lists half an answer - the same
-            // discipline every other hop in the mailbox keeps. The host keeps its own copy, where
+            // Written anew in tmp and renamed, so the agent never lists half an answer and the
+            // answer carries the box's label - the same discipline every other hop keeps. The host
+            // keeps its own copy, where
             // the agent cannot reach it: whether a message the filter answered may leave is read
             // from here, never from the agent's box, which the agent can empty.
             mailbox.ensure(MessageLookup.answers(mailbox));
@@ -47,9 +48,7 @@ public final class BounceDelivery {
                     answer,
                     MessageLookup.answers(mailbox).resolve(name),
                     StandardCopyOption.REPLACE_EXISTING);
-            final Path staged = mailbox.inboxTmp().resolve(name);
-            Files.move(answer, staged, StandardCopyOption.REPLACE_EXISTING);
-            mailbox.intoInbox(staged);
+            mailbox.intoInbox(InboxStaging.stage(mailbox, answer));
             delivered.add(name);
         }
         return delivered;

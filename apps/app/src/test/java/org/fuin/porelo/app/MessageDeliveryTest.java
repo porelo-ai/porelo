@@ -63,6 +63,40 @@ class MessageDeliveryTest {
                 .exists();
     }
 
+    // On an SELinux host a message renamed in from 'inbound' kept the host's label, and the agent
+    // could not read it.
+    @Test
+    void aDeliveredMessageIsWrittenAnewInTheBoxNeverRenamedIntoIt(@TempDir final Path dir)
+            throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        final String json = "{\"messageId\":\"m-9\"}";
+        arrive(
+                mailbox,
+                "m-9.json",
+                json,
+                SshSignature.sign(
+                        peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
+        final Object arrived =
+                Files.readAttributes(
+                                mailbox.inbound().resolve("m-9.json"),
+                                java.nio.file.attribute.BasicFileAttributes.class)
+                        .fileKey();
+
+        delivery.deliver(mailbox, reviewer());
+
+        final Path delivered = mailbox.inboxNew().resolve("m-9.json");
+        assertThat(delivered).hasContent(json);
+        assertThat(
+                        Files.readAttributes(
+                                        delivered,
+                                        java.nio.file.attribute.BasicFileAttributes.class)
+                                .fileKey())
+                .as("a file of the box's own, labelled as the box is")
+                .isNotNull()
+                .isNotEqualTo(arrived);
+        assertThat(mailbox.inbound().resolve("m-9.json")).doesNotExist();
+    }
+
     @Test
     void holds_what_arrived_without_a_signature(@TempDir final Path dir) throws IOException {
         final Mailbox mailbox = mailbox(dir);

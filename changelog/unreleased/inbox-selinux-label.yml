@@ -1,0 +1,2 @@
+title: On an SELinux host a task can read every answer and peer message Porelo delivers to its inbox; a refusal or a peer's message renamed in from the host's side kept the host's label and was unreadable in the task
+type: fixed
