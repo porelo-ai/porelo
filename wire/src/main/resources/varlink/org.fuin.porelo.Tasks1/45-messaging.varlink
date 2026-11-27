@@ -9,6 +9,7 @@ type MessageMember (
 
 # This machine's message key, for an interface that writes its machine-signers line into a project itself.
 # It signs no message any more: a task signs with its own certified key, and nothing reads machine-signers.
+# x-mcp: false the machine's message signing key, made on its first ask, is the person's
 method MessageKey() -> (principal: string, key: string, line: string, fingerprint: string)
 
 # ---------------------------------------------------------------------------- messages
@@ -19,6 +20,7 @@ method MessageKey() -> (principal: string, key: string, line: string, fingerprin
 # Two things at once because they are read together: the project says who may be addressed, and
 # the mailbox says whether anything currently goes there. An interface that showed only the first
 # would show a peer as available while every message to it waits.
+# x-mcp: true
 method Peers(
   # Container name of the task.
   task: string,
@@ -58,6 +60,7 @@ type TalkPeer (
 # Live only: it says what happens from the moment a client listens, and replays nothing. What is
 # already waiting for a person when a client starts is Held.
 # The reply is a TalkEvent: varlink wants the reply spelt out as a struct, so its fields are repeated here.
+# x-mcp: false the window's live feed of a conversation
 method Talk() -> (
   # Container name of the task whose mailbox this is about.
   task: string,
@@ -92,6 +95,7 @@ method Talk() -> (
 # cannot disagree. Without what the messages say: reading one is a person's deliberate act, through
 # ReadHeld. held and refused-by-filter wait for a decision; refused-by-person and unchecked are
 # listed because they are still there, and neither can be sent.
+# x-mcp: true
 method Held(
   # Container name of one task, or absent for every task on this machine.
   task: ?string
@@ -133,6 +137,7 @@ type HeldMessage (
 # reason to skip the check. What differs is the role, which says a person wrote it.
 #
 # NoSuchPeer when the project has no conversation and no peer of that name - nothing would carry it.
+# x-mcp: false a person's own words, written with the person's role
 method Say(
   # Container name of the task.
   task: string,
@@ -154,6 +159,7 @@ method Say(
 # Puts a person's own words straight into a task's inbox, where its agent reads - to the task itself, where
 # Say speaks for a person to a peer. It carries role ROLE_USER and metadata from "person"; it never leaves the
 # machine, so it is neither signed nor filtered.
+# x-mcp: false a person's own words, written with the person's role
 method Tell(
   # Container name of the task.
   task: string,
@@ -170,6 +176,7 @@ method Tell(
 # Looked up exactly as Release looks it up. A refused message holds what was refused, secrets
 # included, and is shown to the person asking - at the operator's word, so a person can still decide
 # to deliver it. It is never in the stream or the record, which stay without content.
+# x-mcp: false hands out a refused message's text
 method ReadHeld(
   # Container name of the task.
   task: string,
@@ -217,6 +224,7 @@ method ReadHeld(
 # filter's accepted directory, and the record says it went despite the filter. An external peer's
 # own filter checks it again. What a person refused for good, and what the filter could not check,
 # is never sent.
+# x-mcp: false the person's own judgement
 method Release(
   # Container name of the task.
   task: string,
@@ -267,6 +275,7 @@ type NotDeliverable (
 #
 # A mode is not set here: the project's project.yml sets it once, for every task, and a 'mode' given
 # here fails with a message that says where.
+# x-mcp: false holding or releasing a peer's messages is the person's
 method Moderate(
   # Ignored: a decision is the project's, not one task's. Accepted so an older client still works.
   task: ?string,
@@ -287,6 +296,7 @@ method Moderate(
 # naming a project repository as the way, before any transport runs. A project a host carries for this
 # person and not taken here yet is taken first, as its first start would, so its room opens before any task;
 # a refused take answers ConversationRefused with code 69 and its words.
+# x-mcp: false who is in a conversation is the person's
 method SetUpMessages(project: string) -> (messages: ProjectMessages)
 
 # Lets a person into a project's conversation with an account made for them, or gives it a new password
@@ -296,6 +306,7 @@ method SetUpMessages(project: string) -> (messages: ProjectMessages)
 # and loopback ("true" when the homeserver is this machine's loopback) with port - a client elsewhere then
 # forwards that port (ssh -L port:127.0.0.1:port) before its Matrix client reaches the homeserver. 'shown'
 # is what a terminal prints.
+# x-mcp: false who is in a conversation is the person's
 method JoinMessages(
   project: string,
   # Whom the account is for, as MessageMembers lists them.
@@ -314,6 +325,7 @@ method JoinMessages(
 # Lets another machine into a project's conversation on this machine's server. Answered once: the
 # admission and its secrets are in this reply and nowhere else, never kept here. Refused for an offline
 # project, whose messages never leave this machine, and when the transport does not offer it.
+# x-mcp: false who is in a conversation is the person's
 method AdmitMachine(
   project: string,
   # The machine let in, by the name its transport goes by.
@@ -329,6 +341,7 @@ method AdmitMachine(
 # Takes another machine off this machine's conversation server, asked through one project: out of
 # every project's conversation there, and its registration refused. Refused for an offline project,
 # which admits nobody.
+# x-mcp: false who is in a conversation is the person's
 method DismissMachine(
   project: string,
   machine: string
@@ -338,6 +351,7 @@ method DismissMachine(
 )
 
 # Who has joined a project's conversation, by the name join was given.
+# x-mcp: false who is in a conversation is the person's
 method MessageMembers(project: string) -> (members: []MessageMember)
 
 # Reads the current room through its transport without setting it up or changing membership.
@@ -348,6 +362,7 @@ method MessageMembers(project: string) -> (members: []MessageMember)
 # A transport's answer may hold 16 MiB, a reply one message of 4 MiB: when the members do not fit,
 # members holds the first of them, paged says how many there are, and RoomMembersPage gives the rest of
 # this same reading. Absent when every member is here.
+# x-mcp: false a host-credentialed query that returns unfiltered server names for the operator
 method RoomMembers(project: string) -> (room: string, members: []RoomMember, paged: ?RoomMembersPaged)
 
 # How much of a RoomMembers reading there is when its reply holds only the first members.
@@ -364,6 +379,7 @@ type RoomMembersPaged (
 # The rest of a RoomMembers reading that did not fit its reply, page by page: putting the pages after the
 # first reply gives the members whole, in their order, each once. Each page fits one message. Never
 # offered through a task's MCP socket, as RoomMembers is not.
+# x-mcp: false a host-credentialed query that returns unfiltered server names for the operator
 method RoomMembersPage(
   project: string,
   # RoomMembers.paged.reading.
@@ -404,6 +420,7 @@ error NoRoom(project: string)
 error HomeserverUnreachable(project: string, transport: string, message: string, code: int)
 
 # Removes a joined person; user is empty when nothing remained, why explains a kept account.
+# x-mcp: false who is in a conversation is the person's
 method RemoveMessageMember(project: string, person: string) -> (user: string, kept: bool, why: string)
 
 # The person has joined already; reset gives them a new password.

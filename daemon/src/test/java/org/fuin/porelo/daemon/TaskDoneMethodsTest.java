@@ -137,7 +137,7 @@ class TaskDoneMethodsTest {
     void theTaskEndpointMayCarryDone() {
         // Completion must be offered only as a permitted writing tool, never as a read.
         assertThat(McpTaskSockets.refusals(List.of("Done"))).isEmpty();
-        assertThat(McpMethods.READING).doesNotContain("Done");
+        assertThat(org.fuin.porelo.app.EndpointRights.writing()).contains("Done");
     }
 
     @Test

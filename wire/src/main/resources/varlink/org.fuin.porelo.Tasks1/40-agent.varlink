@@ -108,6 +108,7 @@ type ShadowedAgent (
 )
 
 # Agent binaries installed on this machine.
+# x-mcp: false the person's installed agents and their sign-ins
 method Agents() -> (
   # One entry per agent NAME, never two: they are held by name, so a name appears once whatever
   # is installed. A second binary claiming a name already taken does not appear here at all - it
@@ -131,6 +132,7 @@ method Agents() -> (
 # Cheap in the ordinary case. It consults the installed agents only when the vault holds a name
 # that is not a provider's - the one situation where the key below can be an agent's name - so a
 # vault written by a current Porelo costs nothing extra.
+# x-mcp: false the vault is the person's own
 method Providers() -> (
   providers: []Provider,
   # Whether the vault could be read at all. False means locked or undecryptable, and then
@@ -181,6 +183,7 @@ type Provider (
 # one read at a time, and within that minute its last answer or failure is given again. The agent's
 # static list makes no request, needs no vault unlock, and is neither kept nor limited per minute;
 # it is available with a shut vault. Read-only: it starts no task and changes no file.
+# x-mcp: false reaches the network or the person's forge with the person's credentials
 method Models(
   # The provider, by the name Providers reports.
   provider: string,
@@ -231,6 +234,7 @@ error ModelsFailed(provider: string, message: string)
 # thing without which nothing leaves, and it is always installed.
 #
 # As fresh as the machine's last index refresh, which needs root and is not done here.
+# x-mcp: false the machine's own paths, packages and probes are the person's to read
 method Installable() -> (packages: []Installable)
 
 type Installable (
@@ -254,6 +258,7 @@ type Installable (
 # checkout's directory and the person's home. Nothing is looked up (no Resolve, so nothing reaches the network), and
 # nothing is written, in the checkout or on the machine. A checkout of 'default' or of a placed project is asked alike.
 # A checkout in no git repository, or not named by its absolute path, is FirstStartRefused with NOT_A_CHECKOUT.
+# x-mcp: false runs every adapter over a checkout of the person's
 method Ecosystems(
   # The checkout to ask about, by its absolute path. Without it only the adapters are listed.
   checkout: ?string
@@ -336,6 +341,7 @@ type AgentSignIn (
 
 # Each installed agent's sign-in state, read from the vault once. A batch start asks this once and
 # signs in each agent that is NOT_SIGNED_IN, one after another, before it starts its tasks.
+# x-mcp: false the vault is the person's own
 method AgentSignIns() -> (signIns: []AgentSignIn)
 
 # Starts an agent's own login on this machine, at most one per agent: one already running - started
@@ -352,6 +358,7 @@ method AgentSignIns() -> (signIns: []AgentSignIn)
 # Returns once the container runs, which the first time includes building the login image; a second
 # call while one is being prepared returns once that one runs. A login nobody finishes within 30
 # minutes is stopped and removed.
+# x-mcp: false signs an agent in on the host's own network with the real credential
 method AgentSignInStart(
   # The agent, as Agents names it.
   agent: string,
@@ -373,6 +380,7 @@ method AgentSignInStart(
 # Waits until an agent's sign-in ends, at most 30 minutes, and answers whether the vault holds its
 # credential then - read from the vault, never from how the login exited. At once when none runs:
 # after one that ended here, with its result; otherwise with what the vault holds.
+# x-mcp: false signs an agent in on the host's own network with the real credential
 method AgentSignInWait(agent: string) -> (
   # Whether the vault holds the agent's credential now.
   stored: bool,

@@ -116,6 +116,7 @@ type Project (
 # host key on first use would be easier and is exactly what an interception looks like, so this
 # machine refuses to decide it - attended or not, because a timer that learns a host at three in
 # the morning has answered the question this refuses to answer.
+# x-mcp: false scans any host and port from the host's own network
 method HostKeys(
   # The host on its port, as a person types it: 'forge.example.org', and off port 22
   # 'forge.example.org:7999' or '[2001:db8::1]:7999' - ssh remembers a host on another port
@@ -133,6 +134,7 @@ method HostKeys(
 # The fingerprint comes from them, not from here. The host is asked again and the key is recorded
 # only if it still offers that one - which is what stops a key that arrived between being shown
 # and being confirmed from being the one written down.
+# x-mcp: false the person's own judgement
 method TrustHostKey(
   # As HostKeys takes it: with its port off port 22.
   host: string,
@@ -162,6 +164,7 @@ type Removal (
   what: string
 )
 
+# x-mcp: true
 method Projects() -> (projects: []Project)
 
 # Brings the file of a project Project.carried names, as a start would. For a person's act, never
@@ -170,6 +173,7 @@ method Projects() -> (projects: []Project)
 # A refusal is an answer: file is "", reason is the contract's word, and words say it to a person.
 # On success reason and words are "". A name this machine does not carry for this person is
 # reason "not-carried" and writes nothing.
+# x-mcp: false the person's own decision about a start or a project
 method TakeProject(project: string) -> (file: string, reason: string, words: string)
 
 # The same answer, again whenever it changes.
@@ -187,6 +191,7 @@ method TakeProject(project: string) -> (file: string, reason: string, words: str
 # push arriving at the gate, an environment prepared. The one place where latency costs
 # something real is Prompts, where a question expires; work waiting at the gate has no
 # deadline.
+# x-mcp: true
 method WatchProjects() -> (projects: []Project)
 
 # Measures one repository's distance from its upstream, now.
@@ -199,6 +204,7 @@ method WatchProjects() -> (projects: []Project)
 # It goes through the same measurement the timer uses and writes the same record, so a triggered
 # fetch and a timed one cannot disagree about how far behind a project is, and Projects shows
 # whichever ran last without being told.
+# x-mcp: false reaches the network or the person's forge with the person's credentials
 method SyncUpstream(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -233,6 +239,7 @@ method SyncUpstream(
 #
 # Newest first. Empty is an ordinary answer: a project nobody has backed up, or one backed up by a
 # Porelo older than the record.
+# x-mcp: false the machine's backups of every project's mirror are the person's
 method Backups(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -264,6 +271,7 @@ type Backup (
 # mirror - not on the upstream, not in a workspace, not in the bundle being restored - so
 # overwriting one destroys the only copy. Same outcome name as DeleteProject and Stop, for the same
 # situation.
+# x-mcp: false removes what cannot be had back
 method RestoreBackup(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -295,6 +303,7 @@ method RestoreBackup(
 # The bundle may be somebody's only copy of work that never reached the gate, so this takes the
 # path rather than an index - a list that shifted between reading it and acting on it would
 # otherwise delete a different backup than the one somebody chose.
+# x-mcp: false removes what cannot be had back
 method DeleteBackup(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -320,11 +329,13 @@ method DeleteBackup(
 # repository: <name>) like any other. Removing it, giving its
 # tasks egress or a credential, and choosing another upstream are refused, naming a project
 # repository as the way.
+# x-mcp: false which repositories every project claims is the person's to read
 method DefaultRepositories() -> (repositories: []DefaultRepository)
 
 # Adds a repository to 'default' by its address - named by hand or picked from a forge's list. The
 # same address again answers the entry already there. Refused with Failed for a name that is taken
 # or is not a repository name.
+# x-mcp: false the project's configuration is the person's
 method AddToDefault(
   # Where its approved work goes: an ssh or https address, or a path on this machine.
   upstream: string,
@@ -335,6 +346,7 @@ method AddToDefault(
 # Takes a repository out of 'default'. Its mirror, and anything waiting in it, stays. 'removed' is
 # false when 'default' has no repository of that name. This machine's deploy key for it is forgotten
 # and answered in 'keys', as RemoveProject answers them, so it is removed at the forge too.
+# x-mcp: false the project's configuration is the person's
 method RemoveFromDefault(
   # The repository's name in 'default'.
   name: string
@@ -345,6 +357,7 @@ method RemoveFromDefault(
 # checkout goes into that project; the repository stays in 'default' until the person takes it out
 # with LeaveDefault, which an interface offers beside this row. Empty when the organization names
 # none of them.
+# x-mcp: false the window's offer to take a repository out of default, on the person's word
 method NamedDefaultRepositories() -> (repositories: []NamedDefaultRepository)
 
 # Takes a repository out of 'default' on the person's word, through the same removal
@@ -352,6 +365,7 @@ method NamedDefaultRepositories() -> (repositories: []NamedDefaultRepository)
 # it, stays, and this machine's deploy key for it is forgotten and answered in 'keys'. Refused with
 # DefaultRepositoryInUse while a task of 'default' works on it, and with NoSuchDefaultRepository for
 # a name 'default' does not have; either way nothing is removed.
+# x-mcp: false the window's offer to take a repository out of default, on the person's word
 method LeaveDefault(
   # The repository's name in 'default', as NamedDefaultRepositories gives it.
   name: string
@@ -411,6 +425,7 @@ type DefaultRepository (
 # added from a checkout on this machine is read, as the person sees it; any other is refused with
 # NotProposable and stays UNASKED. A credential is named by its id alone: no reply carries a value.
 # An older daemon answers MethodNotFound, which a client reads as "this machine cannot propose".
+# x-mcp: false the project's configuration is the person's
 method ProposeProject(
   # The project: "default" alone.
   project: string,
@@ -514,6 +529,7 @@ type ProposedCredential (
 # and a .porelo.yml that is there is never written over (NotProposable, reason configured).
 # TOOLS_AND_DRAFT also answers the project.yml draft, which the person files themselves. Nothing is
 # recorded when any of it fails. Refused as ProposeProject is, and the repository then stays UNASKED.
+# x-mcp: false the person's own decision about a start or a project
 method TakeProposal(
   # The project: "default" alone.
   project: string,
@@ -544,6 +560,7 @@ error NotProposable(reason: string)
 # What holds work nobody has looked at - a push nobody reviewed, a stopped task's workspace, a
 # message waiting for a person - is in 'keeps', saying what in 'holds', and stays unless
 # includingWork. Without apply nothing is removed and 'removes' is what would go.
+# x-mcp: false removes what cannot be had back
 method Prune(
   # Remove what is found. Without it nothing is removed.
   apply: ?bool,
@@ -679,6 +696,7 @@ type ResolvedLimits (
 # It deletes, so it refuses first: a mirror may hold pushes nobody has reviewed and tasks may still
 # be up. A project of the organization and 'default' are refused with NotAllowed, and a name this
 # machine does not list with NoSuchProject.
+# x-mcp: false removes what cannot be had back
 method RemoveProject(
   name: string,
   # Says what would go, and removes nothing.
@@ -718,6 +736,7 @@ method RemoveProject(
 # What only a person's credentials can remove is answered, never attempted: the deploy keys at the forges
 # (keys) and this machine's line in each project's machine-signers (signer). Run twice, the second answer
 # has no items.
+# x-mcp: false removes what cannot be had back
 method Clear(
   # The project, or empty for the whole account.
   project: ?string,
@@ -750,6 +769,7 @@ type MachineKey (
 
 # Retired: always answers DeployKeyRefused. Git uses the person's own ssh key for an ssh address,
 # or their token stored as git.token.<host> for an https address.
+# x-mcp: false the project's configuration is the person's
 method DeployKey(
   project: string,
   # Default: the project's own.
@@ -767,6 +787,7 @@ method DeployKey(
 # 'mail.peers.<peer>' and 'repositories.<repository>' stand for each named one) to its keys; 'open' names
 # what Porelo does not check - the project's own names and each transport's settings. 'keys' describes
 # every key in 'sections', so a form a person new to Porelo can fill is built from Porelo's own words.
+# x-mcp: true
 method ProjectFileSchema() -> (sections: [string][]string, open: []string, keys: []ProjectFileKey)
 
 # One key a project file may hold, described.
@@ -794,6 +815,7 @@ type ProjectFileKey (
 # A section under 'mail.transports' is asked of that transport here, when it is installed and its describe
 # lists 'settings': what it refuses anywhere comes back in 'refused', what it warns of in 'warnings', each
 # beginning 'mail.transports.<scheme>: '. A transport that does not offer the check leaves its section open.
+# x-mcp: false tells which vault entries, destinations and transports exist, and runs a transport on the text
 method CheckProjectFile(text: string) -> (refused: []string, refusedHere: []string, warnings: []string)
 
 # The model a start on the project would run on for each provider this machine knows, when the start
@@ -801,6 +823,7 @@ method CheckProjectFile(text: string) -> (refused: []string, refusedHere: []stri
 # (providers.<provider>.model), else the agent's own default. So New work shows it before starting.
 # A file that does not read, or names a provider this machine does not know, is Failed, as Start
 # refuses it.
+# x-mcp: true
 method ProviderModels(
   # Project NAME, as Start takes it.
   project: string,

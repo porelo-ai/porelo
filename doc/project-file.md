@@ -441,10 +441,11 @@ when the section is gone; a running task keeps what it was started with.
 
 - **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
   `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
-  task is offered no other tool. Only the daemon's reading methods, `Start`, `Stop`, `Done` and `Report` may be
-  named: a method the daemon never offers to MCP - one that stops every task, removes what cannot be had back, or
-  hands out a secret, as `McpMethods` lists under `never` -, any other method, and a name the daemon does not have
-  are refused when the daemon reads the file, and by `CheckProjectFile`. The list is the project's upper bound, not
+  task is offered no other tool. Only a method meant for agents may be named, one whose marker in the daemon's
+  interface description says `x-mcp: true`. A method the daemon never offers to MCP - one that stops every task,
+  removes what cannot be had back, or hands out a secret, as `McpMethods` lists under `never` -, a method marked
+  `x-mcp: false`, named with its marker's reason, and a name the daemon does not have are refused when the daemon
+  reads the file, and by `CheckProjectFile`. The list is the project's upper bound, not
   what each task gets: within it, a task's endpoint carries `Start`, `Stop`, `Done` and `Report` only where the
   rights its start recorded hold `start`, `stop`, `done` and `report`. A method the task's rights lack answers as one
   the endpoint does not have, `MethodNotFound`, and its interface description leaves it out; a task whose record of
@@ -485,7 +486,7 @@ one whose recorded parent is another task, or that records none, is refused with
 back, even one whose runtime directory a reboot emptied, is held the same way, and takes only the agent and model the
 task was made with (`MadeWithAnother` otherwise), which the file must still allow. Any other method naming a `task`
 acts only on the caller itself or its own; naming none, or another, is refused with `NotItsOwn`. Any method naming a
-`project`, a read such as `Pending`, `Review`, `Egress` or `Backups` among them, answers only for the task's own
+`project`, a read such as `Pending` or `Review` among them, answers only for the task's own
 project; naming none, or another, is refused with `ProjectNotItsOwn`, and `List` and `Watch` show only its project's
 tasks. Stopping every task stays a person's act.
 
@@ -495,13 +496,11 @@ pushing task's own, or the one a task that reads another's work reads, at the co
 waiting push of the project is absent from `Pending` and refused by the other two as `NoSuchPush`, which names no
 other push; a task at a pull request, or without a place, sees none. Their `against` names no ref under
 `refs/porelo/` and only a commit in the history of the one read, else it is refused as `InvalidParameter`. `List` and `Watch` show the project's tasks, `Projects` and `WatchProjects` its own row, and a
-watch sends nothing when only another project changed. `Authorizations` and `Events` keep the rows of the project,
-and `Prompts` and `Talk` those of its tasks. `Doctor` and `DefaultRepositories` name other projects with no row to
-cut by, and `Ecosystems` given a checkout would look into any path, so each is refused with `ProjectNotItsOwn`. The
-rest answer whole, being the account's or the machine's by nature: the vault's names and devices, never a value
-(`Credentials`, `Keyslots`, `SshKeys`, `CredentialCheck`, `HostVaultShare`), the machine's destinations, egress sets,
-host keys, agents and providers, a check of the task's own draft, the event log's integrity as counts, the daemon's
-process and the methods it grants.
+watch sends nothing when only another project changed. `Events` keeps the rows of the project. The rest answer
+whole, being the account's or the machine's by nature: the machine's egress sets (`Sets`), the project file's schema,
+the methods never offered (`McpMethods`), and the account's time factors and settings (`Limits`, `AccountSettings`).
+A method that reads the person's vault, devices, keys, agents or sign-ins, the machine's paths and probes, or what
+other projects keep or claim is not meant for agents, so no section names it.
 
 ## Services on this host
 

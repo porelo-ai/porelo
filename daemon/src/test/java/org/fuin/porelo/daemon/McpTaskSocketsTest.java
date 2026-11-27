@@ -1261,13 +1261,21 @@ class McpTaskSocketsTest {
     }
 
     @Test
-    void aSectionMayNameOnlyReadingMethodsStartAndStop() throws IOException {
+    void aSectionMayNameOnlyMethodsMeantForAgents() throws IOException {
         assertThat(
                         McpTaskSockets.refusals(
                                 List.of("Start", "Stop", "List", "Logs", "Label", "Approve")))
                 .hasSize(2)
-                .anySatisfy(each -> assertThat(each).contains("'Label'").contains("reading"))
-                .anySatisfy(each -> assertThat(each).contains("'Approve'").contains("reading"));
+                .anySatisfy(
+                        each ->
+                                assertThat(each)
+                                        .contains("'Label'")
+                                        .contains("not meant for agents"))
+                .anySatisfy(
+                        each ->
+                                assertThat(each)
+                                        .contains("'Approve'")
+                                        .contains("the person's own judgement"));
         final String file =
                 HEAD + "mcp:\n  methods: [\"Start\", \"Label\"]\n  agents:\n    alpha:\n";
         assertThat(McpTaskSockets.checked(Map.of(), file).get("refused"))
@@ -1346,17 +1354,13 @@ class McpTaskSocketsTest {
     @Test
     void noReadOverATasksSocketReachesAnotherOfThePersonsProjects() throws IOException {
         // Harm: a task granted Pending or Review in one project read the pushes waiting at another
-        // project's gate, and Egress or Backups what another project reaches and keeps.
+        // project's gate. Backups, Egress and MessageMembers, which read what another project
+        // keeps, reaches or talks with, are not meant for agents at all, so no section names them.
         final List<String> reads =
-                List.of(
-                        "Backups",
-                        "ProviderModels",
-                        "Egress",
-                        "Pending",
-                        "Review",
-                        "ReviewPage",
-                        "Peers",
-                        "MessageMembers");
+                List.of("ProviderModels", "Pending", "Review", "ReviewPage", "Peers");
+        assertThat(McpMarkers.withheld("Backups")).isPresent();
+        assertThat(McpMarkers.withheld("Egress")).isPresent();
+        assertThat(McpMarkers.withheld("MessageMembers")).isPresent();
         final Path socket =
                 opened(
                         HEAD
@@ -1438,8 +1442,9 @@ class McpTaskSocketsTest {
     }
 
     @Test
-    void everyReadingMethodWithoutAProjectOrTaskIsCutHeldOrTheAccountsByNature() {
-        final Set<String> unscoped = new java.util.TreeSet<>(McpMethods.READING);
+    void everyOfferedMethodWithoutAProjectOrTaskIsCutHeldOrTheAccountsByNature() {
+        final Set<String> unscoped = new java.util.TreeSet<>(McpMethodsTest.OFFERED);
+        unscoped.removeAll(org.fuin.porelo.app.EndpointRights.writing());
         unscoped.removeAll(McpTaskSockets.takingATask());
         unscoped.removeAll(McpTaskSockets.takingAProject());
         unscoped.removeAll(McpTaskSockets.ANY_PROJECT);
@@ -1460,38 +1465,19 @@ class McpTaskSocketsTest {
         assertThat(McpTaskSockets.takingATask())
                 .as("a task's usage is read of the caller or its own child alone")
                 .contains("Usage");
+        assertThat(McpMethodsTest.OFFERED)
+                .as("answered whole only what is meant for agents")
+                .containsAll(McpTaskSockets.ACCOUNT_WIDE);
     }
 
     @Test
-    void aReadingThatNamesOtherProjectsAndHasNoRowToCutIsHeldFromATask() throws IOException {
-        final Path socket =
-                opened(
-                        HEAD
-                                + SECTION.replace(
-                                        "\"Stop\"]",
-                                        "\"Stop\", \"Doctor\", \"DefaultRepositories\","
-                                                + " \"Ecosystems\"]"));
-
-        for (final String method : List.of("Doctor", "DefaultRepositories")) {
-            refused(
-                    socket,
-                    method,
-                    Map.of(),
-                    "ProjectNotItsOwn",
-                    Map.of("project", "", "own", "uc"));
-        }
-        refused(
-                socket,
-                "Ecosystems",
-                Map.of("checkout", dir.toString()),
-                "ProjectNotItsOwn",
-                Map.of("project", "", "own", "uc"));
-        final Object catalogue = attempt(socket, Map.of(), "Ecosystems").join();
-        if (catalogue instanceof VarlinkException ex) {
-            assertThat(ex.getErrorName())
-                    .as("the installed plugins without a checkout")
-                    .doesNotEndWith(".ProjectNotItsOwn");
-        }
+    void aReadingThatNamesOtherProjectsAndHasNoRowToCutIsNotMeantForAgents() {
+        assertThat(McpTaskSockets.refusals(List.of("Doctor", "DefaultRepositories", "Ecosystems")))
+                .hasSize(3)
+                .allSatisfy(each -> assertThat(each).contains("is not meant for agents"));
+        assertThat(McpTaskSockets.HELD)
+                .as("held from a task as well, should a marker ever say true")
+                .contains("Doctor", "DefaultRepositories");
     }
 
     @Test
@@ -1669,7 +1655,7 @@ class McpTaskSocketsTest {
     void aTasksPromptsCarryOnlyItsOwnProjectsQuestions() throws IOException {
         // Through project A's endpoint a subscriber read B's questions: where B's task tried to
         // go, its project and its name, although B is not in A's list.
-        final Path socket = opened(HEAD + SECTION.replace("\"Stop\"]", "\"Stop\", \"Prompts\"]"));
+        final Path socket = opened(HEAD + SECTION);
         identity(sockets.context(), LEAD, "uc", null);
         identity(sockets.context(), "porelo-other-x", "other", null);
         final List<Map<String, Object>> sent = new java.util.ArrayList<>();

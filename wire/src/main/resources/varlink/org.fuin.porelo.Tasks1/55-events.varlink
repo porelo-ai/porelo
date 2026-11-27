@@ -3,6 +3,7 @@
 # a clearance at run time, a hand-in, a credential a start gave, a project file applied, every task
 # stopped at once - one line each, hash-chained, and each line's hash anchored in the user's systemd
 # journal, which the account can append to but not rewrite. A read: nothing here changes anything.
+# x-mcp: true
 method Events(
   # Only events at or after this instant, as 2026-10-28T03:00:00Z. Omitted, all.
   since: ?string
@@ -33,6 +34,7 @@ type Event (
 # true only when the chain is whole, every line is anchored but those ahead of the first anchored one
 # and older than the oldest hash the journal still holds of this log, and the journal holds no hash
 # the log has lost. A log with lines and no hash in the journal does not hold.
+# x-mcp: false checking the event log against the journal is the person's audit
 method VerifyEvents() -> (
   holds: bool,
   lines: int,

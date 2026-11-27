@@ -205,7 +205,8 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
     /**
      * Says what is wrong with the methods a file's {@code mcp} section names, which only the daemon
-     * can say: whether each is one it never offers to MCP, or one it does not have.
+     * can say: whether each is one it never offers to MCP, one it does not have, or one its marker
+     * does not mean for agents, with the marker's reason.
      *
      * @param methods The names, without the interface.
      * @return One refusal per name, in order; empty when every one may be carried.
@@ -227,12 +228,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                 + "' is no method of "
                                 + INTERFACE
                                 + " this daemon has");
-            } else if (!McpMethods.READING.contains(method) && !WRITING.contains(method)) {
-                refused.add(
-                        "mcp.methods: '"
-                                + method
-                                + "' is not offered to a task: its endpoint carries only the"
-                                + " reading methods McpMethods names, Start, Stop, Done and Report");
+            } else {
+                McpMarkers.withheld(method)
+                        .ifPresent(
+                                reason ->
+                                        refused.add(
+                                                "mcp.methods: '"
+                                                        + method
+                                                        + "' is not meant for agents: "
+                                                        + reason));
             }
         }
         return List.copyOf(refused);
@@ -1054,38 +1058,13 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
     static final Set<String> HELD = Set.of("Doctor", "DefaultRepositories");
 
     /**
-     * Reading methods taking no project or task that are the account's or the machine's by nature,
-     * and so are answered whole: the one vault's names and devices, never a value ({@code
-     * Credentials}, {@code Keyslots}, {@code SshKeys}, {@code CredentialCheck}, {@code
-     * HostVaultShare}); the machine's destinations, egress sets, host keys, agent catalogue and the
-     * models a provider offers it; a check of the caller's own text; the event log's integrity,
-     * counts alone; the daemon's process and the methods it grants; the account's own time factors
-     * and its settings of how long something holds.
+     * Reading methods meant for agents that take no project or task and are the account's or the
+     * machine's by nature, and so are answered whole: the machine's egress sets, the project file's
+     * schema, the methods never offered, the account's own time factors and its settings of how
+     * long something holds. Every other such method is not meant for agents at all.
      */
     static final Set<String> ACCOUNT_WIDE =
-            Set.of(
-                    "AccountSettings",
-                    "Agents",
-                    "AgentSignIns",
-                    "CheckProjectFile",
-                    "CredentialCheck",
-                    "Credentials",
-                    "Destination",
-                    "Destinations",
-                    "Ecosystems",
-                    "HostKeys",
-                    "HostVaultShare",
-                    "Installable",
-                    "Keyslots",
-                    "Limits",
-                    "McpMethods",
-                    "Models",
-                    "Process",
-                    "ProjectFileSchema",
-                    "Providers",
-                    "Sets",
-                    "SshKeys",
-                    "VerifyEvents");
+            Set.of("AccountSettings", "Limits", "McpMethods", "ProjectFileSchema", "Sets");
 
     /**
      * The methods taking a project that the task socket does not hold to the caller's own: only

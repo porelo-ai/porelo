@@ -90,6 +90,7 @@ type EgressOutcome (
 # Not every set can be complete: os-packages-fedora reaches mirrors named by a mirrorlist, which
 # differ by region and by day, so hosts beyond the list arrive as clearance prompts. An interface
 # should not present it as equivalent to the others.
+# x-mcp: true
 method Sets() -> (
   sets: []EgressSet,
   # Directories searched, most specific first. Empty means none is installed.
@@ -101,6 +102,7 @@ method Sets() -> (
 # The agent's own hosts and its provider's are included, because what an operator wants to know
 # is what a task will reach and half of it is not in the project file. Which agent that is
 # follows the same rule a run does: the one named, the repository's, or the only one installed.
+# x-mcp: false chooses among the person's installed agents and their sign-ins to answer
 method Egress(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -134,6 +136,7 @@ method Egress(
 #
 # Nothing here applies to a task that is already running: a container's ruleset and resolver are
 # built when it starts.
+# x-mcp: false what a task may reach is the person's to decide
 method SetEgress(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -204,6 +207,7 @@ method SetEgress(
 # refused - the packet was dropped and nothing retries it - and turning it back on does not recall
 # anything waved through while it was off. The ruleset is loaded throughout, so this never opens a
 # destination by itself; what changes is whether a blocked connection produces a question.
+# x-mcp: false what a task may reach is the person's to decide
 method SetClearance(
   task: string,
   # prompt, allow, deny or off.
@@ -224,6 +228,7 @@ method SetClearance(
   detail: string
 )
 
+# x-mcp: false what a task may reach is the person's to decide
 method NarrowTask(
   # Task name, as List reports it.
   task: string,
@@ -252,6 +257,7 @@ method NarrowTask(
   detail: string
 )
 
+# x-mcp: false what a task may reach is the person's to decide
 method WidenTask(
   # Container name, from Task.name.
   task: string,
@@ -317,6 +323,7 @@ type ReachRow (
 #
 # With a task, every row is answered for that task: the names its run was granted and not taken
 # back, what its clearance mode does with an undeclared reach, and an authority it was handed.
+# x-mcp: true
 method Reach(
   # Container name, from Task.name. Default: this machine, for no task in particular. A task that
   # does not exist is NoSuchTask.
@@ -335,6 +342,7 @@ method Reach(
 # One subscription covers every task, including tasks started after the call - an interface
 # does not discover and connect to each task's own socket.
 # The reply is a Prompt: varlink wants the reply spelt out as a struct, so its fields are repeated here.
+# x-mcp: false the window's live feed of every task's refusals
 method Prompts() -> (
   # Container name, for routing the answer back to the right task.
   task: string,
@@ -390,6 +398,7 @@ method Prompts() -> (
 # A task that is not running has no watcher to tell, and that is refused rather than accepted
 # and dropped: an answer that goes nowhere leaves the operator believing they unblocked
 # something.
+# x-mcp: false the person's own judgement
 method Decide(
   # Container name, from Prompt.task.
   task: string,

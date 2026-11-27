@@ -890,9 +890,14 @@ your own daemon socket. Which methods it offers comes from the daemon's interfac
 
 - **Each method says whether it is meant for agents**, in the last comment line above it: `# x-mcp: true`, or
   `# x-mcp: false` and the reason. `porelo-mcp` offers only methods marked `true`.
-- **Never offered**, whatever a marker says, as `McpMethods` lists them under `never`:
+- **Never offered**, whatever a marker says, as `McpMethods` lists them all under `never`; among them:
   - a method that stops every task (`Panic`);
   - one that removes what cannot be had back (`Clear`, `VaultClear`, `Prune`, `RemoveProject`, `Remove`,
     `DeleteBackup`, `RestoreBackup`, `CredentialRemove`, `CredentialReplace`, `RevokeKeyslot`);
   - one that hands out a secret (`ReadHostVaultShare`, and `ReadHeld`, whose refused message holds what was refused);
-  - one that changes where a credential is sent (`WriteDestination`, `CredentialDeclare`).
+  - one that changes where a credential is sent (`WriteDestination`, `CredentialDeclare`);
+  - one that reads or keeps a host's keys, or carries a vault entry to a host;
+  - one that signs an agent in on the host's own network (`AgentSignInStart`, `AgentSignInWait`);
+  - one that reads or writes a review or pull request as the owner account or with the person's forge identity,
+    or releases approved work (`PushToCentral`);
+  - one that reads every task's command lines, results or reports, or a conversation's members.

@@ -290,7 +290,7 @@ class InterfaceDescriptionTest {
             if (!lines[i].contains("x-mcp")) {
                 continue;
             }
-            if (!MARKER.matcher(lines[i].strip()).matches() || !lines[i].startsWith("#")) {
+            if (!MARKER.matcher(lines[i]).matches()) {
                 faults.add("line " + (i + 1) + " is no marker of the form: " + lines[i]);
             } else if (i + 1 >= lines.length || !METHOD.matcher(lines[i + 1]).lookingAt()) {
                 faults.add("line " + (i + 1) + " is not the last line above a method");
@@ -315,6 +315,9 @@ class InterfaceDescriptionTest {
                 .asString()
                 .contains("no marker of the form");
         assertThat(markerFaults("# x-mcp: maybe\nmethod A() -> ()\n")).hasSize(1);
+        assertThat(markerFaults("  # x-mcp: true \nmethod A() -> ()\n"))
+                .as("anything around the marker")
+                .hasSize(1);
         assertThat(markerFaults("# x-mcp: true\n# Lists.\nmethod A() -> ()\n"))
                 .as("not last above the method")
                 .singleElement()

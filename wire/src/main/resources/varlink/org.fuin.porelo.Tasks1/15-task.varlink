@@ -611,18 +611,21 @@ method List() -> (tasks: []Task, unrecognized: []string)
 # activity DONE and state "done"; BLOCKED leaves activity as observed. Work that resumes output is WORKING
 # again without losing the declaration; ENDED is unchanged. A later start clears the declaration.
 # This replaces no completion message to the room, and neither stops nor removes the container.
+# x-mcp: true
 method Done(task: string, outcome: ?(DONE, BLOCKED), why: ?string) -> ()
 
 # The task reports back to whoever started it: plain text and a one-line kind, kept with the task's
 # records and numbered in the task's own sequence. On the task socket only, when the project's
 # limits.reports is above 0 and its mcp.methods includes Report; past the bound, NotAllowed names it.
 # task must be that socket's task, else NotItsOwn. Porelo passes kind through unread and never checks it.
+# x-mcp: true
 method Report(task: string, kind: string, text: string) -> (seq: int)
 
 # The reports after `after` (all when absent), oldest first, at most 1 MiB; `more` when some were
 # left out. Kept as long as the task's records (records.kept_days), a removed task's included. Porelo
 # keeps nothing about who read what: a reader keeps the last seq it took. last is the task's last
 # sequence number.
+# x-mcp: false what any task reported back, for whoever started it: never another agent's prompt
 method Reports(task: string, after: ?int) -> (reports: []TaskReport, last: int, more: bool)
 
 # The file a task hands back, as the host took it, read from this machine's files alone: also after
@@ -633,6 +636,7 @@ method Reports(task: string, after: ?int) -> (reports: []TaskReport, last: int, 
 # only when state is "handed". Before anything was taken this answers state "missing" with bytes 0.
 # NoResultNamed for a task started without Start's result; NoSuchTask for a name no task holds and
 # nothing was kept for.
+# x-mcp: false what any task handed back, another project's too, for the person to read
 method Result(task: string) -> (name: string, state: string, bytes: int, content: ?string)
 
 # The same answer, again whenever it changes.
@@ -643,6 +647,7 @@ method Result(task: string) -> (name: string, state: string, bytes: int, content
 # Called with "more" it sends the whole list on every change and nothing in between. The age
 # in state is deliberately not a change: it moves on its own, and a view that redrew for it
 # would redraw every second forever.
+# x-mcp: true
 method Watch() -> (tasks: []Task, unrecognized: []string)
 
 # The purposes a credential may serve: "git" and "any". "git" is the only one anything reads
@@ -683,6 +688,7 @@ type StartStep (
 #
 # The task outlives this call and this connection either way. Closing the socket mid-build does not
 # cancel it; List shows it afterwards.
+# x-mcp: true
 method Start(
   # Task name within the project. Omitted, the repository's name, or the next free one (my-first-2), never an
   # existing task's.
@@ -988,6 +994,7 @@ type CertifyRequest (
 # Answers a start waiting for its certificate, with the certificate or with the words it ends with,
 # one of them. What comes back is checked as any other, and the start refuses what does not hold. A
 # start waits five minutes, or until its stream closes. An id no start waits by is NoSuchStart.
+# x-mcp: false the person's own decision about a start or a project
 method Certify(start: string, certificate: ?string, refused: ?string) -> ()
 
 # Begins a task's run at the pull request its start recorded as its place, in this daemon, which keeps
@@ -997,6 +1004,7 @@ method Certify(start: string, certificate: ?string, refused: ?string) -> ()
 # conversation. run is the run's number at that place, head the commit it is pinned to. A task whose
 # recorded place is no pull request is InvalidParameter("task"); the refusals are Start's:
 # NoSuchPullRequest, UnknownForge, NotTheTasksPush, PlaceUnreadable. Never offered on a task's socket.
+# x-mcp: false a run begins for a task its start placed, never at a task's own asking
 method BeginRun(
   # Container name.
   task: string
@@ -1007,6 +1015,7 @@ method BeginRun(
 # stopped task does the same on its own. outcome: MOVED (moved names each branch that moved and the commit it names
 # now; told says whether the agent heard), UNCHANGED, NOT_GATED (an online task, which fetches its upstream itself),
 # FAILED (detail says why). A name that is no task here is NoSuchTask.
+# x-mcp: false reaches the network or the person's forge with the person's credentials, and writes into a task's inbox as the person
 method RefreshTask(task: string) -> (outcome: string, moved: [string]string, detail: string, told: bool)
 
 # Stops a task and the helpers Porelo started beside it.
@@ -1017,6 +1026,7 @@ method RefreshTask(task: string) -> (outcome: string, moved: [string]string, det
 #
 # On the way down it writes what the task holds, while that is still knowable - whoever removes it
 # later cannot ask the container itself.
+# x-mcp: true
 method Stop(
   # Container name.
   task: string
@@ -1042,6 +1052,7 @@ method Stop(
 #
 # The record NOTHING_KNOWS rests on is written by Stop. Where that record lives decides whether
 # this guard survives a restart of the machine; see the note on the runtime directory.
+# x-mcp: false removes what cannot be had back
 method Remove(
   # Container name.
   task: string,
@@ -1106,6 +1117,7 @@ method Panic(
 )
 
 # Drops the cached passphrase, device share and daemon-owned host share.
+# x-mcp: false the vault is the person's own
 method Lock(
   # When supplied, must resolve to this daemon's vault.
   vault: ?string
@@ -1299,6 +1311,7 @@ type MissingCredential (
 #
 # What it CANNOT tell you: whether the credential is still valid at the provider. It answers that
 # something usable is stored under the name this run would look for, which is a different claim.
+# x-mcp: false reaches the network or the person's forge with the person's credentials, and names vault entries
 method CanStart(
   # Project NAME, as Start takes it. Omitted, no project is checked - which is how an interface
   # asks about the machine before a project has been chosen. A name this machine does not have is
@@ -1424,6 +1437,7 @@ method CanStart(
 # answers READY for them, or CHANGED when porelo.yml moved since the hash was answered: nothing is
 # allowed, and CanStart shows the new list. A name that is no repository of the project is CHANGED
 # too, with nothing to allow.
+# x-mcp: false the person's own decision about a start or a project
 method AllowSettings(repository: string, hash: string, project: ?string) -> (outcome: string)
 
 # Gives a task a changeable caption, or removes one.
@@ -1432,6 +1446,7 @@ method AllowSettings(repository: string, hash: string, project: ?string) -> (out
 # pushes to, the workspace and the log files - and moving a ref that may have unreviewed pushes
 # behind it is a different and much larger thing. This changes what a person reads in a list and
 # nothing else.
+# x-mcp: false a caption is the person's, on any task
 method Label(
   # Task name, as List reports it.
   task: string,
@@ -1454,6 +1469,7 @@ method Label(
 # The first task in a project otherwise waits minutes for something that has nothing to do with
 # the work. Use with "more": a build takes minutes, and showing nothing for that long is
 # indistinguishable from having hung.
+# x-mcp: false reaches the network or the person's forge with the person's credentials, and builds for minutes
 method Prepare(
   # The name of a project, or the absolute path of its file as Projects reports it, which answers
   # for that name. An organization's project is read anew as a start reads it, with a start's
@@ -1498,6 +1514,7 @@ method Prepare(
 # list of names would show an empty viewer for a file that was never going to exist, and would
 # never show one a later release adds. Empty for a task whose state directory is gone, which is
 # what removal does.
+# x-mcp: true
 method Logs(task: string) -> (logs: []Log)
 
 # Keeps a task's logs, and what Porelo says about it, in one archive on this machine.
@@ -1507,6 +1524,7 @@ method Logs(task: string) -> (logs: []Log)
 # status, files and talk log as text, and SHA256SUMS. A daemon has no current directory, so it is
 # written there and 'path' says where; an interface offers to save it from there. What the agent
 # itself printed (task.log) goes in only with 'withAgentOutput', since it may hold confidential data.
+# x-mcp: false an export for the person: writes an archive on every call
 method LogArchive(task: string, withAgentOutput: ?bool) -> (path: string, files: []string)
 
 # What a task holds that never reached the gate.
@@ -1523,6 +1541,7 @@ method LogArchive(task: string, withAgentOutput: ?bool) -> (path: string, files:
 # 'asOf' is absent while the task runs, because the answer is current. For a stopped task it is
 # when the answer was true: the workspace lives inside the container, so once it stops the only
 # source is what the stop wrote down.
+# x-mcp: true
 method WorkHeld(
   # Container name.
   task: string
@@ -1553,6 +1572,7 @@ type ImageSetting (
 # label over 1 MiB answers the same. One limit stays: an image built before this, from a base image that itself
 # carries this label, answers with the base image's claim, as nothing covered it.
 # Empty lists with known true are an answer. A name that is no task here is NoSuchTask.
+# x-mcp: true
 method ImageSettings(
   # Container name.
   task: string
@@ -1587,6 +1607,7 @@ method ImageSettings(
   removed: []RemovedSetting
 )
 
+# x-mcp: true
 method Tail(
   # Container name.
   task: string,
@@ -1613,6 +1634,7 @@ method Tail(
 # A task log's lines before a position, for a client scrolling up past what Tail sent. A page, not a
 # stream; the client asks again with the offset it got. A page fits one message as sent, escaped and
 # formatted: fewer lines than asked when they are long, and one line too long alone comes cut.
+# x-mcp: true
 method LogBefore(
   # Container name.
   task: string,
@@ -1640,6 +1662,7 @@ method LogBefore(
 
 # What a task's terminal session shows, read without attaching: for work in a terminal, which has
 # no log to follow. A snapshot, not a stream; a client asks again.
+# x-mcp: false the person's own terminal sessions
 method Screen(
   # Container name.
   task: string,
@@ -1665,6 +1688,7 @@ method Screen(
 # A terminal session's earlier output, from the recording porelod keeps of it, for scrolling past
 # the lines Screen gives. Output older than the recording's start, which is kept as records.kept_days
 # says, answers atStart true.
+# x-mcp: false the person's own terminal sessions
 method ScreenBefore(
   # Container name.
   task: string,
@@ -1708,6 +1732,7 @@ method ScreenBefore(
 #
 # A name already in /porelo/files is replaced, and the record says so. The task must be running. Nothing comes
 # back out of a task through this or any other method here.
+# x-mcp: false what a person hands into a task
 method HandIn(
   task: string,
   # A plain file name: not empty, at most 255 bytes, no '/', not starting with '.', no control characters.
@@ -1728,12 +1753,14 @@ method HandIn(
 )
 
 # Takes a handed-in file out of /porelo/files again. The task must be running.
+# x-mcp: false what a person hands into a task
 method TakeBack(task: string, name: string) -> (file: HandedFile)
 
 # Every hand-in, replacement and removal under a task's name, oldest first: of every run that carried the
 # name, told apart by 'run' - and also after the task is gone, since the record is kept in the state
 # directory. It names the files and never holds their content. It records what these methods did; a file
 # copied into a container by other means is not in it.
+# x-mcp: true
 method HandIns(task: string) -> (record: []HandIn)
 
 # A file goes only to a running task, and only a running task gives one back.
@@ -1898,6 +1925,7 @@ type Usage (
 )
 
 # Reads current usage or the last retained record of a removed task, without network access.
+# x-mcp: true
 method Usage(task: string) -> (usage: Usage)
 
 # One tool call of a task's unattended run, in Porelo's own format: each agent maps its stream into it, and porelod
@@ -2018,10 +2046,12 @@ type RecordsFrom (
 # of them together), so a run of pages reads the record files once; a page whose reading is no longer kept reads
 # them again. A from whose record is then no longer stored answers RecordChanged; a from that is no RecordsFrom the
 # daemon gave answers InvalidParameter naming from.
+# x-mcp: false every task's command lines, a project's whole: the person's planner reads them
 method Records(project: string, since: string, from: ?RecordsFrom) -> (records: []TaskRecord, next: ?RecordsFrom)
 
 # The rest of one record's tool calls, page by page, in the record's order, for the record as Records answered it.
 # Each page fits one message; next is absent when this page holds the record's last call.
+# x-mcp: false every task's command lines, a project's whole: the person's planner reads them
 method RecordCalls(
   project: string,
   # The record's task, startedAt and updatedAt, as Records answered them; updatedAt absent where the record had none.
@@ -2071,6 +2101,7 @@ type Finding (
 # adapter looks up with none.
 # fileName names the file a yes writes or approves: "porelo.yml" for a new repository draft in 'default',
 # "project.yml" for an existing local project, or "" when no file is named.
+# x-mcp: false the person's own decision about a start or a project
 method FirstStart(checkout: string, proxy: ?[string]string) -> (outcome: string, found: []Finding, hosts: []string, marked: []string, file: string, fileName: string, project: string, hash: string, notes: []string, refusal: string)
 
 # A person's yes to the text a hash names: writes a new porelo.yml into the checkout, adds the checkout to
@@ -2079,6 +2110,7 @@ method FirstStart(checkout: string, proxy: ?[string]string) -> (outcome: string,
 # name reads whatever the checkout then holds. A
 # No has no call, and nothing is kept. The lookup FirstStart made answers the yes; one no longer kept is made
 # anew, through proxy as FirstStart takes it, and a text that changed with it is MOVED_ON.
+# x-mcp: false the person's own judgement
 method ConfirmFirstStart(checkout: string, hash: string, proxy: ?[string]string) -> (project: string)
 
 # A first start's yes cannot be taken. reason is NOT_A_CHECKOUT, NAME_TAKEN (the name is 'default', another

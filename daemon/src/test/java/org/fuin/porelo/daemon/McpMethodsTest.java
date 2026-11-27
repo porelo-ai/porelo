@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import org.fuin.porelo.app.PoreloContext;
@@ -21,85 +22,172 @@ import org.junit.jupiter.api.io.TempDir;
 class McpMethodsTest {
 
     /**
-     * Methods that change something and are neither destructive nor a person's judgement: offered
-     * only when the person lists them. Named here so that a new method has to be sorted into one of
-     * the four, and none falls into reading by being forgotten.
+     * The methods marked as meant for agents. Named here so that a method marked {@code true} is
+     * named twice, and none is offered by a marker set by mistake: every one reads, scoped by a
+     * task's socket, except {@code Start}, {@code Stop}, {@code Done} and {@code Report}, which a
+     * task's rights bound.
      */
-    static final Set<String> WRITING_ONLY_FROM_THE_LIST =
+    static final Set<String> OFFERED =
             Set.of(
-                    "Start",
-                    "CanStart",
-                    "FirstStart",
-                    "Node",
-                    "Certify",
-                    "RefreshTask",
-                    "Stop",
+                    "AccountSettings",
+                    "Arrivals",
                     "Done",
+                    "Events",
+                    "HandIns",
+                    "Held",
+                    "ImageSettings",
+                    "Limits",
+                    "List",
+                    "LogBefore",
+                    "Logs",
+                    "McpMethods",
+                    "Peers",
+                    "Pending",
+                    "ProjectFileSchema",
+                    "Projects",
+                    "ProviderModels",
+                    "Reach",
                     "Report",
-                    "Lock",
-                    "AllowSettings",
-                    "Label",
-                    "Prepare",
-                    "LogArchive",
-                    "HandIn",
-                    "TakeBack",
-                    "TakeProject",
-                    "SyncUpstream",
-                    "AddToDefault",
-                    // Runs every ecosystem adapter on a checkout, which may look up through the
-                    // person's proxy; and records the person's answer.
-                    "ProposeProject",
-                    "TakeProposal",
-                    "RemoveFromDefault",
-                    "DeployKey",
-                    "SetEgress",
-                    "SetClearance",
-                    "NarrowTask",
-                    "WidenTask",
-                    "CredentialForget",
-                    "ImportCredential",
-                    "RemoveDestination",
-                    "KeepHostVaultShare",
-                    "ForgetHostVaultShare",
-                    "PendingBundle",
-                    "Landed",
-                    "CredentialTryPush",
-                    "MessageKey",
-                    "Say",
-                    "Tell",
-                    "Moderate",
-                    "SetUpMessages",
-                    "JoinMessages",
-                    "AdmitMachine",
-                    "DismissMachine",
-                    "RemoveMessageMember",
-                    "Tighten");
+                    "Review",
+                    "ReviewPage",
+                    "Sets",
+                    "Start",
+                    "Stop",
+                    "Tail",
+                    "Usage",
+                    "Watch",
+                    "WatchProjects",
+                    "WorkHeld");
 
     // A task must be able to request arrivals without gaining another project's history.
     @Test
-    void arrivalsAreReadingScopedToTheTasksOwnProject() throws Exception {
-        assertThat(McpMethods.READING).as("arrivals are available as reading").contains("Arrivals");
+    void arrivalsAreOfferedScopedToTheTasksOwnProject() {
+        assertThat(McpMarkers.offered("Arrivals")).as("arrivals are offered").isTrue();
         assertThat(McpTaskSockets.takingAProject()).contains("Arrivals");
     }
 
     @Test
-    void everyMethodIsSortedIntoExactlyOneSet() {
-        final List<Set<String>> sets =
-                List.of(
-                        McpMethods.READING,
-                        McpMethods.NEVER,
-                        McpMethods.JUDGEMENT,
-                        WRITING_ONLY_FROM_THE_LIST);
-        final Set<String> sorted = new TreeSet<>();
-        int count = 0;
-        for (final Set<String> set : sets) {
-            sorted.addAll(set);
-            count += set.size();
-        }
-        final Set<String> described = new TreeSet<>(McpMethods.described());
+    void everyMethodCarriesAMarker() {
+        assertThat(McpMarkers.daemon().keySet())
+                .as("every method of Tasks1, and no other")
+                .isEqualTo(McpMethods.described());
+    }
 
-        assertThat(sorted).as("every method of Tasks1, and no other").isEqualTo(described);
-        assertThat(count).as("no method in two sets").isEqualTo(sorted.size());
+    @Test
+    void theOfferedMethodsAreExactlyThoseNamed() {
+        final Set<String> offered = new TreeSet<>();
+        McpMarkers.daemon()
+                .forEach(
+                        (name, marker) -> {
+                            if (marker.isEmpty()) {
+                                offered.add(name);
+                            }
+                        });
+
+        assertThat(offered).isEqualTo(new TreeSet<>(OFFERED));
+        assertThat(OFFERED)
+                .as("every writing method a task's rights bound")
+                .containsAll(org.fuin.porelo.app.EndpointRights.writing());
+    }
+
+    @Test
+    void aPersonsJudgementIsNotMeantForAgents() {
+        for (final String method :
+                List.of(
+                        "Approve",
+                        "Reject",
+                        "Decide",
+                        "TrustHostKey",
+                        "ConfirmFirstStart",
+                        "Authorize",
+                        "EnrollDevice",
+                        "UnlockWithShare",
+                        "Release")) {
+            assertThat(McpMarkers.withheld(method))
+                    .as(method)
+                    .contains("the person's own judgement");
+        }
+    }
+
+    @Test
+    void whatReachesOutOrWritesForThePersonIsNotOffered() {
+        // Each carries a marker of its own: an unmarked method would be withheld too, and this
+        // test would not see the marker missing.
+        assertThat(
+                        List.of(
+                                "Agents",
+                                "CanStart",
+                                "CheckProjectFile",
+                                "Egress",
+                                "FirstStart",
+                                "Node",
+                                "ReadHeld",
+                                "Prepare",
+                                "SyncUpstream",
+                                "HostKeys",
+                                "RefreshTask",
+                                "Models",
+                                "Credentials",
+                                "Say",
+                                "Tell"))
+                .allSatisfy(
+                        method ->
+                                assertThat(McpMarkers.daemon().get(method))
+                                        .as(method)
+                                        .isNotNull()
+                                        .isPresent());
+    }
+
+    // A project file names the methods it wants; a vault entry's existence, the person's
+    // destinations and the transports a text would run are not among what a task may ask.
+    @Test
+    void checkingAProjectFileAndAProjectsReachAreNotMeantForAgents() {
+        assertThat(McpMarkers.withheld("CheckProjectFile"))
+                .hasValueSatisfying(reason -> assertThat(reason).contains("vault entries"));
+        assertThat(McpMarkers.withheld("Egress"))
+                .hasValueSatisfying(reason -> assertThat(reason).contains("installed agents"));
+    }
+
+    @Test
+    void aMethodWithoutAMarkerIsWithheld() {
+        assertThat(McpMarkers.offered("NoSuchMethod")).isFalse();
+        assertThat(McpMarkers.withheld("NoSuchMethod"))
+                .contains("it carries no marker saying it is meant for agents");
+    }
+
+    @Test
+    void onlyAMarkerOfItsFormDirectlyAboveItsMethodCounts() {
+        final String description =
+                String.join(
+                        "\n",
+                        "# x-mcp: true",
+                        "method Marked() -> ()",
+                        "# x-mcp: false the reason",
+                        "method Refused() -> ()",
+                        "method Unmarked() -> ()",
+                        "# x-mcp: true",
+                        "# a comment between",
+                        "method Separated() -> ()",
+                        "# x-mcp: yes",
+                        "method Malformed() -> ()",
+                        "# x-mcp: false " + "r".repeat(201),
+                        "method TooLong() -> ()",
+                        "");
+
+        assertThat(McpMarkers.read(description))
+                .containsOnly(
+                        Map.entry("Marked", Optional.empty()),
+                        Map.entry("Refused", Optional.of("the reason")));
+    }
+
+    @Test
+    void aTasksSectionNamingAMethodNotMeantForAgentsIsRefusedWithTheReason() {
+        assertThat(McpTaskSockets.refusals(List.of("Approve", "List", "Prepare")))
+                .containsExactly(
+                        "mcp.methods: 'Approve' is not meant for agents: the person's own judgement",
+                        "mcp.methods: 'Prepare' is not meant for agents: reaches the network or"
+                                + " the person's forge with the person's credentials, and builds"
+                                + " for minutes");
     }
 
     @Test
@@ -169,15 +257,6 @@ class McpMethodsTest {
     }
 
     @Test
-    void whatWritesAnythingIsNotReading() {
-        assertThat(McpMethods.READING)
-                .as("each writes a file, fetches, or takes a project")
-                .doesNotContain("CanStart", "FirstStart", "Node", "ReadHeld")
-                .contains("McpMethods");
-        assertThat(McpMethods.JUDGEMENT).as("dropping pending work").contains("Reject");
-    }
-
-    @Test
     void theReplyIsTheNeverListAlone() {
         final Map<String, Object> reply = McpMethods.answer();
 
@@ -191,33 +270,18 @@ class McpMethodsTest {
     // The second guard: a marker cannot offer what the hand-kept list forbids.
     @Test
     void noMethodTheNeverListNamesIsMarkedTrue() {
-        final Map<String, String> markers = markers(PoreloDaemon.description());
-
-        assertThat(markers).as("the description carries markers").isNotEmpty();
         assertThat(McpMethods.NEVER)
                 .as("never offered, so never marked true")
-                .noneMatch(name -> "true".equals(markers.get(name)));
+                .noneMatch(McpMarkers::offered)
+                .allSatisfy(name -> assertThat(McpMarkers.daemon()).containsKey(name));
     }
 
     @Test
     void aMarkedTrueMethodTheNeverListNamesIsFound() {
         final String description = "# Stops everything.\n# x-mcp: true\nmethod Panic() -> ()\n";
 
-        assertThat(markers(description)).containsEntry("Panic", "true");
+        assertThat(McpMarkers.read(description)).containsEntry("Panic", Optional.empty());
         assertThat(McpMethods.NEVER).contains("Panic");
-    }
-
-    private static final java.util.regex.Pattern MARKED =
-            java.util.regex.Pattern.compile(
-                    "(?m)^# x-mcp: (true|false)\\b.*\\Rmethod\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
-
-    private static Map<String, String> markers(final String description) {
-        final Map<String, String> markers = new java.util.TreeMap<>();
-        final java.util.regex.Matcher matcher = MARKED.matcher(description);
-        while (matcher.find()) {
-            markers.put(matcher.group(2), matcher.group(1));
-        }
-        return markers;
     }
 
     @Test

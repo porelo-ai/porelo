@@ -41,6 +41,7 @@ type Destination (
 )
 
 # What the vault holds, without any of it.
+# x-mcp: false the vault is the person's own
 method Credentials() -> (
   # Where the vault file is.
   vault: string,
@@ -103,6 +104,7 @@ type Connection (
 # value itself is typed on the machine, and 'storeCommand' says exactly what to type. For source
 # FILE, ENVIRONMENT or AGENT there is nothing to type: the value is already somewhere, and this
 # records where.
+# x-mcp: false changes where a credential is sent
 method CredentialDeclare(
   # What the secret is called. For VAULT the entry name; for FILE the path; for ENVIRONMENT the
   # variable. For AGENT, one SHA256 fingerprint or public key line; omitted means all agent keys.
@@ -167,6 +169,7 @@ method CredentialDeclare(
 
 # Forgets a credential record. The secret is NOT removed: a key in ~/.ssh is the person's, and a
 # vault entry is removed with CredentialRemove, or 'porelo vault remove' at the machine.
+# x-mcp: false the vault is the person's own
 method CredentialForget(
   # The record's 'match', exactly as Connection gives it.
   match: string
@@ -183,6 +186,7 @@ method CredentialForget(
 #
 # Only an entry Credentials lists. One whose grant or client registration has to be ended at its
 # service first is refused as GRANTED: that is 'porelo vault remove' at the machine, which can ask.
+# x-mcp: false removes what cannot be had back
 method CredentialRemove(
   # The entry, as Credentials names it.
   name: string
@@ -193,6 +197,7 @@ method CredentialRemove(
 #
 # The value crosses this socket once, inbound: it is never logged, echoed or answered, and no
 # refusal carries any part of it.
+# x-mcp: false removes what cannot be had back
 method CredentialReplace(
   # The entry, as Credentials names it.
   name: string,
@@ -245,6 +250,7 @@ type SshKey (
 #
 # Deciding what is a private key means reading files, which is why this is answered by the machine
 # rather than by a client listing a home directory over ssh.
+# x-mcp: false the person's own SSH keys
 method SshKeys() -> (
   keys: []SshKey
 )
@@ -252,6 +258,7 @@ method SshKeys() -> (
 # Which credential a destination would use, and whether it would work - before anything is tried.
 #
 # The call a dialog makes before offering 'Approve', without touching the network.
+# x-mcp: false the vault is the person's own
 method CredentialCheck(
   # Where something would connect, such as a project repository's URL.
   url: string,
@@ -283,6 +290,7 @@ method CredentialCheck(
 #
 # It is the better first offer wherever an agent can log itself in, because nothing has to be
 # retyped - and the commonest typo when retyping is storing the guide's placeholder.
+# x-mcp: false the vault is the person's own
 method ImportCredential(
   # Which agent to import from. Omit when only one is installed.
   agent: ?string,
@@ -323,6 +331,7 @@ method ImportCredential(
 # The private half stays in this daemon's memory until one entry opens with it or five minutes have
 # passed; an ended key opens nothing and is dropped at the next call. A few live at once, a newer
 # one ending the oldest. Nothing is written.
+# x-mcp: false a vault entry carried to a host is the person's to send, never a task's
 method CredentialReceiver() -> (
   # READY, or VAULT_LOCKED: no key is made for a vault that could not store what it receives.
   outcome: string,
@@ -342,6 +351,7 @@ method CredentialReceiver() -> (
 # ImportCredential reads it and sealed under the name and kind that import would store it under, so
 # the host keeps it where its tasks look; this machine's vault is neither opened nor written, and a
 # shut one does not matter.
+# x-mcp: false a vault entry carried to a host is the person's to send, never a task's
 method SealCredential(
   # The receiving key, as CredentialReceiver answered it.
   key: string,
@@ -390,10 +400,12 @@ type ImportableCredential (
 # holds, or the one it answers when it is not brokered. Read from the agents' files, so a shut vault
 # does not matter; names only, never a value. Each agent is asked once per provider, so this is not
 # cheap.
+# x-mcp: false a vault entry carried to a host is the person's to send, never a task's
 method ImportableCredentials() -> (rows: []ImportableCredential)
 
 # Opens an entry SealCredential sealed to one of this daemon's live keys and stores it in this
 # machine's vault. The key it opened with ends.
+# x-mcp: false a vault entry carried to a host is the person's to send, never a task's
 method ReceiveCredential(
   # As SealCredential answered it.
   sealed: string,
@@ -425,6 +437,7 @@ method ReceiveCredential(
 #
 # Readable while the vault is locked: a screen has to show which devices can open a vault before
 # anything opens it. Nothing here is secret.
+# x-mcp: false the vault is the person's own
 method Keyslots() -> (slots: []Keyslot)
 
 type Keyslot (
@@ -451,6 +464,7 @@ type Keyslot (
 # The share arrives once, wraps the master key, and is discarded. It is never logged, never echoed
 # back and never written anywhere. What is left here is worth nothing without the device, and what
 # the device holds is worth nothing without this machine's vault file.
+# x-mcp: false the person's own judgement
 method EnrollDevice(
   # What to call the device in a list.
   name: string,
@@ -470,6 +484,7 @@ method EnrollDevice(
 #
 # Deleting one wrapped blob and nothing else: no re-keying, no other device disturbed, no
 # passphrase rotated.
+# x-mcp: false removes what cannot be had back
 method RevokeKeyslot(id: string) -> (
   # REVOKED, NO_SUCH_SLOT, LAST_WAY_IN, VAULT_LOCKED, VAULT_WITHOUT_KEYSLOTS or FAILED.
   outcome: string,
@@ -484,6 +499,7 @@ method RevokeKeyslot(id: string) -> (
 # the daemon's locked memory until lock or exit, and refuses minutes. The unwrapped master key
 # is not retained, since it would outlive every revocation.
 # An SSH share for a vault containing other slot kinds is refused with NotAHostVault.
+# x-mcp: false the person's own judgement
 method UnlockWithShare(
   # When supplied, must resolve to this daemon's vault.
   vault: ?string,
@@ -509,6 +525,7 @@ method UnlockWithShare(
 # Authorize, 'porelo vault authorize', or whoever answered. Raised once per credential until it is granted,
 # not once per refused start. Answering it is Authorize with 'credential'.
 # The reply is a AuthorizationNeeded: varlink wants the reply spelt out as a struct, so its fields are repeated here.
+# x-mcp: false the prompts waiting for the person's own answer
 method Authorizations() -> (
   # The vault entry that names the service; pass it to Authorize as 'name'.
   credential: string,
@@ -533,15 +550,18 @@ method Authorizations() -> (
 # token which never expires and nothing to renew it - GitHub's device flow for an OAuth app - is kept as it
 # is: "granted", with a detail saying it cannot be revoked from here. One that expires with nothing to renew
 # it is "refused", saying why.
+# x-mcp: false the person's own judgement
 method Authorize(
   # The vault entry of kind oauth-device or oauth-code that names the service.
   name: string
 ) -> (state: string, link: string, code: string, port: int, expiresIn: int, detail: string)
 
 # Every destination declared on this machine, the one in force for each name first.
+# x-mcp: false the vault is the person's own
 method Destinations() -> (destinations: []Destination)
 
 # One destination, as it is in force.
+# x-mcp: false the vault is the person's own
 method Destination(name: string) -> (destination: Destination)
 
 # Declares a destination in the user's own directory, taking the place of a packaged one of the same name.
@@ -550,6 +570,7 @@ method Destination(name: string) -> (destination: Destination)
 # back, or the refusal - a name that is not one, an upstream that is not https, no header. An upstream may
 # also be 'unix:<path>', an endpoint on this host, taken only for a socket directly in
 # $XDG_RUNTIME_DIR/porelo/mcp with no symbolic link on its path.
+# x-mcp: false changes where a credential is sent
 method WriteDestination(
   name: string,
   label: ?string,
@@ -563,6 +584,7 @@ method WriteDestination(
 
 # Removes the user's own declaration of a destination. A packaged one cannot be removed; if one of the same
 # name exists, it is in force again afterwards.
+# x-mcp: false the vault is the person's own
 method RemoveDestination(name: string) -> (removed: bool, file: string)
 
 # The destination as given is not one Porelo can use; the message says why.
@@ -578,6 +600,7 @@ error DestinationRefused(message: string)
 # starts as on a new machine.
 #
 # A running task that holds a token from the vault refuses it, force or not: stop the task first.
+# x-mcp: false removes what cannot be had back
 method VaultClear(
   # When supplied, must resolve to this daemon's vault.
   vault: ?string,
@@ -602,9 +625,13 @@ method VaultClear(
 # Paths resolve to the daemon's vault, whose wrapped key must still match the held share.
 # Every method requires SO_PEERCRED's uid to match this daemon's, including SSH connections.
 # Forget compares the vault location without requiring the encrypted file to exist.
+# x-mcp: false the vault is the person's own
 method KeepHostVaultShare(vault: string, share: string) -> ()
+# x-mcp: false the vault is the person's own
 method HostVaultShare(vault: string) -> (open: bool)
+# x-mcp: false hands out a secret
 method ReadHostVaultShare(vault: string) -> (share: string)
+# x-mcp: false the vault is the person's own
 method ForgetHostVaultShare(vault: string) -> (wasHeld: bool)
 
 # The offered share opens no slot; the vault has not been cleared or changed.
@@ -684,6 +711,7 @@ type HostIdentity (
 # Without replace, an identity already kept is replaced only by one with the same organization key,
 # the same host keys and every kept repository unchanged, which may add repositories; anything else
 # is HostIdentityExists and nothing changes. The window asks the person before replace.
+# x-mcp: false a host's keys are the person's to keep, read and replace
 method HostIdentityKeep(
   # The host, as its card names it.
   host: string,
@@ -694,12 +722,15 @@ method HostIdentityKeep(
 
 # The whole identity, private halves included, for the moment it is piped into the host's setup.
 # Refused with HostIdentityNotReadOnAHost by a host's own daemon, whose vault is not the person's.
+# x-mcp: false a host's keys are the person's to keep, read and replace
 method HostIdentityRead(host: string) -> (identity: HostIdentity)
 
 # The identity without any private field, for pinning a host's keys and showing what it carries.
+# x-mcp: false a host's keys are the person's to keep, read and replace
 method HostIdentityPublic(host: string) -> (identity: HostIdentity)
 
 # The hosts whose identity the vault keeps, sorted.
+# x-mcp: false a host's keys are the person's to keep, read and replace
 method HostIdentities() -> (hosts: []string)
 
 # The vault keeps no identity for this host.

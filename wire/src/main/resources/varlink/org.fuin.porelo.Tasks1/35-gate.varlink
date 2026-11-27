@@ -13,6 +13,7 @@
 # Issuance and transfer hold the account's forge-token lock, including against the CLI token issuer.
 # No Git or issuer text, URL, credential or credential fragment is returned. Never offered through MCP:
 # releasing to central is a person's judgment. The window offers this action; its button is a client concern.
+# x-mcp: false releases approved work with the person's central credential
 method PushToCentral(project: string, repositories: ?[]string) -> (
   repository: ?string,
   stage: ?string,
@@ -102,6 +103,7 @@ type HostPullRequestRefusal (
 # refused, present only when a repository was refused, names each; the other repositories still answer.
 # A reply fits one message: when the rows do not, pullRequests and ended hold their first rows, paged says how
 # many there are, and PullRequestsPage gives the rest of this same reading. Absent when every row is here.
+# x-mcp: false spends the person's forge identity on reviews awaiting human judgement
 method PullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal, paged: ?PullRequestsPaged)
 
 # How much of a PullRequests reading or a WatchPullRequests snapshot there is when its reply holds only the
@@ -119,6 +121,7 @@ type PullRequestsPaged (
 # The rest of a PullRequests reading or a WatchPullRequests snapshot that did not fit its reply, page by page:
 # positions run through pullRequests and then ended, so putting the pages after the first reply gives each list
 # whole, in its order, every row once. Each page fits one message.
+# x-mcp: false spends the person's forge identity on reviews awaiting human judgement
 method PullRequestsPage(
   project: string,
   # PullRequests.paged.reading or WatchPullRequests.paged.reading.
@@ -154,6 +157,7 @@ error PullRequestsReadingGone(project: string, reading: string)
 # so a client still paging an older snapshot drops it for the newer.
 # None of PullRequests, PullRequestsPage and this method is offered to tasks through MCP: each spends or
 # hands out what the person's forge identity read.
+# x-mcp: false spends the person's forge identity on reviews awaiting human judgement
 method WatchPullRequests(project: string) -> (pullRequests: []HostPullRequest, ended: []HostPullRequest, refused: ?[]HostPullRequestRefusal, paged: ?PullRequestsPaged)
 
 # No usable person token exists under the exact entry written by the command on this host.
@@ -278,6 +282,7 @@ type DeliveredOrigin (
 # for review". Omitting it means the project's own repository - the one the project file belongs
 # to - which is the only default in this interface that is not Porelo picking between equals.
 # Project.repositories lists the names.
+# x-mcp: true
 method Pending(
   # Project NAME, as Projects.name gives it.
   project: string,
@@ -296,6 +301,7 @@ method Pending(
 )
 
 # What a pending push contains, so it can be judged before it is forwarded.
+# x-mcp: true
 method Review(
   project: string,
   upstream: ?string,
@@ -367,6 +373,7 @@ type ReviewPaged (
 # The rest of a Review that did not fit its reply, page by page, for the commit that Review answered. Pages of
 # files and commits are in Review's own order, so putting them together gives the list Review would have given
 # whole. Each page fits one message.
+# x-mcp: true
 method ReviewPage(
   project: string,
   upstream: ?string,
@@ -446,6 +453,7 @@ method Approve(
 # and pushes it: what is on the pending ref and not on 'branch' in the mirror (the whole history when the mirror
 # has no such branch). Fetch it with 'git fetch <file> refs/porelo/incoming/<name>'. Refused as BundleTooLarge
 # above the limit, rather than sent: a reply is one message.
+# x-mcp: false the gate's work is the person's to move
 method PendingBundle(
   project: string,
   upstream: ?string,
@@ -465,6 +473,7 @@ method PendingBundle(
 # fetched with this machine's own credential. Not rejected, which it was not: it went, just not through here.
 # landed false changes nothing, and 'detail' says why: not on the branch yet, the upstream not reachable, no
 # upstream configured.
+# x-mcp: false the gate's work is the person's to move
 method Landed(
   project: string,
   upstream: ?string,
@@ -494,6 +503,7 @@ error BundleTooLarge(bytes: int, limit: int)
 # refused with AlreadyUpstream and nothing is discarded.
 # 'endUnkept' says, as a sentence for a person, that the push was discarded but its end could not be kept
 # for the task that pushed it; absent when the end was kept or there was none to keep.
+# x-mcp: false the person's own judgement
 method Reject(project: string, upstream: ?string, repository: ?string, name: string, reason: ?string, force: ?bool)
     -> (rejected: string, told: bool, endUnkept: ?string)
 
@@ -528,6 +538,7 @@ error BranchExists(branch: string, at: string)
 # Opens a comment thread on lines of a waiting push, as the owner account. Kept with the push and bound to
 # the task container that pushed it, so a later task of the same name inherits no thread. Never offered
 # through MCP: a task answers in a thread through its mailbox.
+# x-mcp: false writes a review as the owner account; a task answers a thread through its mailbox
 method Comment(
   project: string,
   # Which repository of the project.
@@ -557,6 +568,7 @@ method Comment(
 )
 
 # Answers a thread of a waiting push, as the owner account; open or resolved, the thread keeps its state.
+# x-mcp: false writes a review as the owner account; a task answers a thread through its mailbox
 method Reply(
   project: string,
   repository: string,
@@ -575,6 +587,7 @@ method Reply(
 
 # Every comment and reply of a waiting push, as SARIF in Porelo's profile, one page at a time, the oldest
 # thread first. Each item names its producer by channel: the owner account, or a task.
+# x-mcp: false reads a review as the owner account; a task answers a thread through its mailbox
 method Comments(
   project: string,
   repository: string,
@@ -590,6 +603,7 @@ method Comments(
 
 # Sets a thread of a waiting push resolved, or open again with reopen. Only the thread's state changes: it
 # clears no finding, changes no approval and approves nothing.
+# x-mcp: false resolves a review's thread as the owner account
 method ResolveThread(
   project: string,
   repository: string,
@@ -605,6 +619,7 @@ method ResolveThread(
 
 # How much of a waiting push's review is still open, as the daemon counts it, for whoever decides the push.
 # Never offered through MCP. Refused only as NoSuchPush or MovedSinceReview.
+# x-mcp: false counts a review as the owner account
 method ReviewSummary(
   project: string,
   repository: string,
@@ -637,6 +652,7 @@ type ReviewRun (
 # Refused as PlaceUnreadable, UnknownForge, NoPullRequest, for a pull request address the forge does not
 # know as NoSuchPullRequest, and as HeadNotInGate for a pull request whose head the asking task's gate never
 # forwarded; pullRequest or ownPullRequest without task is org.varlink.service.InvalidParameter.
+# x-mcp: false what is open at a place, read for the person's planner
 method ReviewOpen(
   project: string,
   place: Place,
@@ -753,6 +769,7 @@ type HeldItem (
 
 # The undecided held items, oldest first, in pages. Never offered through MCP: the decision is the owner
 # account's. A cursor is refused as CursorRefused.
+# x-mcp: false held review items are the owner account's to decide
 method HeldItems(
   # A task's name; absent lists every task's items on this machine.
   task: ?string,
@@ -770,6 +787,7 @@ method HeldItems(
 # Decides one held item, if its content is still the one shown. release and refuse are for an outgoing item,
 # pass and dismiss for an incoming one; another is org.varlink.service.InvalidParameter. A refusal carries no
 # words for the task. The reply is empty; the item leaves HeldItems and Task.held. Never offered through MCP.
+# x-mcp: false held review items are the owner account's to decide
 method DecideItem(
   task: string,
   id: string,
@@ -805,6 +823,7 @@ type ForgeInstance (
 
 # The forge instances this machine knows, in the order they were added, and the names of the forge adapters
 # installed. Never offered through MCP.
+# x-mcp: false how a forge's comments reach a run is the person's choice
 method Forges() -> (forges: []ForgeInstance, adapters: []string)
 
 # Adds a forge instance, or changes the adapter or comment reading of one. comments absent means EXTENDED,
@@ -812,6 +831,7 @@ method Forges() -> (forges: []ForgeInstance, adapters: []string)
 # one of Forges' adapters, whose names are the forge kinds they serve. A host that is not a DNS name is
 # org.varlink.service.InvalidParameter. The reply is empty. Never offered through MCP: how a forge's words
 # reach a run is the owner account's choice.
+# x-mcp: false how a forge's comments reach a run is the person's choice
 method ForgeSet(host: string, adapter: string, comments: ?(EXTENDED, TRUSTED)) -> ()
 
 # No forge adapter of that name is installed; nothing was changed.
@@ -855,6 +875,7 @@ error IdReused()
 
 # Tries one SSH identity without saving a credential or publishing work. Uses the existing mirror;
 # it never initializes or fetches one. source is AGENT (fingerprint or public key id) or FILE (path).
+# x-mcp: false reaches a forge with the person's SSH key
 method CredentialTryPush(
   project: string,
   repository: ?string,
@@ -893,6 +914,7 @@ error PushRefused(
 # Missing, unreadable, unsafe, oversized or malformed data is cannot-say, never an empty history.
 # Historical judgements are returned unchanged; signatures are not verified again.
 # These are pre-receive judgements, not proof that the forge updated its refs.
+# x-mcp: true
 method Arrivals(project: string, repository: string) -> (
   # read or cannot-say. An armed repository without commits still has an armed row.
   state: string,
