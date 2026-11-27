@@ -40,7 +40,8 @@ public final class MessageRead {
      *
      * @param outcome What the read found.
      * @param standing Where it stands: {@code held}, {@code refused-by-filter}, {@code
-     *     refused-by-person} or {@code unchecked}, or "" when nothing was found.
+     *     refused-by-porelo}, {@code refused-by-person} or {@code unchecked}, or "" when nothing
+     *     was found.
      * @param message The file, or "".
      * @param id Its message id, or "".
      * @param role {@code ROLE_USER} when a person wrote it, {@code ROLE_AGENT} when a task did, or
@@ -209,6 +210,12 @@ public final class MessageRead {
                         final String answer = MessageLookup.filterAnswer(mailbox, messageId);
                         yield answer.isEmpty()
                                 ? "the filter refused it; its answer is not on this machine any more"
+                                : answer;
+                    }
+                    case REFUSED_BY_PORELO -> {
+                        final String answer = MessageLookup.poreloAnswer(mailbox, messageId);
+                        yield answer.isEmpty()
+                                ? "Porelo refused it; its answer is not on this machine any more"
                                 : answer;
                     }
                     case REFUSED_BY_PERSON -> "a person refused it for good";

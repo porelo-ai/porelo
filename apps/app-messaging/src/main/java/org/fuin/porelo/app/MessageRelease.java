@@ -278,7 +278,7 @@ public final class MessageRelease {
                                 outside,
                                 NotDeliverable.NOT_IN_CONVERSATION);
             }
-            case REFUSED_BY_FILTER ->
+            case REFUSED_BY_FILTER, REFUSED_BY_PORELO ->
                     refuse ? refusedAgain(mailbox, one.file()) : despite(mailbox, one.file(), mail);
             case REFUSED_BY_PERSON ->
                     new Result(

@@ -35,6 +35,12 @@ final class MessageLookup {
         /** Refused by the filter, and deliverable after all by a person who read it. */
         REFUSED_BY_FILTER,
 
+        /**
+         * Refused by Porelo's own check, the review's profile for one; answered by Porelo, not the
+         * filter, and deliverable after all like the filter's.
+         */
+        REFUSED_BY_PORELO,
+
         /** Refused for good by a person. Final: the sender was told. */
         REFUSED_BY_PERSON,
 
@@ -89,12 +95,15 @@ final class MessageLookup {
         }
         final java.util.Set<String> refusedByPerson = refusedByPerson(mailbox);
         for (final Path refused : messages(mailbox.rejected())) {
-            found.add(
-                    new Found(
-                            refused,
-                            refusedByPerson.contains(refused.getFileName().toString())
-                                    ? Standing.REFUSED_BY_PERSON
-                                    : Standing.REFUSED_BY_FILTER));
+            final Standing standing;
+            if (refusedByPerson.contains(refused.getFileName().toString())) {
+                standing = Standing.REFUSED_BY_PERSON;
+            } else if (!answer(mailbox, idOf(refused), true).isEmpty()) {
+                standing = Standing.REFUSED_BY_PORELO;
+            } else {
+                standing = Standing.REFUSED_BY_FILTER;
+            }
+            found.add(new Found(refused, standing));
         }
         for (final Path unchecked : messages(mailbox.error())) {
             found.add(new Found(unchecked, Standing.UNCHECKED));
@@ -112,6 +121,23 @@ final class MessageLookup {
      * @throws IOException Reading failed.
      */
     static String filterAnswer(final Mailbox mailbox, final String id) throws IOException {
+        return answer(mailbox, id, false);
+    }
+
+    /**
+     * Returns Porelo's own answer to a message it refused - why, in its words, without the text.
+     *
+     * @param mailbox The task's mailbox.
+     * @param id The refused message's id.
+     * @return The answer's text, or "" when it is not on this machine any more.
+     * @throws IOException Reading failed.
+     */
+    static String poreloAnswer(final Mailbox mailbox, final String id) throws IOException {
+        return answer(mailbox, id, true);
+    }
+
+    private static String answer(final Mailbox mailbox, final String id, final boolean porelo)
+            throws IOException {
         if (id.isEmpty()) {
             return "";
         }
@@ -119,7 +145,7 @@ final class MessageLookup {
         // which the agent writes: an answer forged there was shown to the person as the filter's.
         for (final Path directory : List.of(mailbox.feedback(), answers(mailbox))) {
             for (final Path answer : messages(directory)) {
-                final String text = answerText(answer, id);
+                final String text = answerText(answer, id, porelo);
                 if (!text.isEmpty()) {
                     return text;
                 }
@@ -250,7 +276,7 @@ final class MessageLookup {
         }
     }
 
-    private static String answerText(final Path answer, final String id) {
+    private static String answerText(final Path answer, final String id, final boolean porelo) {
         try {
             if (!(Json.parse(Files.readString(answer, StandardCharsets.UTF_8))
                             instanceof Map<?, ?> document)
@@ -268,8 +294,9 @@ final class MessageLookup {
                 if (part instanceof Map<?, ?> each
                         && each.get("data") instanceof Map<?, ?> data
                         && id.equals(data.get("rejectedMessageId"))
-                        && !(data.get("tool") instanceof Map<?, ?> tool
-                                && HostBounce.TOOL.equals(tool.get("name")))) {
+                        && porelo
+                                == (data.get("tool") instanceof Map<?, ?> tool
+                                        && HostBounce.TOOL.equals(tool.get("name")))) {
                     about = true;
                 }
             }

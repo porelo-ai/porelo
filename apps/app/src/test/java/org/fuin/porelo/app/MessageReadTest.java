@@ -189,6 +189,61 @@ class MessageReadTest {
     }
 
     @Test
+    void aMessagePoreloRefusedIsListedAsPorelosWithItsReasonFromPorelosOwnAnswer(
+            @TempDir final Path dir) throws IOException {
+        // Harm: the person was told the filter refused it and its answer was gone, though Porelo's
+        // own answer with the reason was on record.
+        final Mailbox mailbox = mailbox(dir);
+        Files.createDirectories(mailbox.rejected());
+        Files.writeString(mailbox.rejected().resolve("m-1.json"), MESSAGE);
+        Files.createDirectories(MessageLookup.answers(mailbox));
+        Files.writeString(
+                MessageLookup.answers(mailbox).resolve("answer.json"),
+                """
+                {"messageId":"porelo-1","role":"ROLE_AGENT","parts":[{"text":"it was not taken by the review: profile: message-escape at /runs/0/results/1/message/text"},
+                 {"data":{"verdict":"refused","rejectedMessageId":"m-1","tool":{"name":"porelo"}}}]}
+                """);
+
+        final MessageRead.Held read = new MessageRead().read(mailbox, "m-1");
+        final MessageRead.Held listed = new MessageRead().list(mailbox).get(0);
+
+        assertThat(read.standing()).isEqualTo("refused-by-porelo");
+        assertThat(read.reason())
+                .isEqualTo(
+                        "it was not taken by the review: profile: message-escape at /runs/0/results/1/message/text");
+        assertThat(listed.standing()).isEqualTo("refused-by-porelo");
+        assertThat(listed.reason()).isEqualTo(read.reason());
+    }
+
+    @Test
+    void aMessageTheFilterRefusedStaysTheFiltersWhenPoreloAnsweredAnotherMessage(
+            @TempDir final Path dir) throws IOException {
+        // Harm: matching Porelo's answers loosely would blame Porelo for a refusal that was the
+        // filter's, or show another message's reason.
+        final Mailbox mailbox = mailbox(dir);
+        Files.createDirectories(mailbox.rejected());
+        Files.writeString(mailbox.rejected().resolve("m-1.json"), MESSAGE);
+        Files.createDirectories(MessageLookup.answers(mailbox));
+        Files.writeString(
+                MessageLookup.answers(mailbox).resolve("filter.json"),
+                """
+                {"messageId":"f-1","role":"ROLE_AGENT","parts":[{"text":"refused: secret.aws-key in part 1"},
+                 {"data":{"verdict":"refused","rejectedMessageId":"m-1","tool":{"name":"porelo-message-sluice-filter"}}}]}
+                """);
+        Files.writeString(
+                MessageLookup.answers(mailbox).resolve("porelo.json"),
+                """
+                {"messageId":"porelo-1","role":"ROLE_AGENT","parts":[{"text":"not this one"},
+                 {"data":{"verdict":"refused","rejectedMessageId":"m-9","tool":{"name":"porelo"}}}]}
+                """);
+
+        final MessageRead.Held held = new MessageRead().read(mailbox, "m-1");
+
+        assertThat(held.standing()).isEqualTo("refused-by-filter");
+        assertThat(held.reason()).isEqualTo("refused: secret.aws-key in part 1");
+    }
+
+    @Test
     void anAnswerTheTaskWroteIntoItsOwnInboxIsNeverShownAsTheFiltersOrItsVerdict(
             @TempDir final Path dir) throws IOException {
         // The task writes its inbox: what a person read as the filter's answer, before deciding to

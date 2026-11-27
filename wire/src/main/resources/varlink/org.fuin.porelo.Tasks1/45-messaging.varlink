@@ -93,7 +93,7 @@ method Talk() -> (
 #
 # Found exactly as ReadHeld and Release find a message, so the list, the reading and the decision
 # cannot disagree. Without what the messages say: reading one is a person's deliberate act, through
-# ReadHeld. held and refused-by-filter wait for a decision; refused-by-person and unchecked are
+# ReadHeld. held, refused-by-filter and refused-by-porelo wait for a decision; refused-by-person and unchecked are
 # listed because they are still there, and neither can be sent.
 # x-mcp: true
 method Held(
@@ -104,7 +104,7 @@ method Held(
 type HeldMessage (
   # Container name of the task whose mailbox holds it.
   task: string,
-  # held, refused-by-filter, refused-by-person or unchecked.
+  # held, refused-by-filter, refused-by-porelo, refused-by-person or unchecked.
   standing: string,
   # The file, as ReadHeld and Release take it.
   message: string,
@@ -185,8 +185,8 @@ method ReadHeld(
 ) -> (
   # FOUND, NO_SUCH_MESSAGE or AMBIGUOUS.
   outcome: string,
-  # held, refused-by-filter, refused-by-person or unchecked, or "". What Release can do with it follows
-  # from this: held and refused-by-filter can be sent, the other two never.
+  # held, refused-by-filter, refused-by-porelo, refused-by-person or unchecked, or "". What Release can do with it follows
+  # from this: held, refused-by-filter and refused-by-porelo can be sent, the other two never.
   standing: string,
   # The file, or "".
   message: string,
