@@ -154,7 +154,7 @@ jobs:
         name: Leg - ${{ matrix.os }}
         # Pinned, not ubuntu-latest: the packages' C library floor is measured on what this builds.
         runs-on: ubuntu-24.04
-        # About three times a normal leg (17 min). The step that rents the machine stops sooner, so the clean-up below
+        # A leg's suite takes 40 to 46 minutes. The step that rents the machine stops at 60, so the clean-up below
         # still runs inside this limit and deletes what the run created.
         timeout-minutes: 75
         needs: [proven]
@@ -187,7 +187,7 @@ jobs:
             # Four accounts run the features beside each other, and a restart runs alone afterwards: the
             # scenarios mostly wait, so a faster machine did not shorten them and doing four at once does.
             - name: Build, install and run the acceptance suite on ${{ matrix.os }}
-              timeout-minutes: 45
+              timeout-minutes: 60
               env:
                   HETZNER_API: ${{ secrets.HETZNER_API }}
                   HETZNER_SSH: ${{ secrets.HETZNER_SSH }}
