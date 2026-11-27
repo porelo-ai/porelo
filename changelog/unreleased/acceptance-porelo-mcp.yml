@@ -1,0 +1,2 @@
+title: The acceptance kit installs the pinned porelo-mcp into each account before its first scenario, checked by its sha256, so a task of a project with an MCP section starts
+type: added

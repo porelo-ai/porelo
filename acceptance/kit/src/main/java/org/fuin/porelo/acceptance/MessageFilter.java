@@ -48,10 +48,41 @@ public final class MessageFilter {
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
 
-    /** The accounts the filter was installed into in this run. */
+    /**
+     * A program installed into each account from a pinned package, the way the filter is.
+     *
+     * @param label What it is, as a failure names it.
+     * @param name Its file name.
+     * @param pin The resource its pin is written in.
+     * @param override The environment variable naming an executable on the machine instead.
+     * @param overrideSha256 The environment variable holding that executable's sha256.
+     * @param packaged Where the packages hold it, from their root.
+     * @param directory The account's directory it goes into, for a POSIX shell.
+     */
+    record Tool(
+            String label,
+            String name,
+            String pin,
+            String override,
+            String overrideSha256,
+            String packaged,
+            String directory) {}
+
+    /** The message filter, where Porelo looks for it first. */
+    static final Tool THE_FILTER =
+            new Tool(
+                    "The message filter",
+                    FILTER,
+                    PIN,
+                    OVERRIDE,
+                    OVERRIDE_SHA256,
+                    "usr/libexec/porelo/" + FILTER,
+                    "${XDG_DATA_HOME:-$HOME/.local/share}/porelo/filter");
+
+    /** The accounts each tool was installed into in this run, as tool and account. */
     private static final Set<String> INSTALLED = new HashSet<>();
 
-    /** Why an account's install failed, so every later scenario of it fails for the same reason. */
+    /** Why a tool's install failed, so every later scenario of the account fails the same way. */
     private static final Map<String, String> FAILED = new HashMap<>();
 
     /** Where the filter comes from. */
@@ -90,31 +121,40 @@ public final class MessageFilter {
      */
     @Before(order = 0)
     public void installIntoTheAccount() throws IOException {
-        install(Accounts.forThisThread());
+        install(THE_FILTER, Accounts.forThisThread());
     }
 
-    private static synchronized void install(String account) throws IOException {
-        if (INSTALLED.contains(account)) {
+    /**
+     * Installs a tool into an account, the first time that account is seen for it in the run.
+     *
+     * @param tool The tool.
+     * @param account The account the scenario runs as.
+     * @throws IOException If the machine cannot be reached.
+     * @throws AssertionError If the tool cannot be installed; it names the tool and the pin.
+     */
+    static synchronized void install(Tool tool, String account) throws IOException {
+        final String key = tool.name() + " " + account;
+        if (INSTALLED.contains(key)) {
             return;
         }
-        final String failed = FAILED.get(account);
+        final String failed = FAILED.get(key);
         if (failed != null) {
             throw new AssertionError(failed);
         }
         final Source source;
         try {
-            source = source(pin(), System.getenv());
+            source = source(tool, pin(tool), System.getenv());
         } catch (AssertionError ex) {
-            FAILED.put(account, Objects.requireNonNullElse(ex.getMessage(), FILTER));
+            FAILED.put(key, Objects.requireNonNullElse(ex.getMessage(), tool.name()));
             throw ex;
         }
-        final Ssh.Output output = Machine.shared().run(command(source));
+        final Ssh.Output output = Machine.shared().run(command(tool, source));
         if (output.status() != 0) {
-            final String failure = failure(source, account, output.all().strip());
-            FAILED.put(account, failure);
+            final String failure = failure(tool, source, account, output.all().strip());
+            FAILED.put(key, failure);
             throw new AssertionError(failure);
         }
-        INSTALLED.add(account);
+        INSTALLED.add(key);
     }
 
     /**
@@ -123,8 +163,19 @@ public final class MessageFilter {
      * @return The pin's properties, empty when the kit carries none.
      */
     static Properties pin() {
+        return pin(THE_FILTER);
+    }
+
+    /**
+     * Reads the pin the kit carries for a tool.
+     *
+     * @param tool The tool.
+     * @return The pin's properties, empty when the kit carries none.
+     */
+    static Properties pin(Tool tool) {
         final Properties pin = new Properties();
-        try (InputStream in = MessageFilter.class.getClassLoader().getResourceAsStream(PIN)) {
+        try (InputStream in =
+                MessageFilter.class.getClassLoader().getResourceAsStream(tool.pin())) {
             if (in != null) {
                 pin.load(in);
             }
@@ -143,40 +194,55 @@ public final class MessageFilter {
      * @throws AssertionError If neither names a filter, or one names it only in part.
      */
     static Source source(Properties pin, Map<String, String> environment) {
-        final String path = environment.getOrDefault(OVERRIDE, "").strip();
-        final String pathSha256 = environment.getOrDefault(OVERRIDE_SHA256, "").strip();
+        return source(THE_FILTER, pin, environment);
+    }
+
+    /**
+     * Decides where a tool comes from: the override when it is set, the pin otherwise.
+     *
+     * @param tool The tool.
+     * @param pin The pin's properties.
+     * @param environment The run's environment.
+     * @return The source.
+     * @throws AssertionError If neither names the tool, or one names it only in part.
+     */
+    static Source source(Tool tool, Properties pin, Map<String, String> environment) {
+        final String path = environment.getOrDefault(tool.override(), "").strip();
+        final String pathSha256 = environment.getOrDefault(tool.overrideSha256(), "").strip();
         if (!path.isEmpty() || !pathSha256.isEmpty()) {
             if (!path.startsWith("/") || !SHA256.matcher(pathSha256).matches()) {
                 throw new AssertionError(
-                        "The message filter "
-                                + FILTER
+                        tool.label()
+                                + " "
+                                + tool.name()
                                 + " cannot be installed: set both "
-                                + OVERRIDE
+                                + tool.override()
                                 + " (an absolute path on the machine) and "
-                                + OVERRIDE_SHA256
+                                + tool.overrideSha256()
                                 + " (its sha256, 64 lower-case hex digits), or neither.");
             }
             return new Override(path, pathSha256);
         }
-        return new Pinned(pinned(pin, "deb"), pinned(pin, "rpm"));
+        return new Pinned(pinned(tool, pin, "deb"), pinned(tool, pin, "rpm"));
     }
 
     /** Reads one format's pin, refusing one that names no https address and sha256. */
-    private static Package pinned(Properties pin, String format) {
+    private static Package pinned(Tool tool, Properties pin, String format) {
         final String url = pin.getProperty(format + ".url", "").strip();
         final String sha256 = pin.getProperty(format + ".sha256", "").strip();
         if (!url.startsWith("https://") || !SHA256.matcher(sha256).matches()) {
             throw new AssertionError(
-                    "The message filter "
-                            + FILTER
+                    tool.label()
+                            + " "
+                            + tool.name()
                             + " has no pin: "
-                            + PIN
+                            + tool.pin()
                             + " names no https "
                             + format
                             + ".url and "
                             + format
                             + ".sha256 for its package, and "
-                            + OVERRIDE
+                            + tool.override()
                             + " is not set.");
         }
         return new Package(url, sha256);
@@ -191,6 +257,20 @@ public final class MessageFilter {
      * @return The failure's text.
      */
     static String failure(Source source, String account, String output) {
+        return failure(THE_FILTER, source, account, output);
+    }
+
+    /**
+     * Says why a tool's install failed, with the pin, so a snapshot that left the pool reads as
+     * such.
+     *
+     * @param tool The tool.
+     * @param source Where the tool was to come from.
+     * @param account The account it was to be installed into.
+     * @param output What the install wrote.
+     * @return The failure's text.
+     */
+    static String failure(Tool tool, Source source, String account, String output) {
         final String from =
                 switch (source) {
                     case Pinned pinned ->
@@ -203,14 +283,15 @@ public final class MessageFilter {
                                     + " with sha256 "
                                     + pinned.rpm().sha256()
                                     + " in "
-                                    + PIN
+                                    + tool.pin()
                                     + "; a snapshot can leave the pool, then update the pin there"
                                     + " to the packages' newer addresses and digests";
                     case Override local ->
-                            OVERRIDE + " " + local.path() + " with sha256 " + local.sha256();
+                            tool.override() + " " + local.path() + " with sha256 " + local.sha256();
                 };
-        return "The message filter "
-                + FILTER
+        return tool.label()
+                + " "
+                + tool.name()
                 + " could not be installed into account "
                 + account
                 + " from "
@@ -230,14 +311,27 @@ public final class MessageFilter {
      * @return The command, for a POSIX shell.
      */
     static String command(Source source) {
-        final String inPackage = "\"$work/root/usr/libexec/porelo/" + FILTER + "\"";
+        return command(THE_FILTER, source);
+    }
+
+    /**
+     * Builds the shell command that installs a tool into the account it runs as.
+     *
+     * @param tool The tool.
+     * @param source Where it comes from.
+     * @return The command, for a POSIX shell.
+     */
+    static String command(Tool tool, Source source) {
+        final String inPackage = "\"$work/root/" + tool.packaged() + "\"";
         final String start =
                 "fail() { printf '%s: %s\\n' '"
-                        + FILTER
+                        + tool.name()
                         + "' \"$1\" >&2; exit 1; };"
-                        + " umask 077; dir=\"${XDG_DATA_HOME:-$HOME/.local/share}/porelo/filter\";"
+                        + " umask 077; dir=\""
+                        + tool.directory()
+                        + "\";"
                         + " target=\"$dir/"
-                        + FILTER
+                        + tool.name()
                         + "\"; mkdir -p \"$dir\" || fail \"cannot create $dir\";"
                         + " rm -f \"$target\" || fail \"cannot remove the older $target\";"
                         + " work=$(mktemp -d \"$dir/.install.XXXXXX\") || fail 'no work directory';"
@@ -270,8 +364,8 @@ public final class MessageFilter {
                                     + " || fail \"the $format package could not be unpacked\";"
                                     + " [ -f "
                                     + inPackage
-                                    + " ] || fail 'the package holds no usr/libexec/porelo/"
-                                    + FILTER
+                                    + " ] || fail 'the package holds no "
+                                    + tool.packaged()
                                     + "'; cp "
                                     + inPackage
                                     + " \"$work/filter\" || fail 'cannot copy it out of the package';"
@@ -296,7 +390,7 @@ public final class MessageFilter {
                 + fetch
                 + "chmod 0700 \"$work/filter\" && mv -f \"$work/filter\" \"$target\""
                 + " || fail \"cannot place $target\"; printf '%s installed at %s\\n' '"
-                + FILTER
+                + tool.name()
                 + "' \"$target\"";
     }
 }

@@ -67,6 +67,14 @@ naming the filter.
 The machine needs `curl` and `dpkg-deb`, or `curl`, `rpm2cpio` and `cpio`, for the pin, and `sha256sum` for
 either.
 
+## porelo-mcp in every account
+
+Porelo refuses to start a task of a project with an `mcp` section on a machine without `porelo-mcp`, so a run
+without it would fail each such scenario at its start. Before an account's first scenario, `McpServer` installs
+it the same way into `$XDG_BIN_HOME/porelo-mcp`, beside the account's own porelod, where porelod looks first. Its
+pin is `src/main/resources/org/fuin/porelo/acceptance/mcp-server.properties` (the packages hold
+`usr/bin/porelo-mcp`); its override is `PORELO_ACCEPTANCE_MCP` with `PORELO_ACCEPTANCE_MCP_SHA256`.
+
 ## Two vocabularies
 
 Steps live in three classes - `TerminalSteps` for the machine and the terminal, `PoreloSteps` for the
