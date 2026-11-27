@@ -115,17 +115,13 @@ method AccountSettings() -> (
   keptDays: int
 )
 
-# Which methods an MCP client may be offered as tools, as porelo-mcp asks for them. Each name is a
-# method's name without the interface, as a tool is named.
+# The methods an MCP client is never offered as tools, whatever their marker says: Porelo's own
+# hand-kept list, named one by one and never guessed from a name. Each name is a method's name
+# without the interface, as a tool is named.
 #
-# reading, never and judgement are Porelo's, named one by one and never guessed from a name.
-# writing is the person's own list in $XDG_CONFIG_HOME/porelo/mcp-writing, one method per line
-# with '#' starting a comment, less any name in never or reading and any this interface lacks.
-# A client offers reading and writing; it refuses never itself as well, so a fault on one side
-# alone opens nothing. A judgement method is offered only from the list, and the client says so.
-method McpMethods() -> (
-  reading: []string,
-  writing: []string,
-  never: []string,
-  judgement: []string
-)
+# Which methods a client may offer comes from each method's marker in this description, the last
+# comment line above it: true, or false and a reason. A client offers only methods marked true and
+# refuses every one never names as well, so a fault on one side alone opens nothing; no method never
+# names is marked true.
+# x-mcp: true
+method McpMethods() -> (never: []string)

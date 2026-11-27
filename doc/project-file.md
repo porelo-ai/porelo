@@ -441,8 +441,7 @@ when the section is gone; a running task keeps what it was started with.
 
 - **`methods` is required**: the daemon's methods the endpoint carries, by name without the interface, such as
   `Start`. The endpoint carries those alone, and its interface description is the daemon's cut down to them, so the
-  task is offered no other tool. Only the methods `McpMethods` lists under `reading`, `Start`, `Stop`, `Done` and
-  `Report` may be
+  task is offered no other tool. Only the daemon's reading methods, `Start`, `Stop`, `Done` and `Report` may be
   named: a method the daemon never offers to MCP - one that stops every task, removes what cannot be had back, or
   hands out a secret, as `McpMethods` lists under `never` -, any other method, and a name the daemon does not have
   are refused when the daemon reads the file, and by `CheckProjectFile`. The list is the project's upper bound, not

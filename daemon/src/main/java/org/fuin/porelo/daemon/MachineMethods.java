@@ -118,7 +118,7 @@ final class MachineMethods {
                 });
 
         registerTighten(server, context);
-        McpMethods.register(server, context);
+        McpMethods.register(server);
     }
 
     /**

@@ -1,0 +1,2 @@
+title: McpMethods answers only the methods never offered to an MCP client, each method's own x-mcp marker in the interface description says whether it is meant for agents, and the local list of writing methods is no longer read
+type: changed

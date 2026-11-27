@@ -1,9 +1,7 @@
 package org.fuin.porelo.daemon;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -80,12 +78,7 @@ class McpMethodsTest {
     // A task must be able to request arrivals without gaining another project's history.
     @Test
     void arrivalsAreReadingScopedToTheTasksOwnProject() throws Exception {
-        assertThat(
-                        McpMethods.answer(Path.of("target/no-mcp-writing"), McpMethods.described())
-                                .get("reading"))
-                .as("arrivals are available as reading")
-                .asList()
-                .contains("Arrivals");
+        assertThat(McpMethods.READING).as("arrivals are available as reading").contains("Arrivals");
         assertThat(McpTaskSockets.takingAProject()).contains("Arrivals");
     }
 
@@ -185,78 +178,50 @@ class McpMethodsTest {
     }
 
     @Test
-    void aListThatIsALinkIsRefused(@TempDir final Path dir) throws Exception {
-        final Path real = Files.writeString(dir.resolve("elsewhere"), "Start\n");
-        final Path list = Files.createSymbolicLink(dir.resolve(McpMethods.LOCAL_LIST), real);
+    void theReplyIsTheNeverListAlone() {
+        final Map<String, Object> reply = McpMethods.answer();
 
-        assertThatThrownBy(() -> McpMethods.answer(list, McpMethods.described()))
-                .isInstanceOf(java.io.IOException.class)
-                .hasMessageContaining("link");
+        assertThat(reply).containsOnlyKeys("never");
+        assertThat((List<Object>) reply.get("never"))
+                .as("sorted, every name of NEVER")
+                .isSortedAccordingTo((x, y) -> ((String) x).compareTo((String) y))
+                .containsExactlyInAnyOrderElementsOf(McpMethods.NEVER);
+    }
+
+    // The second guard: a marker cannot offer what the hand-kept list forbids.
+    @Test
+    void noMethodTheNeverListNamesIsMarkedTrue() {
+        final Map<String, String> markers = markers(PoreloDaemon.description());
+
+        assertThat(markers).as("the description carries markers").isNotEmpty();
+        assertThat(McpMethods.NEVER)
+                .as("never offered, so never marked true")
+                .noneMatch(name -> "true".equals(markers.get(name)));
     }
 
     @Test
-    void aListThatIsAPipeIsRefusedWithoutWaiting(@TempDir final Path dir) throws Exception {
-        final Path list = dir.resolve(McpMethods.LOCAL_LIST);
-        assertThat(new ProcessBuilder("mkfifo", list.toString()).start().waitFor()).isZero();
+    void aMarkedTrueMethodTheNeverListNamesIsFound() {
+        final String description = "# Stops everything.\n# x-mcp: true\nmethod Panic() -> ()\n";
 
-        assertThat(
-                        java.util.concurrent.CompletableFuture.supplyAsync(
-                                        () -> {
-                                            try {
-                                                McpMethods.answer(list, McpMethods.described());
-                                                return "read";
-                                            } catch (java.io.IOException ex) {
-                                                return "refused";
-                                            }
-                                        })
-                                .get(5, java.util.concurrent.TimeUnit.SECONDS))
-                .isEqualTo("refused");
+        assertThat(markers(description)).containsEntry("Panic", "true");
+        assertThat(McpMethods.NEVER).contains("Panic");
+    }
+
+    private static final java.util.regex.Pattern MARKED =
+            java.util.regex.Pattern.compile(
+                    "(?m)^# x-mcp: (true|false)\\b.*\\Rmethod\\s+([A-Za-z][A-Za-z0-9]*)\\s*\\(");
+
+    private static Map<String, String> markers(final String description) {
+        final Map<String, String> markers = new java.util.TreeMap<>();
+        final java.util.regex.Matcher matcher = MARKED.matcher(description);
+        while (matcher.find()) {
+            markers.put(matcher.group(2), matcher.group(1));
+        }
+        return markers;
     }
 
     @Test
-    void aListLargerThanAnyListOfMethodsIsRefused(@TempDir final Path dir) throws Exception {
-        final Path list =
-                Files.writeString(dir.resolve(McpMethods.LOCAL_LIST), "# x\n".repeat(100_000));
-
-        assertThatThrownBy(() -> McpMethods.answer(list, McpMethods.described()))
-                .isInstanceOf(java.io.IOException.class)
-                .hasMessageContaining("large");
-    }
-
-    @Test
-    void writingIsThePersonsListLessNeverReadingAndUnknownNames(@TempDir final Path dir)
-            throws Exception {
-        final Path list = dir.resolve(McpMethods.LOCAL_LIST);
-        Files.writeString(
-                list,
-                "# what my own client may do\n"
-                        + "Start\n"
-                        + "  Stop   # only my tasks\n"
-                        + "\n"
-                        + "Panic\n"
-                        + "List\n"
-                        + "org.fuin.porelo.Tasks1.Label\n"
-                        + "NoSuchMethod\n"
-                        + "Approve\n");
-
-        final Map<String, Object> reply = McpMethods.answer(list, McpMethods.described());
-
-        assertThat(reply.get("writing"))
-                .as("listed, less never, reading, a full name and an unknown one")
-                .isEqualTo(List.of("Approve", "Start", "Stop"));
-    }
-
-    @Test
-    void withNoListNothingIsWriting(@TempDir final Path dir) throws Exception {
-        final Map<String, Object> reply =
-                McpMethods.answer(dir.resolve(McpMethods.LOCAL_LIST), McpMethods.described());
-
-        assertThat(reply.get("writing")).isEqualTo(List.of());
-        assertThat((List<Object>) reply.get("reading")).contains("List", "Watch", "Events");
-    }
-
-    @Test
-    void theDaemonAnswersFromThePersonsConfigDirectory(@TempDir final Path dir) throws Exception {
+    void theDaemonAnswersTheNeverList(@TempDir final Path dir) throws Exception {
         final XdgPaths xdg =
                 XdgPaths.of(
                         name ->
@@ -273,18 +238,14 @@ class McpMethodsTest {
                         new FakeCommandRunner(),
                         new PoreloPaths(xdg, dir.resolve("bin")),
                         arguments -> 0);
-        Files.createDirectories(dir.resolve("config/porelo"));
-        Files.writeString(dir.resolve("config/porelo/mcp-writing"), "Start\n");
-
         try (VarlinkServer server = PoreloDaemon.serving(context, dir.resolve("porelod.sock"))) {
             Thread.ofVirtual().start(server);
             try (VarlinkClient client = new VarlinkClient(server.socketPath())) {
                 final Map<String, Object> reply =
                         client.call(PoreloDaemon.INTERFACE + ".McpMethods", Map.of());
 
-                assertThat(reply.get("writing")).isEqualTo(List.of("Start"));
+                assertThat(reply).containsOnlyKeys("never");
                 assertThat((List<Object>) reply.get("never")).contains("Panic");
-                assertThat((List<Object>) reply.get("judgement")).contains("Approve");
             }
         }
     }

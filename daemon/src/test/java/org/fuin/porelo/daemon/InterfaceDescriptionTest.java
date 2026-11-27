@@ -276,6 +276,70 @@ class InterfaceDescriptionTest {
     /** What varlink defines itself, so a reference to one is not a reference to anything here. */
     private static final Set<String> BUILT_IN = Set.of("string", "int", "float", "bool", "object");
 
+    /** The one form a marker takes: true alone, or false and a reason of at most 200 characters. */
+    private static final Pattern MARKER = Pattern.compile("# x-mcp: (?:true|false \\S.{0,199})");
+
+    /**
+     * Says what is wrong with the description's {@code x-mcp} markers: each is a line of its own
+     * form, the last comment line directly above a method, and no method has two.
+     */
+    private static List<String> markerFaults(final String description) {
+        final List<String> faults = new java.util.ArrayList<>();
+        final String[] lines = description.split("\n", -1);
+        for (int i = 0; i < lines.length; i++) {
+            if (!lines[i].contains("x-mcp")) {
+                continue;
+            }
+            if (!MARKER.matcher(lines[i].strip()).matches() || !lines[i].startsWith("#")) {
+                faults.add("line " + (i + 1) + " is no marker of the form: " + lines[i]);
+            } else if (i + 1 >= lines.length || !METHOD.matcher(lines[i + 1]).lookingAt()) {
+                faults.add("line " + (i + 1) + " is not the last line above a method");
+            }
+        }
+        return faults;
+    }
+
+    @Test
+    void everyMarkerIsOfItsFormAndLastAboveItsMethod() {
+        assertThat(markerFaults(PoreloDaemon.description())).isEmpty();
+        assertThat(PoreloDaemon.description())
+                .contains("# x-mcp: true\nmethod McpMethods()")
+                .contains("# x-mcp: false the person's own judgement\nmethod Approve(");
+    }
+
+    @Test
+    void aMarkerOutOfItsFormOrPlaceIsFound() {
+        assertThat(markerFaults("# x-mcp: false\nmethod A() -> ()\n"))
+                .as("false without a reason")
+                .singleElement()
+                .asString()
+                .contains("no marker of the form");
+        assertThat(markerFaults("# x-mcp: maybe\nmethod A() -> ()\n")).hasSize(1);
+        assertThat(markerFaults("# x-mcp: true\n# Lists.\nmethod A() -> ()\n"))
+                .as("not last above the method")
+                .singleElement()
+                .asString()
+                .contains("not the last line");
+        assertThat(markerFaults("# x-mcp: true\n# x-mcp: true\nmethod A() -> ()\n"))
+                .as("two markers")
+                .hasSize(1);
+        assertThat(markerFaults("# x-mcp: false " + "r".repeat(201) + "\nmethod A() -> ()\n"))
+                .as("a reason over 200 characters")
+                .hasSize(1);
+    }
+
+    @Test
+    void approveRejectAndLandedMaySayAnEndCouldNotBeKept() {
+        final String description = PoreloDaemon.description();
+        for (final String method : List.of("Approve", "Reject", "Landed")) {
+            final Matcher reply =
+                    Pattern.compile("(?ms)^method " + method + "\\(.*?\\)\\s*->\\s*\\((.*?)\\n\\n")
+                            .matcher(description);
+            assertThat(reply.find()).as(method).isTrue();
+            assertThat(reply.group(1)).as(method + "'s reply").contains("endUnkept: ?string");
+        }
+    }
+
     @Test
     void roomMembersDeclaresTheProjectedFieldsAndDistinctFailures() {
         // A client needs current room members and typed failures to offer the correct next action.

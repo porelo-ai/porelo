@@ -406,6 +406,7 @@ error ReviewTooLarge(name: string, bytes: int, limit: int, command: []string)
 # branch only when named. On the host's own forge approval opens or reuses a pull request with
 # the task's token, targeting the repository's default branch. If the API refuses, Failed says
 # the push happened and why the forge refused; the approval stays pending for a retry.
+# x-mcp: false the person's own judgement
 method Approve(
   project: string,
   upstream: ?string,
@@ -435,7 +436,10 @@ method Approve(
   forwarded: string,
   branch: string,
   # Address of the new or reused pull request on the host's forge; absent elsewhere.
-  pullRequest: ?string
+  pullRequest: ?string,
+  # The push went, but its end could not be kept for the task that pushed it: a sentence for a
+  # person, saying so. Absent when the end was kept or there was none to keep.
+  endUnkept: ?string
 )
 
 # Pending work as a git bundle, for a person who merges it on their own computer - signed with their own key -
@@ -469,7 +473,14 @@ method Landed(
   name: string,
   # The upstream branch it was merged onto. Required.
   branch: string
-) -> (landed: bool, commit: string, detail: string)
+) -> (
+  landed: bool,
+  commit: string,
+  detail: string,
+  # It landed, but the push's end could not be kept for the task that pushed it: a sentence for a
+  # person, saying so. Absent when the end was kept, there was none to keep, or it did not land.
+  endUnkept: ?string
+)
 
 # The bundle is larger than a reply may be.
 error BundleTooLarge(bytes: int, limit: int)
@@ -481,8 +492,10 @@ error BundleTooLarge(bytes: int, limit: int)
 # mailbox here any more.
 # 'force' discards a push the upstream already has (PendingPush.alreadyUpstream); without it such a push is
 # refused with AlreadyUpstream and nothing is discarded.
+# 'endUnkept' says, as a sentence for a person, that the push was discarded but its end could not be kept
+# for the task that pushed it; absent when the end was kept or there was none to keep.
 method Reject(project: string, upstream: ?string, repository: ?string, name: string, reason: ?string, force: ?bool)
-    -> (rejected: string, told: bool)
+    -> (rejected: string, told: bool, endUnkept: ?string)
 
 # Reject was asked to discard a push the upstream already has, and was not given 'force': nothing was discarded.
 error AlreadyUpstream(name: string)

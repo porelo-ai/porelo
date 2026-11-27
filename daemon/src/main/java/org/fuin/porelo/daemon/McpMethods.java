@@ -1,31 +1,22 @@
 package org.fuin.porelo.daemon;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
-import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.wire.varlink.VarlinkServer;
 
 /**
- * Which methods an MCP client may be offered as tools, as {@code porelo-mcp} asks for them.
+ * The methods an MCP client is never offered as tools, as {@code porelo-mcp} asks for them, beside
+ * each method's {@code x-mcp} marker in the interface description.
  *
- * <p>{@code reading}, {@code never} and {@code judgement} are Porelo's, named one by one and never
- * guessed from a method's name. {@code writing} is the person's own: the names in their local list,
- * less any in {@code never} and any Tasks1 does not have. Every name is a method's name without the
- * interface, as a tool is named.
+ * <p>{@code never} is Porelo's, named one by one and never guessed from a method's name; no method
+ * it names is marked {@code x-mcp: true}. Every name is a method's name without the interface, as a
+ * tool is named. {@link #READING} and {@link #JUDGEMENT} bound a task's own endpoint until the
+ * markers replace them.
  */
 final class McpMethods {
-
-    /** The person's own list of writing methods, one name per line, under the config directory. */
-    static final String LOCAL_LIST = "mcp-writing";
 
     /**
      * Methods that change nothing and hand out no secret. Not here though they seem to read: {@code
@@ -171,7 +162,7 @@ final class McpMethods {
                     // prompt.
                     "Reports");
 
-    /** Methods that stand for a person's own judgement; offered only from the list, and named. */
+    /** Methods that stand for a person's own judgement. */
     static final Set<String> JUDGEMENT =
             Set.of(
                     "Approve",
@@ -187,73 +178,14 @@ final class McpMethods {
     private McpMethods() {}
 
     /**
-     * Answers the four sets for this account.
+     * Answers the methods never offered.
      *
-     * @param list The person's local list.
-     * @param methods The methods Tasks1 has.
      * @return The reply's fields.
-     * @throws IOException If the list exists and cannot be read.
      */
-    static Map<String, Object> answer(final Path list, final Set<String> methods)
-            throws IOException {
-        final Set<String> writing = new TreeSet<>();
-        for (final String name : listed(list)) {
-            if (methods.contains(name) && !NEVER.contains(name) && !READING.contains(name)) {
-                writing.add(name);
-            }
-        }
+    static Map<String, Object> answer() {
         final Map<String, Object> reply = new LinkedHashMap<>();
-        reply.put("reading", List.copyOf(new TreeSet<>(READING)));
-        reply.put("writing", List.copyOf(writing));
         reply.put("never", List.copyOf(new TreeSet<>(NEVER)));
-        reply.put("judgement", List.copyOf(new TreeSet<>(JUDGEMENT)));
         return reply;
-    }
-
-    /** Larger than any list of Tasks1's methods with comments; a larger file is refused unread. */
-    static final int LARGEST_LIST = 16 * 1024;
-
-    private static List<String> listed(final Path list) throws IOException {
-        final java.nio.file.attribute.PosixFileAttributes attributes;
-        try {
-            attributes =
-                    Files.readAttributes(
-                            list,
-                            java.nio.file.attribute.PosixFileAttributes.class,
-                            java.nio.file.LinkOption.NOFOLLOW_LINKS);
-        } catch (NoSuchFileException ex) {
-            return List.of();
-        }
-        // Who may change this list decides what a client may do, so it is this account's own file,
-        // read as it is: not through a link, not a pipe that never ends, not without bound.
-        if (attributes.isSymbolicLink()) {
-            throw new IOException(
-                    list + " is a link; the list is read only from a file of its own");
-        }
-        if (!attributes.isRegularFile()) {
-            throw new IOException(list + " is not a regular file");
-        }
-        if ((int) Files.getAttribute(list, "unix:uid", java.nio.file.LinkOption.NOFOLLOW_LINKS)
-                != (int) Files.getAttribute(Path.of("/proc/self"), "unix:uid")) {
-            throw new IOException(list + " belongs to another account");
-        }
-        final byte[] bytes;
-        try (java.io.InputStream in =
-                Files.newInputStream(list, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
-            bytes = in.readNBytes(LARGEST_LIST + 1);
-        }
-        if (bytes.length > LARGEST_LIST) {
-            throw new IOException(list + " is too large for a list of methods");
-        }
-        final List<String> names = new ArrayList<>();
-        for (final String line : new String(bytes, StandardCharsets.UTF_8).split("\n", -1)) {
-            final int hash = line.indexOf('#');
-            final String name = (hash < 0 ? line : line.substring(0, hash)).strip();
-            if (!name.isEmpty()) {
-                names.add(name);
-            }
-        }
-        return names;
     }
 
     /**
@@ -272,20 +204,7 @@ final class McpMethods {
         return names;
     }
 
-    static void register(final VarlinkServer server, final PoreloContext context) {
-        server.method(
-                "McpMethods",
-                (parameters, replies) -> {
-                    try {
-                        replies.last(
-                                answer(
-                                        context.paths().xdg().config().resolve(LOCAL_LIST),
-                                        described()));
-                    } catch (IOException ex) {
-                        throw new org.fuin.porelo.wire.varlink.VarlinkException(
-                                FileFailure.said(
-                                        "The local list of MCP methods cannot be read", ex));
-                    }
-                });
+    static void register(final VarlinkServer server) {
+        server.method("McpMethods", (parameters, replies) -> replies.last(answer()));
     }
 }

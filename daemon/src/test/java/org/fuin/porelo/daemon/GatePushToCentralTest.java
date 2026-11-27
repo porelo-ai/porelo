@@ -2,22 +2,14 @@ package org.fuin.porelo.daemon;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 class GatePushToCentralTest {
     @Test
-    void mcpNeverOffersThePersonsReleaseEvenWhenListed(@TempDir Path dir) throws Exception {
+    void mcpNeverOffersThePersonsRelease() {
         // A task must never spend the person's central credential to release its own work.
-        final Path list = dir.resolve("writing");
-        Files.writeString(list, "PushToCentral\n");
-        final var answer = McpMethods.answer(list, Set.of("PushToCentral"));
-        assertThat(answer.get("writing")).isEqualTo(List.of());
-        assertThat(answer.get("never").toString()).contains("PushToCentral");
+        assertThat(McpMethods.answer().get("never").toString()).contains("PushToCentral");
     }
 
     @Test

@@ -597,6 +597,7 @@ type Log (
 # unrecognized names the containers named like a task that are not one: Porelo holds no container id for them
 # (made before it recorded one, or by something else), so no method acts on them and none adopts them. A client
 # shows them as what they are, never as tasks: removing one removes what is in it.
+# x-mcp: true
 method List() -> (tasks: []Task, unrecognized: []string)
 
 # The task's own declaration of how its work ended, carried only by a task socket whose project's
@@ -1087,6 +1088,7 @@ type PanickedTask (
 # a task back with the work it had. An interface that presented this as a cleanup would send
 # somebody looking for work that is still exactly where it was. Discarding is a separate decision,
 # made afterwards, by name, with Remove.
+# x-mcp: false it stops every task at once
 method Panic(
   # Lists what would be stopped and stops nothing.
   dryRun: ?bool
