@@ -35,6 +35,7 @@ would change the answer.
 | A run left to itself comes back from a restart stopped | its session kept and shown as interrupted; only a task somebody drove comes back with `--restarted` | [entry](#a-run-left-to-itself-comes-back-from-a-restart-stopped) |
 | A task's terminal is tmux, and a person's own settings come after Porelo's | `$XDG_CONFIG_HOME/porelo/tmux.conf` read after Porelo's; `history-limit` and `default-terminal` set again after it | [entry](#a-tasks-terminal-is-tmux-and-a-persons-own-settings-come-after-porelos) |
 | A task's session runs as root, and every pane drops to the agent | the tmux server is root's, on a socket only root reaches; each window drops to the agent through `setpriv`; `SETUID` and `SETGID` added back; every exec of the agent's names `--user agent` | [entry](#a-tasks-session-runs-as-root-and-every-pane-drops-to-the-agent) |
+| An agent in a task appears to every Porelo service as its task | never by a name it gives; only what the signed project file's `mcp` section grants and what is marked for agents; no key or token in its hands; porelod proves it by the task's socket, a service outside porelod by the task's key and certificate (not yet built) | [entry](#an-agent-in-a-task-appears-to-every-porelo-service-as-its-task) |
 | **The machine and the daemon** | | |
 | Declaring a host service opens the host's loopback 443 | accepted: every task of a project naming a host service reaches whatever listens there; one port, by signed declaration, including offline | [entry](#declaring-a-host-service-opens-the-hosts-loopback-443) |
 | A weaker machine is reported, not refused | `DEGRADED` exits zero and starts tasks; only `MISSING` fails | [entry](#a-weaker-machine-is-reported-not-refused) |
@@ -1732,3 +1733,14 @@ only as a given file: a task given work never starts on older code than its work
 
 The alternative was to have the planner write to the host's copy. That would make planning differ per host
 and hide each edit from other machines until a person sent it to central.
+
+## An agent in a task appears to every Porelo service as its task
+
+An agent working in a Porelo task appears to every Porelo service as the task porelod bound it to, never by a name it
+gives itself. It may do only what the signed project file's `mcp` section grants and what is marked for agents, and it
+never holds a key or a token. Each receiver proves the caller its own way: porelod, which opens the task's own socket,
+by the socket a call arrives on; a service outside porelod, the planner and any later one, by a signature made with
+the task's own key and its certificate, principal `task:<project>:<task>`, certified by a person the organization lists
+for the project, verified as the gate verifies a task's commit (not yet built). An agent outside a Porelo task, such as a person's own
+session, acts in the person's name through the person's own access; Porelo does not tell it apart, since the person
+chose to hand it that access.
