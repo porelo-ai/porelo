@@ -19,16 +19,20 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Tests for {@link MessageFilter}: the pin it reads and the install it runs, the latter in a local
- * shell whose {@code curl} and {@code dpkg-deb} are stand-ins and whose PATH holds nothing else.
+ * Tests for {@link MessageFilter}: the snapshot it finds and the install it runs, the latter in a
+ * local shell whose {@code curl} and {@code dpkg-deb} are stand-ins and whose PATH holds nothing
+ * else.
  */
 class MessageFilterTest {
 
     private static final String FILTER = "porelo-message-sluice-filter";
 
-    private static final String URL = "https://packages.invalid/pool/filter_1.0_amd64.deb";
+    private static final String BASE = "https://packages.invalid/artifactory";
 
-    private static final String RPM_URL = "https://packages.invalid/rpm/filter-1.0-1.x86_64.rpm";
+    private static final String URL = BASE + "/deb/pool/filter_1.0~snapshot.10_amd64.deb";
+
+    private static final String RPM_URL =
+            BASE + "/rpm/snapshots/filter-1.0~snapshot.10-1.x86_64.rpm";
 
     /** The tools the install may use besides the two stand-ins. */
     private static final List<String> TOOLS =
@@ -138,28 +142,70 @@ class MessageFilterTest {
         }
     }
 
-    /** A pin whose .deb is the one given and whose .rpm is a valid one. */
-    private static Properties pin(String url, String sha256) {
-        final Properties pin = new Properties();
-        pin.setProperty("deb.url", url);
-        pin.setProperty("deb.sha256", sha256);
-        pin.setProperty("rpm.url", RPM_URL);
-        pin.setProperty("rpm.sha256", "d".repeat(64));
-        return pin;
+    /** Where the test's packages are published, both formats. */
+    private static Properties origin() {
+        final Properties origin = new Properties();
+        origin.setProperty("artifactory", BASE);
+        origin.setProperty("deb.folder", "deb/pool");
+        origin.setProperty("deb.name", "filter_{version}_amd64.deb");
+        origin.setProperty("rpm.folder", "rpm/snapshots");
+        origin.setProperty("rpm.name", "filter-{version}-1.x86_64.rpm");
+        return origin;
     }
 
-    /** The pinned packages, the .deb with the digest given and the .rpm with that of "the rpm". */
-    private static MessageFilter.Pinned pinned(String debSha256) {
-        return new MessageFilter.Pinned(
+    /**
+     * An Artifactory whose folders hold snapshots 9 and 10 and another package's newer one, and
+     * which names the digest given for the .deb's snapshot 10.
+     */
+    private static Artifactory.Lookup artifactory(String debSha256) {
+        final Map<String, String> answers =
+                Map.of(
+                        BASE + "/api/storage/deb/pool",
+                        listing(
+                                "/filter_1.0~snapshot.9_amd64.deb",
+                                "/filter_1.0~snapshot.10_amd64.deb",
+                                "/filterx_2.0~snapshot.99_amd64.deb",
+                                "/filter_1.0_amd64.deb"),
+                        BASE + "/api/storage/deb/pool/filter_1.0~snapshot.10_amd64.deb",
+                        "{\"checksums\":{\"sha256\":\"" + debSha256 + "\"}}",
+                        BASE + "/api/storage/rpm/snapshots",
+                        listing(
+                                "/filter-0.9~snapshot.12-1.x86_64.rpm",
+                                "/filter-1.0~snapshot.10-1.x86_64.rpm"),
+                        BASE + "/api/storage/rpm/snapshots/filter-1.0~snapshot.10-1.x86_64.rpm",
+                        "{\"checksums\":{\"sha256\":\"" + "d".repeat(64) + "\"}}");
+        return url -> {
+            final String answer = answers.get(url);
+            if (answer == null) {
+                throw new IOException(url + " answered 404: not found");
+            }
+            return answer;
+        };
+    }
+
+    private static String listing(String... uris) {
+        return Stream.of(uris)
+                .map(uri -> "{\"uri\":\"" + uri + "\",\"folder\":false}")
+                .collect(java.util.stream.Collectors.joining(",", "{\"children\":[", "]}"));
+    }
+
+    /**
+     * The published packages, the .deb with the digest given and the .rpm with that of "the rpm".
+     */
+    private static MessageFilter.Published published(String debSha256) {
+        return new MessageFilter.Published(
                 new MessageFilter.Package(URL, debSha256),
                 new MessageFilter.Package(RPM_URL, sha256Unchecked("the rpm")));
     }
 
     @Test
-    void aRunWithNeitherPinNorOverrideFailsNamingTheFilter() {
-        assertThatThrownBy(() -> MessageFilter.source(new Properties(), Map.of()))
+    void aRunWithNeitherOriginNorOverrideFailsNamingTheFilter() {
+        assertThatThrownBy(
+                        () ->
+                                MessageFilter.source(
+                                        new Properties(), Map.of(), artifactory("a".repeat(64))))
                 .as(
-                        "no filter to install stops the run at its start, naming the filter and the pin")
+                        "no filter to install stops the run at its start, naming the filter and its origin")
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining(FILTER)
                 .hasMessageContaining("message-filter.properties");
@@ -170,8 +216,9 @@ class MessageFilterTest {
         assertThatThrownBy(
                         () ->
                                 MessageFilter.source(
-                                        pin(URL, sha256Unchecked("x")),
-                                        Map.of("PORELO_ACCEPTANCE_FILTER", "/opt/filter")))
+                                        origin(),
+                                        Map.of("PORELO_ACCEPTANCE_FILTER", "/opt/filter"),
+                                        artifactory("a".repeat(64))))
                 .as(
                         "a path without its digest is no override; nothing would check what it installs")
                 .isInstanceOf(AssertionError.class)
@@ -180,70 +227,100 @@ class MessageFilterTest {
     }
 
     @Test
-    void aPinThatIsNotHttpsOrHasNoDigestIsRefused() {
-        assertThatThrownBy(
-                        () ->
-                                MessageFilter.source(
-                                        pin("http://x.invalid/f.deb", "a".repeat(64)), Map.of()))
-                .as("a download in the clear is refused")
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining(FILTER);
-        assertThatThrownBy(() -> MessageFilter.source(pin(URL, "not-a-digest"), Map.of()))
-                .as("a digest that is no sha256 is refused")
-                .isInstanceOf(AssertionError.class)
-                .hasMessageContaining(FILTER);
+    void theNewestSnapshotIsTakenWithTheDigestArtifactoryNames() {
+        assertThat(MessageFilter.source(origin(), Map.of(), artifactory("b".repeat(64))))
+                .as(
+                        "snapshot 10 is newer than 9 and than an older release's 12; another package"
+                                + " and a release are no candidates")
+                .isEqualTo(
+                        new MessageFilter.Published(
+                                new MessageFilter.Package(URL, "b".repeat(64)),
+                                new MessageFilter.Package(RPM_URL, "d".repeat(64))));
     }
 
     @Test
-    void theOverrideTakesThePlaceOfThePin() {
+    void anOriginThatIsNotHttpsOrADigestThatIsNoSha256IsRefused() {
+        final Properties clear = origin();
+        clear.setProperty("artifactory", "http://packages.invalid/artifactory");
+
+        assertThatThrownBy(() -> MessageFilter.source(clear, Map.of(), artifactory("a".repeat(64))))
+                .as("a download in the clear is refused")
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining(FILTER);
+        assertThatThrownBy(
+                        () -> MessageFilter.source(origin(), Map.of(), artifactory("not-a-digest")))
+                .as("a digest that is no sha256 is refused")
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining(FILTER)
+                .hasMessageContaining("sha256");
+    }
+
+    @Test
+    void anArtifactoryThatCannotBeReadFailsWithWhatItSaid() {
+        assertThatThrownBy(
+                        () ->
+                                MessageFilter.source(
+                                        origin(),
+                                        Map.of(),
+                                        url -> {
+                                            throw new IOException(url + " answered 503: busy");
+                                        }))
+                .as("the run stops naming the filter and keeps Artifactory's own answer")
+                .isInstanceOf(AssertionError.class)
+                .hasMessageContaining(FILTER)
+                .hasMessageContaining("503: busy");
+    }
+
+    @Test
+    void theOverrideTakesThePlaceOfTheNewestSnapshot() {
         assertThat(
                         MessageFilter.source(
-                                pin(URL, "b".repeat(64)),
+                                origin(),
                                 Map.of(
                                         "PORELO_ACCEPTANCE_FILTER",
                                         "/opt/filter",
                                         "PORELO_ACCEPTANCE_FILTER_SHA256",
-                                        "a".repeat(64))))
+                                        "a".repeat(64)),
+                                url -> {
+                                    throw new IOException("Artifactory is not asked: " + url);
+                                }))
                 .as("a local file named with its digest is installed instead of the download")
                 .isEqualTo(new MessageFilter.Override("/opt/filter", "a".repeat(64)));
     }
 
     @Test
-    void theShippedPinIsAnHttpsAddressWithItsDigest() {
-        assertThat(MessageFilter.source(MessageFilter.pin(), Map.of()))
-                .as("the kit carries the pin in its one place")
-                .isInstanceOfSatisfying(
-                        MessageFilter.Pinned.class,
-                        pinned -> {
-                            for (final MessageFilter.Package each :
-                                    List.of(pinned.deb(), pinned.rpm())) {
-                                assertThat(each.url()).as("the address").startsWith("https://");
-                                assertThat(each.sha256()).as("the digest").matches("[0-9a-f]{64}");
-                            }
-                            assertThat(pinned.deb().url())
-                                    .as("the .deb's address")
-                                    .endsWith(".deb");
-                            assertThat(pinned.rpm().url())
-                                    .as("the .rpm's address")
-                                    .endsWith(".rpm");
-                        });
+    void theShippedOriginNamesHttpsArtifactoryAndBothFormats() {
+        final Properties shipped = MessageFilter.origin();
+
+        assertThat(shipped.getProperty("artifactory"))
+                .as("the kit names Artifactory in its one place")
+                .startsWith("https://");
+        assertThat(shipped.getProperty("deb.name"))
+                .as("the .deb's name")
+                .startsWith(FILTER + "_{version}")
+                .endsWith(".deb");
+        assertThat(shipped.getProperty("rpm.name"))
+                .as("the .rpm's name")
+                .startsWith(FILTER + "-{version}")
+                .endsWith(".rpm");
     }
 
     @Test
-    void aPinWithoutItsRpmIsRefused() {
-        final Properties debOnly = pin(URL, "a".repeat(64));
-        debOnly.remove("rpm.url");
+    void anOriginWithoutItsRpmIsRefused() {
+        final Properties debOnly = origin();
+        debOnly.remove("rpm.folder");
 
-        assertThatThrownBy(() -> MessageFilter.source(debOnly, Map.of()))
-                .as("a pin is both formats of one build, so a machine of either kind is served")
+        assertThatThrownBy(
+                        () -> MessageFilter.source(debOnly, Map.of(), artifactory("a".repeat(64))))
+                .as("both formats are found, so a machine of either kind is served")
                 .isInstanceOf(AssertionError.class)
                 .hasMessageContaining(FILTER)
-                .hasMessageContaining("rpm.url");
+                .hasMessageContaining("rpm.folder");
     }
 
     @Test
     void aMachineWithRpm2cpioAndCpioInstallsFromTheRpm() throws Exception {
-        final Ran ran = install(pinned("e".repeat(64)), Unpacker.RPM);
+        final Ran ran = install(published("e".repeat(64)), Unpacker.RPM);
 
         assertThat(ran.status()).as("the install from the .rpm: %s", ran.text()).isZero();
         assertThat(Files.readString(target()))
@@ -259,7 +336,7 @@ class MessageFilterTest {
     void anRpmWhoseDigestDiffersIsRefusedBeforeItIsUnpacked() throws Exception {
         final Ran ran =
                 install(
-                        new MessageFilter.Pinned(
+                        new MessageFilter.Published(
                                 new MessageFilter.Package(URL, "e".repeat(64)),
                                 new MessageFilter.Package(RPM_URL, "f".repeat(64))),
                         Unpacker.RPM);
@@ -270,14 +347,14 @@ class MessageFilterTest {
                 .contains(FILTER)
                 .contains("sha256");
         assertThat(home.resolve("rpm2cpio-ran"))
-                .as("an .rpm that is not the pinned one is never unpacked")
+                .as("an .rpm that is not the one Artifactory names is never unpacked")
                 .doesNotExist();
         assertThat(executables()).as("nothing left executable").isEmpty();
     }
 
     @Test
     void aMatchingPackageIsUnpackedAndItsFilterInstalledForTheAccountAlone() throws Exception {
-        final Ran ran = install(pinned(sha256("the package")), Unpacker.DEB);
+        final Ran ran = install(published(sha256("the package")), Unpacker.DEB);
 
         assertThat(ran.status()).as("the install of a matching package: %s", ran.text()).isZero();
         assertThat(Files.readString(target()))
@@ -295,7 +372,7 @@ class MessageFilterTest {
         Files.writeString(target(), "an older filter");
         Files.setPosixFilePermissions(target(), PosixFilePermissions.fromString("rwx------"));
 
-        final Ran ran = install(pinned(sha256("another package")), Unpacker.DEB);
+        final Ran ran = install(published(sha256("another package")), Unpacker.DEB);
 
         assertThat(ran.status()).as("a digest that differs fails the install").isNotZero();
         assertThat(ran.text())
@@ -303,7 +380,7 @@ class MessageFilterTest {
                 .contains(FILTER)
                 .contains("sha256");
         assertThat(home.resolve("dpkg-deb-ran"))
-                .as("a package that is not the pinned one is never unpacked")
+                .as("a package that is not the one Artifactory names is never unpacked")
                 .doesNotExist();
         assertThat(executables())
                 .as("a digest mismatch leaves no file executable, not even an older filter")
@@ -314,7 +391,7 @@ class MessageFilterTest {
     void aFailedDownloadFailsNamingTheFilter() throws Exception {
         Files.writeString(home.resolve("curl-fails"), "");
 
-        final Ran ran = install(pinned(sha256("the package")), Unpacker.DEB);
+        final Ran ran = install(published(sha256("the package")), Unpacker.DEB);
 
         assertThat(ran.status()).as("a download that fails fails the install").isNotZero();
         assertThat(ran.text())
@@ -326,7 +403,7 @@ class MessageFilterTest {
 
     @Test
     void aMachineWithNeitherUnpackerSaysSo() throws Exception {
-        final Ran ran = install(pinned(sha256("the package")), Unpacker.NONE);
+        final Ran ran = install(published(sha256("the package")), Unpacker.NONE);
 
         assertThat(ran.status()).as("no unpacker fails the install").isNotZero();
         assertThat(ran.text())
@@ -341,7 +418,7 @@ class MessageFilterTest {
     void aPackageWithoutTheFilterIsRefused() throws Exception {
         Files.writeString(home.resolve("package-empty"), "");
 
-        final Ran ran = install(pinned(sha256("the package")), Unpacker.DEB);
+        final Ran ran = install(published(sha256("the package")), Unpacker.DEB);
 
         assertThat(ran.status()).as("a package that holds no filter fails the install").isNotZero();
         assertThat(ran.text()).as("the failure names the filter").contains(FILTER);
@@ -394,9 +471,9 @@ class MessageFilterTest {
     }
 
     @Test
-    void aFailureNamesThePinAndSaysToUpdateIt() {
+    void aFailureNamesThePackagesItWasToComeFrom() {
         final String failure =
-                MessageFilter.failure(pinned("c".repeat(64)), "acceptance", "curl: (22) 404");
+                MessageFilter.failure(published("c".repeat(64)), "acceptance", "curl: (22) 404");
 
         assertThat(failure)
                 .as("a snapshot that left the pool is told apart from a broken machine")
@@ -405,7 +482,6 @@ class MessageFilterTest {
                 .contains("c".repeat(64))
                 .contains(RPM_URL)
                 .contains("message-filter.properties")
-                .contains("update")
                 .contains("curl: (22) 404");
     }
 

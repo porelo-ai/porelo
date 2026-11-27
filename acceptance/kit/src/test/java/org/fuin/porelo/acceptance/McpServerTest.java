@@ -9,15 +9,16 @@ import org.junit.jupiter.api.Test;
 class McpServerTest {
 
     @Test
-    void theKitPinsBothPackagesOfOneBuild() {
-        final MessageFilter.Source source =
-                MessageFilter.source(
-                        McpServer.PORELO_MCP, MessageFilter.pin(McpServer.PORELO_MCP), Map.of());
+    void theKitNamesWhereArtifactoryKeepsBothPackages() {
+        final java.util.Properties origin = MessageFilter.origin(McpServer.PORELO_MCP);
 
-        assertThat(source).isInstanceOf(MessageFilter.Pinned.class);
-        final MessageFilter.Pinned pinned = (MessageFilter.Pinned) source;
-        assertThat(pinned.deb().url()).startsWith("https://").endsWith("_amd64.deb");
-        assertThat(pinned.rpm().url()).startsWith("https://").endsWith(".x86_64.rpm");
+        assertThat(origin.getProperty("artifactory")).as("Artifactory").startsWith("https://");
+        assertThat(origin.getProperty("deb.name"))
+                .as("the .deb's name")
+                .isEqualTo("porelo-mcp_{version}_amd64.deb");
+        assertThat(origin.getProperty("rpm.name"))
+                .as("the .rpm's name")
+                .isEqualTo("porelo-mcp-{version}-1.x86_64.rpm");
     }
 
     @Test
@@ -34,10 +35,13 @@ class McpServerTest {
         assertThat(
                         MessageFilter.command(
                                 McpServer.PORELO_MCP,
-                                MessageFilter.source(
-                                        McpServer.PORELO_MCP,
-                                        MessageFilter.pin(McpServer.PORELO_MCP),
-                                        Map.of())))
+                                new MessageFilter.Published(
+                                        new MessageFilter.Package(
+                                                "https://packages.invalid/porelo-mcp.deb",
+                                                "0".repeat(64)),
+                                        new MessageFilter.Package(
+                                                "https://packages.invalid/porelo-mcp.rpm",
+                                                "0".repeat(64)))))
                 .contains("\"$work/root/usr/bin/porelo-mcp\"");
     }
 
@@ -49,7 +53,10 @@ class McpServerTest {
                                 MessageFilter.source(
                                         McpServer.PORELO_MCP,
                                         new java.util.Properties(),
-                                        Map.of("PORELO_ACCEPTANCE_MCP", "relative")));
+                                        Map.of("PORELO_ACCEPTANCE_MCP", "relative"),
+                                        url -> {
+                                            throw new java.io.IOException("not asked: " + url);
+                                        }));
 
         assertThat(refused)
                 .isInstanceOf(AssertionError.class)

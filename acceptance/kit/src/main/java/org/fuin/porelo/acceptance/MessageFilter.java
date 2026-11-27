@@ -25,10 +25,11 @@ import org.fuin.porelo.machines.Ssh;
  * {@code $XDG_DATA_HOME/porelo/filter/porelo-message-sluice-filter}, executable by the account
  * alone; the machine's own setup is left as it is.
  *
- * <p><strong>Pinned in one place.</strong> The packages' https addresses and sha256 are in the
- * kit's {@code message-filter.properties}: a .deb where {@code dpkg-deb} is, an .rpm where {@code
- * rpm2cpio} and {@code cpio} are. The digest is checked before the package is unpacked, and a
- * package that differs leaves nothing executable. {@code PORELO_ACCEPTANCE_FILTER} and {@code
+ * <p><strong>The newest snapshot.</strong> The kit's {@code message-filter.properties} names where
+ * Artifactory keeps the packages; the run takes the newest snapshot there and the sha256
+ * Artifactory names for it: a .deb where {@code dpkg-deb} is, an .rpm where {@code rpm2cpio} and
+ * {@code cpio} are. The digest is checked before the package is unpacked, and a package that
+ * differs leaves nothing executable. {@code PORELO_ACCEPTANCE_FILTER} and {@code
  * PORELO_ACCEPTANCE_FILTER_SHA256} name an executable on the machine and its digest instead, for a
  * filter not yet published.
  */
@@ -37,8 +38,8 @@ public final class MessageFilter {
     /** The filter's file name, as Porelo looks for it. */
     static final String FILTER = "porelo-message-sluice-filter";
 
-    /** The resource the pin is written in, the one place. */
-    static final String PIN = "org/fuin/porelo/acceptance/message-filter.properties";
+    /** The resource naming where the filter's packages are published. */
+    static final String ORIGIN = "org/fuin/porelo/acceptance/message-filter.properties";
 
     /** The environment variable naming an executable on the machine to install instead. */
     static final String OVERRIDE = "PORELO_ACCEPTANCE_FILTER";
@@ -48,12 +49,21 @@ public final class MessageFilter {
 
     private static final Pattern SHA256 = Pattern.compile("[0-9a-f]{64}");
 
+    /** A repository and folder in Artifactory, without a step up. */
+    private static final Pattern FOLDER =
+            Pattern.compile("[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*");
+
+    /** A package's file name, with its version left open. */
+    private static final Pattern NAME =
+            Pattern.compile("[A-Za-z0-9._-]*\\{version\\}[A-Za-z0-9._-]*");
+
     /**
-     * A program installed into each account from a pinned package, the way the filter is.
+     * A program installed into each account from its newest published package, the way the filter
+     * is.
      *
      * @param label What it is, as a failure names it.
      * @param name Its file name.
-     * @param pin The resource its pin is written in.
+     * @param origin The resource naming where its packages are published.
      * @param override The environment variable naming an executable on the machine instead.
      * @param overrideSha256 The environment variable holding that executable's sha256.
      * @param packaged Where the packages hold it, from their root.
@@ -62,7 +72,7 @@ public final class MessageFilter {
     record Tool(
             String label,
             String name,
-            String pin,
+            String origin,
             String override,
             String overrideSha256,
             String packaged,
@@ -73,7 +83,7 @@ public final class MessageFilter {
             new Tool(
                     "The message filter",
                     FILTER,
-                    PIN,
+                    ORIGIN,
                     OVERRIDE,
                     OVERRIDE_SHA256,
                     "usr/libexec/porelo/" + FILTER,
@@ -85,11 +95,14 @@ public final class MessageFilter {
     /** Why a tool's install failed, so every later scenario of the account fails the same way. */
     private static final Map<String, String> FAILED = new HashMap<>();
 
+    /** Where each tool comes from in this run, so every account gets the same build. */
+    private static final Map<String, Source> SOURCES = new HashMap<>();
+
     /** Where the filter comes from. */
-    sealed interface Source permits Pinned, Override {}
+    sealed interface Source permits Published, Override {}
 
     /**
-     * One pinned package.
+     * One published package.
      *
      * @param url Its https address.
      * @param sha256 The package's digest.
@@ -97,12 +110,12 @@ public final class MessageFilter {
     record Package(String url, String sha256) {}
 
     /**
-     * The pinned packages, one build in both formats; the machine's tools choose which one.
+     * The newest published packages in both formats; the machine's tools choose which one.
      *
      * @param deb The .deb, unpacked with {@code dpkg-deb}.
      * @param rpm The .rpm, unpacked with {@code rpm2cpio} and {@code cpio}.
      */
-    record Pinned(Package deb, Package rpm) implements Source {}
+    record Published(Package deb, Package rpm) implements Source {}
 
     /**
      * An executable already on the machine.
@@ -117,7 +130,8 @@ public final class MessageFilter {
      * seen in the run.
      *
      * @throws IOException If the machine cannot be reached.
-     * @throws AssertionError If the filter cannot be installed; it names the filter and the pin.
+     * @throws AssertionError If the filter cannot be installed; it names the filter and where it
+     *     was to come from.
      */
     @Before(order = 0)
     public void installIntoTheAccount() throws IOException {
@@ -130,7 +144,8 @@ public final class MessageFilter {
      * @param tool The tool.
      * @param account The account the scenario runs as.
      * @throws IOException If the machine cannot be reached.
-     * @throws AssertionError If the tool cannot be installed; it names the tool and the pin.
+     * @throws AssertionError If the tool cannot be installed; it names the tool and where it was to
+     *     come from.
      */
     static synchronized void install(Tool tool, String account) throws IOException {
         final String key = tool.name() + " " + account;
@@ -143,7 +158,15 @@ public final class MessageFilter {
         }
         final Source source;
         try {
-            source = source(tool, pin(tool), System.getenv());
+            source =
+                    SOURCES.computeIfAbsent(
+                            tool.name(),
+                            name ->
+                                    source(
+                                            tool,
+                                            origin(tool),
+                                            System.getenv(),
+                                            Artifactory::https));
         } catch (AssertionError ex) {
             FAILED.put(key, Objects.requireNonNullElse(ex.getMessage(), tool.name()));
             throw ex;
@@ -158,55 +181,65 @@ public final class MessageFilter {
     }
 
     /**
-     * Reads the pin the kit carries.
+     * Reads where the kit says the filter's packages are published.
      *
-     * @return The pin's properties, empty when the kit carries none.
+     * @return The properties, empty when the kit carries none.
      */
-    static Properties pin() {
-        return pin(THE_FILTER);
+    static Properties origin() {
+        return origin(THE_FILTER);
     }
 
     /**
-     * Reads the pin the kit carries for a tool.
+     * Reads where the kit says a tool's packages are published.
      *
      * @param tool The tool.
-     * @return The pin's properties, empty when the kit carries none.
+     * @return The properties, empty when the kit carries none.
      */
-    static Properties pin(Tool tool) {
-        final Properties pin = new Properties();
+    static Properties origin(Tool tool) {
+        final Properties origin = new Properties();
         try (InputStream in =
-                MessageFilter.class.getClassLoader().getResourceAsStream(tool.pin())) {
+                MessageFilter.class.getClassLoader().getResourceAsStream(tool.origin())) {
             if (in != null) {
-                pin.load(in);
+                origin.load(in);
             }
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
-        return pin;
+        return origin;
     }
 
     /**
-     * Decides where the filter comes from: the override when it is set, the pin otherwise.
+     * Decides where the filter comes from: the override when it is set, the newest snapshot
+     * otherwise.
      *
-     * @param pin The pin's properties.
+     * @param origin Where its packages are published.
      * @param environment The run's environment.
+     * @param lookup How Artifactory is read.
      * @return The source.
-     * @throws AssertionError If neither names a filter, or one names it only in part.
+     * @throws AssertionError If neither names a filter, one names it only in part, or Artifactory
+     *     has none.
      */
-    static Source source(Properties pin, Map<String, String> environment) {
-        return source(THE_FILTER, pin, environment);
+    static Source source(
+            Properties origin, Map<String, String> environment, Artifactory.Lookup lookup) {
+        return source(THE_FILTER, origin, environment, lookup);
     }
 
     /**
-     * Decides where a tool comes from: the override when it is set, the pin otherwise.
+     * Decides where a tool comes from: the override when it is set, the newest snapshot otherwise.
      *
      * @param tool The tool.
-     * @param pin The pin's properties.
+     * @param origin Where its packages are published.
      * @param environment The run's environment.
+     * @param lookup How Artifactory is read.
      * @return The source.
-     * @throws AssertionError If neither names the tool, or one names it only in part.
+     * @throws AssertionError If neither names the tool, one names it only in part, or Artifactory
+     *     has none.
      */
-    static Source source(Tool tool, Properties pin, Map<String, String> environment) {
+    static Source source(
+            Tool tool,
+            Properties origin,
+            Map<String, String> environment,
+            Artifactory.Lookup lookup) {
         final String path = environment.getOrDefault(tool.override(), "").strip();
         final String pathSha256 = environment.getOrDefault(tool.overrideSha256(), "").strip();
         if (!path.isEmpty() || !pathSha256.isEmpty()) {
@@ -223,33 +256,56 @@ public final class MessageFilter {
             }
             return new Override(path, pathSha256);
         }
-        return new Pinned(pinned(tool, pin, "deb"), pinned(tool, pin, "rpm"));
+        return new Published(
+                published(tool, origin, "deb", lookup), published(tool, origin, "rpm", lookup));
     }
 
-    /** Reads one format's pin, refusing one that names no https address and sha256. */
-    private static Package pinned(Tool tool, Properties pin, String format) {
-        final String url = pin.getProperty(format + ".url", "").strip();
-        final String sha256 = pin.getProperty(format + ".sha256", "").strip();
-        if (!url.startsWith("https://") || !SHA256.matcher(sha256).matches()) {
+    /** Finds one format's newest snapshot, refusing an origin that names no https Artifactory. */
+    private static Package published(
+            Tool tool, Properties origin, String format, Artifactory.Lookup lookup) {
+        final String base = origin.getProperty("artifactory", "").strip();
+        final String folder = origin.getProperty(format + ".folder", "").strip();
+        final String name = origin.getProperty(format + ".name", "").strip();
+        if (!base.startsWith("https://")
+                || !FOLDER.matcher(folder).matches()
+                || !NAME.matcher(name).matches()) {
             throw new AssertionError(
                     tool.label()
                             + " "
                             + tool.name()
-                            + " has no pin: "
-                            + tool.pin()
-                            + " names no https "
+                            + " has no origin: "
+                            + tool.origin()
+                            + " names no https artifactory, "
                             + format
-                            + ".url and "
+                            + ".folder and "
                             + format
-                            + ".sha256 for its package, and "
+                            + ".name with {version} for its package, and "
                             + tool.override()
                             + " is not set.");
         }
-        return new Package(url, sha256);
+        try {
+            return Artifactory.newest(lookup, base, folder, name);
+        } catch (IOException | RuntimeException ex) {
+            throw new AssertionError(
+                    tool.label()
+                            + " "
+                            + tool.name()
+                            + " has no "
+                            + format
+                            + " snapshot to install from "
+                            + base
+                            + "/"
+                            + folder
+                            + ", as "
+                            + tool.origin()
+                            + " names it: "
+                            + ex.getMessage(),
+                    ex);
+        }
     }
 
     /**
-     * Says why the install failed, with the pin, so a snapshot that left the pool reads as such.
+     * Says why the install failed, with the packages it was to come from.
      *
      * @param source Where the filter was to come from.
      * @param account The account it was to be installed into.
@@ -261,8 +317,7 @@ public final class MessageFilter {
     }
 
     /**
-     * Says why a tool's install failed, with the pin, so a snapshot that left the pool reads as
-     * such.
+     * Says why a tool's install failed, with the packages it was to come from.
      *
      * @param tool The tool.
      * @param source Where the tool was to come from.
@@ -273,19 +328,18 @@ public final class MessageFilter {
     static String failure(Tool tool, Source source, String account, String output) {
         final String from =
                 switch (source) {
-                    case Pinned pinned ->
-                            "the pin "
-                                    + pinned.deb().url()
+                    case Published published ->
+                            "the newest snapshot "
+                                    + published.deb().url()
                                     + " with sha256 "
-                                    + pinned.deb().sha256()
+                                    + published.deb().sha256()
                                     + " or "
-                                    + pinned.rpm().url()
+                                    + published.rpm().url()
                                     + " with sha256 "
-                                    + pinned.rpm().sha256()
-                                    + " in "
-                                    + tool.pin()
-                                    + "; a snapshot can leave the pool, then update the pin there"
-                                    + " to the packages' newer addresses and digests";
+                                    + published.rpm().sha256()
+                                    + ", found where "
+                                    + tool.origin()
+                                    + " names";
                     case Override local ->
                             tool.override() + " " + local.path() + " with sha256 " + local.sha256();
                 };
@@ -339,23 +393,23 @@ public final class MessageFilter {
                         + " digest() { sha256sum \"$1\" | cut -d' ' -f1; }; ";
         final String fetch =
                 switch (source) {
-                    case Pinned pinned ->
+                    case Published published ->
                             "if command -v dpkg-deb >/dev/null 2>&1; then format=deb; url="
-                                    + Shell.quote(pinned.deb().url())
+                                    + Shell.quote(published.deb().url())
                                     + "; sha256="
-                                    + Shell.quote(pinned.deb().sha256())
+                                    + Shell.quote(published.deb().sha256())
                                     + "; elif command -v rpm2cpio >/dev/null 2>&1"
                                     + " && command -v cpio >/dev/null 2>&1; then format=rpm; url="
-                                    + Shell.quote(pinned.rpm().url())
+                                    + Shell.quote(published.rpm().url())
                                     + "; sha256="
-                                    + Shell.quote(pinned.rpm().sha256())
+                                    + Shell.quote(published.rpm().sha256())
                                     + "; else fail 'neither dpkg-deb nor rpm2cpio with cpio is"
-                                    + " installed on this machine, and the pinned packages are a .deb"
+                                    + " installed on this machine, and the published packages are a .deb"
                                     + " and an .rpm unpacked with them'; fi;"
                                     + " curl -fsSL --proto '=https' --tlsv1.2 -o \"$work/package\""
                                     + " \"$url\" || fail \"the download of $url failed\";"
                                     + " [ \"$(digest \"$work/package\")\" = \"$sha256\" ] || fail"
-                                    + " \"the $format package's sha256 differs from the pin; nothing"
+                                    + " \"the $format package's sha256 differs from Artifactory's; nothing"
                                     + " was unpacked\";"
                                     + " mkdir \"$work/root\" || fail 'no directory to unpack into';"
                                     + " if [ \"$format\" = deb ]; then dpkg-deb -x \"$work/package\""

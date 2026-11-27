@@ -53,27 +53,29 @@ installs the filter into it at `$XDG_DATA_HOME/porelo/filter/porelo-message-slui
 Porelo looks first; nothing is installed machine-wide. When it cannot, every scenario of that account fails
 naming the filter.
 
-- **The pin** is one build's `.deb` and `.rpm`, each an https address and a sha256, written in one place:
-  `src/main/resources/org/fuin/porelo/acceptance/message-filter.properties`. On the machine, the account takes the
-  `.deb` where `dpkg-deb` is installed and the `.rpm` where `rpm2cpio` and `cpio` are, downloads it with `curl`,
-  checks its sha256 before anything else, unpacks it into a private directory (`dpkg-deb -x`, or
-  `rpm2cpio | cpio -idm`) and copies out `usr/libexec/porelo/porelo-message-sluice-filter`. A package whose digest
-  differs is never unpacked, and an older filter is removed first, so a failure leaves nothing executable. A
-  snapshot can leave the package pool; the failure then names the pin, which is updated there.
+- **The newest snapshot** is taken from Artifactory, whose folders for the `.deb` and the `.rpm` are named in one
+  place: `src/main/resources/org/fuin/porelo/acceptance/message-filter.properties`. Before the run's first account,
+  the kit lists each folder through Artifactory's storage API, takes the newest `~snapshot.N` of the package's name
+  and reads the sha256 Artifactory names for that file. On the machine, the account takes the `.deb` where
+  `dpkg-deb` is installed and the `.rpm` where `rpm2cpio` and `cpio` are, downloads it with `curl`, checks that
+  sha256 before anything else, unpacks it into a private directory (`dpkg-deb -x`, or `rpm2cpio | cpio -idm`) and
+  copies out `usr/libexec/porelo/porelo-message-sluice-filter`. A package whose digest differs is never unpacked,
+  and an older filter is removed first, so a failure leaves nothing executable. When Artifactory cannot be read,
+  the run stops naming the filter and what Artifactory answered.
 - **The override** is `PORELO_ACCEPTANCE_FILTER` with `PORELO_ACCEPTANCE_FILTER_SHA256` in the environment of the
-  run: the absolute path of a filter executable on the machine and its sha256, installed in place of the pin. One
-  without the other is refused.
+  run: the absolute path of a filter executable on the machine and its sha256, installed in place of the snapshot,
+  for a build not yet published. One without the other is refused.
 
-The machine needs `curl` and `dpkg-deb`, or `curl`, `rpm2cpio` and `cpio`, for the pin, and `sha256sum` for
-either.
+The machine needs `curl` and `dpkg-deb`, or `curl`, `rpm2cpio` and `cpio`, for the snapshot, and `sha256sum` for
+either; the machine running the kit reaches Artifactory over https.
 
 ## porelo-mcp in every account
 
 Porelo refuses to start a task of a project with an `mcp` section on a machine without `porelo-mcp`, so a run
 without it would fail each such scenario at its start. Before an account's first scenario, `McpServer` installs
-it the same way into `$XDG_BIN_HOME/porelo-mcp`, beside the account's own porelod, where porelod looks first. Its
-pin is `src/main/resources/org/fuin/porelo/acceptance/mcp-server.properties` (the packages hold
-`usr/bin/porelo-mcp`); its override is `PORELO_ACCEPTANCE_MCP` with `PORELO_ACCEPTANCE_MCP_SHA256`.
+the newest snapshot the same way into `$XDG_BIN_HOME/porelo-mcp`, beside the account's own porelod, where porelod
+looks first. Its folders are named in `src/main/resources/org/fuin/porelo/acceptance/mcp-server.properties` (the
+packages hold `usr/bin/porelo-mcp`); its override is `PORELO_ACCEPTANCE_MCP` with `PORELO_ACCEPTANCE_MCP_SHA256`.
 
 ## Two vocabularies
 

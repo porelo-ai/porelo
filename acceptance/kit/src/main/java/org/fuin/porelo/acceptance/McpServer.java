@@ -14,10 +14,10 @@ import java.io.IOException;
  * <p><strong>Beside the account's own porelod.</strong> It goes into {@code $XDG_BIN_HOME}, where
  * an account's install puts porelod and where porelod looks first, executable by the account alone.
  *
- * <p><strong>Pinned in one place.</strong> The packages' https addresses and sha256 are in the
- * kit's {@code mcp-server.properties}; {@code PORELO_ACCEPTANCE_MCP} and {@code
- * PORELO_ACCEPTANCE_MCP_SHA256} name an executable on the machine and its digest instead, for a
- * build not yet published.
+ * <p><strong>The newest snapshot.</strong> The kit's {@code mcp-server.properties} names where
+ * Artifactory keeps the packages, and the run takes the newest snapshot there with the sha256
+ * Artifactory names for it; {@code PORELO_ACCEPTANCE_MCP} and {@code PORELO_ACCEPTANCE_MCP_SHA256}
+ * name an executable on the machine and its digest instead, for a build not yet published.
  */
 public final class McpServer {
 
@@ -37,7 +37,8 @@ public final class McpServer {
      * seen in the run.
      *
      * @throws IOException If the machine cannot be reached.
-     * @throws AssertionError If it cannot be installed; it names porelo-mcp and the pin.
+     * @throws AssertionError If it cannot be installed; it names porelo-mcp and where it was to
+     *     come from.
      */
     @Before(order = 0)
     public void installIntoTheAccount() throws IOException {
