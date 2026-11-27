@@ -1,6 +1,7 @@
 package org.fuin.porelo.acceptance.suite;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -77,6 +78,41 @@ class StubGitForgeTest {
         assertThat(Files.readString(home.resolve("config/porelo/ca-certificates.pem")))
                 .as("the forge's authority, added where Porelo's git trusts it")
                 .contains("BEGIN CERTIFICATE");
+    }
+
+    // Harm: an online project naming its upstream on the forge, whose task's push never reaches the
+    // repository the pull request from its branch is then served from.
+    @Test
+    void aPushToAnUpstreamItServesLandsInItsRepositoryWithTheTokenAlone() throws Exception {
+        final Path upstream = home.resolve("project/.git/upstream.git");
+        git(home, "init", "-q", "--bare", "-b", "main", upstream.toString());
+        final Path work = repository();
+        final StubGitForge started = new StubGitForge(new Local(home));
+        forge = started;
+        started.start(TOKEN);
+        final String address = started.origin() + "/shop/app";
+
+        started.serveUpstream(address, "\"" + upstream + "\"");
+        final Result refused = push(work, address, null);
+        final Result pushed = push(work, address, TOKEN);
+
+        assertThat(refused.status()).as("a push without the token: %s", refused.err()).isNotZero();
+        assertThat(pushed.status()).as("a push with the token: %s", pushed.err()).isZero();
+        assertThat(git(upstream, "rev-parse", "refs/heads/porelo/task").strip())
+                .as("the pushed branch, in the repository the forge serves")
+                .isEqualTo(git(work, "rev-parse", "review-head").strip());
+        final ForgeStub.Facts facts =
+                started.serve(address + "/pull/45", "\"" + upstream + "\"", "porelo/task", "main");
+        assertThat(facts.repository())
+                .as("the pull request from that branch, at the upstream's own address")
+                .isEqualTo(address);
+        assertThatThrownBy(
+                        () ->
+                                started.serveUpstream(
+                                        "https://elsewhere.invalid/shop/app",
+                                        "\"" + upstream + "\""))
+                .as("an upstream on another forge")
+                .isInstanceOf(AssertionError.class);
     }
 
     @Test
@@ -174,7 +210,45 @@ class StubGitForgeTest {
                                 facts.repository(),
                                 facts.head()));
         final ProcessBuilder builder = new ProcessBuilder(command);
-        final Map<String, String> environment = builder.environment();
+        environment(builder.environment(), token);
+        final Process process = builder.start();
+        process.getOutputStream().close();
+        final String out =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        final String err =
+                new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(process.waitFor(60, TimeUnit.SECONDS)).as("git fetch ends").isTrue();
+        return new Result(process.exitValue(), out, err);
+    }
+
+    /**
+     * Pushes the head branch as a task's branch and {@code main} beside it, as a gate passes a
+     * task's work on, its credential in git's environment alone.
+     */
+    private Result push(final Path work, final String address, final @Nullable String token)
+            throws Exception {
+        final ProcessBuilder builder =
+                new ProcessBuilder(
+                                "git",
+                                "push",
+                                "--quiet",
+                                address,
+                                "review-head:refs/heads/porelo/task",
+                                "main:refs/heads/main")
+                        .directory(work.toFile());
+        environment(builder.environment(), token);
+        final Process process = builder.start();
+        process.getOutputStream().close();
+        final String out =
+                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        final String err =
+                new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+        assertThat(process.waitFor(60, TimeUnit.SECONDS)).as("git push ends").isTrue();
+        return new Result(process.exitValue(), out, err);
+    }
+
+    /** git's environment for the forge: its authority trusted, the token in a header alone. */
+    private void environment(final Map<String, String> environment, final @Nullable String token) {
         environment.put("GIT_CONFIG_NOSYSTEM", "1");
         environment.put("GIT_CONFIG_GLOBAL", "/dev/null");
         environment.put("GIT_TERMINAL_PROMPT", "0");
@@ -191,14 +265,6 @@ class StubGitForgeTest {
                                             ("x-access-token:" + token)
                                                     .getBytes(StandardCharsets.UTF_8)));
         }
-        final Process process = builder.start();
-        process.getOutputStream().close();
-        final String out =
-                new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        final String err =
-                new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertThat(process.waitFor(60, TimeUnit.SECONDS)).as("git fetch ends").isTrue();
-        return new Result(process.exitValue(), out, err);
     }
 
     private static String git(final Path directory, final String... arguments) throws Exception {

@@ -10,6 +10,8 @@ import java.util.List;
 import org.fuin.porelo.core.config.XdgPaths;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.gate.review.Right;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -128,6 +130,132 @@ class TaskConversationsTest {
                         });
         assertThat(events).noneMatch(event -> event.state() == StartStep.State.FAILED);
         assertThat(runner.invocations()).as("no transport was run").isEmpty();
+    }
+
+    @Test
+    void aNewStartThatReadsAnotherTasksWorkIsInNoConversationAndGoesOn() throws Exception {
+        // Its record is written after the enrollment, so the start says what its parts are.
+        final PoreloContext context = context();
+        final List<StartStep> events = new ArrayList<>();
+
+        final String refused =
+                new TaskConversations(context)
+                        .enroll(
+                                placed(),
+                                "porelo-uc-read",
+                                null,
+                                new StartSteps(events::add),
+                                true);
+
+        assertThat(refused).as("the start goes on").isNull();
+        assertThat(events)
+                .filteredOn(event -> event.state() == StartStep.State.STARTED)
+                .singleElement()
+                .satisfies(
+                        event ->
+                                assertThat(event.text())
+                                        .as("said why")
+                                        .contains("another task's work", "no conversation"));
+        assertThat(runner.invocations()).as("no transport was run").isEmpty();
+    }
+
+    @Test
+    void aTaskWhoseRecordReadsAnotherTasksWorkIsInNoConversation() throws Exception {
+        final PoreloContext context = context();
+        RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-read")),
+                TaskParts.anothersWork(List.of(Right.REPLY)));
+
+        final String refused = new TaskConversations(context).enroll(placed(), "porelo-uc-read");
+
+        assertThat(refused).as("the start goes on").isNull();
+        assertThat(runner.invocations()).as("no transport was run").isEmpty();
+    }
+
+    @Test
+    void aTaskReadsAnotherTasksWorkByItsStateThenItsDurableRecordAndWhenNeitherReads()
+            throws Exception {
+        final PoreloContext context = context();
+        final TaskParts reading = TaskParts.anothersWork(List.of(Right.REPLY));
+        RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-own")),
+                TaskParts.ownWork());
+        RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-state")),
+                reading);
+        RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-durable")),
+                reading);
+        final Path broken =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-broken"));
+        RunPlace.recordParts(broken, reading);
+        Files.writeString(broken.resolve(RunPlace.FILE), "{not json");
+
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-own"))
+                .as("at its own work")
+                .isFalse();
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-none"))
+                .as("no record at all")
+                .isFalse();
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-state"))
+                .as("by its state")
+                .isTrue();
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-durable"))
+                .as("by its durable record while its state holds none")
+                .isTrue();
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-broken"))
+                .as("a record that does not read, fail closed")
+                .isTrue();
+    }
+
+    @Test
+    void aReaderWhoseRecordsWentBeforeItsMailboxStillReadsAnotherTasksWork() throws Exception {
+        // A removal forgets the records before it deletes the mailbox, and a mailbox it cannot
+        // delete stays: a pass in between took what waited in it for a task at its own work.
+        final PoreloContext context = context();
+        final Path state =
+                Files.createDirectories(context.paths().tasks().containerState("porelo-uc-read"));
+        RunPlace.recordParts(state, TaskParts.anothersWork(List.of(Right.REPLY)));
+        new Mailbox(context.paths().messaging().mailbox("porelo-uc-read")).create();
+        new Mailbox(context.paths().messaging().mailbox("porelo-uc-own")).create();
+        ReadingTasks.mark(context, "porelo-uc-read");
+        ReadingTasks.mark(context, "porelo-uc-own");
+        try (java.util.stream.Stream<Path> walk = Files.walk(state)) {
+            for (final Path each : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(each);
+            }
+        }
+
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-read"))
+                .as("its mailbox says what its records said")
+                .isTrue();
+        assertThat(ReadingTasks.readsAnothersWork(context, "porelo-uc-own"))
+                .as("a mailbox of no task that reads stays as it was")
+                .isFalse();
+    }
+
+    /** A placed project with a room. */
+    private Project placed() throws Exception {
+        final Path file = dir.resolve("uc.yml");
+        Files.writeString(
+                file,
+                """
+                project:
+                  name: "uc"
+                  security_class: "guarded"
+                image:
+                  from: "ubuntu:24.04"
+                mail:
+                  transports:
+                    room: {}
+                  peers:
+                    reviewer:
+                      address: "room:"
+                      trust: "vouched"
+                """);
+        final Project read = ProjectReader.read(file);
+        assertThat(read.mail().conversations()).as("the file names a room").isNotEmpty();
+        return read;
     }
 
     private Project namedDefault() throws Exception {

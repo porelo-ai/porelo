@@ -54,6 +54,8 @@ public final class MessageIntake {
 
     private final Holding holding;
 
+    private boolean reader;
+
     /**
      * Told of each message the intake holds with a verdict, the moment it lies in {@code hold/}.
      *
@@ -91,6 +93,17 @@ public final class MessageIntake {
     public MessageIntake(final MessageSigners.Own key, final Holding holding) {
         this.key = key;
         this.holding = holding;
+    }
+
+    /**
+     * Says whether the task reads another task's work ({@link ReadingTasks#readsAnothersWork}).
+     *
+     * @param readsAnothersWork Whether it does.
+     * @return This intake.
+     */
+    public MessageIntake reading(final boolean readsAnothersWork) {
+        this.reader = readsAnothersWork;
+        return this;
     }
 
     /**
@@ -170,6 +183,18 @@ public final class MessageIntake {
             // directory, whose words are no run's.
             final boolean review =
                     signing == null && !person && MessageDispatch.submissionToReview(bytes);
+            if (signing == null && !review && reader && !MessageDispatch.toReviewAlone(bytes)) {
+                // Refused before a hold, as the dispatch refuses a signed one: held, a person would
+                // see it offered for release. Told from a copy that goes at once.
+                final Path refused = mailbox.rejected().resolve(name);
+                place(bytes, refused);
+                holding.held(
+                        new MessageDelivery.Held(
+                                name, MessageDispatch.READER_REFUSED, "", TrustMark.UNSIGNED));
+                new HostBounce().write(mailbox, refused, MessageDispatch.READER_REFUSED, true);
+                Files.delete(refused);
+                continue;
+            }
             if (signing == null && !review) {
                 // Held, with the sender told: unsigned, no receiver could believe it. Recorded
                 // before the sender is told, so nothing after the hold can lose the verdict.

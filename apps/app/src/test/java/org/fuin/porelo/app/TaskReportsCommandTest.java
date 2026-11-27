@@ -194,7 +194,17 @@ class TaskReportsCommandTest {
         final PoreloContext context = context();
         final TaskWorkRecords records = new TaskWorkRecords(context);
         records.started(
-                TASK, "uc", "work", null, "worker-one", null, "agent", null, "offer-17", null);
+                TASK,
+                "uc",
+                "work",
+                null,
+                "worker-one",
+                null,
+                "agent",
+                null,
+                "offer-17",
+                org.fuin.porelo.gate.review.TaskParts.ownWork(),
+                null);
         records.started(
                 "porelo-uc-other",
                 "uc",
@@ -205,6 +215,7 @@ class TaskReportsCommandTest {
                 "agent",
                 null,
                 null,
+                org.fuin.porelo.gate.review.TaskParts.ownWork(),
                 null);
         new TaskReports(context.paths())
                 .report(TASK, ID, records.startedAt(TASK), "status", "Half done.", 2);

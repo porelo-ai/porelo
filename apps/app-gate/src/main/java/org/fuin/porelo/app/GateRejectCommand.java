@@ -110,34 +110,28 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                     PersonNote.Rejected.waitingIn(context, project, chosen, gate, name);
             gate.reject(name, upstreamHas, force);
             out.println("discarded " + name);
-            EventLog.record(
-                    context,
-                    EventLog.REJECTED,
-                    project.name(),
-                    name,
-                    upstreamHas ? "discarded, already upstream" : "discarded");
-            // Told whether or not a reason was given: an agent whose work silently vanished hands
-            // it over again.
             final CommentIntake.Parts review = CommentIntake.Parts.of(context);
-            // Kept before the task is told, so a note that cannot be written loses no end.
-            java.io.IOException unkept = null;
-            try {
-                new GateEnds(context).rejected(project.name(), name, rejected, review.store());
-            } catch (java.io.IOException ex) {
-                unkept = ex;
+            // The end is kept before the task is told, so a note that cannot be written loses none.
+            final PushRejection.Outcome outcome =
+                    PushRejection.byOwner(
+                            context,
+                            project,
+                            name,
+                            upstreamHas ? "discarded, already upstream" : "discarded",
+                            rejected,
+                            said,
+                            review.store(),
+                            review.writer());
+            final java.io.IOException untold = outcome.untold();
+            if (untold != null) {
+                throw untold;
             }
             out.println(
-                    PersonNote.rejectedWork(
-                                    context,
-                                    project,
-                                    name,
-                                    said,
-                                    rejected,
-                                    review.store(),
-                                    review.writer())
+                    outcome.told()
                             ? "told      the task it came from"
                             : "not told  no task named '" + name + "' has a mailbox here any more");
             out.flush();
+            final java.io.IOException unkept = outcome.unkept();
             return unkept == null ? 0 : unkept(err, name, unkept);
         } catch (java.io.IOException ex) {
             err.println(

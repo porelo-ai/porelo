@@ -330,6 +330,10 @@ public final class ConversationNote implements ConversationDelivery {
 
     /** The place as the text names it: a pull request's address, else fixed words, never raw. */
     private static String named(final String place) {
+        if (!place.regionMatches(true, 0, "https:", 0, "https:".length())) {
+            // Another task's push waiting at this machine's gate, which no forge holds.
+            return "the push waiting at this machine's gate";
+        }
         try {
             return PullRequestRef.of(new URI(place)).url().toString();
         } catch (final URISyntaxException | IllegalArgumentException notAnAddress) {

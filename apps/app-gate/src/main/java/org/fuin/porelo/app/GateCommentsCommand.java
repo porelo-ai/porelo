@@ -7,6 +7,7 @@ import java.util.concurrent.Callable;
 import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Kept;
 import org.fuin.porelo.gate.review.LineAnchor;
+import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewRefused;
@@ -14,6 +15,7 @@ import org.fuin.porelo.gate.review.ReviewReply;
 import org.fuin.porelo.gate.review.ReviewThread;
 import org.fuin.porelo.gate.review.ReviewWriter;
 import org.fuin.porelo.gate.review.Suggestion;
+import org.fuin.porelo.gate.review.ThreadResolve;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
@@ -117,8 +119,9 @@ public class GateCommentsCommand implements Callable<Integer>, PoreloFactory.Con
     }
 
     /**
-     * Returns threads as text: each thread's id and state, then each item's producer, the opening
-     * comment's file, side and lines, and every line of what was written, indented below.
+     * Returns threads as text: each thread's id and state, and who set it when anybody did, then
+     * each item's producer, the opening comment's file, side and lines, and every line of what was
+     * written, indented below.
      *
      * <p>What a producer wrote goes through the terminal's escaping line by line and is indented
      * deeper than every header, so no text can draw a header of its own.
@@ -135,8 +138,12 @@ public class GateCommentsCommand implements Callable<Integer>, PoreloFactory.Con
             text.append("thread ")
                     .append(thread.id())
                     .append("  ")
-                    .append(thread.state().name().toLowerCase(Locale.ROOT))
-                    .append('\n');
+                    .append(thread.state().name().toLowerCase(Locale.ROOT));
+            final Producer by = thread.stateBy();
+            if (by != null) {
+                text.append(" by ").append(TerminalText.line(by.words()));
+            }
+            text.append('\n');
             for (final Kept kept : thread.items()) {
                 text.append("  ").append(TerminalText.line(kept.origin().producer().words()));
                 switch (kept.item()) {
@@ -168,6 +175,8 @@ public class GateCommentsCommand implements Callable<Integer>, PoreloFactory.Con
                         text.append("  replies\n");
                         indented(text, reply.body().text());
                     }
+                    // A resolve sets its thread's state and is never kept as an item.
+                    case ThreadResolve _ -> text.append('\n');
                 }
             }
         }

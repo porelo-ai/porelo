@@ -22,6 +22,7 @@ nav:
           - FAQ: faq.md
     - How it keeps an agent in its place:
           - Security classes, firewall and names: security.md
+          - What a task may do: rights.md
           - What a task can reach: reach.md
           - Credentials: credentials.md
     - Running it: running.md

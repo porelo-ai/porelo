@@ -15,6 +15,8 @@ type Event (
   # approved, rejected, clearance, hand-in, credential, project-applied, stopped-all, arrived or
   # started; unreadable for a line that cannot be read, its other fields "". started is a task another
   # task started through its MCP endpoint: task is the one started, detail names the parent.
+  # rejected by a task holding the right reject: task is the one whose push was discarded, detail
+  # names the task that rejected it.
   kind: string,
   # The project, or "".
   project: string,

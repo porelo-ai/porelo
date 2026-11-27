@@ -13,8 +13,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.fuin.porelo.app.EndpointRights;
 import org.fuin.porelo.app.McpDaemonSockets;
 import org.fuin.porelo.app.PoreloContext;
+import org.fuin.porelo.app.RunPlace;
+import org.fuin.porelo.app.StartParts;
+import org.fuin.porelo.app.StartRules;
 import org.fuin.porelo.app.TaskControl;
 import org.fuin.porelo.app.TaskIdentities;
 import org.fuin.porelo.app.TaskInventory;
@@ -23,6 +27,10 @@ import org.fuin.porelo.app.TaskReservations;
 import org.fuin.porelo.core.project.McpEndpoint;
 import org.fuin.porelo.core.project.ProjectException;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.gate.GateException;
+import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.Right;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
@@ -42,10 +50,15 @@ import org.jspecify.annotations.Nullable;
  * <p><strong>Only what the file allows.</strong> A socket carries the methods the file's {@code
  * mcp.methods} names at the task's last start or resume and no other, so a method not named answers
  * {@code MethodNotFound}; each open reads the file again and the served socket takes it; its
- * interface description is Tasks1 with every other method dropped, every type and error kept. A
- * {@code Start} on it is held to the file's limits and records the caller as the started task's
- * parent; a {@code Stop} on it takes only the caller's own, and any other call naming a task only
- * the caller or its own.
+ * interface description is Tasks1 with every other method dropped, every type and error kept. The
+ * section is the project's bound: within it, {@code Start}, {@code Stop}, {@code Done} and {@code
+ * Report} are carried only where the task's recorded rights hold {@code start}, {@code stop},
+ * {@code done} and {@code report}, read at each call; a task whose record does not read holds none.
+ * A {@code Start} on it is held to the file's limits, gives the started task at most the caller's
+ * own workspace, equipment and rights, and records the caller as its parent; a {@code Stop} on it
+ * takes only the caller's own, and any other call naming a task only the caller or its own. {@code
+ * Pending}, {@code Review} and {@code ReviewPage} answer only for the gate push that is the
+ * caller's recorded place.
  */
 final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
 
@@ -86,10 +99,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
      * The parameters a start over a task's socket may carry; any other is refused by name. What
      * widens what the started task may reach, hold or spend is the file's or the person's: its
      * clearance, gate, credentials, upstream, token, provider and subagents, and so are a removal,
-     * a certificate and a start that returns before its run.
+     * a certificate and a start that returns before its run. The started task's parts may be named,
+     * each held to what the calling task holds.
      */
     static final Set<String> START_PARAMETERS =
             Set.of(
+                    "rights",
+                    "readLanded",
+                    "writeAs",
+                    "projectServices",
                     "task",
                     "project",
                     "repository",
@@ -107,8 +125,17 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     "steps",
                     "work");
 
-    /** The methods a task's endpoint may carry beside the reading ones. */
-    private static final Set<String> WRITING = Set.of("Start", "Stop", "Done", "Report");
+    /**
+     * The methods a task's endpoint may carry beside the reading ones, each only where the task's
+     * start recorded its right.
+     */
+    private static final Set<String> WRITING = EndpointRights.writing();
+
+    /**
+     * The reading methods that answer a task only for the gate push that is its place: its own, or
+     * the one it reads.
+     */
+    static final Set<String> AT_ITS_PLACE = Set.of("Pending", "Review", "ReviewPage");
 
     /** One socket, the thread serving it, and what releases its kept readings. */
     private record Served(TaskSocket server, Thread thread, ReadingSweep sweep) {}
@@ -439,6 +466,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                         INTERFACE + ".ParameterNotAllowed", Map.of("parameter", parameter));
             }
         }
+        // Read at this call, never kept: a record that does not read holds no right.
+        final TaskParts parent = partsOf(caller);
+        if (parent == null || !parent.holds(Right.START)) {
+            throw notCarried("Start");
+        }
+        // Before any other task's name is looked up: a start asking more is refused alike whether
+        // or not a task of that name exists.
+        final StartParts taken = childParts(project, parameters);
+        refuseBeyond(taken.parts(), parent);
         final String asked = PoreloDaemon.text(parameters, "project");
         if (!project.equals(asked)) {
             throw new VarlinkException(
@@ -543,6 +579,22 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                     // Bringing back a task it did not start would run its prompt in another's work.
                     throw notItsOwn(container, existing.parent());
                 }
+                // Brought back with the parts it recorded, which stay within its parent's.
+                final TaskParts kept = partsOf(container);
+                if (kept == null) {
+                    throw new VarlinkException(
+                            INTERFACE + ".StartRuleBroken",
+                            Map.of(
+                                    "rule",
+                                    TaskParts.EXCEEDS_PARENT,
+                                    "detail",
+                                    "no recorded parts that read"));
+                }
+                // A member the start names must be the recorded one; one it leaves out keeps it.
+                if (taken.asked().changes(kept)) {
+                    throw new VarlinkException(INTERFACE + ".RightsChanged", Map.of());
+                }
+                refuseBeyond(kept, parent);
                 final String made = existing.agent() == null ? "" : existing.agent();
                 if (!agent.isEmpty() && !agent.equals(made)
                         || !model.isEmpty() && !model.equals(existing.model())) {
@@ -608,6 +660,269 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                 starting.remove(token);
             }
         }
+    }
+
+    /**
+     * Returns the parts a task's start recorded, read now: from its state, else from its durable
+     * record.
+     *
+     * @param task The task's container.
+     * @return Them, or {@code null} when it recorded none or they do not read: no right at all.
+     */
+    private @Nullable TaskParts partsOf(final String task) {
+        return EndpointRights.recorded(context, task);
+    }
+
+    /**
+     * Tells whether a task's endpoint carries a method as far as its recorded rights go: a writing
+     * method only where its start recorded the right, every other one always.
+     *
+     * @param task The task's container.
+     * @param method The method, without the interface.
+     * @return Whether its rights allow it.
+     */
+    boolean carries(final String task, final String method) {
+        return !WRITING.contains(method) || EndpointRights.carries(partsOf(task), method);
+    }
+
+    /** A method the endpoint does not carry, answered as one it does not have. */
+    private static VarlinkException notCarried(final String method) {
+        return new VarlinkException(
+                "org.varlink.service.MethodNotFound", Map.of("method", INTERFACE + "." + method));
+    }
+
+    /**
+     * Returns the parts a start over a task's socket gives the started task, every member it leaves
+     * out resolved to its default, as the daemon's own Start takes them: what it names, checked
+     * against Porelo's own start rules. It names no place, so an account to write as is refused,
+     * which is taken at a pull request alone. Nothing of another task is looked up for it.
+     *
+     * @param project The caller's project, whose file the start is read against.
+     * @param parameters What the start carries.
+     * @return What it names and the parts that follow.
+     * @throws VarlinkException {@code InvalidParameter} for a member of the wrong shape or {@code
+     *     writeAs}, {@code StartRuleBroken} for parts that break one of Porelo's own rules.
+     */
+    private StartParts childParts(final String project, final Map<String, Object> parameters) {
+        final String repository = PoreloDaemon.text(parameters, "repository");
+        return RunPlaces.taken(
+                context,
+                parameters,
+                org.fuin.porelo.app.ProjectSource.require(context, project),
+                PoreloDaemon.text(parameters, "task"),
+                repository.isEmpty() ? null : repository);
+    }
+
+    /**
+     * Refuses a child's parts that exceed its parent's, or that break one of Porelo's own start
+     * rules.
+     *
+     * @param child The parts the child gets, every default resolved.
+     * @param parent The parts of the task that starts it.
+     * @throws VarlinkException {@code StartRuleBroken}, naming the rule and the part.
+     */
+    static void refuseBeyond(final TaskParts child, final TaskParts parent) {
+        // Credentials and clearance are refused by name before: a task's start names neither.
+        final Optional<TaskParts.Broken> broken =
+                child.exceeds(parent).or(() -> StartRules.broken(child, false, null));
+        if (broken.isPresent()) {
+            throw new VarlinkException(
+                    INTERFACE + ".StartRuleBroken",
+                    Map.of("rule", broken.get().rule(), "detail", broken.get().detail()));
+        }
+    }
+
+    /**
+     * Holds {@code Pending}, {@code Review} and {@code ReviewPage} to the gate push that is the
+     * caller's recorded place: {@code Pending} shows that push's row alone, the other two refuse
+     * any other name as {@code NoSuchPush} before the gate is asked. A caller at a pull request, or
+     * without a place, sees no waiting push; one pinned to a head sees that commit and no newer
+     * one; a page names the commit checked or is {@code NoSuchPush}. A base to compare with is the
+     * place's own history alone: nothing under {@code refs/porelo/}, and only an ancestor of the
+     * commit read.
+     *
+     * @param caller The task.
+     * @param project Its project.
+     * @param method The method called.
+     * @param parameters What the call carries.
+     * @param replies Where its answer goes.
+     * @param call The method itself.
+     * @throws IOException When the answer cannot be sent.
+     */
+    void atItsPlace(
+            final String caller,
+            final String project,
+            final String method,
+            final Map<String, Object> parameters,
+            final VarlinkServer.Replies replies,
+            final VarlinkServer.Method call)
+            throws IOException {
+        final RunPlace recorded = RunPlace.recordedPlace(context, caller);
+        final RunPlace place =
+                recorded != null
+                                && recorded.pullRequest() == null
+                                && java.util.Objects.equals(
+                                        RunPlace.otherThanOwn(project, recorded.repository()),
+                                        RunPlace.otherThanOwn(
+                                                project,
+                                                PoreloDaemon.text(parameters, "repository")))
+                        ? recorded
+                        : null;
+        if ("Pending".equals(method)) {
+            call.call(parameters, onlyAt(place, replies));
+            return;
+        }
+        if (place == null || !place.name().equals(PoreloDaemon.text(parameters, "name"))) {
+            throw noSuchPush();
+        }
+        final String against = PoreloDaemon.text(parameters, "against");
+        if (namesPoreloRef(against)) {
+            throw againstRefused();
+        }
+        final GitGate gate = PoreloDaemon.gate(parameters, context);
+        final GitGate.Waiting waiting = gate.waiting(place.name());
+        final RunPlace.Pin pin = place.pinned();
+        if (waiting == null || (pin != null && !pin.head().equals(waiting.commit()))) {
+            // Never the gate's own answer, which names the pushes that do wait.
+            throw noSuchPush();
+        }
+        final String head = waiting.commit();
+        final Map<String, Object> held = new LinkedHashMap<>(parameters);
+        if ("ReviewPage".equals(method)) {
+            // The commit checked, never one the push moved to before the gate reads it: the gate
+            // pages whatever head it then finds, so long as the call names that one.
+            if (!head.equals(PoreloDaemon.text(parameters, "commit").strip())) {
+                throw noSuchPush();
+            }
+            if (!against.isEmpty() && !gate.contains(head, against)) {
+                throw againstRefused();
+            }
+        } else if (!against.isBlank()) {
+            final String base;
+            try {
+                base = gate.namedBase(against);
+            } catch (GateException ex) {
+                throw againstRefused();
+            }
+            if (!gate.contains(head, base)) {
+                throw againstRefused();
+            }
+            // The commit checked, not the name again: a ref moved since would read past it.
+            held.put("against", base);
+        }
+        try {
+            call.call(held, ofCommit(head, replies));
+        } catch (GateException ex) {
+            if (gate.waiting(place.name()) == null) {
+                throw noSuchPush();
+            }
+            throw ex;
+        }
+    }
+
+    /** Whether a base names one of Porelo's own refs, in full or in git's short spelling. */
+    private static boolean namesPoreloRef(final String against) {
+        // git reads porelo/... as refs/porelo/...; any other path through such a directory is
+        // refused too, never told apart.
+        final String ref = against.strip();
+        return ref.startsWith("refs/porelo")
+                || ref.startsWith("porelo/")
+                || ref.contains("/porelo/");
+    }
+
+    private static VarlinkException noSuchPush() {
+        return new VarlinkException(INTERFACE + ".NoSuchPush", Map.of());
+    }
+
+    private static VarlinkException againstRefused() {
+        return new VarlinkException(
+                "org.varlink.service.InvalidParameter", Map.of("parameter", "against"));
+    }
+
+    /**
+     * Returns replies that keep, of the pushes {@code Pending} lists, only the one at a place, and
+     * of a pinned place only the commit it is pinned to.
+     *
+     * @param place The caller's place at this gate, or {@code null} for none: no row is kept.
+     * @param replies Where the cut replies go.
+     * @return The replies to answer through.
+     */
+    static VarlinkServer.Replies onlyAt(
+            final @Nullable RunPlace place, final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                replies.more(cut(parameters));
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(cut(parameters));
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private Map<String, Object> cut(final Map<String, Object> parameters) {
+                final Map<String, Object> answer = new LinkedHashMap<>(parameters);
+                if (parameters.get("pending") instanceof List<?> rows) {
+                    answer.put("pending", rows.stream().filter(this::at).toList());
+                }
+                return answer;
+            }
+
+            private boolean at(final Object row) {
+                if (place == null || !(row instanceof Map<?, ?> push)) {
+                    return false;
+                }
+                final RunPlace.Pin pin = place.pinned();
+                return place.name().equals(push.get("name"))
+                        && (pin == null || pin.head().equals(push.get("commit")));
+            }
+        };
+    }
+
+    /**
+     * Returns replies that send a review only of the commit checked: one the push moved to since is
+     * refused as {@code NoSuchPush} rather than shown.
+     */
+    private static VarlinkServer.Replies ofCommit(
+            final String head, final VarlinkServer.Replies replies) {
+        return new VarlinkServer.Replies() {
+            @Override
+            public void more(final Map<String, Object> parameters) throws IOException {
+                replies.more(checked(parameters));
+            }
+
+            @Override
+            public void last(final Map<String, Object> parameters) throws IOException {
+                replies.last(checked(parameters));
+            }
+
+            @Override
+            public boolean streaming() {
+                return replies.streaming();
+            }
+
+            @Override
+            public boolean open() {
+                return replies.open();
+            }
+
+            private Map<String, Object> checked(final Map<String, Object> parameters) {
+                if (parameters.get("commit") instanceof String commit && !head.equals(commit)) {
+                    throw noSuchPush();
+                }
+                return parameters;
+            }
+        };
     }
 
     /**
@@ -1297,7 +1612,15 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
          */
         void allow(final McpEndpoint now) {
             endpoint = now;
-            describedBy(cut(PoreloDaemon.description(), new HashSet<>(now.methods())));
+            // Cut by the task's recorded rights as each call is held to them: a start records them
+            // before its socket is opened, and they stay for the task's life.
+            final Set<String> kept = new HashSet<>();
+            for (final String method : now.methods()) {
+                if (carries(task, method)) {
+                    kept.add(method);
+                }
+            }
+            describedBy(cut(PoreloDaemon.description(), kept));
         }
 
         /** Refuses a call that names a project other than the caller's own, or none. */
@@ -1343,6 +1666,12 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
                                 refuseAnotherProject(parameters);
                             }
                             method.call(parameters, replies);
+                        };
+            } else if (AT_ITS_PLACE.contains(name)) {
+                held =
+                        (parameters, replies) -> {
+                            refuseAnotherProject(parameters);
+                            atItsPlace(task, project, name, parameters, replies, method);
                         };
             } else if (takingAProject.contains(name)) {
                 held =
@@ -1404,10 +1733,10 @@ final class McpTaskSockets implements McpDaemonSockets.Opener, AutoCloseable {
             }
             return (parameters, replies) -> {
                 final McpEndpoint allowed = endpoint;
-                if (!allowed.methods().contains(name)) {
-                    throw new VarlinkException(
-                            "org.varlink.service.MethodNotFound",
-                            Map.of("method", INTERFACE + "." + name));
+                // The file's section is the project's bound; the task's recorded rights, read at
+                // each call, decide within it.
+                if (!allowed.methods().contains(name) || !carries(task, name)) {
+                    throw notCarried(name);
                 }
                 ScopedValue.where(CALLER, task)
                         .where(ALLOWED, allowed)

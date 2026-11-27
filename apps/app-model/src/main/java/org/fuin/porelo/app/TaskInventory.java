@@ -1418,7 +1418,6 @@ public final class TaskInventory {
             if (result != null) {
                 map.put("result", result.asMap());
             }
-            map.put("readOnly", readOnly);
             map.put("waitingFor", waitingFor == null ? "" : waitingFor);
             map.put("clearance", clearance == null ? "" : clearance);
             // Beside the name, never instead of it: the name is what every other call takes and
@@ -1844,9 +1843,10 @@ public final class TaskInventory {
         row.put("landed", found.stream().map(landed -> landed(within, landed)).toList());
         row.put("minutes", RunLimit.minutes(context.paths().tasks().containerState(task.name())));
         row.put("callerKey", callerKey(task.name()));
+        // The parts its start recorded, each written out; a task with a gate also its place.
+        row.putAll(parts(task.name()).document());
         final RunPlace place = runPlace(task.name());
         if (place != null) {
-            row.put("role", place.role());
             row.put("place", place.place());
         }
         // Counted where it is held, by the task's container name; a journal that cannot be read
@@ -1922,11 +1922,29 @@ public final class TaskInventory {
     }
 
     /**
-     * Returns the role and place a task's start recorded: from its state where it runs, else from
-     * the record a reboot does not reach.
+     * The parts a task's start recorded, in its state or its saved record; a task that recorded
+     * none, or none that read, shows the parts that hold nothing, which is what it is given.
+     */
+    private org.fuin.porelo.gate.review.TaskParts parts(final String container) {
+        try {
+            final org.fuin.porelo.gate.review.TaskParts running =
+                    RunPlace.partsIn(context.paths().tasks().containerState(container));
+            final org.fuin.porelo.gate.review.TaskParts kept =
+                    running != null
+                            ? running
+                            : RunPlace.partsIn(context.paths().tasks().taskRecord(container));
+            return kept != null ? kept : org.fuin.porelo.gate.review.TaskParts.unrecorded();
+        } catch (IllegalStateException ex) {
+            return org.fuin.porelo.gate.review.TaskParts.unrecorded();
+        }
+    }
+
+    /**
+     * Returns the place a task's start recorded: from its state where it runs, else from the record
+     * a reboot does not reach.
      *
      * @param container The task's container.
-     * @return Them, or {@code null} for a task without a gate or one whose start recorded none.
+     * @return It, or {@code null} for a task without a gate or one whose start recorded none.
      */
     private @Nullable RunPlace runPlace(final String container) {
         final RunPlace running =

@@ -73,6 +73,7 @@ public class TalkReleaseCommand implements Callable<Integer>, PoreloFactory.Cont
                 new MessageRelease()
                         .because(said)
                         .enrolledIn(MessageRelease.enrolled(context, container))
+                        .reading(ReadingTasks.readsAnothersWork(context, container))
                         .decide(mailbox, id, refuse, MessageRelease.peersOf(context, container));
         return switch (result.outcome()) {
             case RELEASED -> {

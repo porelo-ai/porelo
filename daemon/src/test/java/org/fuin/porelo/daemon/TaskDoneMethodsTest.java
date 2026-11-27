@@ -54,6 +54,20 @@ class TaskDoneMethodsTest {
                             "/porelo",
                             context.paths().tasks().containerState(TASK).toString())
                     .writeTo(state.resolve("sidecar.json"));
+            // As a start naming done records it: its own work, its endpoint carrying Done.
+            new org.fuin.porelo.app.RunPlace(
+                            new org.fuin.porelo.gate.review.TaskParts(
+                                    org.fuin.porelo.gate.review.TaskParts.Workspace.OWN,
+                                    java.util.List.of(),
+                                    true,
+                                    org.fuin.porelo.gate.review.TaskParts.Account.AUTHOR,
+                                    java.util.Set.of(
+                                            org.fuin.porelo.gate.review.Right.PUSH,
+                                            org.fuin.porelo.gate.review.Right.REPLY,
+                                            org.fuin.porelo.gate.review.Right.DONE)),
+                            null,
+                            "work")
+                    .writeTo(Files.createDirectories(context.paths().tasks().containerState(TASK)));
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException(ex);
         }

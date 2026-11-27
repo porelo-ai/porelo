@@ -47,10 +47,10 @@ import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.ReviewRole;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.gate.review.Side;
+import org.fuin.porelo.gate.review.TaskParts;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -172,11 +172,11 @@ class ReviewOpenPullRequestTest {
                 }
             };
 
-    final ReviewRole role =
-            new ReviewRole() {
+    final TaskRights role =
+            new TaskRights() {
                 @Override
-                public Role role(final String task) {
-                    return Role.AUTHOR;
+                public TaskParts parts(final String task) {
+                    return TaskParts.ownWork();
                 }
 
                 @Override
@@ -198,6 +198,21 @@ class ReviewOpenPullRequestTest {
 
                 @Override
                 public boolean mayOpenThread(final String task, final ReviewPlace place) {
+                    return false;
+                }
+
+                @Override
+                public boolean mayReply(final String task, final ReviewPlace place) {
+                    return true;
+                }
+
+                @Override
+                public boolean mayResolve(final String task, final ReviewPlace place) {
+                    return false;
+                }
+
+                @Override
+                public boolean mayReject(final String task, final ReviewPlace place) {
                     return false;
                 }
 
@@ -393,7 +408,7 @@ class ReviewOpenPullRequestTest {
     void aCommentsAnchorIsCheckedInTheTasksRepositoryNeverAtTheForgesAddress() throws Exception {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
 
-        open.answer("uc", PLACE, null, TASK);
+        open.answer("uc", PLACE, TASK);
 
         assertThat(checkedIn)
                 .as("the mirror of the project's repository, where the head's tree is")
@@ -405,7 +420,7 @@ class ReviewOpenPullRequestTest {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
         headMissing = true;
 
-        assertThatThrownBy(() -> open.answer("uc", PLACE, null, TASK))
+        assertThatThrownBy(() -> open.answer("uc", PLACE, TASK))
                 .as("the head is not in the task's gate")
                 .isInstanceOfSatisfying(
                         ReviewOpen.Refused.class,
@@ -421,7 +436,7 @@ class ReviewOpenPullRequestTest {
     void aThreadWhoseLastWordIsAForgeAccountsCountsForTheAuthor() throws Exception {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.points())
                 .as("octocat wrote last, the author has not answered")
@@ -465,7 +480,7 @@ class ReviewOpenPullRequestTest {
             throws Exception {
         pages.add(FORGE_PAGE);
         held.add(held("h1", ADDRESS));
-        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, TASK);
 
         assertThat(answer.points())
                 .as("octocat's open thread, its last word at the time the forge gave it")
@@ -486,11 +501,11 @@ class ReviewOpenPullRequestTest {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
         held.add(held("h1", ADDRESS));
 
-        final ReviewOpen.Answer own = open.answer("uc", OWN, Role.AUTHOR, TASK);
+        final ReviewOpen.Answer own = open.answer("uc", OWN, TASK);
 
         assertThat(own)
                 .as("the same decision, head, points and held as the address would answer")
-                .isEqualTo(open.answer("uc", PLACE, null, TASK));
+                .isEqualTo(open.answer("uc", PLACE, TASK));
         assertThat(own.points()).as("the open thread is read, not an empty answer").hasSize(1);
         assertThat(own.held()).as("the held item is counted").isEqualTo(1);
         assertThat(ownAsked).as("the task whose branch is looked for").containsExactly(TASK);
@@ -500,7 +515,7 @@ class ReviewOpenPullRequestTest {
     void anOwnPullRequestWithNoneOpenFromTheTasksBranchIsRefusedNamingTheBranch() {
         noneOpen = true;
 
-        assertThatThrownBy(() -> open.answer("uc", OWN, null, TASK))
+        assertThatThrownBy(() -> open.answer("uc", OWN, TASK))
                 .as("no pull request is open from the branch")
                 .isInstanceOfSatisfying(
                         ReviewOpen.Refused.class,
@@ -513,22 +528,6 @@ class ReviewOpenPullRequestTest {
     }
 
     @Test
-    void aReviewerAtItsOwnPullRequestIsRefusedBeforeTheForgeIsAsked() {
-        assertThatThrownBy(() -> open.answer("uc", OWN, Role.REVIEWER, TASK))
-                .as("a reviewer does not review its own task's pull request")
-                .isInstanceOfSatisfying(
-                        ReviewOpen.Refused.class,
-                        refused -> {
-                            assertThat(refused.error()).as("the error").isEqualTo("RoleNotAllowed");
-                            assertThat(refused.fields())
-                                    .as("the role and the place")
-                                    .containsEntry("role", "REVIEWER")
-                                    .containsEntry("place", Map.of("ownPullRequest", true));
-                        });
-        assertThat(ownAsked).as("no pull request was looked for").isEmpty();
-    }
-
-    @Test
     void aResolvedThreadWhoseLastWordIsTheOtherSidesIsNoPoint() throws Exception {
         final String resolved =
                 FORGE_PAGE.replace(
@@ -538,7 +537,7 @@ class ReviewOpenPullRequestTest {
                 .isNotEqualTo(FORGE_PAGE);
         pages.add(resolved);
 
-        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = translated().answer("uc", PLACE, TASK);
 
         assertThat(answer.points())
                 .as("octocat wrote last, but the forge marks the thread resolved")
@@ -581,7 +580,7 @@ class ReviewOpenPullRequestTest {
     void aThreadTheAuthorAnsweredLastIsNoPoint() throws Exception {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT), reply("102", "101", AUTHOR));
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.points()).as("the author answered last").isEmpty();
     }
@@ -591,7 +590,7 @@ class ReviewOpenPullRequestTest {
         state = PullRequestState.MERGED;
         page(Completeness.COMPLETE);
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.decision()).as("merged").isEqualTo(ReviewOpen.Decision.MERGED);
         assertThat(answer.mergedCommit()).as("the merge commit").isEqualTo(MERGE);
@@ -603,7 +602,7 @@ class ReviewOpenPullRequestTest {
     void aPartialPageAnswersIncompleteWithItsReason() throws Exception {
         page(Completeness.PARTIAL, opening("101", OCTOCAT, AT));
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.complete()).as("a page was cut short").isFalse();
         assertThat(answer.reason()).as("which part").isEqualTo("PagePartial");
@@ -615,7 +614,7 @@ class ReviewOpenPullRequestTest {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
         counts = push -> new ReviewCounts.Counts(3, 0, List.of());
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.findings()).as("the journal's open findings").isEqualTo(3);
         assertThat(answer.complete()).as("everything was read").isTrue();
@@ -629,7 +628,7 @@ class ReviewOpenPullRequestTest {
                     throw new IllegalStateException("the journal does not read");
                 };
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.findings()).as("nothing counted").isZero();
         assertThat(answer.complete()).as("the journal is missing").isFalse();
@@ -642,7 +641,7 @@ class ReviewOpenPullRequestTest {
         page(Completeness.PARTIAL, opening("101", OCTOCAT, AT));
         adapterReason = "RateLimited";
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.complete()).as("the forge asked to wait").isFalse();
         assertThat(answer.reason()).as("which part").isEqualTo("RateLimited");
@@ -654,7 +653,7 @@ class ReviewOpenPullRequestTest {
                 new ReviewOpen.PullRequest(
                         PullRequestRef.of(URI.create("https://forge.example.org/uc/shop/pull/7")));
 
-        assertThatThrownBy(() -> open.answer("uc", elsewhere, null, TASK))
+        assertThatThrownBy(() -> open.answer("uc", elsewhere, TASK))
                 .as("a host that is no forge instance this machine knows")
                 .isInstanceOfSatisfying(
                         ReviewOpen.Refused.class,
@@ -672,7 +671,7 @@ class ReviewOpenPullRequestTest {
                 new ReviewOpen.PullRequest(
                         PullRequestRef.of(URI.create("https://github.com/uc/shop/pull/8")));
 
-        assertThatThrownBy(() -> open.answer("uc", gone, null, TASK))
+        assertThatThrownBy(() -> open.answer("uc", gone, TASK))
                 .as("no such pull request")
                 .isInstanceOfSatisfying(
                         ReviewOpen.Refused.class,
@@ -725,7 +724,7 @@ class ReviewOpenPullRequestTest {
                                     throw new AssertionError("no own pull request is asked about");
                                 }));
 
-        assertThatThrownBy(() -> withoutToken.answer("uc", PLACE, null, TASK))
+        assertThatThrownBy(() -> withoutToken.answer("uc", PLACE, TASK))
                 .as("no read credential")
                 .isInstanceOfSatisfying(
                         ReviewOpen.Refused.class,
@@ -745,7 +744,7 @@ class ReviewOpenPullRequestTest {
         held.add(held("h1", ADDRESS));
         held.add(held("h2", "https://github.com/uc/shop/pull/9"));
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.held()).as("only the one held at this pull request").isEqualTo(1);
         assertThat(answer.points()).as("a held item is no point").isEmpty();
@@ -755,15 +754,15 @@ class ReviewOpenPullRequestTest {
     void equalReadsAnswerEqualVersionsAndAnotherReadAnother() throws Exception {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
 
-        final String first = open.answer("uc", PLACE, null, TASK).version();
-        final String again = open.answer("uc", PLACE, null, TASK).version();
+        final String first = open.answer("uc", PLACE, TASK).version();
+        final String again = open.answer("uc", PLACE, TASK).version();
         reads.put(
                 pages.getFirst(),
                 new ProfileRead(
                         List.of(opening("101", OCTOCAT, AT), reply("102", "101", AUTHOR)),
                         Set.of(),
                         Completeness.COMPLETE));
-        final String answered = open.answer("uc", PLACE, null, TASK).version();
+        final String answered = open.answer("uc", PLACE, TASK).version();
 
         assertThat(again).as("read anew, the same answer").isEqualTo(first);
         assertThat(answered).as("an answer changes the version").isNotEqualTo(first);
@@ -773,7 +772,7 @@ class ReviewOpenPullRequestTest {
     void theWireFormCarriesTheContractsFields() throws Exception {
         page(Completeness.COMPLETE, opening("101", OCTOCAT, AT));
 
-        final Map<String, Object> fields = open.answer("uc", PLACE, null, TASK).fields();
+        final Map<String, Object> fields = open.answer("uc", PLACE, TASK).fields();
 
         final Map<String, Object> point = new LinkedHashMap<>();
         point.put("thread", "101");
@@ -796,7 +795,7 @@ class ReviewOpenPullRequestTest {
                 List.of(PullRequestState.MERGED, PullRequestState.CLOSED)) {
             state = decided;
 
-            final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+            final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
             assertThat(answer.complete())
                     .as("%s: every part was read, its time too", decided)
@@ -813,7 +812,7 @@ class ReviewOpenPullRequestTest {
         approved = true;
         page(Completeness.COMPLETE);
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.decision())
                 .as("an approving review stands")
@@ -827,7 +826,7 @@ class ReviewOpenPullRequestTest {
         state = PullRequestState.MERGED;
         page(Completeness.COMPLETE);
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.decision())
                 .as("the merge decides, not the approval before it")
@@ -856,7 +855,7 @@ class ReviewOpenPullRequestTest {
         page(Completeness.COMPLETE);
         held.add(held("h1", ADDRESS));
 
-        final ReviewOpen.Answer answer = open.answer("uc", PLACE, null, TASK);
+        final ReviewOpen.Answer answer = open.answer("uc", PLACE, TASK);
 
         assertThat(answer.held()).as("the item held under its container").isEqualTo(1);
         assertThat(sidesAsked)

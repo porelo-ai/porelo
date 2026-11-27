@@ -183,9 +183,7 @@ class GateReviewOpenMethodTest {
                         Instant.parse("2026-11-25T11:00:00Z")));
 
         final Map<String, Object> answer =
-                client.call(
-                        method("ReviewOpen"),
-                        asked(gatePush("shop-2"), "role", "REVIEWER", "task", "planner-1"));
+                client.call(method("ReviewOpen"), asked(gatePush("shop-2"), "task", "planner-1"));
 
         assertThat(answer)
                 .as("the decision and what went")
@@ -289,28 +287,11 @@ class GateReviewOpenMethodTest {
     }
 
     @Test
-    void aReviewerAtTheOwnPullRequestIsRefusedAsRoleNotAllowed() {
-        assertThatThrownBy(
-                        () ->
-                                client.call(
-                                        method("ReviewOpen"),
-                                        asked(
-                                                Map.of("ownPullRequest", true),
-                                                "task",
-                                                "shop-2",
-                                                "role",
-                                                "REVIEWER")))
-                .as("a reviewer does not review its own task's pull request")
-                .isInstanceOfSatisfying(
-                        VarlinkException.class,
-                        ex -> {
-                            assertThat(ex.getErrorName())
-                                    .as("the error")
-                                    .isEqualTo(method("RoleNotAllowed"));
-                            assertThat(ex.getParameters())
-                                    .as("the role")
-                                    .containsEntry("role", "REVIEWER");
-                        });
+    void aRoleNamedAtTheOwnPullRequestIsAnUnknownParameterNeverASide() {
+        // The side is the task's recorded parts; no word a caller names stands for it.
+        invalid(
+                asked(Map.of("ownPullRequest", true), "task", "shop-2", "role", "REVIEWER"),
+                "role");
     }
 
     private void invalid(final Map<String, Object> call, final String parameter) {

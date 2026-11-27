@@ -1,60 +1,62 @@
 package org.fuin.porelo.daemon;
 
 import java.nio.file.Path;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
 import org.fuin.porelo.app.OwnPullRequests;
 import org.fuin.porelo.app.PoreloContext;
-import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.app.RunPlaceCheck;
+import org.fuin.porelo.app.StartParts;
 import org.fuin.porelo.app.TaskBranch;
+import org.fuin.porelo.app.TaskLaunch;
+import org.fuin.porelo.gate.review.Right;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Takes the role and place a Start or CanStart names, and refuses one its task cannot work at,
+ * Takes the parts and place a Start or CanStart names, and refuses one its task cannot work with,
  * before anything is made: the call's fields read here, checked by {@link RunPlaceCheck} as {@code
  * porelo task start} checks its options.
  */
 final class RunPlaces {
 
+    /** Members the contract no longer has, refused by name rather than ignored. */
+    private static final List<String> GONE = List.of("role", "reads");
+
     private RunPlaces() {}
 
     /**
-     * Returns the role and place a start names, with the check every start asks.
+     * Returns the parts and place a start names, with the check every start asks.
      *
      * @param context The machine.
      * @param parameters The call's parameters.
      * @param projectFile The start's project file.
      * @param task The task's name within the project.
      * @param repository The task's repository, or {@code null} when the start names none.
-     * @param gated Whether the task works through a gate.
-     * @return The role and place, or {@code null}.
-     * @throws VarlinkException As {@link #taken(PoreloContext, Map, Path, String, String, boolean,
+     * @return The parts and place.
+     * @throws VarlinkException As {@link #taken(PoreloContext, Map, Path, String, String,
      *     RunPlaceCheck.Forges, RunPlaceCheck.PullRequestStarts)}.
      */
-    static @Nullable RunPlace taken(
+    static StartParts taken(
             final PoreloContext context,
             final Map<String, Object> parameters,
             final Path projectFile,
             final String task,
-            final @Nullable String repository,
-            final boolean gated) {
-        return taken(
-                parameters,
-                projectFile,
-                task,
-                repository,
-                gated,
-                RunPlaceCheck.of(context),
-                recorded(context, parameters, projectFile, task));
+            final @Nullable String repository) {
+        return taken(context, parameters, projectFile, task, repository, RunPlaceCheck.of(context));
     }
 
     /**
-     * Returns the role and place a start names, checked against the task it starts.
+     * Returns the parts and place a start names, checked against the task it starts.
      *
      * <p>Every refusal stands whether the task runs or not: a task that stops before its launch
-     * looks would otherwise start in a role or at a place it was refused. A running task asked for
+     * looks would otherwise start with parts or at a place it was refused. A running task asked for
      * what it may have answers as it does without them.
      *
      * @param context The machine.
@@ -62,117 +64,196 @@ final class RunPlaces {
      * @param projectFile The start's project file.
      * @param task The task's name within the project.
      * @param repository The task's repository, or {@code null} when the start names none.
-     * @param gated Whether the task works through a gate: not with noGate, readOnly or
-     *     allRepositories.
      * @param forges This machine's forges, adapters and vault, for a pull request's place.
      * @param starts Told of a start at a pull request once its checks passed.
-     * @return The role and place, or {@code null} when the start names neither, or when its task
-     *     has no gate and names only a role.
-     * @throws VarlinkException {@code InvalidParameter}, {@code PlaceUnreadable}, {@code
-     *     UnknownForge}, {@code NotTheTasksPush} or {@code RoleNotAllowed}.
+     * @return The parts and place.
+     * @throws VarlinkException {@code InvalidParameter}, {@code StartRuleBroken}, {@code
+     *     PlaceUnreadable}, {@code UnknownForge}, {@code NoPullRequest} or {@code NotTheTasksPush}.
      */
-    static @Nullable RunPlace taken(
+    static StartParts taken(
             final PoreloContext context,
             final Map<String, Object> parameters,
             final Path projectFile,
             final String task,
             final @Nullable String repository,
-            final boolean gated,
             final RunPlaceCheck.Forges forges,
             final RunPlaceCheck.PullRequestStarts starts) {
         return taken(
+                context,
                 parameters,
                 projectFile,
                 task,
                 repository,
-                gated,
-                new RunPlaceCheck(context, forges, starts),
-                recorded(context, parameters, projectFile, task));
+                new RunPlaceCheck(context, forges, starts));
     }
 
     /**
-     * Returns the role and place a start names, an author's own pull request found as given.
+     * Returns the parts and place a start names, a task's own pull request found as given.
      *
      * @param context The machine.
      * @param parameters The call's parameters.
      * @param projectFile The start's project file.
      * @param task The task's name within the project.
      * @param repository The task's repository, or {@code null} when the start names none.
-     * @param gated Whether the task works through a gate.
      * @param forges This machine's forges, adapters and vault, for a pull request's place.
-     * @param own Finds an author's own pull request, open from its branch.
+     * @param own Finds a task's own pull request, open from its branch.
      * @param starts Told of a start at a pull request once its checks passed.
-     * @return The role and place, or {@code null}.
+     * @return The parts and place.
      * @throws VarlinkException As the other forms.
      */
-    static @Nullable RunPlace taken(
+    static StartParts taken(
             final PoreloContext context,
             final Map<String, Object> parameters,
             final Path projectFile,
             final String task,
             final @Nullable String repository,
-            final boolean gated,
             final RunPlaceCheck.Forges forges,
             final OwnPullRequests own,
             final RunPlaceCheck.PullRequestStarts starts) {
         return taken(
+                context,
                 parameters,
                 projectFile,
                 task,
                 repository,
-                gated,
-                new RunPlaceCheck(context, forges, own, starts),
-                recorded(context, parameters, projectFile, task));
+                new RunPlaceCheck(context, forges, own, starts));
     }
 
-    private static @Nullable RunPlace taken(
+    private static StartParts taken(
+            final PoreloContext context,
             final Map<String, Object> parameters,
             final Path projectFile,
             final String task,
             final @Nullable String repository,
-            final boolean gated,
-            final RunPlaceCheck check,
-            final TaskBranch.@Nullable Recorded recorded) {
-        final String role = role(parameters);
+            final RunPlaceCheck check) {
+        final TaskParts.Asked asked = asked(parameters);
         final RunPlaceCheck.Place place = place(parameters);
+        final Once recorded = new Once(() -> recorded(context, projectFile, task));
         // An existing task is checked at the repository and branch it recorded, whatever the call
         // names (the launch refuses a mismatch), never at the ones its parameters would make for
-        // a new task.
+        // a new task. A pull request's address uses neither but to find the task's own.
+        final TaskBranch.@Nullable Recorded named =
+                place != null && !(place instanceof RunPlaceCheck.Place.PullRequest)
+                        ? recorded.get()
+                        : null;
         final String placeRepository =
-                recorded != null && recorded.repository() != null
-                        ? recorded.repository()
-                        : repository;
+                named != null && named.repository() != null ? named.repository() : repository;
         try {
             return check.taken(
                     projectFile,
                     task,
                     placeRepository,
-                    gated,
-                    role,
+                    asked,
+                    parameters.get("credentials") instanceof Map<?, ?> credentials
+                            && !credentials.isEmpty(),
+                    parameters.get("clearance") instanceof String clearance ? clearance : null,
                     place,
-                    () ->
-                            recorded != null && recorded.branch() != null
-                                    ? recorded.branch()
-                                    : branch(parameters, projectFile, task, placeRepository));
+                    () -> {
+                        final TaskBranch.@Nullable Recorded found = recorded.get();
+                        return found != null && found.branch() != null
+                                ? found.branch()
+                                : branch(parameters, projectFile, task, placeRepository);
+                    },
+                    () -> {
+                        final TaskBranch.@Nullable Recorded found = recorded.get();
+                        // An existing task without parts that read is never taken for a new one.
+                        return found == null
+                                ? null
+                                : found.parts() != null ? found.parts() : TaskParts.unrecorded();
+                    });
         } catch (RunPlaceCheck.Refused refused) {
             throw new VarlinkException(refused.refusal().error(), refused.refusal().fields());
         }
     }
 
     /**
-     * What an existing task recorded, read only when the call names a role or a place that is not a
-     * pull request's address, which uses neither.
+     * Returns what a Start or CanStart names of its task's parts, each member named or absent, with
+     * its choice of workspace; a member the contract no longer has is refused by its name.
+     *
+     * @param parameters The call's parameters.
+     * @return What it names.
+     * @throws VarlinkException {@code InvalidParameter} naming a member of the wrong shape, or
+     *     {@code role} or {@code reads}.
      */
-    private static TaskBranch.@Nullable Recorded recorded(
-            final PoreloContext context,
-            final Map<String, Object> parameters,
-            final Path projectFile,
-            final String task) {
-        final Object place = parameters.get("place");
-        if (parameters.get("role") == null && place == null
-                || place instanceof Map<?, ?> given && given.get("pullRequest") != null) {
+    static TaskParts.Asked asked(final Map<String, Object> parameters) {
+        for (final String gone : GONE) {
+            if (parameters.containsKey(gone)) {
+                throw invalid(gone);
+            }
+        }
+        final Object writeAs = parameters.get("writeAs");
+        if (writeAs != null && !"author".equals(writeAs) && !"review".equals(writeAs)) {
+            throw invalid("writeAs");
+        }
+        final Object services = parameters.get("projectServices");
+        if (services != null && !(services instanceof Boolean)) {
+            throw invalid("projectServices");
+        }
+        return new TaskParts.Asked(
+                rights(parameters.get("rights")),
+                readLanded(parameters.get("readLanded")),
+                writeAs instanceof String word ? word : null,
+                services instanceof Boolean named ? named : null,
+                Boolean.TRUE.equals(parameters.get("noGate")),
+                Boolean.TRUE.equals(parameters.get("readOnly")),
+                Boolean.TRUE.equals(parameters.get("allRepositories")));
+    }
+
+    private static @Nullable Set<Right> rights(final @Nullable Object given) {
+        if (given == null) {
             return null;
         }
+        if (!(given instanceof List<?> named)) {
+            throw invalid("rights");
+        }
+        final Set<Right> rights = EnumSet.noneOf(Right.class);
+        for (final Object each : named) {
+            final Optional<Right> right =
+                    each instanceof String word ? Right.named(word) : Optional.empty();
+            rights.add(right.orElseThrow(() -> invalid("rights")));
+        }
+        return rights;
+    }
+
+    private static @Nullable List<String> readLanded(final @Nullable Object given) {
+        if (given == null) {
+            return null;
+        }
+        if (given instanceof List<?> list && list.stream().allMatch(String.class::isInstance)) {
+            final List<String> names = list.stream().map(String.class::cast).toList();
+            if (TaskLaunch.unreadable(names) == null) {
+                return names;
+            }
+        }
+        throw invalid("readLanded");
+    }
+
+    /** Looks an existing task up once, and only when asked: it lists the runtime's containers. */
+    private static final class Once implements Supplier<TaskBranch.@Nullable Recorded> {
+
+        private final Supplier<TaskBranch.@Nullable Recorded> lookup;
+
+        private boolean asked;
+
+        private TaskBranch.@Nullable Recorded found;
+
+        Once(final Supplier<TaskBranch.@Nullable Recorded> lookup) {
+            this.lookup = lookup;
+        }
+
+        @Override
+        public TaskBranch.@Nullable Recorded get() {
+            if (!asked) {
+                found = lookup.get();
+                asked = true;
+            }
+            return found;
+        }
+    }
+
+    /** What an existing task recorded; a lookup that cannot be read refuses the start. */
+    private static TaskBranch.@Nullable Recorded recorded(
+            final PoreloContext context, final Path projectFile, final String task) {
         try {
             return TaskBranch.recorded(context, projectFile, task);
         } catch (TaskBranch.Unreadable unreadable) {
@@ -206,17 +287,6 @@ final class RunPlaces {
     private static VarlinkException invalid(final String parameter) {
         return new VarlinkException(
                 RunPlaceCheck.INVALID_PARAMETER, Map.of("parameter", parameter));
-    }
-
-    private static @Nullable String role(final Map<String, Object> parameters) {
-        final Object given = parameters.get("role");
-        if (given == null) {
-            return null;
-        }
-        if (RunPlace.AUTHOR.equals(given) || RunPlace.REVIEWER.equals(given)) {
-            return (String) given;
-        }
-        throw invalid("role");
     }
 
     /** The place as given, with exactly one field set, or {@code null} when none was given. */

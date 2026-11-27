@@ -1,0 +1,2 @@
+title: A task holding resolveThreads marks threads at its place resolved through its mailbox, named in the submission's porelo/resolveThreads; at a gate push the thread reads resolved at once by the task, at a pull request it is held in a guarded project and sent at once in an online one, resolved on the forge through the adapter's new Resolve call, and a forge that cannot resolve leaves the thread open
+type: added

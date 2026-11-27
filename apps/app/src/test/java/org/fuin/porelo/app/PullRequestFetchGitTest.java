@@ -133,7 +133,14 @@ class PullRequestFetchGitTest {
         git(dir, "init", "-q", "--bare", mirror.toString());
         state = Files.createDirectory(dir.resolve("state"));
         record = Files.createDirectory(dir.resolve("record"));
-        new RunPlace(RunPlace.REVIEWER, null, "shop-2").writeTo(state);
+        new RunPlace(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        null,
+                        "shop-2")
+                .writeTo(state);
         forge = forge();
         final String origin = "https://127.0.0.1:" + forge.getAddress().getPort();
         ref = PullRequestRef.of(URI.create(origin + "/o/shop/pull/7"));

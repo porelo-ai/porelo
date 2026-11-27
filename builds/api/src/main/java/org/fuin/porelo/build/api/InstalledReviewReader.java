@@ -220,6 +220,40 @@ public final class InstalledReviewReader implements AutoCloseable {
         return thread;
     }
 
+    /**
+     * Marks one thread of a pull request resolved: a call whose answer never came is {@link
+     * ForgeReviewRefused.Reason#WRITE_OUTCOME_UNKNOWN}, and the conversation read anew says whether
+     * the thread is resolved.
+     *
+     * @param access The forge's API and the write token, lent for this call.
+     * @param url The pull request's https address.
+     * @param thread The thread's id, 1 to 64 digits.
+     * @throws ForgeReviewRefused When the forge would not resolve it, cannot resolve a thread, or
+     *     the outcome is unknown.
+     * @throws BuildReaderException When the adapter failed before it wrote or would not start.
+     * @throws IllegalArgumentException When the thread is no decimal id; nothing is sent.
+     */
+    public void resolve(final ForgeAccess access, final String url, final String thread) {
+        if (!thread.matches("[0-9]{1," + AdapterText.MOST_ID + "}")) {
+            throw new IllegalArgumentException("a thread's id is 1 to 64 digits");
+        }
+        final Map<String, Object> parameters = parameters(access);
+        parameters.put("url", url);
+        parameters.put("thread", thread);
+        try {
+            process.call(ReviewProtocol.RESOLVE, parameters);
+        } catch (VarlinkTimeoutException ex) {
+            // Sent, and no answer says whether the thread is resolved now.
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.WRITE_OUTCOME_UNKNOWN);
+        } catch (VarlinkException ex) {
+            if (ex.getErrorName() == null) {
+                // The connection broke with the request out: whether it was written is unknown.
+                throw new ForgeReviewRefused(ForgeReviewRefused.Reason.WRITE_OUTCOME_UNKNOWN);
+            }
+            throw refusal(ex, access);
+        }
+    }
+
     @Override
     public void close() {
         process.close();
@@ -271,7 +305,8 @@ public final class InstalledReviewReader implements AutoCloseable {
                                     client, "org.fuin.porelo.Review", readyLimit)
                             + "); this Porelo speaks "
                             + ReviewProtocol.INTERFACE
-                            + ". Install the adapter's version that reads reviews for this Porelo.");
+                            + ". Install the adapter's version that reads reviews for this"
+                            + " Porelo.");
         }
         final long version = VarlinkNumbers.whole(answer.get("protocolVersion")).orElse(-1);
         if (version != ReviewProtocol.VERSION) {

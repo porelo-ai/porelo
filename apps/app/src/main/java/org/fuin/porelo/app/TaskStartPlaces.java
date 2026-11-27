@@ -1,48 +1,57 @@
 package org.fuin.porelo.app;
 
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.function.Supplier;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reads the role and place {@code porelo task start} was given and checks them as the daemon's
+ * Reads the parts and place {@code porelo task start} was given and checks them as the daemon's
  * Start does, refusing by the same names: 64 for what was typed, 69 for what is unavailable here.
  */
 final class TaskStartPlaces implements StartPlaces {
 
     private static final String PUSH = "push:";
 
+    /** The options a contract member is typed as, where its name differs. */
+    private static final Map<String, String> OPTIONS =
+            Map.of("writeAs", "write-as", "readLanded", "read-landed", "rights", "right");
+
     @Override
-    public @Nullable RunPlace taken(
+    public StartParts taken(
             final PoreloContext context,
             final Path projectFile,
             final String task,
             final @Nullable String repository,
-            final boolean gated,
-            final @Nullable String role,
+            final TaskParts.Asked asked,
+            final boolean addedCredentials,
+            final @Nullable String clearance,
             final @Nullable String place,
-            final java.util.function.Supplier<@Nullable String> branch) {
+            final Supplier<@Nullable String> branch,
+            final Supplier<@Nullable TaskParts> recorded) {
         try {
             return RunPlaceCheck.of(context)
-                    .taken(projectFile, task, repository, gated, role(role), place(place), branch);
+                    .taken(
+                            projectFile,
+                            task,
+                            repository,
+                            asked,
+                            addedCredentials,
+                            clearance,
+                            place(place),
+                            branch,
+                            recorded);
         } catch (RunPlaceCheck.Refused refused) {
             final RunPlaceCheck.Refusal refusal = refused.refusal();
             if (RunPlaceCheck.INVALID_PARAMETER.equals(refusal.error())) {
+                final String parameter = String.valueOf(refusal.fields().get("parameter"));
                 throw new Refused(
-                        64, "--" + refusal.fields().get("parameter") + ": " + refusal.said());
+                        64,
+                        "--" + OPTIONS.getOrDefault(parameter, parameter) + ": " + refusal.said());
             }
             throw new Refused(refusal.typed() ? 64 : 69, refusal.name() + ": " + refusal.said());
         }
-    }
-
-    private static @Nullable String role(final @Nullable String typed) {
-        if (typed == null) {
-            return null;
-        }
-        return switch (typed) {
-            case "author" -> RunPlace.AUTHOR;
-            case "reviewer" -> RunPlace.REVIEWER;
-            default -> throw new Refused(64, "--role takes author or reviewer");
-        };
     }
 
     private static RunPlaceCheck.@Nullable Place place(final @Nullable String typed) {

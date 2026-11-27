@@ -10,7 +10,6 @@ import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewReply;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -62,7 +61,7 @@ class DoctorHoldsTest {
         final int number = holds.startRun(task, place);
         final Push push = new Push("demo", "demo", "fix", "1".repeat(40), null, "0123456789ab");
         holds.hold(
-                new Run(place, Role.AUTHOR, new Pinned(push, null), number),
+                new Run(place, new Pinned(push, null), number),
                 task,
                 Direction.OUTGOING,
                 new ReviewReply("t-1", new Body("why")),

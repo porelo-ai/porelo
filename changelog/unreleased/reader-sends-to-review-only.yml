@@ -1,0 +1,2 @@
+title: A task that reads another task's work is enrolled in no conversation, at its start, a resume or a start again, and a message it addresses to anyone but its review is refused by the rule readsAnothersWork before a hold, moderation or budget, with nothing of it kept; a filter-refused message of such a task is never delivered to a peer after all.
+type: security

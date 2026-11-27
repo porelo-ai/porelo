@@ -53,6 +53,24 @@ class PushEndsTest {
     }
 
     @Test
+    void aRejectByATaskIsReadBackNamingThatTaskAndTheOwnersNamingNone() throws Exception {
+        final PushEnds ends = new PushEnds(dir.resolve("review"));
+
+        ends.keep(TASK, PushEnd.rejected("t", WAITED, 0, AT).by("porelo-uc_reader-1"));
+        ends.keep(LATER_TASK, PushEnd.rejected("t", WAITED, 0, AT));
+
+        assertThat(ends.read(TASK).orElseThrow().rejectedBy())
+                .as("the task that rejected it")
+                .isEqualTo("porelo-uc_reader-1");
+        assertThat(ends.read(LATER_TASK).orElseThrow().rejectedBy())
+                .as("the owner account's reject names no task")
+                .isNull();
+        assertThatThrownBy(() -> PushEnd.waiting("t", WAITED, AT).by("porelo-uc_reader-1"))
+                .as("only a reject names a rejecting task")
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void anApprovalKeepsTheCommitItForwardedAndTheBranch() throws Exception {
         final PushEnds ends = new PushEnds(dir.resolve("review"));
 

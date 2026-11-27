@@ -43,6 +43,9 @@ public record Kept(
         if (thread.isBlank()) {
             throw new IllegalArgumentException("thread is blank");
         }
+        if (item instanceof ThreadResolve) {
+            throw new IllegalArgumentException("a resolve sets its thread's state; it is not kept");
+        }
         if (item instanceof ReviewReply reply && !reply.thread().equals(thread)
                 || item instanceof ForgeReply forge && !forge.thread().equals(thread)) {
             throw new IllegalArgumentException("a reply kept in another thread than it names");

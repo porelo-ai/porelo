@@ -27,7 +27,7 @@ public final class HoldJournalWriter {
         final HoldJournal holds = new HoldJournal(Path.of(args[0]));
         final Push push =
                 new Push("shop", "app", "review-1", "1".repeat(40), null, "0123456789abcdef0123");
-        final Run run = new Run(args[2], Role.REVIEWER, new Pinned(push, null), 1);
+        final Run run = new Run(args[2], new Pinned(push, null), 1);
         final int count = Integer.parseInt(args[3]);
         for (int i = 0; i < count; i++) {
             final Held held =

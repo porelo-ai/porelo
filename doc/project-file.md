@@ -445,7 +445,11 @@ when the section is gone; a running task keeps what it was started with.
   `Report` may be
   named: a method the daemon never offers to MCP - one that stops every task, removes what cannot be had back, or
   hands out a secret, as `McpMethods` lists under `never` -, any other method, and a name the daemon does not have
-  are refused when the daemon reads the file, and by `CheckProjectFile`.
+  are refused when the daemon reads the file, and by `CheckProjectFile`. The list is the project's upper bound, not
+  what each task gets: within it, a task's endpoint carries `Start`, `Stop`, `Done` and `Report` only where the
+  rights its start recorded hold `start`, `stop`, `done` and `report`. A method the task's rights lack answers as one
+  the endpoint does not have, `MethodNotFound`, and its interface description leaves it out; a task whose record of
+  its rights does not read holds none of them.
 - **`agents`** names the agents a started task may use, each to the models it may be asked for. An agent with
   nothing under it takes any model; one with a list must be started naming one of them, since its own default is not
   something the file can see. A start must name its agent. **Required**: Porelo names no agent itself, so no default
@@ -460,10 +464,21 @@ when the section is gone; a running task keeps what it was started with.
 A start through the endpoint runs a prompt unattended, in the task's own project: one without a prompt is refused
 with `PromptRequired`, another mode with `UnattendedOnly`, and another project with `ProjectNotItsOwn`. It may set
 the task's name, repository, branch, starting branch (`from`), prompt, agent, model, minutes, mode, turn limit
-(`maxTurns`), the file's declared `parameters`, `dryRun` and `steps`; any other parameter, such as `clearance`,
-`noGate`, `credentials`, `upstream`, `tokenHours`, `subagents`, `provider` or `rm`, is refused with
+(`maxTurns`), the file's declared `parameters`, `dryRun`, `steps` and the task's parts (`rights`, `readLanded`,
+`projectServices`, `writeAs`); any other parameter, such as `place`, `clearance`, `noGate`, `credentials`,
+`upstream`, `tokenHours`, `subagents`, `provider` or `rm`, is refused with
 `ParameterNotAllowed`. A start of a task another start is making now is refused with `AlreadyStarting`, and each
 start counts toward `tasks` until it returns.
+
+A task started through the endpoint gets at most the workspace, equipment and rights of the task that starts it,
+with every default resolved first: a workspace that shows no more than the parent's, the project's services only
+where the parent has them, the parent's own account, and rights and landed work read each a part of the parent's. A
+start asking more is refused with `StartRuleBroken`, the rule `exceedsParent`, naming the part that exceeds, such as
+`rights push` or `workspace own`; a task that reads another task's work therefore starts no task at its own work. A
+start bringing a task back is held to the parts that task recorded, which must still be within its parent's, and
+one naming other parts is refused with `RightsChanged`. Porelo's own start rules hold for the started task as for
+any other. Such a start names no place, so its task works at its own gate push: an account to write as, which is
+chosen at a pull request alone, is refused there as `InvalidParameter` naming `writeAs`.
 
 A task started through the endpoint records the task that started it as its parent, beside its branch and prompt, and
 the event log records a `started` event naming the parent. A stop through the endpoint stops only the task's own:
@@ -476,7 +491,11 @@ project; naming none, or another, is refused with `ProjectNotItsOwn`, and `List`
 tasks. Stopping every task stays a person's act.
 
 A reading method answers the task for its own project alone. One naming a `project` is refused another with
-`ProjectNotItsOwn`. `List` and `Watch` show the project's tasks, `Projects` and `WatchProjects` its own row, and a
+`ProjectNotItsOwn`. `Pending`, `Review` and `ReviewPage` answer a task only for the gate push that is its place: the
+pushing task's own, or the one a task that reads another's work reads, at the commit it is pinned to. Every other
+waiting push of the project is absent from `Pending` and refused by the other two as `NoSuchPush`, which names no
+other push; a task at a pull request, or without a place, sees none. Their `against` names no ref under
+`refs/porelo/` and only a commit in the history of the one read, else it is refused as `InvalidParameter`. `List` and `Watch` show the project's tasks, `Projects` and `WatchProjects` its own row, and a
 watch sends nothing when only another project changed. `Authorizations` and `Events` keep the rows of the project,
 and `Prompts` and `Talk` those of its tasks. `Doctor` and `DefaultRepositories` name other projects with no row to
 cut by, and `Ecosystems` given a checkout would look into any path, so each is refused with `ProjectNotItsOwn`. The

@@ -113,7 +113,15 @@
             "porelo/push": { "type": "string", "minLength": 1, "maxLength": 256 },
             "porelo/pullRequest": { "$ref": "#/$defs/httpsUrl" },
             "porelo/baseRevisionId": { "$ref": "#/$defs/commit" },
-            "porelo/completeness": { "enum": ["complete", "partial", "failed", "unknown"] }
+            "porelo/completeness": { "enum": ["complete", "partial", "failed", "unknown"] },
+            "porelo/resolveThreads": {
+              "$comment": "Only a submission's: the threads its producer marks resolved, each by its id alone.",
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9-]{1,64}(?![\\s\\S])" }
+            }
           }
         }
       },
@@ -137,7 +145,10 @@
               "results": {
                 "items": {
                   "properties": {
-                    "properties": { "properties": { "porelo/sourceKind": { "const": "forge-account" } } }
+                    "properties": {
+                      "properties": { "porelo/sourceKind": { "const": "forge-account" } },
+                      "not": { "required": ["porelo/judgment"] }
+                    }
                   }
                 }
               }
@@ -165,20 +176,27 @@
     },
     "pageRun": {
       "properties": {
-        "properties": { "required": ["porelo/completeness"] },
+        "properties": { "required": ["porelo/completeness"], "not": { "required": ["porelo/resolveThreads"] } },
         "results": { "items": { "$ref": "#/$defs/pageResult" } }
       }
     },
     "submissionRun": {
       "properties": {
-        "properties": { "required": ["porelo/pullRequest"], "not": { "required": ["porelo/completeness"] } },
-        "results": { "minItems": 1, "items": { "$ref": "#/$defs/submissionResult" } }
-      }
+        "properties": { "not": { "required": ["porelo/completeness"] } },
+        "results": { "items": { "$ref": "#/$defs/submissionResult" } }
+      },
+      "anyOf": [
+        { "properties": { "results": { "minItems": 1 } } },
+        { "properties": { "properties": { "required": ["porelo/resolveThreads"] } } }
+      ]
     },
     "pageResult": {
       "required": ["guid"],
       "properties": {
-        "properties": { "required": ["porelo/threadId", "porelo/threadState", "porelo/sourceKind"] }
+        "properties": {
+          "required": ["porelo/threadId", "porelo/threadState", "porelo/sourceKind"],
+          "not": { "required": ["porelo/judgment"] }
+        }
       }
     },
     "submissionResult": {
@@ -202,7 +220,7 @@
     "result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "level", "message", "locations", "properties"],
+      "required": ["kind", "level", "message", "properties"],
       "properties": {
         "guid": { "$ref": "#/$defs/uuid4" },
         "kind": { "const": "review" },
@@ -281,9 +299,9 @@
         "properties": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["porelo/anchorKind", "porelo/diffSide"],
           "propertyNames": { "maxLength": 128 },
           "properties": {
+            "porelo/judgment": { "const": "reject" },
             "porelo/anchorKind": { "const": "line" },
             "porelo/diffSide": { "enum": ["old", "new"] },
             "porelo/threadId": { "type": "string", "minLength": 1, "maxLength": 64 },
@@ -332,6 +350,31 @@
         }
       },
       "allOf": [
+        {
+          "$comment": "A reject is its reason alone: it names no line, file, thread or push; the run's place is the push it discards.",
+          "if": { "properties": { "properties": { "required": ["porelo/judgment"] } } },
+          "then": {
+            "not": { "anyOf": [{ "required": ["locations"] }, { "required": ["fixes"] }] },
+            "properties": {
+              "properties": {
+                "not": {
+                  "anyOf": [
+                    { "required": ["porelo/anchorKind"] },
+                    { "required": ["porelo/diffSide"] },
+                    { "required": ["porelo/replyTo"] },
+                    { "required": ["porelo/threadId"] },
+                    { "required": ["porelo/threadState"] },
+                    { "required": ["porelo/sourceKind"] }
+                  ]
+                }
+              }
+            }
+          },
+          "else": {
+            "required": ["locations"],
+            "properties": { "properties": { "required": ["porelo/anchorKind", "porelo/diffSide"] } }
+          }
+        },
         {
           "if": { "required": ["fixes"] },
           "then": {

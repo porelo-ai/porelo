@@ -2060,12 +2060,15 @@ public final class TaskLaunch {
             return new Existing(container, project.name(), 64);
         }
         startingBranch = TaskBase.recorded(context, container);
-        // A role and place given to a start that brings it back are its run's, never dropped.
+        // The parts it recorded stay, and a place given to a start that brings it back is its
+        // run's, never dropped.
         final String moved = broughtBackAt(container);
         if (moved != null) {
             err.println("porelo: " + container + ": " + moved);
             err.flush();
-            return new Existing(container, project.name(), 69);
+            final PartsRefused refused = partsRefused;
+            return new Existing(
+                    container, project.name(), refused != null && refused.rule() != null ? 64 : 69);
         }
         // Its branch at the forge was settled when it was created and recorded; one handed to a
         // start that brings it back would change nothing, and say nothing.
@@ -2429,13 +2432,16 @@ public final class TaskLaunch {
                     "       it starts again; its agent may not reach its mailbox or know about it");
             err.flush();
         }
-        // A task brought back at a pull request starts its next run there before its agent runs;
-        // a start that names no place brings it back at the one it recorded.
+        // A task brought back at a pull request or at another task's waiting push starts its next
+        // run there before its agent runs, always as the task recorded it: a start that names no
+        // part carries the default ones, which are not the task's.
+        final RunPlace inState =
+                RunPlace.readFrom(context.paths().tasks().containerState(container));
         final RunPlace resumedAt =
-                runPlace != null
-                        ? runPlace
-                        : RunPlace.readFrom(context.paths().tasks().containerState(container));
-        if (resumedAt != null && resumedAt.pullRequest() != null) {
+                inState != null
+                        ? inState
+                        : RunPlace.readFrom(context.paths().tasks().taskRecord(container));
+        if (resumedAt != null && resumedAt.beginsRun()) {
             runStarts.begin(container, resumedAt);
         }
         // Its workspace, its branch and its uncommitted changes are all in that container. What has
@@ -2448,7 +2454,7 @@ public final class TaskLaunch {
                     TaskResumeCommand.render(resumed, container, out, reporting(err), null);
             // Only once it runs again: its container takes the move, and its gate serves the fetch.
             final String unmoved =
-                    code == 0 && resumedAt != null && resumedAt.pullRequest() != null
+                    code == 0 && resumedAt != null && resumedAt.beginsRun()
                             ? atPinnedHead(
                                     context.tasks(), container, resumedAt, java.util.Map.of())
                             : null;
@@ -2783,24 +2789,6 @@ public final class TaskLaunch {
         return null;
     }
 
-    /**
-     * Starts this task to read where the named tasks' work landed: its gate shows it those, read
-     * only, and nothing else of any other task. A name that is no task of this project shows
-     * nothing, since the gate serves the project's own mirror.
-     *
-     * @param tasks The tasks it reads.
-     * @return This launch.
-     * @throws IllegalArgumentException When a name is no task's name.
-     */
-    public TaskLaunch reading(final java.util.List<String> tasks) {
-        final String refused = unreadable(tasks);
-        if (refused != null) {
-            throw new IllegalArgumentException("'" + refused + "' is no task's name");
-        }
-        this.reads = java.util.List.copyOf(new java.util.LinkedHashSet<>(tasks));
-        return this;
-    }
-
     /** The key the program starting this task gave it, or {@code null} when it gave none. */
     private @Nullable String callerKey;
 
@@ -2849,8 +2837,33 @@ public final class TaskLaunch {
         return this;
     }
 
-    /** The role and place the start asked for, or {@code null} for an author at its own push. */
+    /** The place the start named, with its parts, or {@code null} where it named none. */
     private @Nullable RunPlace runPlace;
+
+    /** The parts and place the start took, checked: own work at its own push by default. */
+    private StartParts startParts = StartParts.ownWork();
+
+    /** Why the start that brought a task back was refused for its parts, or null. */
+    private @Nullable PartsRefused partsRefused;
+
+    /**
+     * Why a start that brings a task back was refused for its parts.
+     *
+     * @param rule The rule of Porelo's own the recorded parts break with this start, or {@code
+     *     null} when the start names other parts or another place than the task recorded, the
+     *     contract's {@code RightsChanged}.
+     */
+    public record PartsRefused(org.fuin.porelo.gate.review.TaskParts.@Nullable Broken rule) {}
+
+    /**
+     * Returns why the start that brought a task back was refused for its parts, so a caller answers
+     * it as the contract's error.
+     *
+     * @return The refusal, or {@code null} when it was not refused for them.
+     */
+    public @Nullable PartsRefused partsRefused() {
+        return partsRefused;
+    }
 
     /**
      * Starts a task's run at its place once the task is made or brought back and before its agent
@@ -2863,7 +2876,8 @@ public final class TaskLaunch {
         RunStarts NONE = (container, place) -> {};
 
         /**
-         * Starts the run; a place that is no pull request starts nothing.
+         * Starts the run; a place where no run begins ({@link RunPlace#beginsRun()}) starts
+         * nothing.
          *
          * @param container The task's container.
          * @param place Its role and place.
@@ -2902,18 +2916,27 @@ public final class TaskLaunch {
         return this;
     }
 
-    /** The role and place this task records once it is made, or {@code null} for none. */
+    /** The parts and place this task records once it is made, or {@code null} without a gate. */
     private @Nullable RunPlace recordedPlace;
 
     /**
-     * Starts this task's run in a role at a place its start checked; a gated task started without
-     * one is an author at its own gate push. A task brought back keeps what it recorded.
+     * Starts this task with the parts and at the place its start checked: a gated task that names
+     * no place works at its own gate push, and the landed work of the tasks its parts name is shown
+     * to it, read only, as {@code origin/landed/<task>/<branch>}. A task brought back keeps what it
+     * recorded, held to the parts its start named.
      *
-     * @param place The checked role and place, or {@code null} for the default.
+     * @param taken The checked parts and place.
      * @return This launch.
+     * @throws IllegalArgumentException When a task it reads is named by no task's name.
      */
-    public TaskLaunch at(final @Nullable RunPlace place) {
-        this.runPlace = place;
+    public TaskLaunch at(final StartParts taken) {
+        final String refused = unreadable(taken.parts().readLanded());
+        if (refused != null) {
+            throw new IllegalArgumentException("'" + refused + "' is no task's name");
+        }
+        this.startParts = taken;
+        this.runPlace = taken.place();
+        this.reads = taken.parts().readLanded();
         return this;
     }
 
@@ -3760,10 +3783,11 @@ public final class TaskLaunch {
                 }
                 EgressReport.reportReachable(
                         project,
-                        ReviewerStart.reachable(runPlace, selected, serving, projectOrigins)
+                        ReviewerStart.reachable(
+                                        startParts.parts(), selected, serving, projectOrigins)
                                 .origins(),
                         EgressReport.refusals(selected, project),
-                        ReviewerStart.started(runPlace, project).egress().hostServices(),
+                        ReviewerStart.started(startParts.parts(), project).egress().hostServices(),
                         out);
             } catch (org.fuin.porelo.agent.api.AgentException ex) {
                 err.println("porelo: " + ex.getMessage());
@@ -4051,12 +4075,14 @@ public final class TaskLaunch {
                 extras.put(named.getKey(), destination);
             }
             // A reviewer reads untrusted work: it is given none of them, each still checked above.
-            this.extras = ReviewerStart.credentials(runPlace, java.util.Map.copyOf(extras));
+            this.extras =
+                    ReviewerStart.credentials(startParts.parts(), java.util.Map.copyOf(extras));
 
             // A credential that has to be bought is tried once before anything exists: an
             // authorization server that refuses or cannot be reached makes it as missing as a key
             // the vault lacks.
-            final java.util.Set<String> held = new java.util.LinkedHashSet<>(extras.keySet());
+            // Only what the task is given: none is bought for one without the project's services.
+            final java.util.Set<String> held = new java.util.LinkedHashSet<>(this.extras.keySet());
             final org.fuin.porelo.agent.api.InstalledAgent agentHere = select(agents);
             if (agentHere != null) {
                 held.add(credentials().credentialName(agentHere));
@@ -4328,7 +4354,9 @@ public final class TaskLaunch {
             // Into the project's conversations before anything exists, and after every other
             // refusal: a task whose messages reach nobody is refused here, as a credential nobody
             // can reach is - and enrolled earlier, a start refused afterwards for something else
-            // left its account at the transport with nothing to retire it.
+            // left its account at the transport with nothing to retire it. A task that reads
+            // another task's work takes part in none, by the parts this start names: its record
+            // is written only below.
             final TaskConversations conversations = new TaskConversations(context);
             enrolling = true;
             final String unreachable =
@@ -4336,7 +4364,8 @@ public final class TaskLaunch {
                             project,
                             container,
                             selected == null ? null : selected.definition().name(),
-                            steps);
+                            steps,
+                            ReviewerStart.reviewing(startParts.parts()));
             if (unreachable != null) {
                 err.println("porelo: " + unreachable);
                 err.println("porelo: nothing was created");
@@ -4344,6 +4373,8 @@ public final class TaskLaunch {
                 return conversations.refusedWith();
             }
             enrolledIn = project;
+            // Only a task enrolled has an account there to retire.
+            enrolledInConversations = !ReviewerStart.reviewing(startParts.parts());
 
             // The state directory has to exist before anything writes into it. start() also creates
             // it, but the credential proxy needs it first: it writes its socket, its token and its
@@ -4357,12 +4388,14 @@ public final class TaskLaunch {
                     gatedAtStart()
                             ? runPlace != null
                                     ? runPlace
-                                    : RunPlace.ownPush(
-                                            project.name(),
-                                            workedOn == null ? null : workedOn.name(),
+                                    : new RunPlace(
+                                            startParts.parts(),
+                                            RunPlace.otherThanOwn(
+                                                    project.name(),
+                                                    workedOn == null ? null : workedOn.name()),
                                             request.task())
                             : null;
-            RunPlace.record(context, container, recordedPlace);
+            RunPlace.record(context, container, recordedPlace, startParts.parts());
             if (startingBranch != null && workspace != null) {
                 startingBranch.writeTo(state);
                 startingBranch.writeForGate(workspace.gate().mirror(), request.task());
@@ -4429,7 +4462,7 @@ public final class TaskLaunch {
             // answer "who decided this" rather than only "what is open". The same composition the
             // egress editor shows, from the same method.
             final EgressReport.Reachable reachable =
-                    ReviewerStart.reachable(runPlace, selected, serving, projectOrigins);
+                    ReviewerStart.reachable(startParts.parts(), selected, serving, projectOrigins);
             final java.util.List<String> domains = new java.util.ArrayList<>(reachable.domains());
             final java.util.Map<String, String> origins =
                     new java.util.LinkedHashMap<>(reachable.origins());
@@ -4508,7 +4541,7 @@ public final class TaskLaunch {
             final CredentialWiring.RepositoryPlumbing repositories =
                     wiring().startRepositories(
                                     ReviewerStart.repositories(
-                                            runPlace, project.toolRepositories()),
+                                            startParts.parts(), project.toolRepositories()),
                                     container,
                                     out,
                                     err);
@@ -4582,18 +4615,19 @@ public final class TaskLaunch {
                     workspace.certified(issued.certificate().line());
                 }
                 environmentCache.putAll(workspace.environment(project, request.task()));
-                if (ReviewerStart.reviewing(runPlace)) {
+                if (ReviewerStart.reviewing(startParts.parts())) {
                     // A reviewer's workspace reads its pinned ref and has no ref to push to.
                     environmentCache.remove("PORELO_TASK_REF");
                     environmentCache.remove("PORELO_BASE_BRANCH");
-                    environmentCache.putAll(ReviewerStart.workspaceRefs(runPlace, request.task()));
+                    environmentCache.putAll(
+                            ReviewerStart.workspaceRefs(startParts.parts(), request.task()));
                 }
             }
 
             final java.util.Map<String, String> refusals = EgressReport.refusals(selected, project);
             // A reviewer's container gets no host service of the project, as no other host of it.
             final org.fuin.porelo.core.project.Project started =
-                    ReviewerStart.started(runPlace, project);
+                    ReviewerStart.started(startParts.parts(), project);
             EgressReport.reportReachable(
                     project, origins, refusals, started.egress().hostServices(), out);
             runner.refusing(java.util.List.copyOf(refusals.keySet()));
@@ -4695,7 +4729,8 @@ public final class TaskLaunch {
                             project, repository, container, forgeBranch, hostBuilds, out, err);
 
             if (workspace != null) {
-                if (!gate().reviewer(ReviewerStart.reviewing(runPlace))
+                if (!gate().reviewer(ReviewerStart.reviewing(startParts.parts()))
+                        .pushing(ReviewerStart.pushing(startParts.parts()))
                         .reading(reads)
                         .forIssue(request.work() == null ? null : request.work().first().issue())
                         .followingBuilds(BuildsWiring.follows(project, hostBuilds))
@@ -4832,8 +4867,9 @@ public final class TaskLaunch {
                 }
             }
 
-            // Its run at a pull request starts once its gate, its recorded place and its mailbox
-            // exist, and before its agent runs, so the agent's first look finds the conversation.
+            // Its run at a pull request or at another task's waiting push starts once its gate, its
+            // recorded place and its mailbox exist, and before its agent runs, so the agent's
+            // first look finds the conversation.
             if (recordedPlace != null) {
                 try {
                     runStarts.begin(container, recordedPlace);
@@ -4921,46 +4957,78 @@ public final class TaskLaunch {
     }
 
     /**
-     * Takes the role and place a start that brings a task back was given: the same as it recorded,
-     * or an author's own gate push moved to a pull request, which is then recorded. Every other
-     * change is refused, since its run, its holds and its threads belong to the place it has.
+     * Takes the parts and place a start that brings a task back was given. Its parts never change:
+     * a start naming other parts than the task recorded is refused as {@code RightsChanged}, and
+     * one naming none keeps them. Its place stays too, but for a task at its own gate push moved to
+     * its own pull request, which is then recorded. Porelo's own start rules are held against the
+     * recorded parts again, so nothing that leads out is added to a task that reads another's work.
      *
      * @return Why it is refused, or null when the task may come back there.
      */
     private @Nullable String broughtBackAt(final String container) throws java.io.IOException {
+        partsRefused = null;
+        final java.nio.file.Path state = context.paths().tasks().containerState(container);
+        final org.fuin.porelo.gate.review.TaskParts kept;
+        try {
+            final org.fuin.porelo.gate.review.TaskParts inState = RunPlace.partsIn(state);
+            kept =
+                    inState != null
+                            ? inState
+                            : RunPlace.partsIn(context.paths().tasks().taskRecord(container));
+        } catch (IllegalStateException ex) {
+            return "its record of what it may do does not read, so it is not started: "
+                    + ex.getMessage();
+        }
+        if (kept == null) {
+            return "it has no record of what it may do, as a task made by an older Porelo has"
+                    + " none; remove it and start a new task";
+        }
+        final java.util.Optional<org.fuin.porelo.gate.review.TaskParts.Broken> broken =
+                StartRules.broken(kept, !request.credentials().isEmpty(), request.clearance());
+        if (broken.isPresent()) {
+            partsRefused = new PartsRefused(broken.get());
+            return StartRules.said(broken.get());
+        }
+        // A part the start does not name keeps the recorded one; only a part named otherwise is
+        // a change.
+        if (startParts.asked().changes(kept)) {
+            partsRefused = new PartsRefused(null);
+            return "RightsChanged: what it may do was fixed when it was first started and stays as"
+                    + " it was; start a new task for other rights";
+        }
         final RunPlace given = runPlace;
         if (given == null) {
             return null;
         }
-        final java.nio.file.Path state = context.paths().tasks().containerState(container);
         final RunPlace recorded = RunPlace.readFrom(state);
-        // The same role at the same place, whatever its run pinned there.
-        if (recorded != null
-                && given.role().equals(recorded.role())
-                && java.util.Objects.equals(given.repository(), recorded.repository())
+        if (recorded == null) {
+            partsRefused = new PartsRefused(null);
+            return "RightsChanged: it was started without a gate and has no place to work at;"
+                    + " start a new task for one";
+        }
+        // The same place, whatever its run pinned there.
+        if (java.util.Objects.equals(given.repository(), recorded.repository())
                 && given.name().equals(recorded.name())
                 && java.util.Objects.equals(given.pullRequest(), recorded.pullRequest())) {
             return null;
         }
-        final boolean ownPushToPullRequest =
-                recorded != null
-                        && RunPlace.AUTHOR.equals(recorded.role())
-                        && recorded.pullRequest() == null
-                        && RunPlace.AUTHOR.equals(given.role())
-                        && given.pullRequest() != null;
-        if (recorded == null || ownPushToPullRequest) {
-            given.writeTo(state);
+        if (kept.worksOnItsOwn()
+                && recorded.pullRequest() == null
+                && given.pullRequest() != null
+                && given.parts().worksOnItsOwn()) {
+            // Its own gate push moved to its own pull request, with the parts it has.
+            new RunPlace(kept, null, given.name(), null, given.pullRequest()).writeTo(state);
             return null;
         }
-        return "RoleNotAllowed: it works as "
-                + recorded.role().toLowerCase(java.util.Locale.ROOT)
-                + " at "
+        partsRefused = new PartsRefused(null);
+        return "RightsChanged: it works at "
                 + (recorded.pullRequest() != null ? recorded.pullRequest() : "its gate push")
-                + ", which stays as it was; start a new task for another role or place";
+                + ", which stays as it was; start a new task for another place";
     }
 
     /**
-     * Moves a reviewer's workspace to the head its run was just pinned to, before its agent runs.
+     * Moves the workspace of a task that reads another task's work to the head its run was just
+     * pinned to, before its agent runs.
      *
      * @param runner Runs it in the container, as the agent's user.
      * @param container The task's container, running.
@@ -4974,7 +5042,7 @@ public final class TaskLaunch {
             final String container,
             final RunPlace place,
             final java.util.Map<String, String> environment) {
-        if (!RunPlace.REVIEWER.equals(place.role()) || place.pullRequest() == null) {
+        if (!place.parts().readsAnothersWork()) {
             return null;
         }
         final Path log =
@@ -4998,7 +5066,7 @@ public final class TaskLaunch {
                         + TaskWorkspace.MOUNT
                         + " of "
                         + container
-                        + " could not be moved to the pull request's head, see "
+                        + " could not be moved to the head its run was pinned to, see "
                         + log;
     }
 
@@ -5549,6 +5617,7 @@ public final class TaskLaunch {
                             model.from(),
                             request.effort(),
                             callerKey,
+                            startParts.parts(),
                             recordedPlace);
         } catch (java.io.IOException ex) {
             err.println("porelo: could not start this task's work record: " + ex.getMessage());
@@ -7117,8 +7186,17 @@ public final class TaskLaunch {
      */
     private String verifiedAt = "";
 
-    /** The project whose conversations this start took the task into, or {@code null}. */
+    /**
+     * The project this start made what a task has in it for, its mailbox and its conversations, or
+     * {@code null} when it made nothing yet.
+     */
     private @Nullable Project enrolledIn;
+
+    /**
+     * Whether this start took the task into its project's conversations: one that reads another
+     * task's work is taken into none, and has no account there to retire.
+     */
+    private boolean enrolledInConversations;
 
     /**
      * Whether the started task was handed on, to a session or a run: before, nobody worked in it.
@@ -7334,7 +7412,9 @@ public final class TaskLaunch {
             forgotten = true;
             return;
         }
-        boolean all = new TaskConversations(context).retire(enrolled, container, err);
+        boolean all =
+                !enrolledInConversations
+                        || new TaskConversations(context).retire(enrolled, container, err);
         try {
             new Mailbox(context.paths().messaging().mailbox(container)).delete(context.limits());
             new TaskGuide(context.paths(), container).delete();
@@ -7793,6 +7873,9 @@ public final class TaskLaunch {
             return;
         }
         mailbox.create();
+        // After its record, which a new start writes before its mailbox: a removal forgets the
+        // record before the mailbox goes, and what is left in it stays a reader's.
+        ReadingTasks.mark(context, container);
         final MessageWatch watch = new MessageWatch(context, java.time.Duration.ZERO);
         MailboxGuide.write(
                 mailbox,

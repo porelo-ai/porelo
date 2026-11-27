@@ -262,7 +262,7 @@ class ForgeWriteTest {
                 commit,
                 item,
                 null,
-                HoldJournal.digest(item),
+                HoldJournal.digest(item, "github.com", commit),
                 Instant.parse("2026-11-25T10:00:00Z"),
                 HeldState.SENDING,
                 null,

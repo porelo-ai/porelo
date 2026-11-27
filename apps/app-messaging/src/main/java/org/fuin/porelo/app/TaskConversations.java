@@ -26,6 +26,10 @@ final class TaskConversations {
 
     private final PoreloContext context;
 
+    /** Said at the start of a task that reads another task's work, which takes part in none. */
+    static final String NO_CONVERSATION_FOR_A_READER =
+            "a task that reads another task's work takes part in no conversation of its project";
+
     /** What a start exits with when a task cannot take part. */
     private static final int NOT_ENROLLED = 69;
 
@@ -61,10 +65,43 @@ final class TaskConversations {
      * @param agent The task's agent: the one selected at a start, the recorded one on a resume;
      *     {@code null} where it has none, which shows it by its short name.
      * @param steps Where the start's steps are said.
-     * @return Why it cannot be, in a person's words, or {@code null} when it is in every one.
+     * @return Why it cannot be, in a person's words, or {@code null} when it is in every one. A
+     *     task whose recorded parts read another task's work is taken into none.
      */
     @Nullable String enroll(
             Project project, String container, @Nullable String agent, StartSteps steps) {
+        return enroll(
+                project,
+                container,
+                agent,
+                steps,
+                ReadingTasks.readsAnothersWork(context, container));
+    }
+
+    /**
+     * Takes a task into its project's conversations, told whether it reads another task's work: a
+     * new start says so before its record is written. Such a task is taken into none, and the start
+     * goes on.
+     *
+     * @param project The task's project.
+     * @param container The task.
+     * @param agent The task's agent, or {@code null}.
+     * @param steps Where the start's steps are said.
+     * @param readsAnothersWork Whether the task's parts read another task's work.
+     * @return Why it cannot be, in a person's words, or {@code null} when it is in every one it
+     *     takes part in.
+     */
+    @Nullable String enroll(
+            Project project,
+            String container,
+            @Nullable String agent,
+            StartSteps steps,
+            boolean readsAnothersWork) {
+        if (readsAnothersWork) {
+            // Nothing it reads has been reviewed: none of it reaches a room or a peer.
+            steps.noConversation(NO_CONVERSATION_FOR_A_READER);
+            return null;
+        }
         final java.util.function.Consumer<String> before =
                 lifecycle.saying(line -> steps.waiting(StartStep.Step.CONVERSATION, line));
         try {
@@ -355,6 +392,10 @@ final class TaskConversations {
             @Nullable String project,
             @Nullable String agent,
             PrintWriter err) {
+        if (ReadingTasks.readsAnothersWork(context, container)) {
+            // A task that reads another task's work is in no room, and no transport is asked.
+            return;
+        }
         final Project found = projectOf(context, container, project);
         // A room that holds the task under the agent's form it gave before is asked again, so the
         // task takes its own name there.

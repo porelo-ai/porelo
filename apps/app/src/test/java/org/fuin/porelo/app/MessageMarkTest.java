@@ -140,19 +140,22 @@ class MessageMarkTest {
                 mailbox.outboxNew().resolve("out-1.json"),
                 "{\"messageId\":\"out-1\",\"role\":\"ROLE_AGENT\",\"metadata\":{\"to\":\"reviewer\"}}");
 
-        new MessagePass(
+        final MessagePass pass =
+                new MessagePass(
                         new TransportTestRunner(),
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),
-                        org.fuin.porelo.wire.LimitFactors.DEFAULT)
-                .run(
-                        mailbox,
-                        new Mail(List.of()),
-                        () -> {
-                            throw new MessageSigners.Unsigned("no key of its own", false);
-                        },
-                        PeerKeys.NONE,
-                        new Moderation(dir.resolve("moderation").resolve("p.json")));
+                        org.fuin.porelo.wire.LimitFactors.DEFAULT);
+        // A task at its own work: a pass not told which tasks read takes every one as reading.
+        pass.reading(container -> false);
+        pass.run(
+                mailbox,
+                new Mail(List.of()),
+                () -> {
+                    throw new MessageSigners.Unsigned("no key of its own", false);
+                },
+                PeerKeys.NONE,
+                new Moderation(dir.resolve("moderation").resolve("p.json")));
 
         final List<Map<String, Object>> held =
                 new MessageRecord(mailbox)

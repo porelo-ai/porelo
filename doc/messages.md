@@ -130,8 +130,11 @@ either.
   is the one its container is labelled with, else, once the container is gone, the one its start recorded, else
   its name when it fits one project alone; so a removed task keeps its own project's conversation and certifiers.
   A task with no certified key sends nothing signed: its messages are held and it is told, all but a run's
-  submission to the review, which goes on unsigned through the filter into the gate's holds, each item marked
-  `unsigned` there for the owner account's decision; while only the vault is locked they wait. Anyone can check
+  submission to the review, which goes on unsigned through the filter. At a push waiting at the gate its items
+  go into the push's threads at once and its reject is judged as a signed one's, since nothing leaves the machine
+  and the host stamps the mailbox each item came through; toward a pull request each item goes into the gate's
+  holds marked `unsigned` for the owner account's decision and never at once; while only the vault is locked
+  they wait. Anyone can check
   a signature with OpenSSH, given the task's public key as the certificate names it:
 
   ```
@@ -148,14 +151,25 @@ either.
   review go by. One
   from an `external` peer, or one the project does not list, is also put through the filter on the way in.
 - **A task's message to `review` is a reply to a thread of the review of its own work, or a run's submission
-  of comments and replies on a pull request**, never sent anywhere: after the filter has passed it (and a person
-  has released it, when the filter only reported a finding), the host hands it to the review as the task whose
-  mailbox it came through, whatever its `metadata.from` says. Both are `metadata.kind` `comment`. A reply names
-  its thread in `metadata.thread` and has exactly one text part. A submission has no `metadata.thread` and
-  exactly one part, a data part holding one [review profile 2](review-profile.md) document of kind
-  `submission`; the review checks it against the run's pinned state and holds each item for the owner
-  account's release. One of any other shape, or one the review refuses, comes back to the task with the
-  reason. No peer is named `review`.
+  of comments, replies and resolved threads on a pull request**, never sent anywhere: after the filter has
+  passed it (and a person has released it, when the filter only reported a finding), the host hands it to the
+  review as the task whose mailbox it came through, whatever its `metadata.from` says. Both are
+  `metadata.kind` `comment`. A reply names its thread in `metadata.thread` and has exactly one text part. A
+  submission has no `metadata.thread` and exactly one part, a data part holding one
+  [review profile 2](review-profile.md) document of kind `submission`; the review checks it against the run's pinned state and judges every item by the task's
+  recorded rights at its place before any goes on: a resolve needs `resolveThreads` and a thread at the run's
+  place. At a waiting push at the gate each item goes into the push's threads at once, a resolve marking its
+  thread resolved by the task; at a pull request of a `guarded` project each is held for the owner account's
+  release; at one of an `online` project each goes to the forge at once; an `offline` project has no pull
+  request, and a submission for one is refused. One of any other shape, or one the review refuses, comes
+  back to the task with the reason. No peer is named `review`.
+- **A task that reads another task's work writes to its review alone.** Its recorded parts, read from its
+  state and then from its durable record, decide it: such a task is enrolled in no conversation of its
+  project, at its start, at a resume and at a start again, and a message it addresses to anyone but `review`
+  is refused before any hold, moderation or budget, by the rule `readsAnothersWork`. The task is told so as
+  for any refused message, without a word of the message, and nothing of it is kept, so no release sends it
+  on; a message the filter refused is never delivered to a peer after all either. A task whose record does
+  not read is treated the same way. Its review items, and everything delivered to it, stay as they are.
 - **No order is promised, and nothing is delivered twice**: a message whose id already reached a mailbox is
   dropped and logged.
 - **The mailbox lives exactly as long as the task**: a stop, a start or a reboot leave it as it was, and the
@@ -314,14 +328,19 @@ among them. Read all pages of the newest run; an earlier run's notes are older.
 
 ### Commenting on a pull request
 
-When your task reviews a pull request, or works on its own pull request, it is given the pull
+When your task works at another task's pull request, or at its own, it is given the pull
 request's conversation as review documents. Send your comments and replies there as one
 message to `review` whose only part is a data part holding one review document of kind
-`submission`. Nothing reaches the pull request before the owner account releases it.
+`submission`. In a guarded project nothing reaches the pull request before the owner account
+releases it; in an online project it goes there at once. The same document marks threads
+resolved when your task may resolve them: it resolves them as the account it writes as there.
 
-When it works on its own pull request, your task is its author: the pull request is the one
-open from your task's branch, found anew at each start. You answer the threads reviewers
-opened, with replies, and open none of your own. Your changes travel by commit through your
+What your task may send is set by the rights it was started with, never by a role: `reply`
+answers a thread, `openThreads` opens one, `resolveThreads` resolves one, and an item that
+needs a right your task lacks is refused, naming the right. Its items are written as the
+account its start chose, the one that opened the pull request unless it named the review
+account. Its own pull request is the one open from your task's branch, found anew at each
+start, where it answers the threads reviewers opened. Your changes travel by commit through your
 task's gate, as all your work does; the pull request shows only what the gate passed on.
 
 ```json
@@ -330,13 +349,15 @@ task's gate, as all your work does; the pull request shows only what the gate pa
   "role": "ROLE_AGENT",
   "parts": [ { "data": {
     "version": "2.1.0",
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
     "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
     "runs": [ {
       "tool": { "driver": { "name": "Porelo" } },
       "versionControlProvenance": [ { "repositoryUri": "https://github.com/shop/app",
         "revisionId": "the head commit the conversation names, in full" } ],
       "columnKind": "unicodeCodePoints",
-      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42" },
+      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42",
+        "porelo/resolveThreads": [ "the id of a thread you resolve" ] },
       "results": [
         { "kind": "review", "level": "none",
           "message": { "text": "A blank password reaches hash() here." },
@@ -363,9 +384,56 @@ task's gate, as all your work does; the pull request shows only what the gate pa
 - A result without `porelo/replyTo` is a new comment, which opens a thread; only a reviewer
   opens one. A result with it replies in the thread of that id, as the conversation's
   `porelo/threadId` gave it, at that thread's place.
+- `porelo/resolveThreads` names the threads you mark resolved, each by the `porelo/threadId` the
+  conversation gave it, and is left out when you resolve none; a submission that only resolves
+  has no result. You may resolve any thread at your task's place, whoever opened it, only when
+  your task holds `resolveThreads`; a thread elsewhere is refused as `NoSuchThread`. A forge that
+  cannot resolve a thread leaves it open.
 - Name no author, `guid`, `porelo/threadId` or thread state: the host knows who sends it.
 - No `metadata.thread` and no other part. A submission that is refused comes back into
   `inbox/new/` with the reason, and nothing of it is kept.
+
+### Rejecting a waiting push
+
+When your task reads another task's push waiting at the gate, and its start gave it the right
+`reject`, you may discard that push, as a person's reject does: it never reaches the upstream,
+and the task that pushed it is told your reason, as yours. Send one submission to `review`
+whose run is the push's and that holds one result with `porelo/judgment` and no location.
+
+```json
+{
+  "messageId": "a-unique-id-of-yours",
+  "role": "ROLE_AGENT",
+  "parts": [ { "data": {
+    "version": "2.1.0",
+    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+    "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
+    "runs": [ {
+      "tool": { "driver": { "name": "Porelo" } },
+      "versionControlProvenance": [ { "repositoryUri": "urn:porelo:repository:shop:app",
+        "revisionId": "4e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d" } ],
+      "columnKind": "unicodeCodePoints",
+      "properties": { "porelo/project": "shop", "porelo/repository": "app",
+        "porelo/push": "fix-login",
+        "porelo/baseRevisionId": "9f8e7d6c5b4a39281706f5e4d3c2b1a098765432" },
+      "results": [
+        { "kind": "review", "level": "none",
+          "message": { "text": "A blank password logs in; this cannot be reviewed into shape." },
+          "properties": { "porelo/judgment": "reject" } }
+      ]
+    } ]
+  } } ],
+  "metadata": { "to": "review", "kind": "comment" }
+}
+```
+
+- Take the run's fields from the review document of the push you read. Only that push is
+  discarded, whatever the document names, and only at the commit your task was given.
+- The message is your reason, at most 2000 characters; one reject per submission.
+  Comments and replies may go in the same submission: they go first, the reject last.
+- A reject is refused when your task lacks the right, when the push moved or is gone, or
+  when the upstream already has it; nothing is discarded.
+- Your task never rejects its own work, and a task that rejects pushes nothing.
 
 ### What does not travel
 

@@ -34,7 +34,10 @@ public final class ForgeReviewRefused extends RuntimeException {
         WRITE_OUTCOME_UNKNOWN("WriteOutcomeUnknown"),
 
         /** What the forge holds or was asked to write is something profile 2 cannot carry. */
-        NOT_IN_PROFILE("NotInProfile");
+        NOT_IN_PROFILE("NotInProfile"),
+
+        /** The forge has no way to mark a thread resolved; the thread stays open. */
+        RESOLVE_UNSUPPORTED("ResolveUnsupported");
 
         private final String wire;
 

@@ -11,7 +11,7 @@ public interface ReviewPlace {
 
     /**
      * Returns the place's name, as the hold and the owner account's list show it: a pull request's
-     * https address, or a gate push's {@code <repository>/<name>}.
+     * https address, or a gate push's {@code <project>/<repository>/<name>}.
      *
      * @return The name.
      */
@@ -53,7 +53,7 @@ public interface ReviewPlace {
      * @param held The released item; it is written against its own pinned commit, never the place's
      *     head now.
      * @param credential The write credential of the account it is written as, as {@link
-     *     ReviewRole#postingEntry} named it, lent for this call.
+     *     TaskRights#postingEntry} named it, lent for this call.
      * @return What became of it.
      */
     WriteOutcome write(Held held, ForgeCredential credential);

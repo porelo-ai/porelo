@@ -10,7 +10,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.fuin.porelo.gate.review.Pinned;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +19,7 @@ class HeldRunsTest {
     private static final String PLACE = "https://github.com/uc/shop/pull/7";
 
     private static Run run(final int number) {
-        return new Run(PLACE, Role.REVIEWER, new Pinned(number == 1 ? SHOP : OTHER, null), number);
+        return new Run(PLACE, new Pinned(number == 1 ? SHOP : OTHER, null), number);
     }
 
     @Test

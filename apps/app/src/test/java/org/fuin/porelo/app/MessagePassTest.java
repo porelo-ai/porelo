@@ -24,6 +24,17 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class MessagePassTest {
 
+    /** A pass told that no task here reads another task's work. */
+    private static MessagePass atOwnWork(
+            final org.fuin.porelo.core.process.CommandRunner runner,
+            final @org.jspecify.annotations.Nullable Path filter,
+            final TransportDirectory transports,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        final MessagePass pass = new MessagePass(runner, filter, transports, limits);
+        pass.reading(MessageDispatch.Readers.NONE);
+        return pass;
+    }
+
     private final SigningKey key = SigningKey.generate("host");
 
     private final FakeCommandRunner runner = new TransportTestRunner();
@@ -46,7 +57,7 @@ class MessagePassTest {
         mailbox.delete(org.fuin.porelo.wire.LimitFactors.DEFAULT);
 
         final MessagePass.Report report =
-                new MessagePass(
+                atOwnWork(
                                 runner,
                                 null,
                                 new TransportDirectory(List.of(dir.resolve("none"))),
@@ -65,7 +76,7 @@ class MessagePassTest {
         final Path filter = dir.resolve(PoreloPaths.MESSAGE_FILTER);
         runner.answering(PoreloPaths.MESSAGE_FILTER, "");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -96,7 +107,7 @@ class MessagePassTest {
                 "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         final MessagePass.Report report =
-                new MessagePass(
+                atOwnWork(
                                 runner,
                                 null,
                                 new TransportDirectory(List.of(dir.resolve("none"))),
@@ -126,7 +137,7 @@ class MessagePassTest {
                         peerKey, json.getBytes(StandardCharsets.UTF_8), MessageIntake.NAMESPACE));
 
         final MessagePass.Report report =
-                new MessagePass(
+                atOwnWork(
                                 runner,
                                 null,
                                 new TransportDirectory(List.of(dir.resolve("none"))),
@@ -151,7 +162,7 @@ class MessagePassTest {
         Files.writeString(mailbox.feedback().resolve("answer.json"), "{\"parts\":[{\"data\":{}}]}");
 
         final MessagePass.Report report =
-                new MessagePass(
+                atOwnWork(
                                 runner,
                                 null,
                                 new TransportDirectory(List.of(dir.resolve("none"))),
@@ -190,7 +201,7 @@ class MessagePassTest {
                 new Moderation(dir.resolve("moderation").resolve("p.json"), sending());
 
         final MessagePass.Report report =
-                new MessagePass(
+                atOwnWork(
                                 runner,
                                 dir.resolve("filter"),
                                 new TransportDirectory(List.of(dir.resolve("none"))),
@@ -245,7 +256,7 @@ class MessagePassTest {
         final Mail oneADay =
                 new Mail(List.of(new Mail.Peer("reviewer", "local:/peer/inbound", "vouched", 1)));
         final MessagePass pass =
-                new MessagePass(
+                atOwnWork(
                         runner,
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),

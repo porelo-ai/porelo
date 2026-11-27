@@ -7,25 +7,33 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.fuin.porelo.app.AdapterForgeReview;
+import org.fuin.porelo.app.CommentGateCheck;
 import org.fuin.porelo.app.CommentIntake;
 import org.fuin.porelo.app.ConversationNote;
+import org.fuin.porelo.app.EventLog;
 import org.fuin.porelo.app.ForgeAdapters;
 import org.fuin.porelo.app.ForgeInstanceFile;
 import org.fuin.porelo.app.GateSupport;
 import org.fuin.porelo.app.HeldRuns;
+import org.fuin.porelo.app.HoldingRule;
 import org.fuin.porelo.app.InboundCommentFilter;
-import org.fuin.porelo.app.MachineReviewRole;
+import org.fuin.porelo.app.MachineTaskRights;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PullRequestPins;
 import org.fuin.porelo.app.PullRequestPlace;
 import org.fuin.porelo.app.PullRequestPlaces;
 import org.fuin.porelo.app.PullRequestRunStart;
+import org.fuin.porelo.app.RecordedTaskRights;
 import org.fuin.porelo.app.ReleasedSender;
 import org.fuin.porelo.app.RunIntake;
 import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.app.RunPlaceCheck;
 import org.fuin.porelo.app.RunStart;
-import org.fuin.porelo.app.TaskReviewRole;
+import org.fuin.porelo.app.TaskReject;
+import org.fuin.porelo.app.UnheldWrites;
+import org.fuin.porelo.app.WaitingPushPins;
+import org.fuin.porelo.app.WaitingPushPlace;
+import org.fuin.porelo.app.WaitingPushRunStart;
 import org.fuin.porelo.core.net.GitCertificates;
 import org.fuin.porelo.gate.review.ForgeReview;
 import org.fuin.porelo.gate.review.HoldJournal;
@@ -33,15 +41,17 @@ import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.ProfileTranslator;
 import org.fuin.porelo.gate.review.PullRequestPinning;
 import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.wire.TaskProfile;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 
 /**
- * The review's parts for runs at a pull request, made once for the daemon's life: the run each task
- * is in, the held items, the task's role, the places, the start, the intake of a run's submission
- * and the sending of what the owner released. Every part is keyed by the task's container name.
+ * The review's parts for runs at a pull request and at another task's push waiting at the gate,
+ * made once for the daemon's life: the run each task is in, the held items, the task's role, the
+ * places, the start, the intake of a run's submission and the sending of what the owner released.
+ * Every part is keyed by the task's container name.
  *
  * <p>Credentials are read from the vault per call and never kept.
  */
@@ -52,6 +62,7 @@ final class ReviewParts {
 
     private final HeldRuns runs;
     private final PullRequestRunStart start;
+    private final WaitingPushRunStart waiting;
     private final RunIntake intake;
     private final ReleasedSender sender;
 
@@ -59,19 +70,21 @@ final class ReviewParts {
     private final java.util.function.Function<String, java.nio.file.Path> states;
 
     // One pass at a time: two passes over the same due items would post one item twice.
-    private final java.util.concurrent.ExecutorService sending =
-            java.util.concurrent.Executors.newSingleThreadExecutor(
-                    Thread.ofPlatform().daemon().name("porelod-review-send").factory());
+    private final java.util.concurrent.ExecutorService sending;
 
     private ReviewParts(
             final HeldRuns runs,
             final PullRequestRunStart start,
+            final WaitingPushRunStart waiting,
             final RunIntake intake,
             final ReleasedSender sender,
+            final java.util.concurrent.ExecutorService sending,
             final java.util.function.Function<String, java.nio.file.Path> states) {
+        this.sending = sending;
         this.states = states;
         this.runs = runs;
         this.start = start;
+        this.waiting = waiting;
         this.intake = intake;
         this.sender = sender;
     }
@@ -90,8 +103,9 @@ final class ReviewParts {
         final ProfileTranslator reading = new ProfileTranslator();
         final ReviewSarif writing = new ReviewSarif();
         final ReleasedSender.Credentials credentials =
-                entry -> MachineReviewRole.lend(context, entry);
-        final TaskReviewRole role = MachineReviewRole.of(context, forges, forwarded(context));
+                entry -> MachineTaskRights.lend(context, entry);
+        final RecordedTaskRights role = MachineTaskRights.of(context, forges, forwarded(context));
+        final CommentIntake.Parts comments = CommentIntake.Parts.of(context);
         final PullRequestPlaces places =
                 new PullRequestPlaces(
                         forges,
@@ -99,35 +113,64 @@ final class ReviewParts {
                         adapter -> AdapterForgeReview.of(context, adapter),
                         forge -> pinning(context, forge),
                         reading,
-                        CommentIntake.Parts.of(context).check(),
+                        comments.check(),
                         writing,
                         credentials,
-                        role::mayPush,
+                        task -> role.parts(task).worksOnItsOwn(),
                         authorPins(role, authors(context)));
+        final WaitingPushPlace.Pinning pins = waitingPins(context);
+        final ReviewPlaces everywhere = WaitingPushPlace.places(comments, pins, places);
+        final InboundCommentFilter filter =
+                new InboundCommentFilter(
+                        context.runner(),
+                        context.paths().messaging().messageFilter(),
+                        context.limits(),
+                        context.paths().gate().commentChecks());
+        final ConversationNote delivery = new ConversationNote(context);
         final PullRequestRunStart start =
                 new PullRequestRunStart(
-                        places,
+                        places, holds, runs, writing, filter, delivery, credentials);
+        final WaitingPushRunStart waiting =
+                new WaitingPushRunStart(
+                        container ->
+                                PullRequestPins.gatesOn(context)
+                                        .locate(recordedId(context, container))
+                                        .project(),
+                        comments,
+                        pins,
                         holds,
                         runs,
-                        writing,
-                        new InboundCommentFilter(
-                                context.runner(),
-                                context.paths().messaging().messageFilter(),
-                                context.limits(),
-                                context.paths().gate().commentChecks()),
-                        new ConversationNote(context),
-                        credentials);
+                        container -> new CommentGateCheck(writing, filter, holds, container),
+                        delivery);
+        final ReleasedSender sender =
+                new ReleasedSender(holds, everywhere, role, credentials, Clock.systemUTC());
+        final java.util.concurrent.ExecutorService sending =
+                java.util.concurrent.Executors.newSingleThreadExecutor(
+                        Thread.ofPlatform().daemon().name("porelod-review-send").factory());
         return new ReviewParts(
                 runs,
                 start,
+                waiting,
                 new RunIntake(
-                        reading,
-                        CommentIntake.Parts.of(context).check(),
-                        role,
-                        holds,
-                        runs,
-                        places),
-                new ReleasedSender(holds, places, role, credentials, Clock.systemUTC()),
+                                reading,
+                                comments.check(),
+                                role,
+                                holds,
+                                runs,
+                                everywhere,
+                                HoldingRule.of(context),
+                                new UnheldWrites(
+                                        comments.intake(),
+                                        holds,
+                                        () -> pass(sending, sender),
+                                        // The only trace of an item that goes unheld: none goes
+                                        // untraced.
+                                        (kind, project, task, detail) ->
+                                                EventLog.recordOrRefuse(
+                                                        context, kind, project, task, detail)))
+                        .rejecting(TaskReject.of(context, role, comments)::judge),
+                sender,
+                sending,
                 container -> context.paths().tasks().containerState(container));
     }
 
@@ -166,7 +209,7 @@ final class ReviewParts {
      * @return The pins.
      */
     static PullRequestPlace.AuthorPins authorPins(
-            final TaskReviewRole role, final Authors authors) {
+            final RecordedTaskRights role, final Authors authors) {
         return (task, facts) -> {
             final Author at = authors.of(task);
             try {
@@ -224,15 +267,15 @@ final class ReviewParts {
      */
     void begin(final String container, final RunPlace place) {
         try {
-            start.begin(container, place);
+            started(container, place);
         } catch (RunPlaceCheck.Refused refused) {
             throw new VarlinkException(refused.refusal().error(), refused.refusal().fields());
         }
     }
 
     /**
-     * Begins a task's run at the pull request its start recorded, for a start that is not this
-     * daemon's own; a refusal is the contract's error.
+     * Begins a task's run at the pull request or the other task's waiting push its start recorded,
+     * for a start that is not this daemon's own; a refusal is the contract's error.
      *
      * @param container The task's container.
      * @return The run's number and the head it is pinned to.
@@ -242,13 +285,13 @@ final class ReviewParts {
                 org.fuin.porelo.runtime.ContainerName.isTask(container)
                         ? RunPlace.readFrom(states.apply(container))
                         : null;
-        if (place == null || place.pullRequest() == null) {
+        if (place == null || !place.beginsRun()) {
             throw new VarlinkException(
                     "org.varlink.service.InvalidParameter", Map.of("parameter", "task"));
         }
         final RunStart.Outcome outcome;
         try {
-            outcome = start.begin(container, place);
+            outcome = started(container, place);
         } catch (RunPlaceCheck.Refused refused) {
             throw new VarlinkException(refused.refusal().error(), refused.refusal().fields());
         }
@@ -259,12 +302,38 @@ final class ReviewParts {
         return Map.of("run", outcome.run(), "head", outcome.head());
     }
 
+    /** A run at a pull request, or at another task's push waiting at the gate. */
+    private RunStart.@org.jspecify.annotations.Nullable Outcome started(
+            final String container, final RunPlace place) {
+        return place.pullRequest() != null
+                ? start.begin(container, place)
+                : waiting.begin(container, place);
+    }
+
+    /**
+     * A reading task's pin to another task's waiting push through its own gate: the pin takes the
+     * task's recorded container id, the run its container name.
+     */
+    private static WaitingPushPlace.Pinning waitingPins(final PoreloContext context) {
+        return (container, push) ->
+                WaitingPushPins.pin(context, recordedId(context, container), push);
+    }
+
     /**
      * Sends what the owner released, in one pass after another off the caller's thread, so a
      * decision's answer never waits on a forge; a failure is marked on its hold, and one the pass
      * could not mark is said in the daemon's journal.
      */
     void send() {
+        pass(sending, sender);
+    }
+
+    /**
+     * Starts one pass of the released items' sending on the one sending thread; a failure is marked
+     * on its hold, and one the pass could not mark is said in the daemon's journal.
+     */
+    private static void pass(
+            final java.util.concurrent.ExecutorService sending, final ReleasedSender sender) {
         sending.execute(
                 () -> {
                     try {
@@ -294,7 +363,7 @@ final class ReviewParts {
         final PullRequestPins pins =
                 new PullRequestPins(
                         forge,
-                        entry -> MachineReviewRole.lend(context, entry),
+                        entry -> MachineTaskRights.lend(context, entry),
                         PullRequestPins.gatesOn(context),
                         context.runner(),
                         new GitCertificates(context.paths().xdg())::environment,
@@ -348,7 +417,7 @@ final class ReviewParts {
     }
 
     /** What a task's own gate last forwarded to a branch of an upstream, by its container name. */
-    private static TaskReviewRole.Forwarded forwarded(final PoreloContext context) {
+    private static RecordedTaskRights.Forwarded forwarded(final PoreloContext context) {
         return (container, upstream, branch) -> {
             try {
                 final PullRequestPins.TaskGate gate =

@@ -8,17 +8,23 @@ import java.util.Map;
 import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.junit.jupiter.api.Test;
 
-/** A start names the tasks whose landed work it reads, and only by their plain names. */
+/**
+ * A start names the tasks whose landed work it reads, and only by their plain names; absent and
+ * empty differ.
+ */
 class TaskReadsMethodsTest {
 
     @Test
-    void aStartNamingNoTaskReadsNothing() {
-        assertThat(TaskMethods.reads(Map.of())).as("reads is optional").isEmpty();
+    void aStartNamingNoTaskLeavesItAbsentAndAnEmptyListNamesNone() {
+        assertThat(RunPlaces.asked(Map.of()).readLanded()).as("readLanded is optional").isNull();
+        assertThat(RunPlaces.asked(Map.of("readLanded", List.of())).readLanded())
+                .as("named as none")
+                .isEmpty();
     }
 
     @Test
     void aStartNamingTasksReadsThem() {
-        assertThat(TaskMethods.reads(Map.of("reads", List.of("foo-1", "bar"))))
+        assertThat(RunPlaces.asked(Map.of("readLanded", List.of("foo-1", "bar"))).readLanded())
                 .containsExactly("foo-1", "bar");
     }
 
@@ -27,9 +33,13 @@ class TaskReadsMethodsTest {
         // A path or a ref pattern would unhide more than one task's work at the gate.
         for (final Object given :
                 List.of(List.of("foo/../bar"), List.of(""), List.of(1), "foo-1")) {
-            assertThatThrownBy(() -> TaskMethods.reads(Map.of("reads", given)))
+            assertThatThrownBy(() -> RunPlaces.asked(Map.of("readLanded", given)))
                     .as("%s", given)
-                    .isInstanceOf(VarlinkException.class)
+                    .isInstanceOfSatisfying(
+                            VarlinkException.class,
+                            refused ->
+                                    assertThat(refused.getParameters())
+                                            .isEqualTo(Map.of("parameter", "readLanded")))
                     .hasMessageContaining("InvalidParameter");
         }
     }

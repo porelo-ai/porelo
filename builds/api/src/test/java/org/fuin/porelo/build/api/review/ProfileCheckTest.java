@@ -106,6 +106,7 @@ class ProfileCheckTest {
     @CsvSource({
         "fixtures/submitted-comment.sarif.json, TASK",
         "fixtures/submitted-reply.sarif.json, TASK",
+        "fixtures/submitted-reject.sarif.json, TASK",
         "fixtures/forge-page.sarif.json, ADAPTER"
     })
     void aDocumentHoldingToTheProfileAndItsChannelPasses(

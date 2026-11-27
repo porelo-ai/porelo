@@ -184,8 +184,8 @@ final class McpWiring {
 
     /**
      * Returns what a task's guide says of its endpoint: the methods the project's file has it carry
-     * and the project's reports bound, read from the file the daemon reads for it, so a task
-     * brought back is told the same.
+     * that the task's recorded rights allow, and the project's reports bound, read from the file
+     * the daemon reads for it, so a task brought back is told the same.
      *
      * @param context Where the paths come from.
      * @param container The task.
@@ -202,9 +202,12 @@ final class McpWiring {
             if (endpoint.isEmpty()) {
                 return null;
             }
+            // As the daemon holds each call: within the file's methods, what the task's rights
+            // carry.
             return new TaskGuideText.Endpoint(
                     container,
-                    endpoint.get().methods(),
+                    EndpointRights.carried(
+                            EndpointRights.recorded(context, container), endpoint.get().methods()),
                     org.fuin.porelo.core.project.ProjectReader.read(file).limits().reports());
         } catch (RuntimeException ex) {
             // The start reads the file itself and says what is wrong with it.

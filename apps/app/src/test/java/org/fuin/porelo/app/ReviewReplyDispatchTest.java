@@ -30,6 +30,14 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class ReviewReplyDispatchTest {
 
+    /** A dispatch told that no task here reads another task's work. */
+    private static MessageDispatch atOwnWork(
+            final ReviewReplies replies,
+            final ReviewerComments comments,
+            final MessageDispatch.Tasks tasks) {
+        return new MessageDispatch(replies, comments, tasks, MessageDispatch.Readers.NONE);
+    }
+
     /** The mailbox's own name, which the host keeps for the task {@code t} of project {@code p}. */
     private static final String CONTAINER = "porelo-p-t";
 
@@ -144,7 +152,7 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                atOwnWork(review, NO_SUBMISSIONS, TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken)
@@ -186,7 +194,7 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                atOwnWork(review, NO_SUBMISSIONS, TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken)
@@ -221,9 +229,8 @@ class ReviewReplyDispatchTest {
         final Mailbox second = accepted(dir.resolve("b"), "porelo-beta-fix", json, false);
         final StandIn review = new StandIn(Optional.empty());
 
-        new MessageDispatch(review, NO_SUBMISSIONS, tasks).dispatch(first, mail, undecided(first));
-        new MessageDispatch(review, NO_SUBMISSIONS, tasks)
-                .dispatch(second, mail, undecided(second));
+        atOwnWork(review, NO_SUBMISSIONS, tasks).dispatch(first, mail, undecided(first));
+        atOwnWork(review, NO_SUBMISSIONS, tasks).dispatch(second, mail, undecided(second));
 
         assertThat(review.taken).extracting(taken -> taken.get(0)).containsExactly(alpha, beta);
         assertThat(review.taken)
@@ -245,7 +252,7 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                atOwnWork(review, NO_SUBMISSIONS, TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).isEmpty();
@@ -271,7 +278,7 @@ class ReviewReplyDispatchTest {
                 new StandIn(Optional.of("NoSuchThread: this task's push has no thread 'th-9'"));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                atOwnWork(review, NO_SUBMISSIONS, TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).hasSize(1);
@@ -323,7 +330,7 @@ class ReviewReplyDispatchTest {
         final StandIn review = new StandIn(Optional.empty());
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(review, NO_SUBMISSIONS, TASKS)
+                atOwnWork(review, NO_SUBMISSIONS, TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).as(what).isEmpty();
@@ -348,7 +355,7 @@ class ReviewReplyDispatchTest {
                         false);
         final StandIn review = new StandIn(Optional.empty());
 
-        new MessageDispatch(review, NO_SUBMISSIONS, container -> null)
+        atOwnWork(review, NO_SUBMISSIONS, container -> null)
                 .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.taken).isEmpty();

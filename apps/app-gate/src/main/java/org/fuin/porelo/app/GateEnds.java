@@ -93,6 +93,68 @@ public final class GateEnds {
     }
 
     /**
+     * What a task's reject kept before its ref went: the end the pushing task had, and the end
+     * written in its place.
+     *
+     * @param before The end before, or empty when it had none.
+     * @param written The reject's end, as it was kept.
+     */
+    public record Written(java.util.Optional<PushEnd> before, PushEnd written) {}
+
+    /**
+     * Keeps a reject a task holding {@code reject} made, under the pushing task's recorded
+     * container id as the pinned push names it, never found anew by the push's reusable name.
+     *
+     * @param pinned The push as the rejecting task's run was pinned to it.
+     * @param by The rejecting task's container name.
+     * @param threads The review's threads.
+     * @return The end before and the one written, which {@link #restoreIf} puts back.
+     * @throws IOException When the threads or the last end could not be read, or nothing written.
+     */
+    public Written rejectedBy(final Push pinned, final String by, final ReviewStore threads)
+            throws IOException {
+        final java.util.Optional<PushEnd> before = store().read(pinned.task());
+        final int open;
+        try {
+            open =
+                    (int)
+                            threads.threads(pinned).stream()
+                                    .filter(thread -> thread.state() == ThreadState.OPEN)
+                                    .count();
+        } catch (RuntimeException ex) {
+            throw new IOException("the rejected push's review could not be read", ex);
+        }
+        keep(
+                pinned.task(),
+                PushEnd.rejected(pinned.name(), pinned.head(), open, clock.instant()).by(by));
+        return new Written(
+                before,
+                store().read(pinned.task())
+                        .orElseThrow(() -> new IOException("the reject's end was not kept")));
+    }
+
+    /**
+     * Puts back the end a task had before a reject that did not happen, only while its end is still
+     * the one that reject wrote: an end kept since, by an approval or the next push, stays.
+     *
+     * @param task The pushing task's recorded container id.
+     * @param written What the reject kept.
+     * @return Whether its end was put back; false when a newer end stands.
+     * @throws IOException When the end could not be read or written.
+     */
+    public boolean restoreIf(final String task, final Written written) throws IOException {
+        if (!store().read(task).equals(java.util.Optional.of(written.written()))) {
+            return false;
+        }
+        if (written.before().isPresent()) {
+            store().keep(task, written.before().get());
+        } else {
+            store().clear(task);
+        }
+        return true;
+    }
+
+    /**
      * Keeps an approval, with the commit the gate forwarded as it recorded it.
      *
      * @param project The project's name.

@@ -82,6 +82,9 @@ public record Held(
             throw new IllegalArgumentException(
                     "an incoming item carries what its place gave, an outgoing one nothing");
         }
+        if (direction == Direction.INCOMING && item instanceof ThreadResolve) {
+            throw new IllegalArgumentException("a resolve comes only from a task's run");
+        }
         if (received != null && !received.item().equals(item)) {
             throw new IllegalArgumentException("an incoming item is the one its place gave");
         }

@@ -130,6 +130,7 @@ public final class ReviewAnchors implements CommentCheck {
             case ReviewComment comment -> anchor(push, comment.anchor());
             case ReviewReply reply -> Optional.empty();
             case ForgeReply reply -> Optional.empty();
+            case ThreadResolve resolve -> Optional.empty();
         };
     }
 

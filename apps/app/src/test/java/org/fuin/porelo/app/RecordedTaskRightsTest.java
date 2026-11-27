@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.Conversation;
 import org.fuin.porelo.gate.review.ForgeAccount;
@@ -27,8 +28,9 @@ import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PushEnd;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.Role;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Task;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,10 +38,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * What a task's role allows it, per role and place, read from the role its run recorded: push
- * rights, the entry and account its items go out under, thread rights and pinning.
+ * What a task's recorded parts allow it, per parts and place, read from its state and else its
+ * durable record: push rights, the entry and account its items go out under, thread rights and
+ * pinning.
  */
-class TaskReviewRoleTest {
+class RecordedTaskRightsTest {
 
     private static final String TASK = "shop-2";
 
@@ -63,6 +66,11 @@ class TaskReviewRoleTest {
     private static final String TOKEN_PREFIX = "ghp_secret_";
 
     @TempDir Path states;
+
+    /** Where the durable records lie, apart from the states. */
+    private Path records() {
+        return states.resolve("durable");
+    }
 
     private final Map<String, String> vault = new HashMap<>();
 
@@ -96,32 +104,126 @@ class TaskReviewRoleTest {
         vault.put(PERSON_ENTRY, TOKEN_PREFIX + "person");
     }
 
-    @Test
-    void theAuthorsSideIsAskedByTheAuthorAndByNoRoleTheReviewerAsksFromTheOther() {
-        assertThat(TaskReviewRole.asksAsAuthor(null)).as("no role asks as the author").isTrue();
-        assertThat(TaskReviewRole.asksAsAuthor(Role.AUTHOR)).as("the author").isTrue();
-        assertThat(TaskReviewRole.asksAsAuthor(Role.REVIEWER)).as("the reviewer").isFalse();
+    /**
+     * Today's author, as a start naming no part records it; a test of other parts records over it.
+     */
+    @BeforeEach
+    void recordOwnWork() throws IOException {
+        recorded(TaskParts.ownWork());
     }
 
     @Test
-    void aTaskWhoseRunRecordedNoRoleIsAnAuthor() {
-        assertThat(role().role(TASK))
-                .as("role without a recorded run place")
-                .isEqualTo(Role.AUTHOR);
+    void aTaskThatRecordedNoPartsIsRefusedEveryAnswerNeverTakenForAnAuthor() throws IOException {
+        Files.delete(states.resolve(TASK).resolve(RunPlace.FILE));
+        refusesEveryAnswer(RunPlace.FILE);
     }
 
     @Test
-    void aTaskAnswersTheRoleItsRunRecorded() throws IOException {
-        recorded(RunPlace.REVIEWER);
-        assertThat(role().role(TASK)).as("recorded reviewer").isEqualTo(Role.REVIEWER);
-        recorded(RunPlace.AUTHOR);
-        assertThat(role().role(TASK)).as("recorded author").isEqualTo(Role.AUTHOR);
+    void aTaskAnswersThePartsItsStartRecorded() throws IOException {
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
+        assertThat(role().parts(TASK))
+                .as("recorded reviewer")
+                .isEqualTo(TaskParts.anothersWork(List.of(Right.REPLY, Right.OPEN_THREADS)));
+        recorded(TaskParts.ownWork());
+        assertThat(role().parts(TASK)).as("recorded author").isEqualTo(TaskParts.ownWork());
+    }
+
+    @Test
+    void aTaskWhoseStateHoldsNoRecordAnswersAsItsDurableRecordHoldsAnothersWork()
+            throws IOException {
+        // After a reboot the state is gone and the durable record still holds the parts.
+        Files.delete(states.resolve(TASK).resolve(RunPlace.FILE));
+        final Path record = Files.createDirectories(records().resolve(TASK));
+        new RunPlace(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        null,
+                        "shop-1")
+                .writeTo(record);
+
+        final RecordedTaskRights rights = role();
+
+        assertThat(rights.parts(TASK))
+                .as("the durable record's parts")
+                .isEqualTo(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
+        assertThat(rights.mayPush(TASK)).as("another task's work pushes").isFalse();
+        assertThat(rights.mayOpenThread(TASK, GATE_PUSH)).as("it opens a thread").isTrue();
+        assertThat(rights.mayReply(TASK, GATE_PUSH)).as("it replies").isTrue();
+        assertThat(rights.mayPin(TASK, OTHER_HEAD)).as("pinned to any head").isTrue();
+    }
+
+    @Test
+    void aTaskAtItsOwnWorkWithOpenThreadsMayOpenAThreadAtItsOwnPullRequest() throws IOException {
+        // The refusal of a task at its own work is gone with the role: the right alone decides.
+        recorded(
+                new TaskParts(
+                        TaskParts.Workspace.OWN,
+                        List.of(),
+                        true,
+                        TaskParts.Account.AUTHOR,
+                        Set.of(Right.PUSH, Right.REPLY, Right.OPEN_THREADS)));
+
+        final RecordedTaskRights rights = role();
+
+        assertThat(rights.mayOpenThread(TASK, PULL_REQUEST))
+                .as("opens a thread at its own pull request")
+                .isTrue();
+        assertThat(rights.mayReply(TASK, PULL_REQUEST)).as("replies there").isTrue();
+        assertThat(rights.mayPush(TASK)).as("pushes").isTrue();
+        assertThat(rights.mayResolve(TASK, PULL_REQUEST))
+                .as("resolves without the right")
+                .isFalse();
+        assertThat(rights.mayReject(TASK, PULL_REQUEST)).as("rejects without the right").isFalse();
+    }
+
+    @Test
+    void onlyAReaderHoldingRejectMayRejectAndOnlyAtAWaitingPush() throws IOException {
+        final ReviewPlace waiting =
+                new WaitingPushPlace(
+                        "shop",
+                        null,
+                        "shop-1",
+                        ReviewStandIns.parts(
+                                new ReviewStandIns.Check(),
+                                new ReviewStandIns.Store(),
+                                new ReviewStandIns.Writer()),
+                        (task, push) -> {});
+        recorded(TaskParts.anothersWork(List.of(Right.REPLY, Right.REJECT)));
+        assertThat(role().mayReject(TASK, waiting)).as("a reader at a waiting push").isTrue();
+        assertThat(role().mayReject(TASK, PULL_REQUEST)).as("a reader at a pull request").isFalse();
+        assertThat(role().mayReject(TASK, GATE_PUSH))
+                .as("at a place that is no waiting push of another task")
+                .isFalse();
+
+        // A record no start makes: own work holding reject, planted beside the task.
+        recorded(
+                new TaskParts(
+                        TaskParts.Workspace.OWN,
+                        List.of(),
+                        true,
+                        TaskParts.Account.AUTHOR,
+                        Set.of(Right.REPLY, Right.REJECT)));
+        assertThat(role().mayReject(TASK, waiting)).as("own work holding reject").isFalse();
     }
 
     @Test
     void anAuthorMayPushAndAReviewerNever() throws IOException {
         assertThat(role().mayPush(TASK)).as("author pushes").isTrue();
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         assertThat(role().mayPush(TASK)).as("reviewer pushes").isFalse();
     }
 
@@ -133,7 +235,11 @@ class TaskReviewRoleTest {
         assertThat(role().mayOpenThread(TASK, GATE_PUSH))
                 .as("author opens a thread at a gate push")
                 .isFalse();
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         assertThat(role().mayOpenThread(TASK, PULL_REQUEST))
                 .as("reviewer opens a thread at a pull request")
                 .isTrue();
@@ -179,7 +285,11 @@ class TaskReviewRoleTest {
 
     @Test
     void aReviewerMayBePinnedAtAPullRequestToAnyHead() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         assertThat(role().mayPinAtPullRequest(TASK, UPSTREAM, BRANCH, OTHER_HEAD))
                 .as("reviewer at any head")
                 .isTrue();
@@ -206,7 +316,11 @@ class TaskReviewRoleTest {
 
     @Test
     void aReviewerMayBePinnedToAnyHead() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         assertThat(role().mayPin(TASK, OTHER_HEAD)).as("reviewer at any head").isTrue();
     }
 
@@ -310,7 +424,13 @@ class TaskReviewRoleTest {
 
     @Test
     void aPlaceNameThatIsNoHttpsAddressWithAHostIsRefused() throws IOException {
-        for (final String recordedRole : List.of(RunPlace.AUTHOR, RunPlace.REVIEWER)) {
+        for (final TaskParts recordedRole :
+                List.of(
+                        TaskParts.ownWork(),
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)))) {
             recorded(recordedRole);
             projectBuilds = BUILDS_ENTRY;
             for (final String name :
@@ -335,6 +455,7 @@ class TaskReviewRoleTest {
 
     @Test
     void aRunPlaceFileThatDoesNotReadIsNoAuthor() throws IOException {
+        // An old record that holds a role and no parts reads as none of them.
         final Path state = Files.createDirectories(states.resolve(TASK));
         Files.writeString(state.resolve(RunPlace.FILE), "{\"role\": \"AUTH");
         refusesEveryAnswer("\"role\"");
@@ -348,17 +469,21 @@ class TaskReviewRoleTest {
     }
 
     private void refusesEveryAnswer(final String content) {
-        final TaskReviewRole role = role();
+        final RecordedTaskRights role = role();
         ends.put(TASK, PushEnd.waiting(TASK, HEAD, Instant.EPOCH));
         projectBuilds = BUILDS_ENTRY;
         final List<org.assertj.core.api.ThrowableAssert.ThrowingCallable> asked =
                 List.of(
-                        () -> role.role(TASK),
+                        () -> role.parts(TASK),
                         () -> role.mayPush(TASK),
                         () -> role.mayOpenThread(TASK, PULL_REQUEST),
+                        () -> role.mayReply(TASK, GATE_PUSH),
+                        () -> role.mayResolve(TASK, GATE_PUSH),
+                        () -> role.mayReject(TASK, GATE_PUSH),
                         () -> role.mayPin(TASK, HEAD),
+                        () -> role.mayPinAtPullRequest(TASK, UPSTREAM, BRANCH, HEAD),
                         () -> role.postingEntry(TASK, PULL_REQUEST),
-                        () -> role.postingAccount(TASK, GATE_PUSH));
+                        () -> role.postingAccount(TASK, PULL_REQUEST));
         for (final var call : asked) {
             assertThatThrownBy(call)
                     .as("an answer over a run-place file that does not read (%s)", content)
@@ -372,7 +497,11 @@ class TaskReviewRoleTest {
     @Test
     void aReviewerAtAPullRequestPostsAsTheOwnerAccountsForgeAccount()
             throws IOException, PlaceUnreadable {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         assertThat(role().postingEntry(TASK, PULL_REQUEST))
                 .as("reviewer's entry at a pull request")
                 .isEqualTo(PERSON_ENTRY);
@@ -382,18 +511,27 @@ class TaskReviewRoleTest {
     }
 
     @Test
-    void aReviewerAtAGatePushHasNoPostingAccountYet() throws IOException {
-        recorded(RunPlace.REVIEWER);
-        final PlaceUnreadable refused =
-                catchThrowableOfType(
-                        PlaceUnreadable.class, () -> role().postingEntry(TASK, GATE_PUSH));
-        assertThat(refused).as("reviewer's entry at a gate push").isNotNull();
-        assertThat(refused.reason())
-                .as("reason of the refusal")
-                .isEqualTo(PlaceUnreadable.Reason.FORGE_ADAPTER_MISSING);
-        assertThatThrownBy(() -> role().postingAccount(TASK, GATE_PUSH))
-                .as("reviewer's account at a gate push")
-                .isInstanceOf(IllegalStateException.class);
+    void aReviewerAtAGatePushPostsAsTheTaskWithNoForgeEntry() throws IOException {
+        // At a gate push no account is used: the reading task writes as itself, as the pushing one.
+        for (final TaskParts parts :
+                List.of(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        TaskParts.ownWork())) {
+            recorded(parts);
+            final PlaceUnreadable refused =
+                    catchThrowableOfType(
+                            PlaceUnreadable.class, () -> role().postingEntry(TASK, GATE_PUSH));
+            assertThat(refused).as("%s's entry at a gate push", parts.workspace()).isNotNull();
+            assertThat(refused.reason())
+                    .as("reason of the refusal")
+                    .isEqualTo(PlaceUnreadable.Reason.FORGE_ADAPTER_MISSING);
+            assertThat(role().postingAccount(TASK, GATE_PUSH))
+                    .as("%s's producer at a gate push", parts.workspace())
+                    .isEqualTo(new Task(TASK));
+        }
     }
 
     @Test
@@ -427,7 +565,11 @@ class TaskReviewRoleTest {
 
     @Test
     void aMissingOwnerEntryRefusesAReviewerNamingIt() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         vault.remove(PERSON_ENTRY);
         final PlaceUnreadable refused =
                 catchThrowableOfType(
@@ -441,21 +583,33 @@ class TaskReviewRoleTest {
 
     @Test
     void aReviewerAtAForgeTheMachineDoesNotKnowIsRefused() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         forges.clear();
         refusedAsUnknownForge("unknown forge", FORGE);
     }
 
     @Test
     void aReviewerAtAForgeWhoseEntryCannotBeReadIsRefused() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         forges.set(0, new ForgeInstance(FORGE, null, CommentReading.EXTENDED, "no adapter named"));
         refusedAsUnknownForge("unreadable forge entry", "no adapter named");
     }
 
     @Test
     void aReviewerWhileTheForgeFileCannotBeReadIsRefused() throws IOException {
-        recorded(RunPlace.REVIEWER);
+        recorded(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         forgeFileUnreadable = true;
         refusedAs(
                 PlaceUnreadable.Reason.FORGE_FILE_UNREADABLE,
@@ -483,17 +637,18 @@ class TaskReviewRoleTest {
 
     @Test
     void theTasksOwnEntryIsNamedAsTheTasksSecretsKeepIt() {
-        assertThat(TaskReviewRole.taskForgeEntry("c0ffee"))
+        assertThat(RecordedTaskRights.taskForgeEntry("c0ffee"))
                 .as("the task's own forge entry")
                 .isEqualTo(TaskSecrets.PREFIX + "c0ffee" + TaskSecrets.FORGE);
     }
 
-    private TaskReviewRole role() {
-        return new TaskReviewRole(
+    private RecordedTaskRights role() {
+        return new RecordedTaskRights(
                 task -> states.resolve(task),
+                task -> records().resolve(task),
                 new StandInEntries(),
                 new StandInForges(),
-                TaskReviewRoleTest::account,
+                RecordedTaskRightsTest::account,
                 task -> {
                     if (endUnreadable) {
                         throw new IOException("cut off");
@@ -508,9 +663,9 @@ class TaskReviewRoleTest {
                 });
     }
 
-    private void recorded(final String role) throws IOException {
+    private void recorded(final TaskParts parts) throws IOException {
         final Path state = Files.createDirectories(states.resolve(TASK));
-        new RunPlace(role, null, TASK).writeTo(state);
+        new RunPlace(parts, null, TASK).writeTo(state);
     }
 
     private static ForgeAccount account(final PullRequestRef pullRequest, final String entry) {
@@ -526,7 +681,7 @@ class TaskReviewRoleTest {
     }
 
     /** The vault's entry names as a machine would answer them, with tokens behind them. */
-    private final class StandInEntries implements TaskReviewRole.Entries {
+    private final class StandInEntries implements RecordedTaskRights.Entries {
 
         @Override
         public boolean onHost() {

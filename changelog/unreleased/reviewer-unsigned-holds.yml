@@ -1,2 +1,2 @@
-title: A reviewer task with no certified key of its own sends its review into the gate's holds, each item marked unsigned for the owner account's decision; `porelo gate held` and `HeldItem` show the mark
+title: A task reading another task's work with no certified key of its own writes its review at a gate push at once, as a signed one does, and sends it toward a pull request into the gate's holds, each item marked unsigned for the owner account's decision; `porelo gate held` and `HeldItem` show the mark
 type: added

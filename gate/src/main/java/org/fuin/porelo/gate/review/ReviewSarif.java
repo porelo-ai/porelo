@@ -220,6 +220,9 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
                 content(result, place, reply.body(), null);
                 properties.put("porelo/replyTo", reply.thread());
             }
+            case ThreadResolve resolve ->
+                    throw new IllegalArgumentException(
+                            "a resolve is sent by its own call, never as a submission");
         }
         result.put("properties", properties);
         return pullRequestDocument(facts, List.of(bounded(Json.write(result))), null)
@@ -268,6 +271,8 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
                 content(result, place, reply.body(), null);
                 properties.put("porelo/replyTo", reply.thread());
             }
+            case ThreadResolve resolve ->
+                    throw new IllegalArgumentException("a resolve is never kept as an item");
         }
         properties.put("porelo/threadState", resolved ? "resolved" : "open");
         properties.put("porelo/sourceKind", "forge-account");
@@ -410,6 +415,8 @@ public final class ReviewSarif implements ReviewWriter, ProfileWriting {
             case ForgeReply reply ->
                     throw new IllegalArgumentException(
                             "a forge reply is not in profile 1, which writes a push's threads");
+            case ThreadResolve resolve ->
+                    throw new IllegalArgumentException("a resolve is never kept as an item");
         }
         properties.put(
                 "porelo/threadState", thread.state() == ThreadState.OPEN ? "open" : "resolved");

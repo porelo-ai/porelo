@@ -71,8 +71,36 @@ public final class MessageDispatch {
 
     private final Tasks tasks;
 
+    private final Readers readers;
+
     /**
-     * Constructor.
+     * Whether the task a mailbox belongs to reads another task's work, by the parts its start
+     * recorded: its messages go to its review alone. The machine's answer is {@link
+     * ReadingTasks#readsAnothersWork}.
+     *
+     * <p>A stand-in answers fixed tasks.
+     */
+    @FunctionalInterface
+    public interface Readers {
+
+        /** No task reads another task's work: said where that is known, never assumed. */
+        Readers NONE = container -> false;
+
+        /** Knows nothing of the tasks: every sender is taken as one that reads another's work. */
+        Readers UNTOLD = container -> true;
+
+        /**
+         * Whether a task reads another task's work.
+         *
+         * @param container The mailbox's own name, the task's container.
+         * @return True for such a task, and for one whose record does not read.
+         */
+        boolean readsAnothersWork(String container);
+    }
+
+    /**
+     * Constructor for a dispatch not told which tasks read another task's work: fail closed, every
+     * sender is taken as one, whose messages go to its review alone.
      *
      * @param replies Takes a task's reply to a review thread at its own gate push.
      * @param comments Takes a run's submission of comments and replies.
@@ -80,9 +108,26 @@ public final class MessageDispatch {
      */
     public MessageDispatch(
             final ReviewReplies replies, final ReviewerComments comments, final Tasks tasks) {
+        this(replies, comments, tasks, Readers.UNTOLD);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param replies Takes a task's reply to a review thread at its own gate push.
+     * @param comments Takes a run's submission of comments and replies.
+     * @param tasks Which task each mailbox belongs to.
+     * @param readers Which tasks read another task's work, whose messages go to their review only.
+     */
+    public MessageDispatch(
+            final ReviewReplies replies,
+            final ReviewerComments comments,
+            final Tasks tasks,
+            final Readers readers) {
         this.replies = replies;
         this.comments = comments;
         this.tasks = tasks;
+        this.readers = java.util.Objects.requireNonNull(readers, "readers");
     }
 
     /**
@@ -121,6 +166,9 @@ public final class MessageDispatch {
         final Map<String, Integer> queuedNow = new LinkedHashMap<>();
         final List<MessageDelivery.Held> held = new ArrayList<>();
         final List<MessageDelivery.Held> refused = new ArrayList<>();
+        // Asked once a pass, before any message is routed: the answer is the task's, not a
+        // message's.
+        final boolean reader = readers.readsAnothersWork(mailbox.root().getFileName().toString());
         for (final Path message : accepted(mailbox.accepted())) {
             final String name = message.getFileName().toString();
             final List<String> addressed;
@@ -129,6 +177,11 @@ public final class MessageDispatch {
             } catch (final JsonException ex) {
                 // One message no reader here takes must not stop every later one of the mailbox.
                 reject(mailbox, message, name, UNREADABLE, refused);
+                continue;
+            }
+            if (reader && !List.of(Mail.REVIEW).equals(addressed)) {
+                // Before a hold, a moderation or a budget: nothing of it waits to be sent later.
+                refuseForGood(mailbox, message, name, READER_REFUSED, refused);
                 continue;
             }
             if (addressed.size() != 1) {
@@ -307,6 +360,26 @@ public final class MessageDispatch {
         return List.of(Mail.REVIEW).equals(addressees(parsed)) && Submission.claims(parsed);
     }
 
+    /**
+     * Whether a message addresses the review and nobody else: the one receiver a task that reads
+     * another task's work may write to. A message no JSON reader here takes addresses nobody.
+     *
+     * @param bytes The message.
+     * @return True for the review alone.
+     */
+    static boolean toReviewAlone(final byte[] bytes) {
+        try {
+            return List.of(Mail.REVIEW)
+                    .equals(addressees(Json.parse(new String(bytes, StandardCharsets.UTF_8))));
+        } catch (final JsonException ex) {
+            return false;
+        }
+    }
+
+    /** Said of a message of a task that reads another task's work, to anyone but its review. */
+    static final String READER_REFUSED =
+            ReadingTasks.SENDS_TO_REVIEW_ONLY + "; it was not sent, and nothing of it is kept";
+
     /** Said of a message no JSON reader here takes, whatever it holds. */
     static final String UNREADABLE =
             "it cannot be read as a message: its JSON is not one Porelo reads";
@@ -329,6 +402,25 @@ public final class MessageDispatch {
         final Path rejected = mailbox.rejected().resolve(name);
         Files.move(message, rejected, StandardCopyOption.REPLACE_EXISTING);
         new HostBounce().write(mailbox, rejected, reason, true);
+        refused.add(new MessageDelivery.Held(name, reason));
+    }
+
+    /**
+     * Refuses a message for good, tells its task why as {@link #reject} does, and keeps nothing of
+     * it: no copy waits where a person could send it on.
+     */
+    private static void refuseForGood(
+            final Mailbox mailbox,
+            final Path message,
+            final String name,
+            final String reason,
+            final List<MessageDelivery.Held> refused)
+            throws IOException {
+        // The answer names the message by its id, read before the message goes.
+        new HostBounce().write(mailbox, message, reason, true);
+        Files.deleteIfExists(mailbox.accepted().resolve(name + RELEASED_SUFFIX));
+        Files.deleteIfExists(mailbox.accepted().resolve(name + ".sig"));
+        Files.delete(message);
         refused.add(new MessageDelivery.Held(name, reason));
     }
 
@@ -372,9 +464,14 @@ public final class MessageDispatch {
         }
     }
 
-    /** A rule the task may be told as it is: short, plain, nothing a review wrote. */
+    /**
+     * A rule the task may be told as it is: short, plain, nothing a review wrote. Parentheses only
+     * in the one form a missing right is said in, {@code RightMissing: <right> (<act>)}, whose
+     * right and act are Porelo's own words.
+     */
     private static final java.util.regex.Pattern SHOWN_RULE =
-            java.util.regex.Pattern.compile("[A-Za-z0-9_./: -]{1,128}");
+            java.util.regex.Pattern.compile(
+                    "[A-Za-z0-9_./: -]{1,128}|RightMissing: [A-Za-z]{1,32} \\([a-z ]{1,64}\\)");
 
     /** Said in place of a review's rule that is not short plain text, which the task never sees. */
     static final String UNSHOWN_RULE = "the review refused it by a rule it cannot show";

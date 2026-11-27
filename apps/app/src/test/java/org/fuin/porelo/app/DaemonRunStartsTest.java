@@ -22,7 +22,14 @@ class DaemonRunStartsTest {
 
     private static final String URL = "https://review.stub.invalid/uc/shop/pull/7";
 
-    private static final RunPlace AT = RunPlace.atPullRequest(RunPlace.REVIEWER, "shop-2", URL);
+    private static final RunPlace AT =
+            RunPlace.atPullRequest(
+                    org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                            java.util.List.of(
+                                    org.fuin.porelo.gate.review.Right.REPLY,
+                                    org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                    "shop-2",
+                    URL);
 
     @TempDir Path dir;
 

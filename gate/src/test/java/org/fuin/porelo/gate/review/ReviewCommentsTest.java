@@ -119,7 +119,7 @@ class ReviewCommentsTest {
                                         null))
                 .isInstanceOf(ReviewRefused.class)
                 .satisfies(e -> assertRefused(e, ReviewError.NO_SUCH_THREAD));
-        assertThatThrownBy(() -> store.state(reused, kept.thread(), ThreadState.RESOLVED))
+        assertThatThrownBy(() -> store.state(reused, kept.thread(), ThreadState.RESOLVED, OWNER))
                 .satisfies(e -> assertRefused(e, ReviewError.NO_SUCH_THREAD));
 
         final Push otherRepository = new Push("shop", "lib", "main", FIRST_HEAD, BASE, CONTAINER);
@@ -319,7 +319,7 @@ class ReviewCommentsTest {
         final Path root = dir.resolve("state").resolve("review");
         final ReviewComments store = new ReviewComments(root);
         final Kept kept = store.keep(push(CONTAINER, FIRST_HEAD), comment("mode"), OWNER, null);
-        store.state(push(CONTAINER, FIRST_HEAD), kept.thread(), ThreadState.RESOLVED);
+        store.state(push(CONTAINER, FIRST_HEAD), kept.thread(), ThreadState.RESOLVED, OWNER);
 
         final Path container = root.resolve(CONTAINER);
         // The store made the parent too, so it is owner-only as well.
@@ -378,7 +378,7 @@ class ReviewCommentsTest {
         final Push other = new Push("shop", "app", "other", FIRST_HEAD, BASE, CONTAINER);
         store.keep(mine, comment("mine"), OWNER, null);
         final Kept theirs = store.keep(other, comment("theirs"), OWNER, null);
-        store.state(other, theirs.thread(), ThreadState.RESOLVED);
+        store.state(other, theirs.thread(), ThreadState.RESOLVED, OWNER);
         final Path journal = journal(root, CONTAINER);
         final List<String> lines = Files.readAllLines(journal);
         final String fresh = UUID.randomUUID().toString();
@@ -439,9 +439,15 @@ class ReviewCommentsTest {
         final Kept first = store.keep(push, comment("first"), OWNER, null);
         final Kept second = store.keep(push, comment("second"), OWNER, null);
 
-        final ReviewThread resolved = store.state(push, first.thread(), ThreadState.RESOLVED);
+        final ReviewThread resolved =
+                store.state(push, first.thread(), ThreadState.RESOLVED, OWNER);
         assertThat(resolved)
-                .isEqualTo(new ReviewThread(first.thread(), ThreadState.RESOLVED, List.of(first)));
+                .isEqualTo(
+                        new ReviewThread(
+                                first.thread(),
+                                ThreadState.RESOLVED,
+                                List.of(first),
+                                OWNER.producer()));
 
         // A reply joins a resolved thread without opening it again.
         final Kept reply =
@@ -449,11 +455,14 @@ class ReviewCommentsTest {
         assertThat(new ReviewComments(root).threads(push))
                 .containsExactly(
                         new ReviewThread(
-                                first.thread(), ThreadState.RESOLVED, List.of(first, reply)),
+                                first.thread(),
+                                ThreadState.RESOLVED,
+                                List.of(first, reply),
+                                OWNER.producer()),
                         new ReviewThread(second.thread(), ThreadState.OPEN, List.of(second)));
         assertThat(new ReviewComments(root).of(push).openThreads()).isEqualTo(1);
 
-        assertThat(store.state(push, first.thread(), ThreadState.OPEN).state())
+        assertThat(store.state(push, first.thread(), ThreadState.OPEN, OWNER).state())
                 .isEqualTo(ThreadState.OPEN);
         assertThat(new ReviewComments(root).of(push).openThreads()).isEqualTo(2);
         // Resolving cleared nothing: every item is still there.
@@ -461,13 +470,54 @@ class ReviewCommentsTest {
                 .containsExactly(first, reply);
 
         assertThatThrownBy(
-                        () -> store.state(push, UUID.randomUUID().toString(), ThreadState.RESOLVED))
+                        () ->
+                                store.state(
+                                        push,
+                                        UUID.randomUUID().toString(),
+                                        ThreadState.RESOLVED,
+                                        OWNER))
                 .satisfies(e -> assertRefused(e, ReviewError.NO_SUCH_THREAD));
         assertThatThrownBy(
                         () ->
                                 new ReviewComments(dir.resolve("empty"))
-                                        .state(push, first.thread(), ThreadState.RESOLVED))
+                                        .state(push, first.thread(), ThreadState.RESOLVED, OWNER))
                 .satisfies(e -> assertRefused(e, ReviewError.NO_SUCH_THREAD));
+    }
+
+    @Test
+    void aTaskResolvesAThreadStampedAsItselfAndNeverOpensOneAgain() throws Exception {
+        // Who set a thread's state is the host's stamp from the channel, read back after a
+        // restart; a task's channel only resolves, and a forge's account sets nothing at the gate.
+        final Path root = dir.resolve("review");
+        final Push push = push(CONTAINER, FIRST_HEAD);
+        final ReviewComments store = new ReviewComments(root);
+        final Kept first = store.keep(push, comment("first"), OWNER, null);
+
+        store.state(push, first.thread(), ThreadState.RESOLVED, TASK);
+
+        assertThat(new ReviewComments(root).threads(push))
+                .as("the thread read back")
+                .singleElement()
+                .satisfies(
+                        thread -> {
+                            assertThat(thread.state()).as("state").isEqualTo(ThreadState.RESOLVED);
+                            assertThat(thread.stateBy()).as("by").isEqualTo(TASK.producer());
+                        });
+        assertThatThrownBy(() -> store.state(push, first.thread(), ThreadState.OPEN, TASK))
+                .as("a task that would open it again")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(
+                        () ->
+                                store.state(
+                                        push,
+                                        first.thread(),
+                                        ThreadState.OPEN,
+                                        Origin.of(new ForgeAccount("forge.example", "1", "o"))))
+                .as("a forge's account")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(new ReviewComments(root).threads(push).getFirst().state())
+                .as("still resolved")
+                .isEqualTo(ThreadState.RESOLVED);
     }
 
     @Test
@@ -511,7 +561,7 @@ class ReviewCommentsTest {
 
         final Kept first = store.keep(push, comment("first"), OWNER, null);
         store.keep(push, comment("second"), TASK, null);
-        store.state(push, first.thread(), ThreadState.RESOLVED);
+        store.state(push, first.thread(), ThreadState.RESOLVED, OWNER);
 
         assertThat(new ReviewComments(root).of(push))
                 .isEqualTo(
@@ -572,7 +622,7 @@ class ReviewCommentsTest {
     private static Set<String> bodies(final List<ReviewThread> threads) {
         final Set<String> bodies = new HashSet<>();
         for (final ReviewThread thread : threads) {
-            final String body = thread.items().get(0).item().body().text();
+            final String body = ((ReviewComment) thread.items().get(0).item()).body().text();
             assertThat(bodies.add(body)).as("kept once: %s", body).isTrue();
         }
         return bodies;

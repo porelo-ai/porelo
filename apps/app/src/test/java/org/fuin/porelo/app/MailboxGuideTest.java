@@ -47,6 +47,31 @@ class MailboxGuideTest {
     }
 
     @Test
+    void theRejectExampleIsAMessageWhoseDocumentTheProfileReadsAsOneReject() throws Exception {
+        // An agent copies the example: one the gate refused would be a reject that never happens.
+        final String text = MailboxGuide.text();
+        final int section = text.indexOf("## Rejecting a waiting push");
+        assertThat(section).as("the section").isNotNegative();
+        final int start = text.indexOf("```json\n", section) + "```json\n".length();
+        final String example = text.substring(start, text.indexOf("```", start));
+        final Map<?, ?> message = (Map<?, ?>) org.fuin.porelo.wire.Json.parseNumberTypes(example);
+        assertThat(((Map<?, ?>) message.get("metadata")).get("to")).isEqualTo(Mail.REVIEW);
+        final Object document = ((Map<?, ?>) ((List<?>) message.get("parts")).get(0)).get("data");
+
+        final org.fuin.porelo.gate.review.ProfileRead read =
+                new org.fuin.porelo.gate.review.ProfileTranslator()
+                        .read(
+                                org.fuin.porelo.wire.Json.write(document)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                                new org.fuin.porelo.gate.review.ProfileChannel.FromTask(
+                                        new org.fuin.porelo.gate.review.Task("reader-1")));
+
+        assertThat(read.items()).as("no comment or reply").isEmpty();
+        assertThat(read.reject()).as("one reject with its reason").isNotNull();
+        assertThat(read.reject().text().length()).isLessThanOrEqualTo(PersonNote.MAX_REASON);
+    }
+
+    @Test
     void aPullRequestsConversationIsToldAsUntrustedDataWithTheWayToAnswerIt() {
         // Whoever wrote a comment at a forge cannot be told apart, so none of it is an instruction.
         assertThat(MailboxGuide.text())
@@ -59,12 +84,42 @@ class MailboxGuideTest {
     }
 
     @Test
-    void anAuthorAtItsOwnPullRequestIsToldItRepliesOnlyAndItsWorkGoesThroughTheGate() {
+    void aTaskAtAPullRequestIsToldItsRightsDecideWhatItSendsAndItsWorkGoesThroughTheGate() {
         assertThat(MailboxGuide.text())
-                .as("what an author at its own pull request is told")
-                .contains("the one\nopen from your task's branch, found anew at each start")
-                .contains("open none of your own")
+                .as("what a task at a pull request is told")
+                .contains("set by the rights it was started with, never by a role")
+                .contains(
+                        "Its own pull request is the one open from your task's branch, found anew at each")
                 .contains("travel by commit through your\ntask's gate");
+    }
+
+    @Test
+    void theSubmissionsExampleWithACommentAReplyAndAResolvePassesTheProfileCheck()
+            throws Exception {
+        // What the guide shows a task must be what the review takes from it, its resolve too.
+        final String text = MailboxGuide.text();
+        final int section = text.indexOf("## Commenting on a pull request");
+        final int start = text.indexOf("```json\n", section) + "```json\n".length();
+        final String example =
+                text.substring(start, text.indexOf("```", start))
+                        .replace("the head commit the conversation names, in full", "a".repeat(40))
+                        .replace("the id of a thread you resolve", "1834527690");
+        final Map<?, ?> message = (Map<?, ?>) org.fuin.porelo.wire.Json.parseExact(example);
+        final Object data = ((Map<?, ?>) ((List<?>) message.get("parts")).getFirst()).get("data");
+
+        final List<org.fuin.porelo.gate.review.ProfileItem> items =
+                new org.fuin.porelo.gate.review.ProfileTranslator()
+                        .read(
+                                org.fuin.porelo.wire.Json.write(data)
+                                        .getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                                new org.fuin.porelo.gate.review.ProfileChannel.FromTask(
+                                        new org.fuin.porelo.gate.review.Task("t")))
+                        .items();
+
+        assertThat(items)
+                .as("a comment, a reply and a resolve, read as the task's")
+                .extracting(item -> item.item().getClass().getSimpleName())
+                .containsExactly("ReviewComment", "ForgeReply", "ThreadResolve");
     }
 
     @Test

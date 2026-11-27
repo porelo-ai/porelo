@@ -180,6 +180,9 @@ public final class PushEnds {
         if (end.waitingSince() != null) {
             entry.put("waitingSince", String.valueOf(end.waitingSince()));
         }
+        if (end.rejectedBy() != null) {
+            entry.put("rejectedBy", end.rejectedBy());
+        }
         return entry;
     }
 
@@ -205,7 +208,8 @@ public final class PushEnds {
                 Instant.parse(text(entry, "at")),
                 entry.containsKey("waitingSince")
                         ? Instant.parse(text(entry, "waitingSince"))
-                        : null);
+                        : null,
+                optional(entry, "rejectedBy"));
     }
 
     private static String text(final Map<?, ?> entry, final String key) {

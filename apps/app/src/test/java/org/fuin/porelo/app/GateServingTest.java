@@ -202,6 +202,39 @@ class GateServingTest {
     }
 
     @Test
+    void aResumedTasksGateKeepsRefusingPushesWhereItsFirstStartRefusedThem() {
+
+        // The option is on the recorded command line; a resume tells the gate of its build watch
+        // and must leave the refusal of pushes as the first start wrote it.
+        final java.util.List<String> recorded =
+                new java.util.ArrayList<>(
+                        GateWiring.serving(
+                                project("online"),
+                                "127.0.0.1",
+                                9418,
+                                Path.of("/run/user/1000/porelo/porelo-uc-shell"),
+                                "shell",
+                                null,
+                                null,
+                                null,
+                                java.util.List.of(),
+                                true,
+                                true));
+        recorded.add(GateWiring.NO_PUSH);
+
+        for (final boolean watched : new boolean[] {true, false}) {
+            assertThat(GateWiring.watching(recorded, watched))
+                    .as(
+                            "the gate's command on a resume whose build watch %s",
+                            watched ? "runs" : "does not")
+                    .containsOnlyOnce(GateWiring.NO_PUSH);
+        }
+        assertThat(GateWiring.watching(recorded.subList(0, recorded.size() - 1), false))
+                .as("the gate of a task that may push, on a resume")
+                .doesNotContain(GateWiring.NO_PUSH);
+    }
+
+    @Test
     void aResumedTasksGateIsToldWhetherItsBuildWatchComesBack() {
 
         // On a resume the same as at a start: the gate follows the watch the resume starts, which a

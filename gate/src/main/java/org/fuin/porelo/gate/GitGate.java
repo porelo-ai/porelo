@@ -979,6 +979,32 @@ public class GitGate {
     }
 
     /**
+     * Tells whether a commit is in another's history in the mirror: the same commit, or one of its
+     * ancestors.
+     *
+     * @param commit The later commit, in full.
+     * @param ancestor The commit asked about, in full.
+     * @return {@code true} only when git says so; a commit not written in full, one the mirror
+     *     lacks, or a git that cannot answer is {@code false}.
+     */
+    public boolean contains(String commit, String ancestor) {
+        if (!COMMIT_ID.matcher(commit).matches() || !COMMIT_ID.matcher(ancestor).matches()) {
+            return false;
+        }
+        return runner.run(
+                        Command.of(
+                                List.of(
+                                        "git",
+                                        "--git-dir",
+                                        mirror.toString(),
+                                        "merge-base",
+                                        "--is-ancestor",
+                                        ancestor,
+                                        commit)))
+                .successful();
+    }
+
+    /**
      * Returns what an incoming ref would change, as a patch.
      *
      * <p>A mirror that was created empty has no branch to compare against, so the first review of
@@ -3051,6 +3077,34 @@ public class GitGate {
                             + " rather than approving it here. Use force to clear the ref anyway.");
         }
         gitIn("update-ref", "-d", INCOMING + name);
+    }
+
+    /**
+     * Discards an incoming ref only while it still points at the commit given, as a task's reject
+     * does: a push that moved since is a commit nobody judged, and stays.
+     *
+     * <p>No force and no rescued ref: what a person rescued is theirs to decide, and the upstream
+     * having the work is the caller's to have refused before.
+     *
+     * @param name Incoming ref name, without the namespace prefix.
+     * @param commit The full commit the ref must still point at.
+     * @throws GateException If the name is no plain push name or is rescued, the commit is not
+     *     written in full, or the ref is gone or points elsewhere; nothing was deleted.
+     */
+    public void rejectAt(String name, String commit) {
+        // A name that could reach past the incoming refs, or a short id git would resolve to
+        // whatever it matches, is never handed to update-ref.
+        if (!name.matches("[A-Za-z0-9][A-Za-z0-9._-]*") || name.contains("..")) {
+            throw new GateException("'" + name + "' is no waiting push's name");
+        }
+        if (!COMMIT_ID.matcher(commit).matches()) {
+            throw new GateException("a reject names the commit it discards in full");
+        }
+        if (name.endsWith(RESCUED)) {
+            throw new GateException("'" + name + "' is rescued work: only a person decides it");
+        }
+        // git compares and deletes under the ref's lock, so no push lands between the two.
+        gitIn("update-ref", "-d", INCOMING + name, commit);
     }
 
     /**

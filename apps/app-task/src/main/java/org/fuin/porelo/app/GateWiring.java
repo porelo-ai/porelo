@@ -56,18 +56,36 @@ final class GateWiring {
     }
 
     /**
-     * Whether the task's run is a reviewer's, whose gate shows its pinned ref and takes nothing.
+     * Whether the task reads another task's work, whose gate shows its pinned ref and takes
+     * nothing.
      */
     private boolean reviewer;
 
     /**
-     * Says whether the task's run is a reviewer's.
+     * Says whether the task reads another task's work.
      *
-     * @param reviews Whether its recorded role is a reviewer's.
+     * @param reviews Whether its recorded workspace is another task's work.
      * @return This wiring.
      */
     GateWiring reviewer(final boolean reviews) {
         this.reviewer = reviews;
+        return this;
+    }
+
+    /** The gate's option for a task whose start recorded no right to push. */
+    static final String NO_PUSH = "--no-push";
+
+    /** Whether the task's start recorded the right to push to its gate. */
+    private boolean pushes = true;
+
+    /**
+     * Says whether the task may push to its gate.
+     *
+     * @param may Whether its recorded rights hold the push.
+     * @return This wiring.
+     */
+    GateWiring pushing(final boolean may) {
+        this.pushes = may;
         return this;
     }
 
@@ -577,6 +595,10 @@ final class GateWiring {
                                 followsBuilds,
                                 watchesBuilds,
                                 issue);
+        if (!reviewer && !pushes) {
+            // On the recorded command line too: a resumed task's gate refuses as it did.
+            command.add(NO_PUSH);
+        }
 
         try {
             final ProcessBuilder builder =

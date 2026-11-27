@@ -12,9 +12,10 @@ import org.fuin.porelo.wire.varlink.VarlinkException;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Begins a task's run at its pull request in the daemon, for a start made outside it: the daemon
- * keeps every task's current run, and a run begun anywhere else would end with the process that
- * began it. Without a daemon that answers, the run does not begin and the start is refused.
+ * Begins a task's run at its pull request, or at another task's push waiting at the gate, in the
+ * daemon, for a start made outside it: the daemon keeps every task's current run, and a run begun
+ * anywhere else would end with the process that began it. Without a daemon that answers, the run
+ * does not begin and the start is refused.
  */
 public final class DaemonRunStarts implements TaskLaunch.RunStarts {
 
@@ -44,7 +45,7 @@ public final class DaemonRunStarts implements TaskLaunch.RunStarts {
 
     @Override
     public void begin(final String container, final RunPlace place) {
-        if (place.pullRequest() == null) {
+        if (!place.beginsRun()) {
             return;
         }
         final VarlinkClient client;
@@ -54,7 +55,7 @@ public final class DaemonRunStarts implements TaskLaunch.RunStarts {
             throw new Refused(
                     "porelod does not answer at "
                             + socket
-                            + ", and a run at a pull request begins there; start porelod and"
+                            + ", and a task's run at its place begins there; start porelod and"
                             + " start the task again",
                     ex);
         }

@@ -78,7 +78,7 @@ Profile 2 is profile 1 with exactly what a forge's conversation and a submission
 adapter, the reviewer task and Porelo exchange one format. Its schema is
 `review-profile-2.schema.json`, beside profile 1's in `porelo-build-api`; the tests jar of
 `porelo-build-api` (`<type>test-jar</type>`) carries one passing fixture each for a forge page, a
-submitted comment and a submitted reply, under `org/fuin/porelo/build/api/review/fixtures/`, and the
+submitted comment, a submitted reply and a submitted resolve, under `org/fuin/porelo/build/api/review/fixtures/`, and the
 failing ones under `fixtures/failing/`. Porelo writes profile 2 for a forge's conversation.
 
 Everything profile 1 says holds, but for these points:
@@ -124,12 +124,17 @@ the pages a task reads.
 
 ### A submission
 
-A submission is what a producer sends: one or more results, each a new comment or a reply, without
-the fields only Porelo assigns, since the producer is the channel's to stamp.
+A submission is what a producer sends: one or more results, each a new comment or a reply, and the
+threads it marks resolved, without the fields only Porelo assigns, since the producer is the
+channel's to stamp.
 
-- A submission is always a pull request run: it names `porelo/pullRequest` and the forge's
-  repository URL, and no `porelo/push`, `porelo/project`, `porelo/repository` or
-  `urn:porelo:repository` URI.
+- A submission is a pull request run, which names `porelo/pullRequest` and the forge's
+  repository URL, or a push run, which names `porelo/project`, `porelo/repository`, `porelo/push`
+  and its `urn:porelo:repository` URI, as a task reading another task's waiting push sends it.
+- A push run's submission may hold one reject: a result whose properties are
+  `"porelo/judgment": "reject"` alone, with no location and no fix, its message the reason. Only a
+  task's submission at a push carries one; a pull request run and a page never do. The receiver
+  discards only the push the task's run reads, whatever the run names.
 - A result carries no `guid`, `porelo/threadState`, `porelo/sourceKind`, `porelo/taskId`,
   `porelo/forgeAccountId`, `porelo/forgeAccountName` or `porelo/createdAt`, and no
   `porelo/threadId`: a new comment
@@ -137,6 +142,12 @@ the fields only Porelo assigns, since the producer is the channel's to stamp.
   location is its thread's as the producer read it; it is not used to route the reply, which
   `porelo/replyTo` alone does.
 - The run carries no `porelo/completeness`, which belongs to a page.
+- **Resolved threads:** the run's `porelo/resolveThreads` names the threads the producer marks
+  resolved, 1 to 100 distinct ids, each 1 to 64 ASCII letters, digits or hyphens as the
+  conversation's `porelo/threadId` gave it, and nothing else: no text, anchor, account or state. A
+  submission that names some may hold no result; one that names none holds at least one. A page
+  never carries the field, so a forge's conversation cannot hand Porelo a resolve. Porelo reads
+  each id as one resolve after the results.
 - A submission naming any of these fails the schema.
 
 ### Bounds

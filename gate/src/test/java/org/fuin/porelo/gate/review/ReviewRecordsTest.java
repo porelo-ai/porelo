@@ -273,6 +273,7 @@ class ReviewRecordsTest {
             case ReviewComment comment -> "comment";
             case ReviewReply reply -> "reply";
             case ForgeReply reply -> "forge reply";
+            case ThreadResolve resolve -> "resolve";
         };
     }
 

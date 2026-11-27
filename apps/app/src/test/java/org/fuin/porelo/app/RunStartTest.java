@@ -30,7 +30,6 @@ import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.gate.review.Side;
 import org.fuin.porelo.gate.review.Withheld;
@@ -102,7 +101,7 @@ class RunStartTest {
         // A decision on the earlier run's items must not reach the run that reads anew.
         place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
 
-        start.start(TASK, Role.REVIEWER, place);
+        start.start(TASK, place);
 
         assertThat(events)
                 .as("lapse, pin, begin, read, judge, write the pages, deliver")
@@ -117,7 +116,7 @@ class RunStartTest {
                         "deliver");
         assertThat(runs.current)
                 .as("the run is current, at its place with its role and pinned state")
-                .isEqualTo(new Run(PLACE, Role.REVIEWER, place.pinned, 1));
+                .isEqualTo(new Run(PLACE, place.pinned, 1));
         assertThat(lentFor).as("the credential lent for this place").containsExactly(place);
         assertThat(place.readWith).as("read with the lent credential").containsExactly(LENT);
     }
@@ -130,7 +129,7 @@ class RunStartTest {
         place.withheld = List.of(new Withheld("103", "103", "TextRefused: format character"));
         gate.refuse.add("102");
 
-        final RunStart.Outcome outcome = start.start(TASK, Role.REVIEWER, place);
+        final RunStart.Outcome outcome = start.start(TASK, place);
 
         assertThat(place.written)
                 .as("the pages are written from the passed comments only")
@@ -161,7 +160,7 @@ class RunStartTest {
                         comment("201", OCTOCAT, "Name this better."));
         place.resolved = Set.of("101");
 
-        start.start(TASK, Role.REVIEWER, place);
+        start.start(TASK, place);
 
         assertThat(place.written)
                 .as("the conversation the pages are written from")
@@ -178,13 +177,13 @@ class RunStartTest {
             throws Exception {
         // Core knows no sequence of runs: every run reads and delivers all of it.
         place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
-        start.start(TASK, Role.REVIEWER, place);
+        start.start(TASK, place);
         place.items =
                 List.of(
                         comment("101", OCTOCAT, "This loses the order."),
                         reply("102", "101", REVIEWER, "It does: line 4 drops it."));
 
-        final RunStart.Outcome second = start.start(TASK, Role.REVIEWER, place);
+        final RunStart.Outcome second = start.start(TASK, place);
 
         assertThat(second.run()).as("the second run").isEqualTo(2);
         assertThat(delivery.runs).as("both runs delivered").containsExactly(1, 2);
@@ -202,7 +201,7 @@ class RunStartTest {
         place.unreadable =
                 new PlaceUnreadable(PlaceUnreadable.Reason.UNREACHABLE, "the forge did not answer");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the read, with the place's reason")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -232,7 +231,7 @@ class RunStartTest {
                                     PlaceUnreadable.Reason.MISSING_FORGE_TOKEN, "no token");
                         });
 
-        assertThatThrownBy(() -> without.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> without.start(TASK, place))
                 .as("refused at the read")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -248,7 +247,7 @@ class RunStartTest {
         place.unpinnable =
                 new PlaceUnreadable(PlaceUnreadable.Reason.NO_SUCH_PULL_REQUEST, "no such");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the pin")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -267,7 +266,7 @@ class RunStartTest {
         place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
         delivery.failure = new IllegalArgumentException("page 1 is too large");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the delivery")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -284,7 +283,7 @@ class RunStartTest {
         place.withheld = List.of(new Withheld("103", "103", "TextRefused: format character"));
         gate.refuse.add("102");
 
-        start.start(TASK, Role.REVIEWER, place);
+        start.start(TASK, place);
 
         assertThat(delivery.held).as("the gate's, held for the owner account").containsExactly(1);
         assertThat(delivery.unread).as("the input path's, held nowhere").containsExactly(1);
@@ -295,7 +294,7 @@ class RunStartTest {
         place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
         gate.failure = new IllegalStateException("the filter's area at /home/someone is odd");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the judging")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -316,7 +315,7 @@ class RunStartTest {
         place.items = List.of(comment("101", OCTOCAT, "This loses the order."));
         holds.countFailure = new IllegalStateException("the journal is cut");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the count")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -329,10 +328,10 @@ class RunStartTest {
 
     @Test
     void aPinThatFailsEndsAnEarlierRunToo() throws Exception {
-        start.start(TASK, Role.REVIEWER, place);
+        start.start(TASK, place);
         place.unpinnable = new PlaceUnreadable(PlaceUnreadable.Reason.UNREACHABLE, "unreachable");
 
-        assertThatThrownBy(() -> start.start(TASK, Role.REVIEWER, place))
+        assertThatThrownBy(() -> start.start(TASK, place))
                 .as("refused at the pin")
                 .isInstanceOfSatisfying(
                         RunRefused.class,
@@ -354,7 +353,7 @@ class RunStartTest {
         place.completeness = Completeness.PARTIAL;
         place.reason = "RateLimited";
 
-        final RunStart.Outcome outcome = start.start(TASK, Role.REVIEWER, place);
+        final RunStart.Outcome outcome = start.start(TASK, place);
 
         assertThat(place.written.get(0).completeness())
                 .as("the pages say it is partial")

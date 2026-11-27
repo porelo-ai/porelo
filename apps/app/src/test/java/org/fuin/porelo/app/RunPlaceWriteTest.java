@@ -17,7 +17,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class RunPlaceWriteTest {
 
-    private static final RunPlace.Pin PIN = new RunPlace.Pin("a".repeat(40), null, null);
+    private static final RunPlace.Pin PIN =
+            new RunPlace.Pin("a".repeat(40), null, null, "a".repeat(12));
 
     @TempDir Path state;
 
@@ -67,6 +68,12 @@ class RunPlaceWriteTest {
     }
 
     private static RunPlace reviewer() {
-        return new RunPlace(RunPlace.REVIEWER, null, "shop-2");
+        return new RunPlace(
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                null,
+                "shop-2");
     }
 }

@@ -61,6 +61,20 @@ class GateSigningTest {
         }
     }
 
+    @Test
+    void aGateToldToRefusePushesSignsNothingForItsTask() throws Exception {
+        try (GitHttpServer server =
+                server().signing(this::sign)
+                        .refusingPushes("RightMissing: push (push to the gate)")) {
+            server.start();
+
+            assertThat(post(server, token.basicAuthorization(), "tree 1\n").statusCode())
+                    .as("a signature asked with the task's token")
+                    .isEqualTo(403);
+            assertThat(signed).as("what was signed").isEmpty();
+        }
+    }
+
     private String sign(byte[] payload) {
         final String text = new String(payload, StandardCharsets.UTF_8);
         signed.add(text);

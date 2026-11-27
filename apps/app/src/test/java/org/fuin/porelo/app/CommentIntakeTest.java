@@ -33,13 +33,17 @@ class CommentIntakeTest {
 
     private final ReviewStandIns.Check check = new ReviewStandIns.Check();
     private final ReviewStandIns.Store store = new ReviewStandIns.Store();
-    private final CommentIntake intake = new CommentIntake(check, store);
+    // A task replies and opens no thread, as one recorded with the default parts.
+    private final CommentIntake intake =
+            new CommentIntake(check, store, (container, push, item) -> item instanceof ReviewReply);
 
     private static final ReviewComment COMMENT =
             new ReviewComment(
                     new LineAnchor("src/Shop.java", Side.NEW, 3, 5),
                     new Body("This loses the order."),
                     null);
+
+    private static final String CONTAINER = "porelo-uc_shop-2";
 
     private static ReviewReply reply(final String thread) {
         return new ReviewReply(thread, new Body("Fixed in the next commit."));
@@ -81,7 +85,9 @@ class CommentIntakeTest {
         // The producer is the channel's, so a reply can never pass as the owner account's.
         final String thread = store.opened(SHOP, Origin.of(new OwnerAccount()), COMMENT);
 
-        final Kept kept = intake.take(new Task("shop-2"), SHOP, reply(thread), null);
+        final Kept kept =
+                intake.takeAsTask(CONTAINER, new Task("shop-2"), SHOP, List.of(reply(thread)))
+                        .get(0);
 
         assertThat(kept.origin()).isEqualTo(Origin.of(new Task("shop-2")));
         assertThat(kept.thread()).isEqualTo(thread);
@@ -93,7 +99,13 @@ class CommentIntakeTest {
         final String foreign = store.opened(OTHER, Origin.of(new OwnerAccount()), COMMENT);
         final int before = store.kept.size();
 
-        assertThatThrownBy(() -> intake.take(new Task("shop-2"), SHOP, reply(foreign), null))
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER,
+                                        new Task("shop-2"),
+                                        SHOP,
+                                        List.of(reply(foreign))))
                 .isInstanceOfSatisfying(
                         ReviewRefused.class,
                         ex ->
@@ -139,7 +151,10 @@ class CommentIntakeTest {
 
     @Test
     void aTaskOpensNoThread() {
-        assertThatThrownBy(() -> intake.take(new Task("shop-2"), SHOP, COMMENT, null))
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER, new Task("shop-2"), SHOP, List.of(COMMENT)))
                 .isInstanceOfSatisfying(
                         ReviewRefused.class,
                         ex ->
@@ -180,7 +195,13 @@ class CommentIntakeTest {
         final String foreign = store.opened(OTHER, Origin.of(new OwnerAccount()), COMMENT);
         check.answer = new ReviewRefusal(ReviewError.TOO_LARGE, "text");
 
-        assertThatThrownBy(() -> intake.take(new Task("shop-2"), SHOP, reply(foreign), null))
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER,
+                                        new Task("shop-2"),
+                                        SHOP,
+                                        List.of(reply(foreign))))
                 .isInstanceOfSatisfying(
                         ReviewRefused.class,
                         ex -> assertThat(refusal(ex).error()).isEqualTo(ReviewError.TOO_LARGE));

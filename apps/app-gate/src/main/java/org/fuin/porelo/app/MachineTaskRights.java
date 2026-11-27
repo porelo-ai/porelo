@@ -13,32 +13,33 @@ import org.fuin.porelo.runtime.ContainerSummary;
 import org.fuin.porelo.vault.VaultEntry;
 
 /**
- * A machine's one assembly of a task's review role and of the vault's lending of a forge
+ * A machine's one assembly of a task's recorded rights and of the vault's lending of a forge
  * credential, which the daemon's runs and every answer of what is open read alike. Tasks are named
  * by their container.
  */
-public final class MachineReviewRole {
+public final class MachineTaskRights {
 
-    private MachineReviewRole() {}
+    private MachineTaskRights() {}
 
     /**
-     * Returns the role of this machine's tasks: the role each run recorded, the vault entries its
-     * items may go out under, the forge account each entry's token is, and where its last push
+     * Returns the rights of this machine's tasks: the parts each start recorded, the vault entries
+     * its items may go out under, the forge account each entry's token is, and where its last push
      * stands at its gate.
      *
      * @param context The machine.
      * @param forges Its forge file.
-     * @param forwarded What a task's gate last forwarded, for an author's pin.
-     * @return The role.
+     * @param forwarded What a task's gate last forwarded, for the pin of a task at its own work.
+     * @return The rights.
      */
-    public static TaskReviewRole of(
+    public static RecordedTaskRights of(
             final PoreloContext context,
             final ForgeInstanceFile forges,
-            final TaskReviewRole.Forwarded forwarded) {
+            final RecordedTaskRights.Forwarded forwarded) {
         final GateEnds ends = new GateEnds(context);
-        return new TaskReviewRole(
+        return new RecordedTaskRights(
                 container -> context.paths().tasks().containerState(container),
-                new TaskReviewRole.Entries() {
+                container -> context.paths().tasks().taskRecord(container),
+                new RecordedTaskRights.Entries() {
                     @Override
                     public boolean onHost() {
                         return Files.isRegularFile(context.paths().hostProgram());
@@ -46,7 +47,7 @@ public final class MachineReviewRole {
 
                     @Override
                     public String taskAccount(final String task) {
-                        return TaskReviewRole.taskForgeEntry(task);
+                        return RecordedTaskRights.taskForgeEntry(task);
                     }
 
                     @Override

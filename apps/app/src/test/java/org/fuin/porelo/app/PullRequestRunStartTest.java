@@ -29,7 +29,7 @@ import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewItem;
-import org.fuin.porelo.gate.review.Role;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -49,7 +49,14 @@ class PullRequestRunStartTest {
 
     private static final String HEAD = "a".repeat(40);
 
-    private static final RunPlace AT = RunPlace.atPullRequest(RunPlace.REVIEWER, TASK, URL);
+    private static final RunPlace AT =
+            RunPlace.atPullRequest(
+                    org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                            java.util.List.of(
+                                    org.fuin.porelo.gate.review.Right.REPLY,
+                                    org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                    TASK,
+                    URL);
 
     @TempDir Path holdsDir;
 
@@ -122,7 +129,11 @@ class PullRequestRunStartTest {
 
     private final HeldRuns runs = new HeldRuns();
 
-    private Role role = Role.REVIEWER;
+    private TaskParts parts =
+            org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                    java.util.List.of(
+                            org.fuin.porelo.gate.review.Right.REPLY,
+                            org.fuin.porelo.gate.review.Right.OPEN_THREADS));
 
     private PullRequestRunStart start() {
         final ForgeInstances forges =
@@ -164,7 +175,7 @@ class PullRequestRunStartTest {
                         new ReviewStandIns.Check(),
                         writing,
                         entry -> new ForgeCredential(entry, "t"),
-                        task -> role == Role.AUTHOR,
+                        task -> parts.worksOnItsOwn(),
                         (task, facts) -> {
                             // As the daemon's author pin refuses: the contract's error as its
                             // cause.
@@ -217,7 +228,8 @@ class PullRequestRunStartTest {
                 .hasValueSatisfying(
                         run -> {
                             assertThat(run.place()).as("its place").isEqualTo(URL);
-                            assertThat(run.role()).as("its role").isEqualTo(Role.REVIEWER);
+                            assertThat(run.number()).as("its number").isEqualTo(1);
+                            assertThat(run.push().head()).as("its pinned head").isEqualTo(HEAD);
                         });
     }
 
@@ -348,13 +360,14 @@ class PullRequestRunStartTest {
         known.add(
                 new ForgeInstance(
                         "review.stub.invalid", "stub-forge", CommentReading.EXTENDED, null));
-        role = Role.AUTHOR;
+        parts = TaskParts.ownWork();
 
         assertThatThrownBy(
                         () ->
                                 start().begin(
                                                 TASK,
-                                                RunPlace.atPullRequest(RunPlace.AUTHOR, TASK, URL)))
+                                                RunPlace.atPullRequest(
+                                                        TaskParts.ownWork(), TASK, URL)))
                 .as("a head its own gate never forwarded")
                 .isInstanceOfSatisfying(
                         RunPlaceCheck.Refused.class,

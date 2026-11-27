@@ -7,6 +7,8 @@ same two layers, a packet filter and a resolver of the task's own.
 This page says how those parts work. What a task can still do once it is convinced, and above all
 what the model provider sees, which no class closes, is on [How far a task can get](reach.md).
 
+What a task may do at its place, and who decides, is on [What a task may do](rights.md#the-rules-porelo-keeps-itself).
+
 ## The three security classes
 
 The same actors appear in all three pictures, in the same places. What changes is the path the
@@ -364,7 +366,8 @@ file, never the agent's.
 Every security-relevant event of an account - an approval or rejection of a task's work, a connection allowed or
 denied while a task ran and a change of its clearance mode, a file handed into a task or taken back, the credentials
 a start gave a task beyond its agent's own (names and destinations, never a value), a project file applied, a stop
-of all tasks at once - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `porelo events` shows it, the daemon's
+of all tasks at once, a task's comment or reply that went to its place without a hold (`unheld`: its task and
+place, never its text) - is one line of `$XDG_STATE_HOME/porelo/events.jsonl`. `porelo events` shows it, the daemon's
 `Events` answers it.
 
 - **Each line carries the hash of the one before**, so a line changed in place breaks the chain from there on.

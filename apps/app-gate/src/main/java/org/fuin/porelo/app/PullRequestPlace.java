@@ -176,8 +176,17 @@ public final class PullRequestPlace implements ReviewPlace {
         return writing.pages(facts(pinned), conversation);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>A resolve reads the pull request's head with the place's read credential, and is sent with
+     * the lent write credential only when the head is still the one its run pinned.
+     */
     @Override
     public WriteOutcome write(final Held held, final ForgeCredential credential) {
+        if (held.item() instanceof org.fuin.porelo.gate.review.ThreadResolve resolve) {
+            return resolved(held, resolve, credential);
+        }
         final PullRequestFacts now;
         try {
             now = forge.facts(ref, credential);
@@ -195,6 +204,40 @@ public final class PullRequestPlace implements ReviewPlace {
         return new ForgeWrite(forge, writing).write(ref, now, held, thread, credential);
     }
 
+    /** Resolves the thread once, against the commit its run pinned and no other. */
+    private WriteOutcome resolved(
+            final Held held,
+            final org.fuin.porelo.gate.review.ThreadResolve resolve,
+            final ForgeCredential credential) {
+        final PullRequestFacts now;
+        try {
+            // The read credential: the write one goes only into the resolve itself.
+            now = forge.facts(ref, credentials.lend(instance.credential()));
+        } catch (PlaceUnreadable ex) {
+            return new WriteOutcome.Refused(ex.reason().wireName());
+        }
+        if (!held.commit().equals(now.head())) {
+            return new WriteOutcome.Refused(ForgeWrite.MOVED_SINCE_REVIEW);
+        }
+        try {
+            // Only a thread of this pull request's conversation, found as a reply's thread is:
+            // a forge that resolves by a wider id would otherwise resolve another one's.
+            if (!threadShown(resolve.thread(), credentials.lend(instance.credential()))) {
+                return new WriteOutcome.Refused(ForgeWrite.NO_SUCH_THREAD);
+            }
+        } catch (PlaceUnreadable ex) {
+            return new WriteOutcome.Refused(ex.reason().wireName());
+        }
+        return java.util.Objects.requireNonNull(
+                forge.resolve(ref, resolve.thread(), credential), "an adapter's resolve answers");
+    }
+
+    /** Whether this pull request's conversation shows the thread, read as a reply's thread is. */
+    private boolean threadShown(final String thread, final ForgeCredential credential)
+            throws PlaceUnreadable {
+        return opening(thread, credential) != null;
+    }
+
     /**
      * Finds where the thread a reply answers stands, as the forge shows its opening comment now,
      * read through the one input path; null when the forge shows no such thread.
@@ -207,10 +250,20 @@ public final class PullRequestPlace implements ReviewPlace {
                     // A thread of Porelo's own is never on the forge; the write refuses it unread.
                     case org.fuin.porelo.gate.review.ReviewReply reply -> null;
                     case ReviewComment comment -> null;
+                    case org.fuin.porelo.gate.review.ThreadResolve resolve -> null;
                 };
         if (thread == null) {
             return null;
         }
+        return opening(thread, credential);
+    }
+
+    /**
+     * The place of a thread's opening comment in this pull request's conversation, read through the
+     * one input path; null when the conversation shows no such thread.
+     */
+    private @Nullable LineAnchor opening(final String thread, final ForgeCredential credential)
+            throws PlaceUnreadable {
         final ProfileChannel channel = new ProfileChannel.Adapter(ref.forge());
         for (final byte[] page : forge.conversation(ref, credential).pages()) {
             final List<ProfileItem> items;

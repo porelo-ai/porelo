@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
@@ -80,6 +81,9 @@ class StartCredentialEffectsTest {
 
     private void stoppedTask(PoreloContext context) throws java.io.IOException {
         LegacyTaskFixture.record(context, "porelo-p-work", "p", "c0ffeec0ffee");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        RunPlace.recordParts(
+                context.paths().tasks().taskRecord("porelo-p-work"), TaskParts.ownWork());
         machine.answering("ps", "porelo-p-work\tExited (0)\t\t\tp\tguarded\tp\t\tc0ffeec0ffee\n");
     }
 

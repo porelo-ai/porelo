@@ -74,6 +74,21 @@ class TaskReportMethodsTest {
                         "/porelo",
                         context.paths().tasks().containerState(task).toString())
                 .writeTo(state.resolve("sidecar.json"));
+        // As a start naming done and report records it: its own work, its endpoint carrying both.
+        new org.fuin.porelo.app.RunPlace(
+                        new org.fuin.porelo.gate.review.TaskParts(
+                                org.fuin.porelo.gate.review.TaskParts.Workspace.OWN,
+                                List.of(),
+                                true,
+                                org.fuin.porelo.gate.review.TaskParts.Account.AUTHOR,
+                                java.util.Set.of(
+                                        org.fuin.porelo.gate.review.Right.PUSH,
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.DONE,
+                                        org.fuin.porelo.gate.review.Right.REPORT)),
+                        null,
+                        task.substring("porelo-uc-".length()))
+                .writeTo(Files.createDirectories(context.paths().tasks().containerState(task)));
     }
 
     /** Makes the runtime list these containers, by name and id. */

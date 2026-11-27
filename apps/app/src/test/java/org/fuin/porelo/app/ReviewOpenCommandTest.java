@@ -182,7 +182,6 @@ class ReviewOpenCommandTest {
                 "--gate-push shop-2 --pull-request feature",
                 "--gate-push shop-2 --own-pull-request --task shop-2",
                 "--own-pull-request",
-                "--gate-push shop-2 --role OWNER",
                 "--pull-request feature --repository shop",
                 "--pull-request feature --task shop-2",
                 "--pull-request https://github.com/uc/shop/pull/7"
@@ -196,6 +195,15 @@ class ReviewOpenCommandTest {
         assertThat(code).as("a refused argument: %s", arguments).isEqualTo(64);
         assertThat(out.toString()).as("nothing on standard output").isEmpty();
         assertThat(err.toString()).as("a sentence on standard error").startsWith("porelo: ");
+    }
+
+    @Test
+    void aRoleIsAnOptionReviewOpenDoesNotHave() {
+        final int code = run("-p", "uc", "--gate-push", "shop-2", "--role", "AUTHOR");
+
+        assertThat(code).as("an unknown option").isEqualTo(2);
+        assertThat(out.toString()).as("nothing on standard output").isEmpty();
+        assertThat(err.toString()).as("names it").contains("--role");
     }
 
     @Test
@@ -260,7 +268,6 @@ class ReviewOpenCommandTest {
                                                 .answer(
                                                         "uc",
                                                         ReviewOpenPullRequestTest.PLACE,
-                                                        null,
                                                         ReviewOpenPullRequestTest.TASK)
                                                 .fields())));
     }
@@ -310,7 +317,9 @@ class ReviewOpenCommandTest {
         journal.state(
                 SHOP,
                 journal.threads(SHOP).getFirst().id(),
-                org.fuin.porelo.gate.review.ThreadState.RESOLVED);
+                org.fuin.porelo.gate.review.ThreadState.RESOLVED,
+                org.fuin.porelo.gate.review.Origin.of(
+                        new org.fuin.porelo.gate.review.OwnerAccount()));
         record("rejected", "-p", "uc", "--gate-push", "shop-2", "--json");
 
         ends.keep(CONTAINER, PushEnd.approved("shop-2", HEAD, "f".repeat(40), "main", ENDED));

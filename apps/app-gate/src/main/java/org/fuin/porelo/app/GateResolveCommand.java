@@ -76,7 +76,13 @@ public class GateResolveCommand implements Callable<Integer>, PoreloFactory.Cont
             // Only the thread's state: no finding is cleared and no approval is given or taken.
             final ReviewThread now =
                     used.store()
-                            .state(push, thread, reopen ? ThreadState.OPEN : ThreadState.RESOLVED);
+                            .state(
+                                    push,
+                                    thread,
+                                    reopen ? ThreadState.OPEN : ThreadState.RESOLVED,
+                                    // The owner account at its own command line.
+                                    org.fuin.porelo.gate.review.Origin.of(
+                                            new org.fuin.porelo.gate.review.OwnerAccount()));
             out.println("thread " + now.id() + "  " + now.state().name().toLowerCase(Locale.ROOT));
             out.flush();
             return 0;

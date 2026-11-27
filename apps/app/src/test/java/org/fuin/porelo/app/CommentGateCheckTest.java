@@ -32,7 +32,6 @@ import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.gate.review.Side;
 import org.fuin.porelo.gate.review.WriteOutcome;
@@ -61,8 +60,7 @@ class CommentGateCheckTest {
                     null,
                     null);
 
-    private static final Run RUN =
-            new Run(REF.url().toString(), Role.REVIEWER, new Pinned(SHOP, FACTS), 1);
+    private static final Run RUN = new Run(REF.url().toString(), new Pinned(SHOP, FACTS), 1);
 
     private static final ForgeAccount OCTOCAT = new ForgeAccount("github.com", "583231", "octocat");
 
@@ -185,7 +183,7 @@ class CommentGateCheckTest {
     @Test
     void underExtendedAPlaceWithoutPullRequestFactsWithholdsTheComment() {
         // No page can be written for the filter, so nothing passes unchecked.
-        final Run atGate = new Run("shop/shop-2", Role.REVIEWER, new Pinned(SHOP, null), 1);
+        final Run atGate = new Run("shop/shop-2", new Pinned(SHOP, null), 1);
 
         final Optional<String> judged = gate.judge(place, atGate, COMMENT, COMMENT);
 
@@ -200,7 +198,7 @@ class CommentGateCheckTest {
         filter.rule = "zero-width-characters";
         gate.judge(place, RUN, COMMENT, COMMENT);
         filter.rule = null;
-        final Run next = new Run(RUN.place(), RUN.role(), RUN.pinned(), 2);
+        final Run next = new Run(RUN.place(), RUN.pinned(), 2);
 
         final Optional<String> judged = gate.judge(place, next, COMMENT, COMMENT);
 

@@ -50,13 +50,17 @@ public interface ReviewStore {
     Optional<Push> recorded(String project, String repository, String name, String task);
 
     /**
-     * Sets a thread open or resolved.
+     * Sets a thread open or resolved, stamped with who set it.
      *
      * @param push The push.
      * @param thread The thread's id.
      * @param state The state to set.
+     * @param by The host's stamps of who sets it, from its channel: the owner account sets either
+     *     state, a task only {@link ThreadState#RESOLVED}.
      * @return The thread as it now stands.
      * @throws ReviewRefused {@code NoSuchThread}.
+     * @throws IllegalArgumentException For a task that would open a thread again, or a forge's
+     *     account; nothing is written.
      */
-    ReviewThread state(Push push, String thread, ThreadState state) throws ReviewRefused;
+    ReviewThread state(Push push, String thread, ThreadState state, Origin by) throws ReviewRefused;
 }

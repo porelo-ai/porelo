@@ -27,6 +27,28 @@ class TerminalStepsTest {
                 .isEqualTo(more);
     }
 
+    // Harm: an upstream a suite's step settles put into the double-quoted line the shell writes the
+    // project file with, where a quote ends it and the rest runs as the account.
+    @Test
+    void anUpstreamASuiteNamesIsAPlainAddressOrRefused() {
+        assertThat(TerminalSteps.upstreamAddress("https://127.0.0.1:40123/shop/app"))
+                .as("a forge's address on loopback, with its port")
+                .isEqualTo("https://127.0.0.1:40123/shop/app");
+        for (final String unsafe :
+                java.util.List.of(
+                        "https://h/x\"; rm -rf ~; \"",
+                        "https://h/$(id)",
+                        "https://h/`id`",
+                        "https://h/a\\b",
+                        "https://h/a b",
+                        "file://$HOME/x",
+                        "")) {
+            assertThatThrownBy(() -> TerminalSteps.upstreamAddress(unsafe))
+                    .as("the address %s", unsafe)
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
     @Test
     void aScenarioWithAnIndentedSnippetKeepsTheDefaultBaseImage() {
         final String more =

@@ -3,8 +3,6 @@ package org.fuin.porelo.app;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
@@ -19,37 +17,40 @@ import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PushEnd;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.ReviewRole;
-import org.fuin.porelo.gate.review.Role;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Task;
+import org.fuin.porelo.gate.review.TaskParts;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Decides what a task's role allows it, from the role its run recorded: the one class that tells an
- * author from a reviewer, so every other part asks it and names no role.
+ * Decides what a task may do, from the parts its start recorded: every other part of Porelo asks
+ * here and names no kind of workspace, account or right.
  *
  * <ul>
- *   <li>An author pushes, only replies, and is pinned only to a head its own gate took. Its items
- *       go out under the account that opened its pull request: the project's builds credential's
- *       account when the project names one, else on a host the task's own forge account, never the
- *       person's. At its gate push they are the task's own.
- *   <li>A reviewer pushes nothing, opens threads and replies, and may be pinned to any head. At a
- *       pull request its items go out under the owner account's forge account, with the credential
- *       of the forge the machine knows; at a gate push it has no posting account yet.
+ *   <li>A task pushes, replies, opens a thread, resolves one and rejects exactly where its recorded
+ *       rights hold the right.
+ *   <li>A task that works on its own is pinned only to a head its own gate took; one that reads
+ *       another task's work may be pinned to any head.
+ *   <li>At a gate push every task's items are the task's own, shown as "task NAME", and no account
+ *       is used. At a pull request they go out under the account its start recorded: the account
+ *       that opened it (the project's builds credential's account when the project names one, else
+ *       on a host the task's own forge account, never the person's), or the forge instance's.
  * </ul>
  *
- * <p>Neither role approves. Answers name vault entries, never a credential.
+ * <p>No task approves. Answers name vault entries, never a credential.
  */
-public final class TaskReviewRole implements ReviewRole {
+public final class RecordedTaskRights implements TaskRights {
 
-    /** Why a reviewer at a gate push is refused an account, for the refusal and the exception. */
-    private static final String NO_GATE_REVIEWER =
-            "a reviewer at a gate push posts as no account yet";
+    /** Why a task at a gate push is lent no entry: its items are written as the task itself. */
+    private static final String NO_ACCOUNT_AT_GATE = "a gate push uses no forge account";
 
-    /** Where an author's own entry for a forge is, in the vault's name space. */
+    /** Where the entry of the account that opened a pull request is, in the vault's name space. */
     public static final String AUTHOR_PREFIX = "git.author.";
 
     private final Function<String, Path> states;
+
+    private final Function<String, Path> records;
 
     private final Entries entries;
 
@@ -79,7 +80,7 @@ public final class TaskReviewRole implements ReviewRole {
          * Returns the entry of the forge token a host made for the task's own account.
          *
          * @param task The task's name.
-         * @return The entry, as {@link TaskReviewRole#taskForgeEntry} names it.
+         * @return The entry, as {@link RecordedTaskRights#taskForgeEntry} names it.
          */
         String taskAccount(String task);
 
@@ -151,35 +152,39 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
-     * Constructor without the gates' forwarded record: an author is pinned at no pull request.
+     * Constructor without the gates' forwarded record: a task is pinned at no pull request of its
+     * own.
      *
-     * @param states A task's state directory, by the task's name, where its run's role is kept.
+     * @param states A task's state directory, by the task's name, where its parts are kept.
      * @param entries The vault entries a task's items may go out under.
      * @param forges The forges this machine knows, whose credential is the owner account's there.
      * @param accounts The forge account an entry's token is.
      * @param ends Where a task's last push stands at its gate.
      */
-    public TaskReviewRole(
+    public RecordedTaskRights(
             final Function<String, Path> states,
             final Entries entries,
             final ForgeInstances forges,
             final Accounts accounts,
             final Ends ends) {
-        this(states, entries, forges, accounts, ends, Forwarded.NONE);
+        this(states, task -> states.apply(task), entries, forges, accounts, ends, Forwarded.NONE);
     }
 
     /**
      * Constructor.
      *
-     * @param states A task's state directory, by the task's name, where its run's role is kept.
+     * @param states A task's state directory, by the task's name, where its parts are kept.
+     * @param records A task's durable record, by the task's name, which holds its parts while its
+     *     state directory is gone, as after a reboot.
      * @param entries The vault entries a task's items may go out under.
      * @param forges The forges this machine knows, whose credential is the owner account's there.
      * @param accounts The forge account an entry's token is.
      * @param ends Where a task's last push stands at its gate.
      * @param forwarded What a task's gate last forwarded to an upstream branch.
      */
-    public TaskReviewRole(
+    public RecordedTaskRights(
             final Function<String, Path> states,
+            final Function<String, Path> records,
             final Entries entries,
             final ForgeInstances forges,
             final Accounts accounts,
@@ -187,6 +192,7 @@ public final class TaskReviewRole implements ReviewRole {
             final Forwarded forwarded) {
         this.forwarded = Objects.requireNonNull(forwarded, "forwarded");
         this.states = Objects.requireNonNull(states, "states");
+        this.records = Objects.requireNonNull(records, "records");
         this.entries = Objects.requireNonNull(entries, "entries");
         this.forges = Objects.requireNonNull(forges, "forges");
         this.accounts = Objects.requireNonNull(accounts, "accounts");
@@ -205,8 +211,8 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
-     * Returns the vault entry an author off a host writes under at a pull request of a forge: the
-     * token of the account that opened it, apart from the forge's own credential.
+     * Returns the vault entry a task off a host writes under at a pull request it opened: the token
+     * of the account that opened it, apart from the forge's own credential.
      *
      * @param ref The pull request.
      * @return {@code git.author.<forge host>}.
@@ -216,60 +222,43 @@ public final class TaskReviewRole implements ReviewRole {
     }
 
     /**
-     * Returns whether a role asks from the author's side, the side whose work it is.
-     *
-     * @param role The asking role; null is the author's, as an answer asked without one is.
-     * @return {@code true} for the author's side.
-     */
-    public static boolean asksAsAuthor(final @Nullable Role role) {
-        return role == null || role == Role.AUTHOR;
-    }
-
-    /**
      * {@inheritDoc}
      *
-     * <p>Only a task whose state holds no recorded role is an author; one whose record exists but
-     * does not read is refused every answer.
+     * <p>Read from the task's state, and from its durable record while the state holds none. A task
+     * with no record, or one that does not read, is refused every answer: it is never taken for one
+     * that works on its own.
      *
-     * @throws IllegalStateException When the task's recorded role does not read.
+     * @throws IllegalStateException When the task recorded no parts, or they do not read.
      */
     @Override
-    public Role role(final String task) {
-        final Path state = states.apply(task);
-        final Path file = state.resolve(RunPlace.FILE);
-        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-            return Role.AUTHOR;
-        }
-        final RunPlace recorded =
-                Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)
-                        ? RunPlace.readFrom(state)
-                        : null;
+    public TaskParts parts(final String task) {
+        final TaskParts inState = RunPlace.partsIn(states.apply(task));
+        final TaskParts recorded =
+                inState != null ? inState : RunPlace.partsIn(records.apply(task));
         if (recorded == null) {
-            // Never read as an author's: a record that does not read could have been a reviewer's.
             throw new IllegalStateException(
-                    "the recorded role of task " + task + " does not read; it is given no right");
+                    "task " + task + " recorded no parts; it is given no right");
         }
-        return Role.of(recorded.role());
+        return recorded;
     }
 
     @Override
     public boolean mayPush(final String task) {
-        return role(task) == Role.AUTHOR;
+        return parts(task).holds(Right.PUSH);
     }
 
     @Override
     public Producer postingAccount(final String task, final ReviewPlace place) {
         final Posting posting;
         try {
-            if (role(task) == Role.AUTHOR && pullRequest(place) == null) {
-                // At its own gate push its items go into Porelo's review journal: no forge entry.
+            if (pullRequest(place) == null) {
+                // At a gate push every task's items go into Porelo's review journal as its own.
                 return new Task(task);
             }
             posting = posting(task, place);
             final PullRequestRef ref =
                     Objects.requireNonNull(
-                            posting.ref(),
-                            "only an author at a gate push posts with no pull request");
+                            posting.ref(), "only a task at a gate push posts with no pull request");
             return accounts.of(ref, posting.entry());
         } catch (PlaceUnreadable ex) {
             throw new IllegalStateException(ex.getMessage(), ex);
@@ -283,28 +272,51 @@ public final class TaskReviewRole implements ReviewRole {
 
     @Override
     public boolean mayOpenThread(final String task, final ReviewPlace place) {
-        return role(task) == Role.REVIEWER;
+        return parts(task).holds(Right.OPEN_THREADS);
+    }
+
+    @Override
+    public boolean mayReply(final String task, final ReviewPlace place) {
+        return parts(task).holds(Right.REPLY);
+    }
+
+    @Override
+    public boolean mayResolve(final String task, final ReviewPlace place) {
+        return parts(task).holds(Right.RESOLVE_THREADS);
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>A reviewer may be pinned to any head. An author only to a head its own gate took, as the
-     * gate kept its last push: waiting, approved or rejected alike, since a rejected author still
-     * answers that head's threads. A record that cannot be read pins nothing.
+     * <p>Only a task that reads another task's work, at a push waiting at the gate: a reject has no
+     * other place, whatever a record planted beside the task holds.
      */
     @Override
-    public boolean mayPin(final String task, final String head) {
-        return switch (role(task)) {
-            case REVIEWER -> true;
-            case AUTHOR -> tookAtGate(task, head);
-        };
+    public boolean mayReject(final String task, final ReviewPlace place) {
+        final TaskParts parts = parts(task);
+        return parts.holds(Right.REJECT)
+                && parts.readsAnothersWork()
+                && place instanceof WaitingPushPlace;
     }
 
     /**
-     * Whether a run at a pull request may be pinned to a head: a reviewer to any, an author only to
-     * the commit its own gate last forwarded to that upstream branch, which is what the pull
-     * request shows of its work. A record that cannot be read pins nothing.
+     * {@inheritDoc}
+     *
+     * <p>A task that reads another task's work may be pinned to any head. One that works on its own
+     * only to a head its own gate took, as the gate kept its last push: waiting, approved or
+     * rejected alike, since a task whose push was rejected still answers that head's threads. A
+     * record that cannot be read pins nothing.
+     */
+    @Override
+    public boolean mayPin(final String task, final String head) {
+        return parts(task).readsAnothersWork() || tookAtGate(task, head);
+    }
+
+    /**
+     * Whether a run at a pull request may be pinned to a head: a task that reads another task's
+     * work to any, one that works on its own only to the commit its own gate last forwarded to that
+     * upstream branch, which is what the pull request shows of its work. A record that cannot be
+     * read pins nothing.
      *
      * @param task The task's name.
      * @param upstream The upstream repository the pull request is at, as the project names it.
@@ -315,7 +327,7 @@ public final class TaskReviewRole implements ReviewRole {
      */
     public boolean mayPinAtPullRequest(
             final String task, final String upstream, final String branch, final String head) {
-        if (role(task) == Role.REVIEWER) {
+        if (parts(task).readsAnothersWork()) {
             return true;
         }
         Optional<String> passed;
@@ -338,7 +350,7 @@ public final class TaskReviewRole implements ReviewRole {
     /** Names no entry, credential or token. */
     @Override
     public String toString() {
-        return "TaskReviewRole";
+        return "RecordedTaskRights";
     }
 
     /**
@@ -351,13 +363,13 @@ public final class TaskReviewRole implements ReviewRole {
     private record Posting(@Nullable PullRequestRef ref, String entry) {}
 
     private Posting posting(final String task, final ReviewPlace place) throws PlaceUnreadable {
-        final Role role = role(task);
         final PullRequestRef ref = pullRequest(place);
+        if (ref == null) {
+            throw new PlaceUnreadable(
+                    PlaceUnreadable.Reason.FORGE_ADAPTER_MISSING, NO_ACCOUNT_AT_GATE);
+        }
         final String entry =
-                switch (role) {
-                    case AUTHOR -> authorEntry(task, ref);
-                    case REVIEWER -> reviewerEntry(ref);
-                };
+                parts(task).writesAsOpener() ? openerEntry(task, ref) : instanceEntry(ref);
         if (!entries.held(entry)) {
             throw new PlaceUnreadable(
                     PlaceUnreadable.Reason.MISSING_FORGE_TOKEN,
@@ -378,8 +390,7 @@ public final class TaskReviewRole implements ReviewRole {
      * The account that opened the task's pull request: the project's own builds, else a host's,
      * else off a host the entry {@code git.author.<forge host>} a person keeps for it.
      */
-    private String authorEntry(final String task, final @Nullable PullRequestRef ref)
-            throws PlaceUnreadable {
+    private String openerEntry(final String task, final PullRequestRef ref) throws PlaceUnreadable {
         final Optional<String> own = entries.projectBuilds(task);
         final String entry;
         if (own.isPresent()) {
@@ -388,28 +399,22 @@ public final class TaskReviewRole implements ReviewRole {
             // On a host the builds credential is the person's, whose approval the forge then
             // refuses.
             entry = entries.taskAccount(task);
-        } else if (ref != null) {
+        } else {
             // Off a host, the account that opened the pull request, under a name of its own:
             // never the forge's own credential, which is the owner account's there.
             entry = authorEntry(ref);
-        } else {
-            throw new PlaceUnreadable(PlaceUnreadable.Reason.MISSING_FORGE_TOKEN, noAuthorEntry());
         }
         if (entry.startsWith(ForgeInstance.CREDENTIAL_PREFIX)) {
             // A forge's credential is the owner account's there; its entry is not repeated.
             throw new PlaceUnreadable(
                     PlaceUnreadable.Reason.MISSING_FORGE_TOKEN,
-                    "the entry named for this task's items is a forge's own credential, which an"
-                            + " author never writes under");
+                    "the entry named for this task's items is a forge's own credential, which"
+                            + " the account that opened a pull request never is");
         }
         return entry;
     }
 
-    private String reviewerEntry(final @Nullable PullRequestRef ref) throws PlaceUnreadable {
-        if (ref == null) {
-            throw new PlaceUnreadable(
-                    PlaceUnreadable.Reason.FORGE_ADAPTER_MISSING, NO_GATE_REVIEWER);
-        }
+    private String instanceEntry(final PullRequestRef ref) throws PlaceUnreadable {
         final Optional<ForgeInstance> instance;
         try {
             instance = forges.of(ref.url());
@@ -446,8 +451,9 @@ public final class TaskReviewRole implements ReviewRole {
 
     /**
      * Returns the pull request a place is, or null for a gate push, by the place's name as {@link
-     * ReviewPlace#name()} gives it: a pull request's https address, a gate push's repository and
-     * name. A name in the https scheme, in any case, that is no pull request's address is refused.
+     * ReviewPlace#name()} gives it: a pull request's https address, a gate push's project,
+     * repository and name. A name in the https scheme, in any case, that is no pull request's
+     * address is refused.
      */
     private static @Nullable PullRequestRef pullRequest(final ReviewPlace place)
             throws PlaceUnreadable {
@@ -462,10 +468,5 @@ public final class TaskReviewRole implements ReviewRole {
                     PlaceUnreadable.Reason.UNKNOWN_FORGE,
                     "the place's name is no pull request's https address with a host");
         }
-    }
-
-    private static String noAuthorEntry() {
-        return "the project names no builds credential, and off a host the task has no forge"
-                + " account of its own to write its items as";
     }
 }

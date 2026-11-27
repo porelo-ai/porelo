@@ -1,6 +1,7 @@
 package org.fuin.porelo.acceptance.suite;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -172,23 +173,45 @@ class PullRequestReviewTest {
                 .hasMessageContaining("no JSON array");
     }
 
+    // Harm: a reviewer started in the account's default project, which names no repository of the
+    // pull request, so its start is refused before the run the scenario shows.
     @Test
-    void aRunIsATaskStartWithItsAgentRolePlaceAndAPromptQuoted() {
-        assertThat(PullRequestReviewSteps.runCommand("reviewer", "reviewer", URL))
+    void aRunIsATaskStartWithItsAgentRightsPlaceAndAPromptQuoted() {
+        assertThat(
+                        PullRequestReviewSteps.runCommand(
+                                "reviewer",
+                                "reviewed",
+                                "review",
+                                List.of("reply", "openThreads"),
+                                URL))
                 .as("the run's command")
                 .startsWith(PullRequestReviewSteps.certified("t='reviewer'; "))
                 .contains("porelo task stop \"$t\"")
                 .endsWith(
-                        "porelo task start \"$t\" --project default --repository default --agent stub"
-                                + " --role 'reviewer'"
-                                + " --place '"
+                        "porelo task start \"$t\" --project 'reviewed' --repository 'reviewed'"
+                                + " --agent stub --right 'reply' --right 'openThreads'"
+                                + " --write-as 'review' --place '"
                                 + URL
                                 + "' --prompt review")
                 .doesNotContain("task run");
-        assertThat(PullRequestReviewSteps.runCommand("porelo-shop_authored", "author", URL))
-                .as("a task named by its container carries its own project")
-                .contains("porelo task start \"$t\" --agent stub --role 'author'")
-                .doesNotContain("--project");
+        assertThat(PullRequestReviewSteps.runCommand("reviewer", null, null, List.of(), URL))
+                .as("a scenario that gave its reviewer no project of its own")
+                .contains(" --project 'default' --repository 'default' --agent stub --place '");
+        assertThat(
+                        PullRequestReviewSteps.runCommand(
+                                "porelo-shop_authored", "reviewed", null, List.of(), URL))
+                .as("a task named by its container carries its own project and names no right")
+                .contains("porelo task start \"$t\" --agent stub --place '")
+                .doesNotContain("--project", "--right", "--role", "--write-as");
+        assertThatThrownBy(
+                        () ->
+                                PullRequestReviewSteps.runCommand(
+                                        "reviewer", "x'; rm -rf ~; '", null, List.of(), URL))
+                .as("a project that is more than a name")
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(ScenarioTasks.words(" reply,  openThreads "))
+                .as("a step's rights, separated by commas")
+                .containsExactly("reply", "openThreads");
     }
 
     @Test
@@ -315,12 +338,17 @@ class PullRequestReviewTest {
                 .endsWith("exit 1");
     }
 
+    // Harm: a reviewer's held items read and decided at a container of another project, where
+    // nothing is held, so a release the scenario shows never happens.
     @Test
     void theGatesCommandsNameATaskByItsContainerInTheProjectItWasStartedIn() {
-        assertThat(PullRequestReviewSteps.containerOf("reviewer"))
-                .as("a bare name is a task of the default project")
+        assertThat(PullRequestReviewSteps.containerOf("reviewer", "reviewed"))
+                .as("a bare name is a task of the project the scenario gave its reviewers")
+                .isEqualTo("porelo-reviewed_reviewer");
+        assertThat(PullRequestReviewSteps.containerOf("reviewer", null))
+                .as("a bare name where the scenario gave none is a task of the default project")
                 .isEqualTo("porelo-default_reviewer");
-        assertThat(PullRequestReviewSteps.containerOf("porelo-shop_authored"))
+        assertThat(PullRequestReviewSteps.containerOf("porelo-shop_authored", "reviewed"))
                 .as("a container's name stays as it is")
                 .isEqualTo("porelo-shop_authored");
     }
@@ -345,7 +373,12 @@ class PullRequestReviewTest {
                     new ProcessBuilder(
                                     "sh",
                                     "-c",
-                                    PullRequestReviewSteps.runCommand("reviewer", "reviewer", URL))
+                                    PullRequestReviewSteps.runCommand(
+                                            "reviewer",
+                                            "reviewed",
+                                            "review",
+                                            List.of("reply", "openThreads"),
+                                            URL))
                             .redirectErrorStream(true);
             builder.environment().put("PATH", bin + ":" + System.getenv("PATH"));
             builder.environment().put("STATE", state);

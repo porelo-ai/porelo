@@ -16,7 +16,6 @@ import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewPlace;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.jspecify.annotations.Nullable;
 
@@ -99,15 +98,13 @@ public final class RunStart {
      * Starts a run of the task at the place.
      *
      * @param task The task's container name.
-     * @param role The task's role there.
      * @param place The place.
      * @return What the run was given.
      * @throws RunRefused When the place could not be pinned or read, a comment not judged, the
      *     conversation not delivered or the waiting items not counted; no run of the task is
      *     current then.
      */
-    public Outcome start(final String task, final Role role, final ReviewPlace place)
-            throws RunRefused {
+    public Outcome start(final String task, final ReviewPlace place) throws RunRefused {
         final int number = holds.startRun(task, place.name());
         final Pinned pinned;
         try {
@@ -117,7 +114,7 @@ public final class RunStart {
             runs.end(task);
             throw new RunRefused(RunRefused.Step.PIN, unpinned);
         }
-        final Run run = new Run(place.name(), role, pinned, number);
+        final Run run = new Run(place.name(), pinned, number);
         runs.begin(task, run);
         final Conversation read;
         try {

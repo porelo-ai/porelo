@@ -73,6 +73,62 @@ class MessageIntakeTest {
         }
     }
 
+    // Harm: a reading task without a key of its own had its message to a peer held, where a
+    // person sees it offered for release, instead of refused for good as the rule says.
+    @Test
+    void refuses_for_good_what_an_unsigned_reading_task_addresses_to_anyone_but_its_review(
+            @TempDir final Path dir) throws IOException {
+        final Mailbox mailbox = mailbox(dir);
+        Files.writeString(
+                mailbox.outboxNew().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"outside\"}}");
+        Files.writeString(
+                mailbox.outboxNew().resolve("m-2.json"),
+                "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"review\"}}");
+        final List<MessageDelivery.Held> told = new java.util.ArrayList<>();
+
+        new MessageIntake(
+                        () -> {
+                            throw new MessageSigners.Unsigned("no key of its own", false);
+                        },
+                        told::add)
+                .reading(true)
+                .take(mailbox);
+
+        assertThat(mailbox.hold().resolve("m-1.json"))
+                .as("nothing of a reading task's message to a peer is kept for a release")
+                .doesNotExist();
+        assertThat(mailbox.rejected().resolve("m-1.json"))
+                .as("nor kept among the refused")
+                .doesNotExist();
+        assertThat(mailbox.hold().resolve("m-2.json"))
+                .as("a message to its review alone goes the way an unsigned one goes today")
+                .exists();
+        assertThat(told)
+                .as("each verdict is recorded as it is given")
+                .extracting(MessageDelivery.Held::message, MessageDelivery.Held::reason)
+                .contains(
+                        org.assertj.core.groups.Tuple.tuple(
+                                "m-1.json", MessageDispatch.READER_REFUSED));
+        try (var answers = Files.list(mailbox.feedback())) {
+            assertThat(answers.map(MessageIntakeTest::read).toList())
+                    .as("the task is told by the rule, about its own message")
+                    .anySatisfy(
+                            answer ->
+                                    assertThat(answer)
+                                            .contains(ReadingTasks.SENDS_TO_REVIEW_ONLY)
+                                            .contains("\"rejectedMessageId\":\"m-1\""));
+        }
+    }
+
+    private static String read(final Path file) {
+        try {
+            return Files.readString(file);
+        } catch (final IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
+
     @Test
     void leaves_what_waits_for_the_vault_where_the_agent_put_it(@TempDir final Path dir)
             throws IOException {

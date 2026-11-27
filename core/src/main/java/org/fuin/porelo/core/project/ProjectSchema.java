@@ -563,7 +563,9 @@ final class ProjectSchema {
                             "methods",
                             "The daemon's methods the endpoint carries, by name without the"
                                     + " interface, such as Start; one never offered to MCP, or one"
-                                    + " the daemon lacks, is refused.",
+                                    + " the daemon lacks, is refused. It is the project's bound:"
+                                    + " Start, Stop, Done and Report are carried only for a task"
+                                    + " whose recorded rights hold start, stop, done and report.",
                             "list",
                             "",
                             true),

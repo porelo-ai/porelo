@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.fuin.porelo.core.project.SecurityClass;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.CommentCheck;
 import org.fuin.porelo.gate.review.CommentReading;
@@ -35,6 +36,9 @@ import org.fuin.porelo.gate.review.ProfileItem;
 import org.fuin.porelo.gate.review.ProfileRead;
 import org.fuin.porelo.gate.review.ProfileReading;
 import org.fuin.porelo.gate.review.ProfileRefused;
+import org.fuin.porelo.gate.review.PullRequestFacts;
+import org.fuin.porelo.gate.review.PullRequestRef;
+import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewError;
@@ -43,16 +47,17 @@ import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewRefusal;
 import org.fuin.porelo.gate.review.ReviewReply;
-import org.fuin.porelo.gate.review.ReviewRole;
-import org.fuin.porelo.gate.review.Role;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.gate.review.Side;
 import org.fuin.porelo.gate.review.Task;
+import org.fuin.porelo.gate.review.TaskParts;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
-/** A run's submission: read from its task's channel, judged by role, checked, then held. */
+/** A run's submission: read from its task's channel, judged by its rights, checked, then held. */
 class RunIntakeTest {
 
     private static final String TASK = "shop-2";
@@ -86,11 +91,46 @@ class RunIntakeTest {
                     roles,
                     holds,
                     runs,
-                    name -> Optional.ofNullable(places.get(name)));
+                    name -> Optional.ofNullable(places.get(name)),
+                    // A guarded project's pull request: every item waits for the owner account.
+                    new HoldingRule(project -> SecurityClass.GUARDED),
+                    new UnheldWrites(
+                            new CommentIntake(
+                                    check,
+                                    new ReviewStandIns.Store(),
+                                    (container, push, item) -> false),
+                            holds,
+                            () -> {
+                                throw new UnsupportedOperationException("nothing goes at once");
+                            },
+                            (kind, project, task, detail) -> {
+                                throw new UnsupportedOperationException("nothing goes at once");
+                            }));
 
-    private void runAs(final Role role) {
-        roles.role = role;
-        runs.byTask.put(TASK, new Run(PLACE, role, new Pinned(PINNED, null), 2));
+    private static final PullRequestFacts FACTS =
+            new PullRequestFacts(
+                    PullRequestRef.of(java.net.URI.create(PLACE)),
+                    "https://github.com/uc/shop",
+                    PINNED.head(),
+                    "f".repeat(40),
+                    "f".repeat(40),
+                    PullRequestState.OPEN,
+                    false,
+                    null,
+                    null,
+                    null,
+                    null);
+
+    /** Today's author: own work, push and reply. */
+    private static final TaskParts AUTHOR = TaskParts.ownWork();
+
+    /** Today's reviewer: another task's work, reply and openThreads. */
+    private static final TaskParts REVIEWER =
+            TaskParts.anothersWork(List.of(Right.REPLY, Right.OPEN_THREADS));
+
+    private void runAs(final TaskParts parts) {
+        roles.parts = parts;
+        runs.byTask.put(TASK, new Run(PLACE, new Pinned(PINNED, FACTS), 2));
         places.put(PLACE, new Place(PLACE));
     }
 
@@ -119,7 +159,7 @@ class RunIntakeTest {
     @Test
     void aTaskWithoutARunIsRefusedWhileAnotherTasksRunExists() {
         // A run is the task's own; another task's run must never carry its words to a place.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.items = List.of(submitted(REPLY));
 
         assertThatThrownBy(() -> intake.take("shop-3", DOCUMENT, false))
@@ -138,7 +178,7 @@ class RunIntakeTest {
     void anItemNotTheTasksOwnRefusesTheWholeSubmissionAndHoldsNothing() {
         // A submission names no producer, id or thread; one that does was not stamped by this
         // task's channel.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         final List<ProfileItem> foreign =
                 List.of(
                         new ProfileItem(null, null, new Task("shop-3"), REPLY, null),
@@ -164,7 +204,7 @@ class RunIntakeTest {
     @Test
     void anEmptySubmissionIsRefused() {
         // An empty submission would reach the owner account as a run that said nothing.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.items = List.of();
 
         assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
@@ -181,7 +221,7 @@ class RunIntakeTest {
     @Test
     void aCheckedItemIsHeldOutgoingWithTheRunsPinnedState() throws Exception {
         // The release must reach exactly the commit the run read, so the hold carries the run.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.items = List.of(submitted(COMMENT), submitted(REPLY));
 
         intake.take(TASK, DOCUMENT, false);
@@ -192,7 +232,8 @@ class RunIntakeTest {
         assertThat(check.pushes).as("checked against the pinned state").containsOnly(PINNED);
         assertThat(holds.held)
                 .as(
-                        "each item held, in order, outgoing, with nothing received, at the pinned commit")
+                        "each item held, in order, outgoing, with nothing received, at the pinned"
+                                + " commit")
                 .extracting(Held::item, Held::direction, Held::received, Held::commit, Held::run)
                 .containsExactly(
                         tuple(COMMENT, Direction.OUTGOING, null, PINNED.head(), 2),
@@ -210,7 +251,7 @@ class RunIntakeTest {
     void anUnsignedSubmissionsItemsAreEachHeldMarkedUnsignedAndASignedOnesUnmarked()
             throws Exception {
         // The owner account sees which review no certified key signed before it decides.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.items = List.of(submitted(COMMENT), submitted(REPLY));
 
         intake.take(TASK, DOCUMENT, true);
@@ -225,7 +266,7 @@ class RunIntakeTest {
     @Test
     void aRefusedCheckRefusesTheWholeSubmissionAndHoldsNothing() {
         // Half a submission held would show the owner account a review its task never sent.
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         final ReviewReply later = new ReviewReply("1002", new Body("bad"));
         reading.items = List.of(submitted(COMMENT), submitted(REPLY), submitted(later));
         check.refuse.add(REPLY);
@@ -243,9 +284,9 @@ class RunIntakeTest {
     }
 
     @Test
-    void anAuthorsNewCommentIsRefusedAndNothingIsHeld() {
-        // An author answers its review; a thread it opened would speak as a reviewer.
-        runAs(Role.AUTHOR);
+    void aNewCommentOfATaskWithoutOpenThreadsIsRefusedAndNothingIsHeld() {
+        // A task opens a thread only where its start recorded openThreads; today's author has not.
+        runAs(AUTHOR);
         reading.items = List.of(submitted(REPLY), submitted(COMMENT));
 
         assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
@@ -254,15 +295,16 @@ class RunIntakeTest {
                         ProfileRefused.class,
                         ex ->
                                 assertThat(ex.rule())
-                                        .as("the role's rule")
-                                        .isEqualTo("role: only replies at this place"));
+                                        .as("the missing right's rule")
+                                        .isEqualTo(RunIntake.MAY_NOT_OPEN)
+                                        .isEqualTo("RightMissing: openThreads (open a thread)"));
         assertThat(holds.held).as("not even its reply").isEmpty();
         assertThat(roles.askedOpen).as("asked of the run's place").containsExactly(PLACE);
     }
 
     @Test
     void anAuthorsReplyIsHeld() throws Exception {
-        runAs(Role.AUTHOR);
+        runAs(AUTHOR);
         reading.items = List.of(submitted(REPLY));
 
         intake.take(TASK, DOCUMENT, false);
@@ -271,8 +313,49 @@ class RunIntakeTest {
     }
 
     @Test
+    void aReplyOfATaskWithoutReplyIsRefusedAndNothingIsHeld() {
+        // A task answers in a thread only where its start recorded reply.
+        runAs(TaskParts.anothersWork(List.of(Right.OPEN_THREADS)));
+        final ReviewReply answer = new ReviewReply("1002", new Body("Agreed."));
+        reading.items = List.of(submitted(COMMENT), submitted(answer));
+
+        assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
+                .as("a reply without reply")
+                .isInstanceOfSatisfying(
+                        ProfileRefused.class,
+                        ex ->
+                                assertThat(ex.rule())
+                                        .as("the missing right's rule")
+                                        .isEqualTo(RunIntake.MAY_NOT_REPLY)
+                                        .isEqualTo("RightMissing: reply (reply in a thread)"));
+        assertThat(holds.held).as("not even its comment").isEmpty();
+        assertThat(check.asked).as("nothing checked").isEmpty();
+        assertThat(roles.askedReply).as("asked of the run's place").containsExactly(PLACE);
+    }
+
+    @Test
+    void aTaskAtItsOwnWorkWithOpenThreadsHasItsCommentHeld() throws Exception {
+        // The refusal of a task at its own work is gone with the role: openThreads alone decides.
+        runAs(
+                new TaskParts(
+                        TaskParts.Workspace.OWN,
+                        List.of(),
+                        true,
+                        TaskParts.Account.AUTHOR,
+                        Set.of(Right.PUSH, Right.REPLY, Right.OPEN_THREADS)));
+        reading.items = List.of(submitted(COMMENT));
+
+        intake.take(TASK, DOCUMENT, false);
+
+        assertThat(holds.held)
+                .extracting(Held::item)
+                .as("the comment held")
+                .containsExactly(COMMENT);
+    }
+
+    @Test
     void aReviewersCommentIsHeld() throws Exception {
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.items = List.of(submitted(COMMENT));
 
         intake.take(TASK, DOCUMENT, false);
@@ -285,7 +368,7 @@ class RunIntakeTest {
 
     @Test
     void aDocumentTheReadingRefusesHoldsNothing() {
-        runAs(Role.REVIEWER);
+        runAs(REVIEWER);
         reading.refusal = new ProfileRefused("schema: porelo/sourceKind in a submission");
 
         assertThatThrownBy(() -> intake.take(TASK, DOCUMENT, false))
@@ -297,7 +380,7 @@ class RunIntakeTest {
     @Test
     void aSubmissionWhoseRunsPlaceIsNoLongerFoundIsRefusedAndNothingIsHeld() {
         // A hold bound to a place nobody can find could never be released where it was meant.
-        runAs(Role.AUTHOR);
+        runAs(AUTHOR);
         places.clear();
         reading.items = List.of(submitted(REPLY));
 
@@ -365,19 +448,20 @@ class RunIntakeTest {
         }
     }
 
-    /** Opens threads for a reviewer alone, and records the places asked. */
-    private static final class Roles implements ReviewRole {
-        Role role = Role.AUTHOR;
+    /** Answers by fixed parts, and records the places asked. */
+    private static final class Roles implements TaskRights {
+        TaskParts parts = TaskParts.ownWork();
         final List<String> askedOpen = new ArrayList<>();
+        final List<String> askedReply = new ArrayList<>();
 
         @Override
-        public Role role(final String task) {
-            return role;
+        public TaskParts parts(final String task) {
+            return parts;
         }
 
         @Override
         public boolean mayPush(final String task) {
-            return role == Role.AUTHOR;
+            return parts.holds(Right.PUSH);
         }
 
         @Override
@@ -393,7 +477,23 @@ class RunIntakeTest {
         @Override
         public boolean mayOpenThread(final String task, final ReviewPlace place) {
             askedOpen.add(place.name());
-            return role == Role.REVIEWER;
+            return parts.holds(Right.OPEN_THREADS);
+        }
+
+        @Override
+        public boolean mayReply(final String task, final ReviewPlace place) {
+            askedReply.add(place.name());
+            return parts.holds(Right.REPLY);
+        }
+
+        @Override
+        public boolean mayResolve(final String task, final ReviewPlace place) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean mayReject(final String task, final ReviewPlace place) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

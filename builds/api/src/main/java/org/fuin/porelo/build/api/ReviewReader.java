@@ -61,4 +61,19 @@ public interface ReviewReader {
      *     whether it was written.
      */
     String post(ForgeAccess access, String url, String document);
+
+    /**
+     * Marks one thread of a pull request resolved, as the account the token stands for. A thread
+     * the forge already shows resolved is done, so a second call for it changes nothing.
+     *
+     * @param access The forge's API and the write token lent for this call.
+     * @param url The pull request's https address.
+     * @param thread The thread's id, as {@link #comments} and {@link #post} give it.
+     * @throws ForgeReviewRefused When the forge would not resolve it: {@link
+     *     ForgeReviewRefused.Reason#RESOLVE_UNSUPPORTED} for a forge that cannot resolve a thread,
+     *     {@link ForgeReviewRefused.Reason#NO_SUCH_THREAD} for a thread the pull request does not
+     *     hold, or {@link ForgeReviewRefused.Reason#WRITE_OUTCOME_UNKNOWN} when it was sent and no
+     *     answer says whether it was written.
+     */
+    void resolve(ForgeAccess access, String url, String thread);
 }

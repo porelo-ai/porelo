@@ -460,36 +460,55 @@ class InterfaceDescriptionTest {
     }
 
     @Test
-    void aReviewRunsRolePlaceAndWhatIsOpenThereAreDeclaredAsThePlannerReadsThem() {
+    void aRunsPartsPlaceAndWhatIsOpenThereAreDeclaredAsThePlannerReadsThem() {
         // The planner reads these names as the contract gives them; a renamed field is a planner
         // that reads nothing.
         final String description = PoreloDaemon.description();
         assertThat(description)
-                .as("Start and CanStart take a role and a place")
+                .as("Start and CanStart take the four parts beside the place, and no role")
                 .containsPattern(
-                        "method Start\\((?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)place:"
+                        "method Start\\((?s:.*?)rights: \\?\\[\\]Right,(?s:.*?)readLanded:"
+                                + " \\?\\[\\]string,(?s:.*?)writeAs: \\?\\(author, review\\),"
+                                + "(?s:.*?)projectServices: \\?bool,(?s:.*?)place:"
                                 + " \\?Place\\s*\\) -> \\(")
                 .containsPattern(
-                        "method CanStart\\((?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)place:"
+                        "method CanStart\\((?s:.*?)rights: \\?\\[\\]Right,(?s:.*?)readLanded:"
+                                + " \\?\\[\\]string,(?s:.*?)writeAs: \\?\\(author, review\\),"
+                                + "(?s:.*?)projectServices: \\?bool,(?s:.*?)place:"
                                 + " \\?Place\\s*\\) -> \\(")
+                .doesNotContainPattern("(?m)^\\s*role: \\?\\(AUTHOR, REVIEWER\\),")
+                .doesNotContainPattern("(?m)^\\s*reads: \\?\\[\\]string,")
+                .contains(
+                        "type Right (push, reply, openThreads, resolveThreads, start, stop, done,"
+                                + " report, reject)")
                 .as("a place is a gate push, a pull request or the task's own pull request")
                 .containsPattern(
                         "type Place \\((?s:.*?)gatePush: \\?GatePush,(?s:.*?)pullRequest:"
                                 + " \\?string,(?s:.*?)ownPullRequest: \\?bool\\s*\\)")
                 .containsPattern(
                         "type GatePush \\((?s:.*?)repository: \\?string,(?s:.*?)name: string\\s*\\)")
-                .as("a task and its record carry the run's role, place and held items")
+                .as(
+                        "a task and its record carry its workspace, its four parts, place and held items")
                 .containsPattern(
-                        "(?m)^type Task \\((?:(?!\\n\\))[\\s\\S])*?role: \\?string,"
+                        "(?m)^type Task \\((?:(?!\\n\\))[\\s\\S])*?workspace: \\(own, foreign,"
+                                + " readOnly, allRepositories, none\\),"
+                                + "(?:(?!\\n\\))[\\s\\S])*?rights: \\[\\]Right,"
+                                + "(?:(?!\\n\\))[\\s\\S])*?readLanded: \\[\\]string,"
+                                + "(?:(?!\\n\\))[\\s\\S])*?writeAs: \\(author, review\\),"
+                                + "(?:(?!\\n\\))[\\s\\S])*?projectServices: bool,"
                                 + "(?:(?!\\n\\))[\\s\\S])*?place: \\?Place,"
                                 + "(?:(?!\\n\\))[\\s\\S])*?held: \\?int\\s*\\n\\)")
+                .doesNotContainPattern("(?m)^\\s*role: \\?string,")
                 .containsPattern(
-                        "type TaskRecord \\((?s:.*?)role: \\?string,(?s:.*?)place: \\?Place,"
+                        "type TaskRecord \\((?s:.*?)workspace: \\(own, foreign, readOnly,"
+                                + " allRepositories, none\\),\\s*rights: \\[\\]Right,\\s*readLanded:"
+                                + " \\[\\]string,\\s*writeAs: \\(author, review\\),\\s*"
+                                + "projectServices: bool,(?s:.*?)place: \\?Place,"
                                 + "(?s:.*?)held: \\?int\\s*\\)")
                 .as("ReviewOpen answers the decision, the points with their times and the counts")
                 .containsPattern(
-                        "method ReviewOpen\\(\\s*project: string,(?s:.*?)place: Place,"
-                                + "(?s:.*?)role: \\?\\(AUTHOR, REVIEWER\\),(?s:.*?)task: \\?string"
+                        "method ReviewOpen\\(\\s*project: string,\\s*place: Place,"
+                                + "(?:\\s*#[^\\n]*\\n)*\\s*task: \\?string"
                                 + "\\s*\\) -> \\((?s:.*?)head: \\?string,(?s:.*?)decision: \\(OPEN,"
                                 + " RETURNED, REJECTED, LANDED, APPROVED, MERGED, CLOSED\\),"
                                 + "(?s:.*?)mergedCommit: \\?string,(?s:.*?)mergedHead: \\?string,"
@@ -501,12 +520,15 @@ class InterfaceDescriptionTest {
                         "type OpenPoint \\(\\s*thread: string,(?s:.*?)path: \\?string,"
                                 + "(?s:.*?)line: \\?int,(?s:.*?)lastBy: string,(?s:.*?)lastAt:"
                                 + " string\\s*\\)")
-                .as("the five refusals of a run's place")
+                .as("the refusals of a run's place and parts")
                 .contains(
                         "error UnknownForge(host: string)",
                         "error NoPullRequest(branch: string)",
                         "error NotTheTasksPush(head: string)",
-                        "error RoleNotAllowed(role: string, place: Place)")
+                        "error StartRuleBroken(rule: string, detail: string)",
+                        "error RightsChanged()")
+                .doesNotContain("error RoleNotAllowed")
+                .doesNotContain("error RightMissing")
                 .containsPattern(
                         "error PlaceUnreadable\\(\\s*reason: \\(NoSuchPush, NotInProject,"
                                 + " MovedSinceReview, MissingForgeToken, ForgeAdapterMissing,"
@@ -528,11 +550,11 @@ class InterfaceDescriptionTest {
                 .containsPattern(
                         "type HeldItem \\(\\s*(?s:.*?)id: string,(?s:.*?)task: string,(?s:.*?)place:"
                                 + " string,\\s*direction: \\(outgoing, incoming\\),(?s:.*?)destination:"
-                                + " string,(?s:.*?)operation: \\(comment, reply\\),(?s:.*?)path:"
+                                + " string,(?s:.*?)operation: \\(comment, reply, resolve\\),(?s:.*?)path:"
                                 + " \\?string,(?s:.*?)side: \\?\\(old, new\\),(?s:.*?)startLine:"
                                 + " \\?int,(?s:.*?)endLine: \\?int,(?s:.*?)thread:"
                                 + " \\?string,(?s:.*?)suggestion: \\?string,(?s:.*?)commit:"
-                                + " string,(?s:.*?)text: string,(?s:.*?)digest: string,(?s:.*?)from:"
+                                + " string,(?s:.*?)text: \\?string,(?s:.*?)digest: string,(?s:.*?)from:"
                                 + " \\?string,(?s:.*?)mark: \\?\\(unsigned\\),(?s:.*?)at:"
                                 + " string,(?s:.*?)run: int\\s*\\)")
                 .as("a decision names the digest it was shown and answers nothing")

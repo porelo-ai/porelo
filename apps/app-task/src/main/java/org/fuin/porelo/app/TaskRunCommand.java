@@ -210,14 +210,14 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private @Nullable Integer subagents;
 
     @Option(
-            names = "--reads",
-            paramLabel = "TASK",
-            split = ",",
+            names = "--read-landed",
+            paramLabel = "<task>",
             description =
-                    "Starts this task to read the named tasks' work where it landed, once their gate"
-                            + " forwarded it: its gate shows it those, read only, as"
-                            + " origin/landed/<task>/<branch>, and nothing else of any other task.")
-    private java.util.List<String> reads = new java.util.ArrayList<>();
+                    "Starts this task to read the named task's work where it landed, once its gate"
+                            + " forwarded it: its gate shows it that, read only, as"
+                            + " origin/landed/<task>/<branch>, and nothing else of any other task."
+                            + " Repeatable.")
+    private java.util.@Nullable List<String> readLanded;
 
     @Option(
             names = "--caller-key",
@@ -370,12 +370,23 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     private boolean restarted;
 
     @Option(
-            names = "--role",
-            paramLabel = "author|reviewer",
+            names = "--right",
+            paramLabel = "<right>",
             description =
-                    "The role the task's run takes: author, the default, or reviewer. A reviewer is"
-                            + " never one of its own task's gate push.")
-    private @Nullable String role;
+                    "A right the task holds: push, reply, openThreads, resolveThreads, start, stop,"
+                            + " done, report or reject. Repeatable; any --right replaces the default"
+                            + " rights, push and reply at its own work. A start at another task's work"
+                            + " names its rights.")
+    private java.util.@Nullable List<String> rights;
+
+    @Option(
+            names = "--write-as",
+            paramLabel = "author|review",
+            description =
+                    "At a pull request, its own or another task's, the account its items are"
+                            + " written as: author, the one that opened it, or review, the forge"
+                            + " instance's; author when absent.")
+    private @Nullable String writeAs;
 
     @Option(
             names = "--place",
@@ -386,8 +397,8 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                             + " own gate push, the default.")
     private @Nullable String place;
 
-    /** Checks the role and place; refuses both until the binary plugs its check in. */
-    private StartPlaces places = StartPlaces.NONE;
+    /** Checks the parts and place; a start is refused until the binary plugs its check in. */
+    private @Nullable StartPlaces places;
 
     @Spec private CommandSpec spec;
 
@@ -452,7 +463,7 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
-     * Checks the role and place a start names with this check.
+     * Checks the parts and place a start names with this check.
      *
      * @param check The check.
      * @return This command.
@@ -1294,22 +1305,39 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 64;
         }
 
-        final String unreadable = TaskLaunch.unreadable(reads);
+        final String unreadable = readLanded == null ? null : TaskLaunch.unreadable(readLanded);
         if (unreadable != null) {
             err.println("porelo: '" + unreadable + "' is no task's name, so it cannot be read");
             err.flush();
             return 64;
         }
+        final org.fuin.porelo.gate.review.TaskParts.Asked asked;
+        try {
+            asked = asked();
+        } catch (IllegalArgumentException ex) {
+            err.println("porelo: " + ex.getMessage());
+            err.flush();
+            return 64;
+        }
+        final StartPlaces check = places;
+        if (check == null) {
+            err.println(
+                    "porelo: this build checks no start's parts and place; nothing was created");
+            err.flush();
+            return 70;
+        }
 
-        // Before anything is made, whether the task runs or not, as the daemon's Start checks them.
-        final RunPlace runPlace;
+        // Before anything is made, whether the task runs or not, as the daemon's Start checks them:
+        // Porelo's own start rules first, before the place's forge is asked.
+        final StartParts runPlace;
         // An existing task is checked at the repository and branch it recorded, whatever -r says
         // (the launch refuses a mismatch in its own words), never at the ones this start's
-        // arguments would make for a new task. A pull request's address uses neither.
+        // arguments would make for a new task. A pull request's address uses neither but to find
+        // the task's own.
         final TaskBranch.Recorded recorded;
         try {
             recorded =
-                    role == null && place == null || place != null && place.contains("://")
+                    place == null && !asked.namesAny()
                             ? null
                             : TaskBranch.recorded(context, projectFile, task);
         } catch (TaskBranch.Unreadable notLooked) {
@@ -1318,18 +1346,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
             return 69;
         }
         final String placeRepository =
-                recorded != null && recorded.repository() != null
+                recorded != null
+                                && recorded.repository() != null
+                                && !(place != null && place.contains("://"))
                         ? recorded.repository()
                         : repository;
         try {
             runPlace =
-                    places.taken(
+                    check.taken(
                             context,
                             projectFile,
                             task,
                             placeRepository,
-                            !noGate && !readOnly && !allRepositories,
-                            role,
+                            asked,
+                            !credentials.isEmpty(),
+                            clearance,
                             place,
                             () ->
                                     recorded != null && recorded.branch() != null
@@ -1339,9 +1370,21 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                                     placeRepository,
                                                     task,
                                                     given,
-                                                    branch));
+                                                    branch),
+                            // An existing task without parts that read is never taken for a new
+                            // one.
+                            () ->
+                                    recorded == null
+                                            ? null
+                                            : recorded.parts() != null
+                                                    ? recorded.parts()
+                                                    : org.fuin.porelo.gate.review.TaskParts
+                                                            .unrecorded());
         } catch (StartPlaces.Refused refused) {
             err.println("porelo: " + refused.getMessage());
+            if (String.valueOf(refused.getMessage()).startsWith("StartRuleBroken: ")) {
+                err.println("porelo: nothing was created");
+            }
             err.flush();
             return refused.exit();
         }
@@ -1400,7 +1443,6 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                 noInput || dryRun || !terminal.getAsBoolean()
                                         ? Offer.Asker.NOBODY
                                         : uncertifiedAsker)
-                        .reading(reads)
                         .keyedBy(callerKey)
                         .at(runPlace)
                         // Its run at a pull request begins in the daemon, which keeps it.
@@ -2023,6 +2065,39 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
     }
 
     /**
+     * What this start names of its task's parts, each named or absent: no {@code --right} takes the
+     * default rights, any replaces them.
+     *
+     * @throws IllegalArgumentException For a right or an account no start names, said for a person.
+     */
+    private org.fuin.porelo.gate.review.TaskParts.Asked asked() {
+        java.util.Set<org.fuin.porelo.gate.review.Right> named = null;
+        if (rights != null) {
+            named = java.util.EnumSet.noneOf(org.fuin.porelo.gate.review.Right.class);
+            for (final String each : rights) {
+                named.add(
+                        org.fuin.porelo.gate.review.Right.named(each)
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalArgumentException(
+                                                        "--right takes "
+                                                                + String.join(
+                                                                        ", ",
+                                                                        org.fuin.porelo.gate.review
+                                                                                .Right.words())
+                                                                + ", not "
+                                                                + TerminalText.line(each))));
+            }
+        }
+        if (writeAs != null && !"author".equals(writeAs) && !"review".equals(writeAs)) {
+            throw new IllegalArgumentException(
+                    "--write-as takes author or review, not " + TerminalText.line(writeAs));
+        }
+        return new org.fuin.porelo.gate.review.TaskParts.Asked(
+                named, readLanded, writeAs, null, noGate, readOnly, allRepositories);
+    }
+
+    /**
      * The options that take effect only when a task is created or brought up, so a start on one
      * that is running would drop them without a word. {@code -r} is not among them: a different
      * repository is refused before, and the task's own changes nothing.
@@ -2049,7 +2124,9 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                     "--max-turns",
                     "--subagents",
                     "--minutes",
-                    "--reads",
+                    "--read-landed",
+                    "--right",
+                    "--write-as",
                     "--caller-key",
                     "--upstream",
                     "--no-gate",

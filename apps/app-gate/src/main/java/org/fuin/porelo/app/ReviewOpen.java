@@ -46,18 +46,17 @@ import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewRefused;
-import org.fuin.porelo.gate.review.ReviewRole;
 import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewThread;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Task;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.fuin.porelo.gate.review.ThreadState;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Answers what is open at a place for one role, and the place's decision, read anew from the gate's
+ * Answers what is open at a place for one task, and the place's decision, read anew from the gate's
  * records at each call: the push that waits, the end kept for its task, and the review's journal.
  * Nothing is stored for the answer and nothing is started.
  *
@@ -98,13 +97,16 @@ public final class ReviewOpen {
     }
 
     /**
-     * Answers what is open at a place for a role, and its decision.
+     * Answers what is open at a place for the task that asks, and its decision.
+     *
+     * <p>At a gate push the asking task is the one that pushed, unless another task is named: that
+     * task reads the push and asks from the other side. At a pull request the side is the account
+     * the asking task's start recorded.
      *
      * @param project The project's name.
      * @param place Where.
-     * @param role Who asks; null means the author.
      * @param task The task whose run asks, or null; required at a pull request, whose side and held
-     *     items are the task's.
+     *     items are the task's, and absent at a gate push for the task that pushed.
      * @return The answer.
      * @throws Refused As {@code PlaceUnreadable} when the place cannot be read, as {@code
      *     UnknownForge} for a host no forge of this machine is, as {@code NoSuchPullRequest} for an
@@ -112,16 +114,12 @@ public final class ReviewOpen {
      *     the asking task's gate never forwarded.
      * @throws IllegalArgumentException For a pull request of no task.
      */
-    public Answer answer(
-            final String project,
-            final Place place,
-            final @Nullable Role role,
-            final @Nullable String task)
+    public Answer answer(final String project, final Place place, final @Nullable String task)
             throws Refused {
         Objects.requireNonNull(project, "project");
         Objects.requireNonNull(place, "place");
         return switch (place) {
-            case GatePush push -> atGate(project, push, TaskReviewRole.asksAsAuthor(role));
+            case GatePush push -> atGate(project, push, task == null || task.equals(push.name()));
             case PullRequest pullRequest -> {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
@@ -131,12 +129,6 @@ public final class ReviewOpen {
             case OwnPullRequest _ -> {
                 if (task == null || task.isBlank()) {
                     throw new IllegalArgumentException("task");
-                }
-                if (!TaskReviewRole.asksAsAuthor(role)) {
-                    // As a start refuses it, before the forge is asked.
-                    throw new Refused(
-                            "RoleNotAllowed",
-                            Map.of("role", "REVIEWER", "place", Map.of("ownPullRequest", true)));
                 }
                 yield atPullRequest(project, parts.own().of(project, task), task);
             }
@@ -153,6 +145,7 @@ public final class ReviewOpen {
         final String head;
         @Nullable String mergedCommit = null;
         @Nullable String mergedHead = null;
+        @Nullable String rejectedBy = null;
         final @Nullable Instant since;
         final @Nullable Instant untimed;
         final PushEnd entry = entry(standing);
@@ -205,6 +198,8 @@ public final class ReviewOpen {
                     };
             mergedCommit = end.mergedCommit();
             mergedHead = end.branch();
+            // As the reject recorded it; the owner account's names no task.
+            rejectedBy = end.rejectedBy();
             since = end.at();
             // Carried along by the end when the gate kept when the push was taken.
             untimed = end.waitingSince();
@@ -233,6 +228,7 @@ public final class ReviewOpen {
         return Answer.of(
                 head,
                 decision,
+                rejectedBy,
                 mergedCommit,
                 mergedHead,
                 since == null ? null : since.toString(),
@@ -360,6 +356,8 @@ public final class ReviewOpen {
                     case MERGED -> Decision.MERGED;
                     case CLOSED -> Decision.CLOSED;
                 },
+                // Only a gate push is ever rejected by a task.
+                null,
                 facts.mergeCommit(),
                 facts.mergedHead(),
                 decided == null ? null : decided.truncatedTo(ChronoUnit.SECONDS).toString(),
@@ -370,7 +368,7 @@ public final class ReviewOpen {
     }
 
     /** The account the asking task's side writes as; a refusal the role carries is passed on. */
-    private static Producer side(final ReviewRole role, final String task, final ReviewPlace place)
+    private static Producer side(final TaskRights role, final String task, final ReviewPlace place)
             throws PlaceUnreadable {
         try {
             return role.postingAccount(task, place);
@@ -630,6 +628,8 @@ public final class ReviewOpen {
      *
      * @param head The head at the place, or null when nothing stands there.
      * @param decision The decision.
+     * @param rejectedBy The task that rejected the push, for a reject a task holding {@code reject}
+     *     made; null for the owner account's and for every other decision.
      * @param mergedCommit The forwarded or merge commit, or null.
      * @param mergedHead The head that commit took, or null with it.
      * @param decisionSince When the decision began, or null for a missing time.
@@ -643,6 +643,7 @@ public final class ReviewOpen {
     public record Answer(
             @Nullable String head,
             Decision decision,
+            @Nullable String rejectedBy,
             @Nullable String mergedCommit,
             @Nullable String mergedHead,
             @Nullable String decisionSince,
@@ -663,6 +664,7 @@ public final class ReviewOpen {
         static Answer of(
                 final @Nullable String head,
                 final Decision decision,
+                final @Nullable String rejectedBy,
                 final @Nullable String mergedCommit,
                 final @Nullable String mergedHead,
                 final @Nullable String decisionSince,
@@ -674,6 +676,7 @@ public final class ReviewOpen {
                     new Answer(
                             head,
                             decision,
+                            rejectedBy,
                             mergedCommit,
                             mergedHead,
                             decisionSince,
@@ -686,6 +689,7 @@ public final class ReviewOpen {
             return new Answer(
                     head,
                     decision,
+                    rejectedBy,
                     mergedCommit,
                     mergedHead,
                     decisionSince,
@@ -714,6 +718,9 @@ public final class ReviewOpen {
                 fields.put("head", head);
             }
             fields.put("decision", decision.name());
+            if (rejectedBy != null) {
+                fields.put("rejectedBy", rejectedBy);
+            }
             if (mergedCommit != null) {
                 fields.put("mergedCommit", mergedCommit);
             }
@@ -749,8 +756,7 @@ public final class ReviewOpen {
      * A typed refusal of the contract: its error's name and fields.
      *
      * <p>{@code PlaceUnreadable} at either place; {@code UnknownForge} and {@code
-     * NoSuchPullRequest} at a pull request; {@code NoPullRequest} and {@code RoleNotAllowed} at a
-     * task's own.
+     * NoSuchPullRequest} at a pull request; {@code NoPullRequest} at a task's own.
      */
     public static final class Refused extends Exception {
 
@@ -950,7 +956,7 @@ public final class ReviewOpen {
             CommentCheck check,
             ReleasedSender.Credentials credentials,
             ReviewPlaces places,
-            ReviewRole role,
+            TaskRights role,
             Containers containers,
             ReviewHolds holds) {
 
@@ -1089,9 +1095,9 @@ public final class ReviewOpen {
             final ProfileTranslator reading = new ProfileTranslator();
             final CommentCheck check = CommentIntake.Parts.of(context).check();
             final ReleasedSender.Credentials credentials =
-                    entry -> MachineReviewRole.lend(context, entry);
-            final TaskReviewRole role =
-                    MachineReviewRole.of(
+                    entry -> MachineTaskRights.lend(context, entry);
+            final RecordedTaskRights role =
+                    MachineTaskRights.of(
                             context,
                             forges,
                             (task, upstream, branch) -> {
@@ -1112,7 +1118,7 @@ public final class ReviewOpen {
                             check,
                             new ReviewSarif(),
                             credentials,
-                            role::mayPush,
+                            task -> role.parts(task).worksOnItsOwn(),
                             (task, facts) -> {
                                 throw new PlaceUnreadable(
                                         PlaceUnreadable.Reason.NOT_IN_PROJECT,

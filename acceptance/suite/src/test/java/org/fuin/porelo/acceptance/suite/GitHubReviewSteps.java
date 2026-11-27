@@ -141,12 +141,14 @@ public final class GitHubReviewSteps {
      * Runs a task at the pull request on GitHub with the stub agent.
      *
      * @param task The task's name.
-     * @param role {@code reviewer} or {@code author}.
+     * @param account The account its items are written as, {@code author} or {@code review}.
+     * @param rights The rights it names, separated by commas.
      * @throws IOException If the machine cannot be reached.
      */
-    @When("the task {string} is run by the stub agent as {word} at the pull request on GitHub")
-    public void aRun(String task, String role) throws IOException {
-        review.aRun(task, role, github().url());
+    @When(
+            "the task {string} is run by the stub agent as {word} with the rights {string} at the pull request on GitHub")
+    public void aRun(String task, String account, String rights) throws IOException {
+        review.aRun(task, account, rights, github().url());
     }
 
     /**

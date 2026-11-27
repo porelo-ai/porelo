@@ -25,6 +25,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 /** Test for {@link MessageDispatch}. */
 class MessageDispatchTest {
 
+    /** A dispatch told that no task here reads another task's work. */
+    private static MessageDispatch atOwnWork(
+            final ReviewReplies replies,
+            final ReviewerComments comments,
+            final MessageDispatch.Tasks tasks) {
+        return new MessageDispatch(replies, comments, tasks, MessageDispatch.Readers.NONE);
+    }
+
     /** No message here addresses the review. */
     private static final ReviewReplies NO_REVIEW =
             (task, thread, text) -> java.util.Optional.of("no review here");
@@ -104,7 +112,7 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-1\",\"metadata\":{\"kind\":\"question\",\"to\":\"reviewer\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).containsEntry("m-1.json", "local");
@@ -126,7 +134,7 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-5\",\"metadata\":{\"to\":\"reviewer\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
@@ -147,8 +155,7 @@ class MessageDispatchTest {
         moderation.set("reviewer", true, null, sending(Mail.ALLOW));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
-                        .dispatch(mailbox, mail, moderation);
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS).dispatch(mailbox, mail, moderation);
 
         assertThat(outcome.queued()).isEmpty();
         assertThat(outcome.held())
@@ -169,7 +176,7 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-2\",\"metadata\":{\"to\":\"somebody-else\"}}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
@@ -187,7 +194,7 @@ class MessageDispatchTest {
         final Mailbox mailbox = accepted(dir, "m-3.json", "{\"messageId\":\"m-3\"}");
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, undecided(mailbox))
                                 .held())
                 .singleElement()
@@ -208,7 +215,7 @@ class MessageDispatchTest {
                         "{\"messageId\":\"m-4\",\"metadata\":{\"to\":[\"reviewer\",\"ops\"]}}");
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, undecided(mailbox))
                                 .held())
                 .singleElement()
@@ -232,7 +239,7 @@ class MessageDispatchTest {
                 mailbox.accepted().resolve("m-9.json" + MessageDispatch.RELEASED_SUFFIX), "");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.queued()).containsEntry("m-9.json", "local");
@@ -249,7 +256,7 @@ class MessageDispatchTest {
                 new Moderation(
                         refusing.root().resolveSibling("moderation-p.json"), sending(Mail.DENY));
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(refusing, mail, denying)
                                 .queued())
                 .isEmpty();
@@ -275,7 +282,7 @@ class MessageDispatchTest {
                         + "\"findings\":[{\"redactedExcerpt\":\"2c8a****\"}]}}]}");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).isEmpty();
@@ -304,7 +311,7 @@ class MessageDispatchTest {
                 mailbox.accepted().resolve("m-8.json" + MessageDispatch.RELEASED_SUFFIX), "");
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, allowing(mailbox))
                                 .queued())
                 .containsKey("m-8.json");
@@ -323,7 +330,7 @@ class MessageDispatchTest {
         Files.delete(mailbox.feedback().resolve("receipt-m-11.json"));
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, allowing(mailbox))
                                 .held())
                 .singleElement()
@@ -352,7 +359,7 @@ class MessageDispatchTest {
         }
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, allowing(mailbox))
                                 .held())
                 .singleElement()
@@ -364,7 +371,7 @@ class MessageDispatchTest {
         final Mailbox mailbox = accepted(dir, "m-13.json", "{\"metadata\":{\"to\":\"reviewer\"}}");
 
         assertThat(
-                        new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                        atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                                 .dispatch(mailbox, mail, allowing(mailbox))
                                 .held())
                 .singleElement()
@@ -445,8 +452,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.tasks).as("the mailbox's task").containsExactly("porelo-p-t");
         assertThat(review.documents)
@@ -473,8 +479,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.tasks).as("never handed to the review").isEmpty();
         assertThat(outcome.held())
@@ -496,8 +501,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.tasks).as("never handed to the review").isEmpty();
         assertThat(outcome.refused()).as("refused for good").hasSize(1);
@@ -555,8 +559,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.documents).as(what + ": the next one taken").containsExactly(SUBMISSION);
         assertThat(outcome.refused())
@@ -581,8 +584,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, NO_TASKS)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, NO_TASKS).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.tasks).as("never handed to the review").isEmpty();
         assertThat(outcome.refused())
@@ -609,8 +611,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.documents).as("handed to the review").containsExactly(SUBMISSION);
         assertThat(outcome.held()).as("nothing held").isEmpty();
@@ -627,8 +628,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(rule);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.refused())
                 .as(what)
@@ -652,7 +652,51 @@ class MessageDispatchTest {
         return Stream.of(
                 Arguments.of("a control character", "run: \u001b[2J"),
                 Arguments.of("a quote", "run: \"none\""),
-                Arguments.of("129 characters", "x".repeat(129)));
+                Arguments.of("129 characters", "x".repeat(129)),
+                Arguments.of("parentheses outside a missing right", "run: (none)"),
+                Arguments.of(
+                        "a missing right whose act holds another character",
+                        RunIntake.rightMissing(
+                                org.fuin.porelo.gate.review.Right.REPLY, "reply; then push")),
+                Arguments.of(
+                        "a missing right followed by more",
+                        RunIntake.rightMissing(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        "reply in a thread")
+                                + " and (more)"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("missingRights")
+    void aSubmissionRefusedForAMissingRightBouncesNamingTheRightAndTheAct(
+            final org.fuin.porelo.gate.review.Right right,
+            final String act,
+            @TempDir final Path dir)
+            throws IOException {
+        // Shown only as "a rule it cannot show", the task never learned which right it lacked.
+        final String rule = RunIntake.rightMissing(right, act);
+        final Mailbox mailbox =
+                accepted(dir, "m-20.json", toReview("", "[{\"data\":" + SUBMISSION + "}]"));
+
+        final MessageDispatch.Outcome outcome =
+                atOwnWork(NO_REVIEW, new Submissions(rule), OWNED)
+                        .dispatch(mailbox, mail, undecided(mailbox));
+
+        assertThat(outcome.refused())
+                .singleElement()
+                .satisfies(held -> assertThat(held.reason()).as("the rule").endsWith(rule));
+        assertThat(bounces(mailbox))
+                .as("the task reads it word for word")
+                .singleElement()
+                .satisfies(bounce -> assertThat(bounce).contains(rule));
+    }
+
+    static Stream<Arguments> missingRights() {
+        return Stream.of(
+                Arguments.of(org.fuin.porelo.gate.review.Right.OPEN_THREADS, "open a thread"),
+                Arguments.of(org.fuin.porelo.gate.review.Right.REPLY, "reply in a thread"),
+                Arguments.of(org.fuin.porelo.gate.review.Right.RESOLVE_THREADS, "resolve a thread"),
+                Arguments.of(org.fuin.porelo.gate.review.Right.REJECT, "reject the work"));
     }
 
     @Test
@@ -663,8 +707,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions("run: none for the task");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.tasks).as("handed to the review").containsExactly("porelo-p-t");
         assertThat(outcome.refused())
@@ -705,7 +748,7 @@ class MessageDispatchTest {
         Files.delete(mailbox.accepted().resolve("m-1.json.sig"));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).as("no transport carries it").isEmpty();
@@ -734,7 +777,7 @@ class MessageDispatchTest {
         Files.delete(mailbox.accepted().resolve("m-20.json.sig"));
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REPLY, NO_SUBMISSIONS, OWNED)
+                atOwnWork(NO_REPLY, NO_SUBMISSIONS, OWNED)
                         .dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(outcome.held())
@@ -763,8 +806,7 @@ class MessageDispatchTest {
         final Submissions review = new Submissions(null);
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, review, OWNED)
-                        .dispatch(mailbox, mail, undecided(mailbox));
+                atOwnWork(NO_REVIEW, review, OWNED).dispatch(mailbox, mail, undecided(mailbox));
 
         assertThat(review.documents).as("both handed to the review").hasSize(2);
         assertThat(review.unsigned)
@@ -791,7 +833,7 @@ class MessageDispatchTest {
                         + "\"parts\":[{\"data\":{\"decision\":\"approved\",\"wouldReject\":true,"
                         + "\"decidingRule\":\"ENCODING/HEX\"}}]}");
         final Submissions review = new Submissions(null);
-        final MessageDispatch dispatch = new MessageDispatch(NO_REVIEW, review, OWNED);
+        final MessageDispatch dispatch = atOwnWork(NO_REVIEW, review, OWNED);
 
         dispatch.dispatch(mailbox, mail, undecided(mailbox));
         final MessageRelease.Result released =
@@ -819,7 +861,7 @@ class MessageDispatchTest {
         Files.writeString(mailbox.accepted().resolve("m-1.json.released"), "");
 
         final MessageDispatch.Outcome outcome =
-                new MessageDispatch(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
+                atOwnWork(NO_REVIEW, NO_SUBMISSIONS, NO_TASKS)
                         .dispatch(mailbox, mail, allowing(mailbox));
 
         assertThat(outcome.queued()).as("queued").containsEntry("m-1.json", "local");

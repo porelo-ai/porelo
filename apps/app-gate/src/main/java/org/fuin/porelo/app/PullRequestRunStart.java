@@ -8,7 +8,6 @@ import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.ProfileWriting;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.ReviewHolds;
-import org.fuin.porelo.gate.review.Role;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -110,7 +109,7 @@ public final class PullRequestRunStart {
                         delivery,
                         lent -> credentials.lend(at.instanceCredential()));
         try {
-            return start.start(container, Role.of(place.role()), at);
+            return start.start(container, at);
         } catch (RunRefused ex) {
             for (Throwable cause = ex.getCause(); cause != null; cause = cause.getCause()) {
                 if (cause instanceof RunPlaceCheck.Refused typed) {

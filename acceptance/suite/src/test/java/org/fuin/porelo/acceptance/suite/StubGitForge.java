@@ -39,6 +39,9 @@ final class StubGitForge {
     /** The server, as a resource beside this class. */
     private static final String SERVER = "stub-git-forge.py";
 
+    /** A repository's path on the forge: two to eight segments, nothing the shell reads. */
+    private static final String REPOSITORY_PATH = "(/[A-Za-z0-9._~-]{1,100}){2,8}";
+
     /** The user name git sends with a lent token, as Porelo's credential helper answers it. */
     private static final String USER = "x-access-token";
 
@@ -144,13 +147,7 @@ final class StubGitForge {
         final String path = repositoryPath(address.getRawPath());
         final Ssh.Output read =
                 script.run(
-                        "set -e; r="
-                                + repository
-                                + "; s="
-                                + WORK
-                                + "/served"
-                                + path
-                                + "; mkdir -p \"$(dirname \"$s\")\"; ln -sfn \"$r\" \"$s\";"
+                        linkCommand(path, repository)
                                 + " git -C \"$r\" rev-parse --verify "
                                 + head
                                 + "^{commit}; git -C \"$r\" rev-parse --verify "
@@ -165,6 +162,46 @@ final class StubGitForge {
             throw new AssertionError("the repository's commits could not be read:\n" + read.all());
         }
         return new ForgeStub.Facts(origin() + path, commits.get(0), commits.get(1), commits.get(2));
+    }
+
+    /**
+     * Serves a repository on the machine at an address on this forge, for a project that names the
+     * address as its upstream: what a push sends there with the token lands in that repository, and
+     * a pull request {@link #serve}d from it later is at the same address.
+     *
+     * @param address The repository's address on {@link #origin}, such as {@code
+     *     https://127.0.0.1:<port>/shop/app}.
+     * @param repository The repository on the machine, for the shell.
+     * @throws IOException If the machine cannot be reached.
+     */
+    void serveUpstream(String address, String repository) throws IOException {
+        final URI named = URI.create(address);
+        if (!("https://" + named.getRawAuthority()).equals(origin())) {
+            throw new AssertionError(
+                    "the upstream " + address + " is not on the stub git forge at " + origin());
+        }
+        final String path = named.getRawPath();
+        if (path == null || !path.matches(REPOSITORY_PATH)) {
+            throw new AssertionError("no repository's path in " + address);
+        }
+        must(script.run(linkCommand(path, repository)), "the upstream served");
+    }
+
+    /**
+     * Builds the command that serves a repository on the machine at a path of this forge.
+     *
+     * @param path The path, such as {@code /shop/app}.
+     * @param repository The repository on the machine, for the shell.
+     * @return The command, which sets {@code r} to the repository.
+     */
+    private static String linkCommand(String path, String repository) {
+        return "set -e; r="
+                + repository
+                + "; s="
+                + WORK
+                + "/served"
+                + path
+                + "; mkdir -p \"$(dirname \"$s\")\"; ln -sfn \"$r\" \"$s\";";
     }
 
     /**
@@ -222,7 +259,7 @@ final class StubGitForge {
     static String repositoryPath(String path) {
         final int number = path.lastIndexOf('/');
         final int kind = number <= 0 ? -1 : path.lastIndexOf('/', number - 1);
-        if (kind <= 0 || !path.substring(0, kind).matches("(/[A-Za-z0-9._~-]{1,100}){2,8}")) {
+        if (kind <= 0 || !path.substring(0, kind).matches(REPOSITORY_PATH)) {
             throw new AssertionError("no repository's path in " + path);
         }
         return path.substring(0, kind);

@@ -51,6 +51,9 @@ import org.junit.jupiter.params.provider.EnumSource;
  */
 class GateCommentMethodsTest {
 
+    /** The owner account's methods alone: no task writes through them. */
+    private static final org.fuin.porelo.app.TaskWrites NO_TASK = (container, push, item) -> false;
+
     private static final Push SHOP =
             new Push("uc", "shop", "shop-2", "a".repeat(40), "b".repeat(40), "c".repeat(64));
 
@@ -149,7 +152,10 @@ class GateCommentMethodsTest {
 
         @Override
         public synchronized ReviewThread state(
-                final Push push, final String thread, final ThreadState state)
+                final Push push,
+                final String thread,
+                final ThreadState state,
+                final org.fuin.porelo.gate.review.Origin by)
                 throws ReviewRefused {
             if (!push.equals(threadPush.get(thread))) {
                 throw new ReviewRefused(new ReviewRefusal(ReviewError.NO_SUCH_THREAD, null));
@@ -229,7 +235,7 @@ class GateCommentMethodsTest {
     }
 
     private VarlinkClient serving() throws Exception {
-        return serving(new CommentIntake.Parts(pushes(), check, store, writer, counts));
+        return serving(new CommentIntake.Parts(pushes(), check, store, writer, counts, NO_TASK));
     }
 
     @AfterEach
@@ -542,7 +548,8 @@ class GateCommentMethodsTest {
                                 check,
                                 machine.store(),
                                 machine.writer(),
-                                machine.counts()));
+                                machine.counts(),
+                                NO_TASK));
 
         final String thread = (String) client.call(method("Comment"), comment(SHOP)).get("thread");
 

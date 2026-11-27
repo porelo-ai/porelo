@@ -41,6 +41,21 @@ public final class MessageRelease {
 
     private java.util.@org.jspecify.annotations.Nullable Set<String> enrolled;
 
+    private boolean reader;
+
+    /**
+     * Says whether the task reads another task's work, by its recorded parts ({@link
+     * ReadingTasks#readsAnothersWork}): a message the filter refused is then never delivered to a
+     * peer after all, whoever decides it.
+     *
+     * @param readsAnothersWork Whether it does.
+     * @return This, for chaining.
+     */
+    public MessageRelease reading(final boolean readsAnothersWork) {
+        this.reader = readsAnothersWork;
+        return this;
+    }
+
     /**
      * Returns the transports whose conversation a task has an account in.
      *
@@ -321,6 +336,16 @@ public final class MessageRelease {
                     id,
                     "it addresses nobody this host can send to",
                     NotDeliverable.NO_ADDRESSEE);
+        }
+        if (reader) {
+            // No one a task that reads another task's work may address is sent to from here,
+            // whatever the project's peers say or whether its file reads.
+            return new Result(
+                    Outcome.NOT_DELIVERABLE,
+                    name,
+                    id,
+                    ReadingTasks.SENDS_TO_REVIEW_ONLY,
+                    NotDeliverable.PEER_NOT_ALLOWED);
         }
         if (peer == null) {
             return new Result(

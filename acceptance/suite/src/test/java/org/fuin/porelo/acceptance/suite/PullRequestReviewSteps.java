@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.fuin.porelo.acceptance.TerminalSteps;
 import org.fuin.porelo.acceptance.World;
 import org.fuin.porelo.machines.Ssh;
 import org.fuin.porelo.wire.Json;
@@ -30,13 +31,19 @@ public final class PullRequestReviewSteps {
 
     private static final Pattern SIDECAR = Pattern.compile("^sidecar\\s+(\\S+)", Pattern.MULTILINE);
 
-    private static final int RUN_SECONDS = 300;
+    /** How long a run may take: its project's image may be built first. */
+    private static final int RUN_SECONDS = 900;
 
     private final World world;
+
+    private final TerminalSteps projects;
 
     private final ForgeStub forge;
 
     private final StubGitForge gitForge;
+
+    /** The project the scenario's reviewers start in, or {@code null} for the default one. */
+    private @Nullable String project;
 
     /** The forge account the scenario's pull request was opened by. */
     private @Nullable String openedBy;
@@ -78,9 +85,11 @@ public final class PullRequestReviewSteps {
      * Creates the steps over the scenario's world.
      *
      * @param world The scenario's world.
+     * @param projects The kit's steps that make a scenario's projects.
      */
-    public PullRequestReviewSteps(World world) {
+    public PullRequestReviewSteps(World world, TerminalSteps projects) {
         this.world = world;
+        this.projects = projects;
         final ForgeStub.Script script =
                 new ForgeStub.Script() {
                     @Override
@@ -131,6 +140,42 @@ public final class PullRequestReviewSteps {
      */
     private String url(String url) {
         return url.contains("{forge}") ? url.replace("{forge}", gitForge.origin()) : url;
+    }
+
+    /**
+     * Makes a guarded project whose own repository's upstream is the repository the scenario's pull
+     * requests are at, and has the scenario's reviewers start in it: a task is started only at a
+     * pull request of a repository its project names. The account's own default project is left as
+     * it is.
+     *
+     * @param name The project's name and directory.
+     * @param written The upstream's address, {@code {forge}} standing for the stub git forge's.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Given("a guarded project called {string} whose upstream is {string}")
+    public void aReviewersProject(String name, String written) throws IOException {
+        projects.aProjectNamingTheUpstream(name, "guarded", url(written), "");
+        project = name;
+    }
+
+    /**
+     * Makes an online project whose upstream is a bare repository of its own, as the kit's online
+     * project has, named by its address on the stub git forge and served there: the task's own pull
+     * request is found by the branch its pushes reach at that upstream, and a pull request is its
+     * own only at the repository its project pushes to.
+     *
+     * @param name The project's name and directory.
+     * @param written The upstream's address, {@code {forge}} standing for the stub git forge's.
+     * @param more YAML appended to the project file, as for the kit's project steps.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Given(
+            "an online project called {string} pushing to {string} on the stub git forge, whose project file also says:")
+    public void anOnlineProjectOnTheForge(String name, String written, String more)
+            throws IOException {
+        final String address = url(written);
+        projects.anOnlineProjectPushingTo(name, address, more);
+        gitForge.serveUpstream(address, upstreamOf(name));
     }
 
     /**
@@ -336,13 +381,29 @@ public final class PullRequestReviewSteps {
      * it the scenario's task when the run names its container.
      *
      * @param task The task's name.
-     * @param role {@code reviewer} or {@code author}.
+     * @param account The account its items are written as, {@code author} or {@code review}.
+     * @param rights The rights it names, separated by commas, such as {@code reply, openThreads}.
      * @param url The pull request.
      * @throws IOException If the machine cannot be reached.
      */
-    @When("the task {string} is run by the stub agent as {word} at {string}")
-    public void aRun(String task, String role, String url) throws IOException {
-        final Ssh.Output output = world.run(runCommand(task, role, url(url)));
+    @When(
+            "the task {string} is run by the stub agent as {word} with the rights {string} at {string}")
+    public void aRun(String task, String account, String rights, String url) throws IOException {
+        run(task, account, ScenarioTasks.words(rights), url);
+    }
+
+    /**
+     * Runs a task at a pull request with the stub agent, naming the rights given.
+     *
+     * @param task The task's name.
+     * @param account The account its items are written as, or {@code null} for the default.
+     * @param rights The rights it names; none named takes the default of its workspace.
+     * @param url The pull request.
+     * @throws IOException If the machine cannot be reached.
+     */
+    void run(String task, @Nullable String account, List<String> rights, String url)
+            throws IOException {
+        final Ssh.Output output = world.run(runCommand(task, project, account, rights, url(url)));
         world.output(output);
         final Matcher container = CONTAINER.matcher(output.all());
         if (container.find()) {
@@ -351,15 +412,15 @@ public final class PullRequestReviewSteps {
     }
 
     /**
-     * Runs the scenario's task again, at a pull request, with the stub agent.
+     * Runs the scenario's task again, at a pull request, with the stub agent, naming no right: at
+     * its own pull request it takes the default rights of its own work.
      *
-     * @param role {@code reviewer} or {@code author}.
      * @param url The pull request.
      * @throws IOException If the machine cannot be reached.
      */
-    @When("the task is run by the stub agent as {word} at {string}")
-    public void theTaskRuns(String role, String url) throws IOException {
-        aRun(world.task().container(), role, url);
+    @When("the task is run by the stub agent at {string}")
+    public void theTaskRuns(String url) throws IOException {
+        run(world.task().container(), null, List.of(), url);
     }
 
     /**
@@ -367,15 +428,28 @@ public final class PullRequestReviewSteps {
      * the agent once and stops and keeps the task at the run's end, so the next start brings it
      * back at its place. A task left running is stopped first, since a start refuses a running one;
      * stopping one that is not running answers nothing the start would not say itself. A task named
-     * by its container carries its project; one named alone starts in the default project, since a
-     * reviewer's pull request belongs to no checkout of the machine.
+     * by its container carries its project; one named alone starts in the project the scenario gave
+     * its reviewers, whose own repository names the pull request's, or else in the default project.
      *
      * @param task The task's name.
-     * @param role Its role.
+     * @param project The project the scenario gave its reviewers, or {@code null} for none.
+     * @param account The account its items are written as, {@code author} or {@code review}, or
+     *     {@code null} to name none, which a start takes as {@code author}.
+     * @param rights The rights it names, each as one {@code --right}; none named takes the default.
      * @param url The place.
      * @return The command.
      */
-    static String runCommand(String task, String role, String url) {
+    static String runCommand(
+            String task,
+            @Nullable String project,
+            @Nullable String account,
+            List<String> rights,
+            String url) {
+        final String in = ScenarioTasks.name(project == null ? "default" : project);
+        final StringBuilder named = new StringBuilder();
+        for (final String right : rights) {
+            named.append(" --right ").append(quote(right));
+        }
         return certified(
                 "t="
                         + quote(task)
@@ -385,9 +459,12 @@ public final class PullRequestReviewSteps {
                         + " porelo task start \"$t\""
                         + (task.startsWith("porelo-")
                                 ? ""
-                                : " --project default --repository default")
-                        + " --agent stub --role "
-                        + quote(role)
+                                : " --project " + quote(in) + " --repository " + quote(in))
+                        + " --agent stub"
+                        + named
+                        + (account == null
+                                ? ""
+                                : " --write-as " + quote(ScenarioTasks.name(account)))
                         + " --place "
                         + quote(url)
                         + " --prompt review");
@@ -653,13 +730,17 @@ public final class PullRequestReviewSteps {
 
     /**
      * Names a task's container, which the gate's commands take: a bare name is a task of the
-     * default project, as {@link #runCommand} starts it.
+     * project the scenario gave its reviewers, or else of the default project, as {@link
+     * #runCommand} starts it.
      *
      * @param task A task's name, or its container's.
+     * @param project The project the scenario gave its reviewers, or {@code null} for none.
      * @return The container's name.
      */
-    static String containerOf(String task) {
-        return task.startsWith("porelo-") ? task : "porelo-default_" + task;
+    static String containerOf(String task, @Nullable String project) {
+        return task.startsWith("porelo-")
+                ? task
+                : "porelo-" + (project == null ? "default" : project) + "_" + task;
     }
 
     private void decideEvery(String task, String direction, String decision) throws IOException {
@@ -672,7 +753,7 @@ public final class PullRequestReviewSteps {
             final Ssh.Output output =
                     world.run(
                             "porelo gate decide "
-                                    + quote(containerOf(task))
+                                    + quote(containerOf(task, project))
                                     + " "
                                     + quote(String.valueOf(item.get("id")))
                                     + " "
@@ -754,7 +835,7 @@ public final class PullRequestReviewSteps {
 
     private List<Map<String, Object>> held(String task) throws IOException {
         final Ssh.Output output =
-                world.run("porelo gate held " + quote(containerOf(task)) + " --json");
+                world.run("porelo gate held " + quote(containerOf(task, project)) + " --json");
         assertThat(output.status())
                 .as("porelo gate held failed:%n%s", world.redact(output.all()))
                 .isZero();

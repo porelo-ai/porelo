@@ -55,8 +55,12 @@ public final class TaskBranch {
      *
      * @param repository The repository it was labelled with, or {@code null} when it has none.
      * @param branch The branch its work carries beyond the gate, or {@code null} when it has none.
+     * @param parts The parts its start recorded, or {@code null} when it recorded none that read.
      */
-    public record Recorded(@Nullable String repository, @Nullable String branch) {}
+    public record Recorded(
+            @Nullable String repository,
+            @Nullable String branch,
+            org.fuin.porelo.gate.review.@Nullable TaskParts parts) {}
 
     /** A task's record or its runtime listing could not be read, so no place can be checked. */
     public static final class Unreadable extends RuntimeException {
@@ -137,7 +141,23 @@ public final class TaskBranch {
         final String repository = row.repository();
         return new Recorded(
                 repository == null || repository.isBlank() ? null : repository,
-                profile == null ? null : profile.forgeBranchOrToday());
+                profile == null ? null : profile.forgeBranchOrToday(),
+                parts(context, container));
+    }
+
+    /** The parts a task's start recorded, in its state or its saved record; none that read. */
+    private static org.fuin.porelo.gate.review.@Nullable TaskParts parts(
+            final PoreloContext context, final String container) {
+        try {
+            final org.fuin.porelo.gate.review.TaskParts inState =
+                    RunPlace.partsIn(context.paths().tasks().containerState(container));
+            return inState != null
+                    ? inState
+                    : RunPlace.partsIn(context.paths().tasks().taskRecord(container));
+        } catch (IllegalStateException ex) {
+            // Parts that do not read keep nothing; bringing the task back refuses it.
+            return null;
+        }
     }
 
     /**

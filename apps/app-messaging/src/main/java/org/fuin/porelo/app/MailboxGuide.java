@@ -204,14 +204,19 @@ public final class MailboxGuide {
 
                 ## Commenting on a pull request
 
-                When your task reviews a pull request, or works on its own pull request, it is given the pull
+                When your task works at another task's pull request, or at its own, it is given the pull
                 request's conversation as review documents. Send your comments and replies there as one
                 message to `@REVIEW@` whose only part is a data part holding one review document of kind
-                `submission`. Nothing reaches the pull request before the owner account releases it.
+                `submission`. In a guarded project nothing reaches the pull request before the owner account
+                releases it; in an online project it goes there at once. The same document marks threads
+                resolved when your task may resolve them: it resolves them as the account it writes as there.
 
-                When it works on its own pull request, your task is its author: the pull request is the one
-                open from your task's branch, found anew at each start. You answer the threads reviewers
-                opened, with replies, and open none of your own. Your changes travel by commit through your
+                What your task may send is set by the rights it was started with, never by a role: `reply`
+                answers a thread, `openThreads` opens one, `resolveThreads` resolves one, and an item that
+                needs a right your task lacks is refused, naming the right. Its items are written as the
+                account its start chose, the one that opened the pull request unless it named the review
+                account. Its own pull request is the one open from your task's branch, found anew at each
+                start, where it answers the threads reviewers opened. Your changes travel by commit through your
                 task's gate, as all your work does; the pull request shows only what the gate passed on.
 
                 ```json
@@ -220,13 +225,15 @@ public final class MailboxGuide {
                   "role": "@ROLE@",
                   "parts": [ { "data": {
                     "version": "2.1.0",
+                    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
                     "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
                     "runs": [ {
                       "tool": { "driver": { "name": "Porelo" } },
                       "versionControlProvenance": [ { "repositoryUri": "https://github.com/shop/app",
                         "revisionId": "the head commit the conversation names, in full" } ],
                       "columnKind": "unicodeCodePoints",
-                      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42" },
+                      "properties": { "porelo/pullRequest": "https://github.com/shop/app/pull/42",
+                        "porelo/resolveThreads": [ "the id of a thread you resolve" ] },
                       "results": [
                         { "kind": "review", "level": "none",
                           "message": { "text": "A blank password reaches hash() here." },
@@ -253,9 +260,56 @@ public final class MailboxGuide {
                 - A result without `@REPLY_TO@` is a new comment, which opens a thread; only a reviewer
                   opens one. A result with it replies in the thread of that id, as the conversation's
                   `@THREAD@` gave it, at that thread's place.
+                - `porelo/resolveThreads` names the threads you mark resolved, each by the `@THREAD@` the
+                  conversation gave it, and is left out when you resolve none; a submission that only resolves
+                  has no result. You may resolve any thread at your task's place, whoever opened it, only when
+                  your task holds `resolveThreads`; a thread elsewhere is refused as `NoSuchThread`. A forge that
+                  cannot resolve a thread leaves it open.
                 - Name no author, `guid`, `@THREAD@` or thread state: the host knows who sends it.
                 - No `metadata.thread` and no other part. A submission that is refused comes back into
                   `inbox/new/` with the reason, and nothing of it is kept.
+
+                ## Rejecting a waiting push
+
+                When your task reads another task's push waiting at the gate, and its start gave it the right
+                `reject`, you may discard that push, as a person's reject does: it never reaches the upstream,
+                and the task that pushed it is told your reason, as yours. Send one submission to `@REVIEW@`
+                whose run is the push's and that holds one result with `@JUDGMENT@` and no location.
+
+                ```json
+                {
+                  "messageId": "a-unique-id-of-yours",
+                  "role": "@ROLE@",
+                  "parts": [ { "data": {
+                    "version": "2.1.0",
+                    "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+                    "properties": { "porelo/profileVersion": "2", "porelo/documentKind": "submission" },
+                    "runs": [ {
+                      "tool": { "driver": { "name": "Porelo" } },
+                      "versionControlProvenance": [ { "repositoryUri": "urn:porelo:repository:shop:app",
+                        "revisionId": "4e1d2c3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d" } ],
+                      "columnKind": "unicodeCodePoints",
+                      "properties": { "porelo/project": "shop", "porelo/repository": "app",
+                        "porelo/push": "fix-login",
+                        "porelo/baseRevisionId": "9f8e7d6c5b4a39281706f5e4d3c2b1a098765432" },
+                      "results": [
+                        { "kind": "review", "level": "none",
+                          "message": { "text": "A blank password logs in; this cannot be reviewed into shape." },
+                          "properties": { "@JUDGMENT@": "reject" } }
+                      ]
+                    } ]
+                  } } ],
+                  "metadata": { "to": "@REVIEW@", "kind": "@KIND@" }
+                }
+                ```
+
+                - Take the run's fields from the review document of the push you read. Only that push is
+                  discarded, whatever the document names, and only at the commit your task was given.
+                - The message is your reason, at most @MAX_REASON@ characters; one reject per submission.
+                  Comments and replies may go in the same submission: they go first, the reject last.
+                - A reject is refused when your task lacks the right, when the push moved or is gone, or
+                  when the upstream already has it; nothing is discarded.
+                - Your task never rejects its own work, and a task that rejects pushes nothing.
 
                 ## What does not travel
 
@@ -277,7 +331,9 @@ public final class MailboxGuide {
                 .replace("@ROLE@", MessageIntake.AGENT)
                 .replace("@REVIEW_PART@", PersonNote.REVIEW)
                 .replace("@THREAD@", "porelo/threadId")
-                .replace("@REPLY_TO@", "porelo/replyTo");
+                .replace("@REPLY_TO@", "porelo/replyTo")
+                .replace("@JUDGMENT@", "porelo/judgment")
+                .replace("@MAX_REASON@", String.valueOf(PersonNote.MAX_REASON));
     }
 
     /**

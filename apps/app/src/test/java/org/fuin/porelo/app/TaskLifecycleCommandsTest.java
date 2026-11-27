@@ -1851,6 +1851,28 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aResumedTaskThatReadsAnotherTasksWorkIsInNoConversation(@TempDir Path dir)
+            throws Exception {
+        // Taken into the room on its way back, a task reading another task's work could hand
+        // what it read to everyone in it.
+        final PoreloContext context = roomContext(dir);
+        runner.answering("container inspect", "4711");
+        tasks("porelo-uc-shell-1\tExited (0)\t\t\tuc\tguarded\tuc\t\n");
+        final Path state = stateOf("porelo-uc-shell-1");
+        recordAgent(state, "preview");
+        RunPlace.recordParts(
+                state,
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(org.fuin.porelo.gate.review.Right.REPLY)));
+
+        assertThat(resume(context, "porelo-uc-shell-1")).as(err.toString()).isZero();
+
+        assertThat(runner.lines())
+                .as("neither set up nor enrolled: %s", err)
+                .noneMatch(line -> line.contains(" setup ") || line.contains(" enroll "));
+    }
+
+    @Test
     void aResumedTaskThatHoldsItsNameInTheRoomAsksNoTransport(@TempDir Path dir) throws Exception {
         // Every resume asking the transport would make a stopped room hold up every resume.
         final PoreloContext context = roomContext(dir);

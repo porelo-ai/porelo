@@ -16,7 +16,9 @@ import org.jspecify.annotations.Nullable;
  * token in a long message, {@code leak-field} names the token as what profile 2 cannot carry,
  * {@code slow} answers after a minute, and {@code halt} ends the process before it answers. A page
  * asked for at cursor {@code slow} also answers after a minute. Each post received is written as a
- * line to the file {@link #POSTS} names, when it names one.
+ * line to the file {@link #POSTS} names, when it names one, and each resolve as {@code resolve
+ * <thread>}: {@link #RESOLVABLE} is resolved, {@link #UNRESOLVABLE} answers as a forge that cannot
+ * resolve, and any other thread is one the pull request does not hold.
  */
 public final class FakeReviewReader implements BuildReader, ReviewReader {
 
@@ -153,6 +155,26 @@ public final class FakeReviewReader implements BuildReader, ReviewReader {
             Runtime.getRuntime().halt(1);
         }
         return threadOf(document);
+    }
+
+    /**
+     * The thread the fake resolves; {@link #UNRESOLVABLE} it cannot, any other it does not hold.
+     */
+    static final String RESOLVABLE = "7";
+
+    /** The thread at which the fake answers as a forge that cannot resolve a thread. */
+    static final String UNRESOLVABLE = "8";
+
+    @Override
+    public void resolve(final ForgeAccess access, final String url, final String thread) {
+        refuseWrongToken(access);
+        received("resolve " + thread);
+        if (UNRESOLVABLE.equals(thread)) {
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.RESOLVE_UNSUPPORTED);
+        }
+        if (!RESOLVABLE.equals(thread)) {
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.NO_SUCH_THREAD);
+        }
     }
 
     private static void received(final String document) {

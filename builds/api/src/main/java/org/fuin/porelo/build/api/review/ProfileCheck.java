@@ -52,7 +52,9 @@ import org.jspecify.annotations.Nullable;
  *       #MAX_TEXT_BYTES} bytes, at most the anchored lines plus {@value #EXTRA_REPLACEMENT_LINES}
  *       lines, each at most {@value #MAX_REPLACEMENT_LINE} Unicode scalar values;
  *   <li>a forge account's {@code porelo/createdAt} names a time that was: its day in its month, its
- *       hour at most 23 and its second at most 59.
+ *       hour at most 23 and its second at most 59;
+ *   <li>a reject ({@value #JUDGMENT}) stands only in a task's submission on a push run, where its
+ *       message alone, the reason, is held to the rules of a shown text.
  * </ul>
  *
  * <p>A refusal names its rule and a JSON Pointer, never the document's text.
@@ -82,6 +84,9 @@ public final class ProfileCheck {
 
     /** The most characters of one path segment of a forge URL. */
     public static final int MAX_URL_SEGMENT = 100;
+
+    /** The property that makes a result a judgment, whose one value is {@code reject}. */
+    public static final String JUDGMENT = "porelo/judgment";
 
     /** The most characters of a DNS name, and of one label in it. */
     private static final int MAX_DNS_NAME = 253;
@@ -220,8 +225,24 @@ public final class ProfileCheck {
         }
         final List<Result> results = run.getResults();
         for (int j = 0; j < results.size(); j++) {
-            result(results.get(j), at + "/results/" + j);
+            final String resultAt = at + "/results/" + j;
+            if (bag(results.get(j).getProperties()).containsKey(JUDGMENT)) {
+                // Only a task judges, and only the push its run is pinned to: never a forge's page
+                // or a pull request, whatever the schema let through.
+                if (channel == Channel.ADAPTER || pullRequest != null) {
+                    refuse(Rule.CHANNEL, resultAt + "/properties/porelo~1judgment");
+                }
+                judgment(results.get(j), resultAt);
+                continue;
+            }
+            result(results.get(j), resultAt);
         }
+    }
+
+    /** A judgment carries its reason alone, checked as every text a result gives. */
+    private void judgment(final Result result, final String at) throws SarifRefused {
+        shownProperties(bag(result.getProperties()), at + "/properties");
+        message(Objects.requireNonNull(result.getMessage(), "a result's message").getText(), at);
     }
 
     private void forgeUrls(final Run run, final String pullRequest, final String at)

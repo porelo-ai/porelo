@@ -378,6 +378,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
 
         servingContext(
                 context,
@@ -426,6 +430,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
 
         servingContext(
                 context,
@@ -652,6 +660,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().containerState("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
@@ -701,6 +713,10 @@ class PoreloDaemonTest {
                         + "\n");
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"), id);
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().containerState("porelo-uc-shell"), id);
         new org.fuin.porelo.wire.TaskProfile(
@@ -965,6 +981,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
 
         servingContext(
                 context,
@@ -999,6 +1019,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
         final Path state =
                 Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
         profile(state, org.fuin.porelo.wire.TaskMode.AGENT);
@@ -1130,6 +1154,10 @@ class PoreloDaemonTest {
         org.fuin.porelo.wire.Sidecar.recordId(
                 context.paths().tasks().taskRecord("porelo-uc-shell"),
                 "c0ffee0000000000000000000000000000000000000000000000000000000000");
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().taskRecord("porelo-uc-shell")),
+                org.fuin.porelo.gate.review.TaskParts.ownWork());
         final Path state =
                 Files.createDirectories(context.paths().tasks().containerState("porelo-uc-shell"));
         profile(state, org.fuin.porelo.wire.TaskMode.AGENT);
@@ -2758,6 +2786,48 @@ class PoreloDaemonTest {
                         assertThat(none).containsEntry("outcome", "NO_SUCH_MESSAGE");
                     }
                 });
+    }
+
+    @Test
+    void aReleaseOfWhatTheFilterRefusedOfATaskThatReadsAnotherTasksWorkIsNotDeliverable(
+            @TempDir Path dir) throws Exception {
+        // Delivered despite the filter, a reader's message carried another task's unreviewed work
+        // out; the method must hand the release the task's recorded parts.
+        final PoreloContext context = context(dir);
+        org.fuin.porelo.app.RunPlace.recordParts(
+                Files.createDirectories(
+                        context.paths().tasks().containerState("porelo-uc-shell-1")),
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        List.of(org.fuin.porelo.gate.review.Right.REPLY)));
+        final org.fuin.porelo.app.Mailbox mailbox =
+                new org.fuin.porelo.app.Mailbox(
+                        context.paths().messaging().mailbox("porelo-uc-shell-1"));
+        mailbox.create();
+        Files.createDirectories(mailbox.rejected());
+        Files.writeString(
+                mailbox.rejected().resolve("m-1.json"),
+                "{\"messageId\":\"m-1\",\"metadata\":{\"to\":\"reviewer\"}}");
+        Files.writeString(
+                mailbox.rejected().resolve("m-1.json.sig"), "-----BEGIN SSH SIGNATURE-----");
+
+        servingContext(
+                context,
+                dir,
+                socket -> {
+                    try (VarlinkClient client = new VarlinkClient(socket)) {
+                        final Map<String, Object> answer =
+                                client.call(
+                                        PoreloDaemon.INTERFACE + ".Release",
+                                        Map.of("task", "porelo-uc-shell-1", "id", "m-1"));
+
+                        assertThat(answer)
+                                .containsEntry("outcome", "NOT_DELIVERABLE")
+                                .containsEntry(
+                                        "detail",
+                                        org.fuin.porelo.app.ReadingTasks.SENDS_TO_REVIEW_ONLY);
+                    }
+                });
+        assertThat(mailbox.rejected().resolve("m-1.json")).as("it stays where it was").exists();
     }
 
     @Test

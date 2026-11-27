@@ -16,7 +16,7 @@ import org.fuin.porelo.gate.review.PullRequestRef;
  * name a file holds: a forge that does not say, or names an account of another forge, leaves the
  * place unreadable.
  */
-public final class ForgeAccounts implements TaskReviewRole.Accounts {
+public final class ForgeAccounts implements RecordedTaskRights.Accounts {
 
     private final Facts forge;
 

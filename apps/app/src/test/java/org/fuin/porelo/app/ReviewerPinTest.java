@@ -30,6 +30,9 @@ class ReviewerPinTest {
 
     private static final String BASE = "b".repeat(40);
 
+    /** The recorded container id of the task whose push is read. */
+    private static final String PUSHER = "d".repeat(12);
+
     @TempDir Path state;
 
     @TempDir Path mirror;
@@ -71,28 +74,52 @@ class ReviewerPinTest {
     void pinningMovesTheReviewersRefAndRecordsTheState() throws IOException {
         reviewer();
         ReviewerPin.pin(
-                git, mirror, state, record, served(), TASK, new RunPlace.Pin(HEAD, BASE, null));
+                git,
+                mirror,
+                state,
+                record,
+                served(),
+                TASK,
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         assertThat(asked.getLast())
                 .as("the last git the pin ran")
                 .containsExactly(
                         "git", "-C", mirror.toString(), "update-ref", GitGate.PINNED + TASK, HEAD);
         assertThat(RunPlace.readFrom(state).pinned())
                 .as("the recorded state")
-                .isEqualTo(new RunPlace.Pin(HEAD, BASE, null));
+                .isEqualTo(new RunPlace.Pin(HEAD, BASE, null, PUSHER));
     }
 
     @Test
     void pinningAfreshReplacesTheRefAndTheRecord() throws IOException {
         reviewer();
         ReviewerPin.pin(
-                git, mirror, state, record, served(), TASK, new RunPlace.Pin(HEAD, BASE, null));
+                git,
+                mirror,
+                state,
+                record,
+                served(),
+                TASK,
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         ReviewerPin.pin(
-                git, mirror, state, record, served(), TASK, new RunPlace.Pin(LATER, BASE, null));
+                git,
+                mirror,
+                state,
+                record,
+                served(),
+                TASK,
+                new RunPlace.Pin(LATER, BASE, null, PUSHER));
         assertThat(asked.getLast()).as("the last git the pin ran").endsWith(LATER);
         assertThat(RunPlace.readFrom(state).pinned().head())
                 .as("the recorded head")
                 .isEqualTo(LATER);
-        assertThat(RunPlace.readFrom(state).role()).as("the role").isEqualTo(RunPlace.REVIEWER);
+        assertThat(RunPlace.readFrom(state).parts())
+                .as("the parts")
+                .isEqualTo(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
     }
 
     @Test
@@ -108,7 +135,7 @@ class ReviewerPinTest {
                                         record,
                                         served(),
                                         TASK,
-                                        new RunPlace.Pin(HEAD, null, null)))
+                                        new RunPlace.Pin(HEAD, null, null, PUSHER)))
                 .as("a pin git refused")
                 .isInstanceOf(IOException.class);
         assertThat(RunPlace.readFrom(state).pinned()).as("the recorded state").isNull();
@@ -126,7 +153,7 @@ class ReviewerPinTest {
                                         record,
                                         served(),
                                         TASK,
-                                        new RunPlace.Pin(HEAD, null, null)))
+                                        new RunPlace.Pin(HEAD, null, null, PUSHER)))
                 .as("an author pinned")
                 .isInstanceOf(IllegalStateException.class);
         assertThat(asked).as("what git was asked").isEmpty();
@@ -143,7 +170,7 @@ class ReviewerPinTest {
                                         record,
                                         served(),
                                         TASK,
-                                        new RunPlace.Pin(HEAD, null, null)))
+                                        new RunPlace.Pin(HEAD, null, null, PUSHER)))
                 .as("a task without a record pinned")
                 .isInstanceOf(IllegalStateException.class);
         assertThat(asked).as("what git was asked").isEmpty();
@@ -153,7 +180,13 @@ class ReviewerPinTest {
     void pinningBuildsTheReviewersOwnRepositoryBesideTheServedOne() throws IOException {
         reviewer();
         ReviewerPin.pin(
-                git, mirror, state, record, served(), TASK, new RunPlace.Pin(HEAD, BASE, null));
+                git,
+                mirror,
+                state,
+                record,
+                served(),
+                TASK,
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         final Path built = served().resolveSibling("shop-1.git.new");
         assertThat(asked)
                 .as("what git was asked")
@@ -183,7 +216,7 @@ class ReviewerPinTest {
                                         record,
                                         served(),
                                         TASK,
-                                        new RunPlace.Pin(HEAD, null, null)))
+                                        new RunPlace.Pin(HEAD, null, null, PUSHER)))
                 .as("a pin of an id that names a tag")
                 .isInstanceOf(IOException.class);
         assertThat(asked)
@@ -196,7 +229,13 @@ class ReviewerPinTest {
     void aRecordThatCannotBeWrittenPutsBackTheEarlierRepositoryAndRef() throws IOException {
         reviewer();
         ReviewerPin.pin(
-                git, mirror, state, record, served(), TASK, new RunPlace.Pin(HEAD, BASE, null));
+                git,
+                mirror,
+                state,
+                record,
+                served(),
+                TASK,
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         java.nio.file.Files.writeString(served().resolve("earlier"), "");
         at.put(
                 "update-ref",
@@ -222,7 +261,7 @@ class ReviewerPinTest {
                                         record,
                                         served(),
                                         TASK,
-                                        new RunPlace.Pin(LATER, BASE, null)))
+                                        new RunPlace.Pin(LATER, BASE, null, PUSHER)))
                 .as("a pin whose record could not be written")
                 .isInstanceOf(IOException.class);
         assertThat(served().resolve("earlier")).as("the earlier served repository's mark").exists();
@@ -248,7 +287,7 @@ class ReviewerPinTest {
                 java.nio.file.Files.createDirectories(paths.taskRecord(CONTAINER)),
                 paths.pinnedRepository(CONTAINER),
                 TASK,
-                new RunPlace.Pin(HEAD, BASE, null));
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         assertThat(paths.pinnedRepository(CONTAINER))
                 .as("the served repository, in the state directory")
                 .isDirectory();
@@ -272,7 +311,7 @@ class ReviewerPinTest {
                 java.nio.file.Files.createDirectories(paths.taskRecord(CONTAINER)),
                 paths.pinnedRepository(CONTAINER),
                 TASK,
-                new RunPlace.Pin(HEAD, BASE, null));
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         try (java.util.stream.Stream<Path> tree = java.nio.file.Files.walk(runtime)) {
             for (final Path each : tree.sorted(java.util.Comparator.reverseOrder()).toList()) {
                 java.nio.file.Files.delete(each);
@@ -295,7 +334,7 @@ class ReviewerPinTest {
                 java.nio.file.Files.createDirectories(paths.taskRecord(CONTAINER)),
                 paths.pinnedRepository(CONTAINER),
                 TASK,
-                new RunPlace.Pin(HEAD, BASE, null));
+                new RunPlace.Pin(HEAD, BASE, null, PUSHER));
         assertThat(
                         java.nio.file.attribute.PosixFilePermissions.toString(
                                 java.nio.file.Files.getPosixFilePermissions(
@@ -325,6 +364,13 @@ class ReviewerPinTest {
     }
 
     private static void reviewer(final Path state) throws IOException {
-        new RunPlace(RunPlace.REVIEWER, null, "shop-2").writeTo(state);
+        new RunPlace(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        null,
+                        "shop-2")
+                .writeTo(state);
     }
 }

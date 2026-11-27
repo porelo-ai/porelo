@@ -31,7 +31,11 @@ import org.jspecify.annotations.Nullable;
  * time. A refusal names a rule and a JSON Pointer, never the document's text.
  *
  * <p>An adapter's page also names its resolved threads: those every one of whose results on the
- * page says {@code resolved}.
+ * page says {@code resolved}. A task's submission names in {@code porelo/resolveThreads} the
+ * threads it marks resolved: each becomes a {@link ThreadResolve} after the submission's results.
+ *
+ * <p>A task's submission on a push may hold one reject, read as its reason and no item; a second
+ * refuses the whole submission.
  */
 public final class ProfileTranslator implements ProfileReading {
 
@@ -54,6 +58,8 @@ public final class ProfileTranslator implements ProfileReading {
         final Set<String> resolved = new HashSet<>();
         final Set<String> open = new HashSet<>();
         Completeness completeness = Completeness.COMPLETE;
+        Body reject = null;
+        final List<String> named = new ArrayList<>();
         final List<Run> runs = sarif.getRuns();
         for (int i = 0; i < runs.size(); i++) {
             final Run run = runs.get(i);
@@ -64,6 +70,19 @@ public final class ProfileTranslator implements ProfileReading {
             for (int j = 0; j < results.size(); j++) {
                 if (channel instanceof ProfileChannel.Adapter) {
                     state(results.get(j), resolved, open);
+                }
+                if (bag(results.get(j).getProperties()).containsKey(ProfileCheck.JUDGMENT)) {
+                    // The check let it through only in a task's submission on a push; one is all
+                    // a submission may judge.
+                    if (reject != null) {
+                        throw new ProfileRefused(
+                                "submission: more than one reject at /runs/" + i + "/results/" + j);
+                    }
+                    reject =
+                            new Body(
+                                    ProfileCheck.textAsGiven(
+                                            results.get(j).getMessage().getText()));
+                    continue;
                 }
                 try {
                     items.add(item(results.get(j), channel));
@@ -78,10 +97,77 @@ public final class ProfileTranslator implements ProfileReading {
                                     + j);
                 }
             }
+            if (channel instanceof ProfileChannel.FromTask task) {
+                resolves(run, task, i, items);
+                final String place = named(bag(run.getProperties()));
+                if (place != null) {
+                    named.add(place);
+                }
+            }
         }
         // A thread one of whose results says open stays open, so no point is ever hidden.
         resolved.removeAll(open);
-        return new ProfileRead(items, resolved, completeness);
+        return new ProfileRead(items, resolved, completeness, reject, named);
+    }
+
+    /**
+     * The place a submission's run names, as {@link ProfileRead#named} writes it, or null when it
+     * names none: the run's own place is then the one its items go to.
+     */
+    private static @Nullable String named(final Map<String, Object> properties) {
+        final String pullRequest = text(properties, "porelo/pullRequest");
+        if (pullRequest != null) {
+            return "pullRequest:" + pullRequest;
+        }
+        final String project = text(properties, "porelo/project");
+        final String repository = text(properties, "porelo/repository");
+        final String push = text(properties, "porelo/push");
+        if (project == null && repository == null && push == null) {
+            return null;
+        }
+        return "push:"
+                + (project == null ? "" : project)
+                + "/"
+                + (repository == null ? "" : repository)
+                + "/"
+                + (push == null ? "" : push);
+    }
+
+    /**
+     * Takes a submission's resolved threads as resolve items after its results, each stamped with
+     * the task. Only a submission carries them; the schema refuses them on a page.
+     */
+    private static void resolves(
+            final Run run,
+            final ProfileChannel.FromTask task,
+            final int i,
+            final List<ProfileItem> items)
+            throws ProfileRefused {
+        final Object threads = bag(run.getProperties()).get("porelo/resolveThreads");
+        if (threads == null) {
+            return;
+        }
+        if (!(threads instanceof List<?> named)) {
+            // Not reached by a checked submission: its schema holds the field to a list.
+            throw new ProfileRefused("record: resolve at /runs/" + i + "/properties");
+        }
+        for (int k = 0; k < named.size(); k++) {
+            try {
+                items.add(
+                        new ProfileItem(
+                                null,
+                                null,
+                                task.task(),
+                                new ThreadResolve(named.get(k) instanceof String id ? id : ""),
+                                null));
+            } catch (final IllegalArgumentException e) {
+                throw new ProfileRefused(
+                        "record: resolve at /runs/"
+                                + i
+                                + "/properties/porelo~1resolveThreads/"
+                                + k);
+            }
+        }
     }
 
     /**

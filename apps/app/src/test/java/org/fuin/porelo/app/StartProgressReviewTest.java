@@ -16,6 +16,7 @@ import org.fuin.porelo.core.process.CommandException;
 import org.fuin.porelo.core.process.CommandRunner;
 import org.fuin.porelo.core.process.ProcessCommandRunner;
 import org.fuin.porelo.core.project.ProjectReader;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.vault.VaultEntry;
 import org.fuin.porelo.wire.Json;
@@ -463,6 +464,9 @@ class StartProgressReviewTest {
         LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
         installHooks(context);
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        RunPlace.recordParts(
+                context.paths().tasks().containerState("porelo-p-work"), TaskParts.ownWork());
         Files.createDirectories(context.vault().path().getParent());
         context.vault().write(Map.of(), "test passphrase".toCharArray());
         context.openerAsking(false, new PrintWriter(new StringWriter()));
@@ -511,6 +515,9 @@ class StartProgressReviewTest {
         LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
         installHooks(context);
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        RunPlace.recordParts(
+                context.paths().tasks().containerState("porelo-p-work"), TaskParts.ownWork());
         final List<StartStep> events = new ArrayList<>();
         final TaskLaunch.Existing result =
                 new TaskLaunch(context, request(projectFile(false)), new StartSteps(events::add))
@@ -536,6 +543,9 @@ class StartProgressReviewTest {
         LegacyTaskFixture.record(context, "porelo-p-work", "p", "0123456789abcdef");
         installHooks(context);
         Files.createDirectories(context.paths().tasks().containerState("porelo-p-work"));
+        // As its first start recorded it: own work, the parts a start naming none gets.
+        RunPlace.recordParts(
+                context.paths().tasks().containerState("porelo-p-work"), TaskParts.ownWork());
         final List<StartStep> events = new ArrayList<>();
         new TaskLaunch(context, request(projectFile(false)), new StartSteps(events::add))
                 .startExisting(

@@ -245,8 +245,9 @@ type Task (
   # The time limit in minutes its last unattended run was given (Start's minutes, default 30). 0 for an
   # attended session, which has none, and for a task whose run predates this field.
   minutes: int,
-  # Where its reviewed work landed, one entry per branch, readable by a task started with reads naming
-  # it. [] while its work waits at the gate, and for a task that never landed anything.
+  # Where its reviewed work landed, one entry per branch, readable by a task started with readLanded naming
+  # it. [] while its work waits at the gate, where only a task started at exactly that push (Start's
+  # place.gatePush) sees it, and for a task that never landed anything.
   landed: []Landed,
   # Whether its commits are signed by a key of its own, certified at its start by a person the
   # project's access file admits, and judged at its gate when they arrive. false for a task whose
@@ -288,10 +289,11 @@ type Task (
   # The sequence number of the task's last report, 0 before its first; it changes when a report
   # arrives, so Watch sends the row again. Reports answers the reports themselves.
   reports: int,
-  # Whether the task only reads: made with Start's readOnly or allRepositories, its
-  # repositories under /workspace/ read only, with no gate and nothing it can push. false for any
-  # other task. An older daemon omits it, and a client takes that as false.
-  readOnly: ?bool,
+  # The kind of workspace Porelo recorded for the task, so a reader derives nothing: own (its own
+  # branch and a gate), foreign (another task's push or pull request, frozen and read only), readOnly
+  # (one repository under /workspace/ read only, no gate), allRepositories (every repository read
+  # only, no gate) or none (an empty directory, no gate).
+  workspace: (own, foreign, readOnly, allRepositories, none),
   # What it is waiting to be told: a clearance question, or review while its work is on the
   # gate's waiting list. A passed online push supplies no review reason. "" for a stopped task.
   waitingFor: string,
@@ -422,17 +424,26 @@ type Task (
   # Set when this start follows no builds because the host's configured vault entry is absent.
   # The sentence remains in buildProblem; afterStore is "restart", even once the entry is stored.
   buildsCredential: ?MissingCredential,
-  # The role of the task's current or last run: AUTHOR or REVIEWER, as Start's role took it. A start that
-  # named none is an author's. Absent for a task without a gate, and for one whose start recorded none.
-  # Only a run's role: the duties a planner gives people are its own settings, never this.
-  role: ?string,
+  # The rights the task's start recorded, written out: a start that named none shows the default set
+  # at own work and [] for a task that only reads or has no workspace.
+  rights: []Right,
+  # The tasks whose landed work it reads, as its start recorded them; [] for none.
+  readLanded: []string,
+  # The account its start recorded for a pull request; author for a start that named none.
+  writeAs: (author, review),
+  # Whether it has the project's services, as its start recorded it.
+  projectServices: bool,
   # Where the task's current or last run works, as Start's place took it. A start that named none
-  # works at the task's own gate push, which is then given here. Absent as for role.
+  # works at the task's own gate push, which is then given here. Absent for a task without a gate.
   place: ?Place,
   # How many of the task's items, over its runs and places, wait for the owner account's decision. Absent
   # while the task's hold journal cannot be read; the daemon's log and `porelo doctor` name it.
   held: ?int
 )
+
+# What a task may do at its place and through its own endpoint: the actions push, reply, openThreads and
+# resolveThreads, the endpoint rights start, stop, done and report, and the one judgment, reject.
+type Right (push, reply, openThreads, resolveThreads, start, stop, done, report, reject)
 
 # Where a run works. Exactly one field is set; a Place with none or several is refused as
 # org.varlink.service.InvalidParameter.
@@ -838,11 +849,6 @@ method Start(
   # to 2147483647 (0, a negative number, a fraction, a string, a boolean) is refused with exitCode 64
   # before anything is made, in the command line's words; only an absent one takes the default.
   minutes: ?int,
-  # Tasks of the same project whose reviewed work this one may read, once it landed: its clone fetches
-  # each one's landed refs as refs/remotes/origin/landed/<task>/<branch>, read only. Work still at the
-  # gate is never shown, and no other task's. Default: none. A name that is not a plain task name is
-  # refused with org.varlink.service.InvalidParameter.
-  reads: ?[]string,
   # A key of the caller's own, kept with the task from its creation and given back on its row by List
   # and Watch as callerKey, so a caller that restarts finds every task it started. Opaque to porelo:
   # it is never shown as a caption, Label never changes it, and a start that brings back an existing
@@ -871,10 +877,34 @@ method Start(
   # back: 'porelo host pull' and a task that merges central/main, or 'porelo host push' where only the host is
   # ahead. CanStart does not ask the host to follow and does not answer this.
   work: ?[](issue: string, phase: string),
-  # The run's role. Absent means AUTHOR. A reviewer at its own task's work is refused as RoleNotAllowed.
-  role: ?(AUTHOR, REVIEWER),
-  # Where the run works. Absent means the task's own gate push, as before. A gate push of another
-  # task is refused as NotTheTasksPush; a pull request the forge does not know as NoSuchPullRequest; a
+  # The rights the run holds, actions and judgments in one list. Absent takes the default set, push and
+  # reply, for own work alone; with readOnly, allRepositories or noGate absent is the empty set, and push
+  # named there is refused as StartRuleBroken with the rule pushWithoutOwnWork. An empty list is a start
+  # holding no right and never becomes the default set. A start whose
+  # place is another task's work has no default: absent there is refused as StartRuleBroken with the rule
+  # foreignWorkNamesNoRights. A list that breaks one of Porelo's own start rules is refused as
+  # StartRuleBroken before anything is made. A task brought back keeps its recorded parts when the start
+  # names none; one naming other parts is refused as RightsChanged.
+  rights: ?[]Right,
+  # Tasks of the same project whose reviewed work this one may read, once it landed: its clone fetches
+  # each one's landed refs as refs/remotes/origin/landed/<task>/<branch>, read only. Work still waiting
+  # at the gate is shown only to a task whose place is exactly that push, never through this list.
+  # Absent and empty both mean none. A name that is not a plain task name is refused with
+  # org.varlink.service.InvalidParameter.
+  readLanded: ?[]string,
+  # The account the run's released items are written as at a pull request: author, the account that
+  # opened it, or review, the forge instance's account. Taken only where the place is a pull request;
+  # at a gate push or without a place it is refused as org.varlink.service.InvalidParameter("writeAs"),
+  # never ignored. Absent at a pull request it is author.
+  writeAs: ?(author, review),
+  # Whether the task gets the project's services: its credentials, package repositories, host services
+  # and egress, as one switch. Absent is true for own work, read only and no workspace. At another
+  # task's work it is always off, and true there is refused as StartRuleBroken with the rule
+  # foreignWorkLeadsOut.
+  projectServices: ?bool,
+  # Where the run works. Absent means the task's own gate push. A gate push or pull request of another
+  # task of the same project makes the run's workspace that task's work, frozen at its head and read
+  # only; no field of its own names that kind. A pull request the forge does not know as NoSuchPullRequest; a
   # place that cannot be read as PlaceUnreadable. A further
   # run at the same place is a further Start of the same task: there is no round or sequence.
   # A task that is running answers as it does without a place.
@@ -1320,8 +1350,14 @@ method CanStart(
   # The issues and the phases the task would work on, as Start takes them. Work Start would refuse with exitCode 64 is
   # WORK_REFUSED; a value Start answers InvalidParameter for is InvalidParameter here too.
   work: ?[](issue: string, phase: string),
-  # The run's role, as Start takes it; refused by the same errors.
-  role: ?(AUTHOR, REVIEWER),
+  # The run's rights, as Start takes them; refused by the same errors.
+  rights: ?[]Right,
+  # The tasks whose landed work the run would read, as Start takes them.
+  readLanded: ?[]string,
+  # The account the run would write as at a pull request, as Start takes it; refused by the same errors.
+  writeAs: ?(author, review),
+  # Whether the run would get the project's services, as Start takes it; refused by the same errors.
+  projectServices: ?bool,
   # Where the run would work, as Start takes it; refused by the same errors.
   place: ?Place
 ) -> (
@@ -1793,8 +1829,18 @@ error UnknownForge(host: string)
 error NoPullRequest(branch: string)
 # A Start or CanStart named a gate push that is not this task's own; 'head' is the push's head.
 error NotTheTasksPush(head: string)
-# A Start or CanStart asked for a role this place does not allow, such as a reviewer at its own task's work.
-error RoleNotAllowed(role: string, place: Place)
+# A Start or CanStart broke one of the rules Porelo keeps itself, refused before anything is made. 'rule' is
+# foreignWorkLeadsOut (another task's work with project services, push, added credentials or a clearance of
+# allow or off), foreignWorkNamesNoRights (another task's work and no rights named), rejectWithPush,
+# rejectOverOwnWork, pushWithoutOwnWork, or exceedsParent (a start through a task's endpoint asking more
+# than the starting task holds); 'detail' names the part that breaks it.
+error StartRuleBroken(rule: string, detail: string)
+# No method answers a missing right: no caller of this interface can lack one. A task meets it as the rule
+# "RightMissing: <right> (<act>)", <right> a value of Right, in the refusal of what it handed to its mailbox and
+# in its gate's log for a push; a method of its own endpoint that its rights lack answers
+# org.varlink.service.MethodNotFound.
+# A Start of an existing task named parts other than the ones its first start recorded.
+error RightsChanged()
 # A Start or CanStart named a place that could not be read; nothing was made. 'detail' is for a person.
 error PlaceUnreadable(
   reason: (NoSuchPush, NotInProject, MovedSinceReview, MissingForgeToken, ForgeAdapterMissing, Unreachable, HeadNotFetched,
@@ -1937,8 +1983,12 @@ type TaskRecord (
   toolCallsNext: ?int,
   # The unattended runs whose calls the record holds; absent in older records.
   runs: ?int,
-  # As Task.role, for the record's last run; absent in older records.
-  role: ?string,
+  # As Task.workspace, rights, readLanded, writeAs and projectServices, for the record's start.
+  workspace: (own, foreign, readOnly, allRepositories, none),
+  rights: []Right,
+  readLanded: []string,
+  writeAs: (author, review),
+  projectServices: bool,
   # As Task.place, for the record's last run; absent in older records.
   place: ?Place,
   # As Task.held; absent in older records.

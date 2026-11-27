@@ -1,0 +1,2 @@
+title: "A task's MCP endpoint carries `Start`, `Stop`, `Done` and `Report` only where the task's recorded rights hold `start`, `stop`, `done` and `report`, within the project file's `mcp` section; a task started through it gets at most the workspace, equipment and rights of the task that starts it, a start asking more refused as `StartRuleBroken` with the rule `exceedsParent`; and `Pending`, `Review` and `ReviewPage` answer a task only for the gate push that is its place, every other waiting push absent or refused as `NoSuchPush`"
+type: changed

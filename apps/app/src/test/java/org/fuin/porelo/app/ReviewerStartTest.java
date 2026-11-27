@@ -12,6 +12,8 @@ import org.fuin.porelo.agent.api.ProviderRoute;
 import org.fuin.porelo.core.project.Project;
 import org.fuin.porelo.core.project.ProjectReader;
 import org.fuin.porelo.gate.GitGate;
+import org.fuin.porelo.gate.review.Right;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -23,9 +25,17 @@ class ReviewerStartTest {
 
     private static final String TASK = "shop-2";
 
-    private static final RunPlace REVIEWER = new RunPlace(RunPlace.REVIEWER, null, "shop-1");
+    private static final TaskParts REVIEWER =
+            TaskParts.anothersWork(List.of(Right.REPLY, Right.OPEN_THREADS));
 
-    private static final RunPlace AUTHOR = RunPlace.ownPush("shop", null, TASK);
+    private static final TaskParts AUTHOR = TaskParts.ownWork();
+
+    /** A task without a gate, as a start naming no part gets it. */
+    private static final TaskParts UNGATED = TaskParts.withoutGate(false, false);
+
+    /** A task without a gate whose start switched the project's services off. */
+    private static final TaskParts UNSERVICED =
+            new TaskParts.Asked(null, null, null, Boolean.FALSE, true, false, false).withoutGate();
 
     private static final Map<String, String> PROJECT_ORIGINS =
             Map.of("forge.example", "project file");
@@ -39,9 +49,12 @@ class ReviewerStartTest {
         assertThat(ReviewerStart.credentials(AUTHOR, declared))
                 .as("an author's credentials")
                 .isEqualTo(declared);
-        assertThat(ReviewerStart.credentials(null, declared))
+        assertThat(ReviewerStart.credentials(UNGATED, declared))
                 .as("credentials of a task without a gate")
                 .isEqualTo(declared);
+        assertThat(ReviewerStart.credentials(UNSERVICED, declared))
+                .as("credentials of a task without a gate whose start switched services off")
+                .isEmpty();
     }
 
     @Test
@@ -103,6 +116,31 @@ class ReviewerStartTest {
     }
 
     @Test
+    void aTaskPushesToItsGateOnlyWhereItsRecordedRightsHoldPush() {
+        assertThat(ReviewerStart.pushing(org.fuin.porelo.gate.review.TaskParts.ownWork()))
+                .as("a task with the default parts")
+                .isTrue();
+        assertThat(
+                        ReviewerStart.pushing(
+                                new org.fuin.porelo.gate.review.TaskParts(
+                                        org.fuin.porelo.gate.review.TaskParts.Workspace.OWN,
+                                        List.of(),
+                                        true,
+                                        org.fuin.porelo.gate.review.TaskParts.Account.AUTHOR,
+                                        java.util.Set.of(org.fuin.porelo.gate.review.Right.REPLY))))
+                .as("a task at its own work whose rights hold no push")
+                .isFalse();
+        assertThat(
+                        ReviewerStart.pushing(
+                                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                        List.of(
+                                                org.fuin.porelo.gate.review.Right.REPLY,
+                                                org.fuin.porelo.gate.review.Right.OPEN_THREADS))))
+                .as("a task that reads another task's work")
+                .isFalse();
+    }
+
+    @Test
     void aReviewersContainerIsStartedWithoutTheProjectsHostServices() {
         final Project project =
                 ProjectReader.read(
@@ -129,9 +167,12 @@ class ReviewerStartTest {
         assertThat(ReviewerStart.started(AUTHOR, project).egress().hostServices())
                 .as("an author's host services")
                 .containsExactly("registry.example");
-        assertThat(ReviewerStart.started(null, project).egress().hostServices())
+        assertThat(ReviewerStart.started(UNGATED, project).egress().hostServices())
                 .as("host services of a task without a gate")
                 .containsExactly("registry.example");
+        assertThat(ReviewerStart.started(UNSERVICED, project).egress().hostServices())
+                .as("host services of a task without a gate whose start switched them off")
+                .isEmpty();
     }
 
     private static Project project() {

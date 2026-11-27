@@ -263,11 +263,7 @@ public final class HeldStandIns {
                 new org.fuin.porelo.gate.review.Push(
                         "uc", "shop", "review-7", "a".repeat(40), null, "0123456789ab");
         return holds.hold(
-                new Run(
-                        PLACE,
-                        org.fuin.porelo.gate.review.Role.AUTHOR,
-                        new org.fuin.porelo.gate.review.Pinned(push, null),
-                        number),
+                new Run(PLACE, new org.fuin.porelo.gate.review.Pinned(push, null), number),
                 task,
                 Direction.OUTGOING,
                 new org.fuin.porelo.gate.review.ReviewReply("t-1", new Body("why")),

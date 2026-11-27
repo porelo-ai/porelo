@@ -360,6 +360,22 @@ public class GitHttpServer implements AutoCloseable {
         return new GitHttpServer(address, mirror, token, git, null, null, PACE, pinned);
     }
 
+    /** Why this gate takes no push, or {@code null} for one that takes its task's. */
+    private volatile @org.jspecify.annotations.Nullable String noPush;
+
+    /**
+     * Refuses every push and every signature from now on, before git is run: the gate of a task
+     * whose start recorded no right to push. No ref moves, the rescue ref included, and no object
+     * is taken.
+     *
+     * @param said Why, for the gate's log.
+     * @return This server.
+     */
+    public GitHttpServer refusingPushes(final String said) {
+        this.noPush = java.util.Objects.requireNonNull(said, "said");
+        return this;
+    }
+
     /**
      * Has every push to the task's ref judged before it is passed on or answered: a refused one
      * puts the mirror's ref back and is refused in git's protocol, naming why.
@@ -446,6 +462,12 @@ public class GitHttpServer implements AutoCloseable {
             }
             final String path = exchange.getRequestURI().getPath();
             if ("POST".equals(exchange.getRequestMethod()) && "/porelo/sign".equals(path)) {
+                if (noPush != null) {
+                    // Nothing is signed for a task that may push nothing.
+                    System.err.println("refused: " + noPush);
+                    exchange.sendResponseHeaders(403, -1);
+                    return;
+                }
                 sign(exchange);
             } else if ("GET".equals(exchange.getRequestMethod()) && path.endsWith("/info/refs")) {
                 advertise(exchange);
@@ -507,7 +529,7 @@ public class GitHttpServer implements AutoCloseable {
 
         final String query = exchange.getRequestURI().getQuery();
         final String service = query == null ? "" : query.replace("service=", "");
-        if (!SERVICES.contains(service) || refusedToReviewer(service)) {
+        if (!SERVICES.contains(service) || takesNoPush(service)) {
             exchange.sendResponseHeaders(403, -1);
             return;
         }
@@ -538,7 +560,7 @@ public class GitHttpServer implements AutoCloseable {
 
     private void service(HttpExchange exchange, String service) throws IOException {
 
-        if (!SERVICES.contains(service) || refusedToReviewer(service)) {
+        if (!SERVICES.contains(service) || takesNoPush(service)) {
             exchange.sendResponseHeaders(403, -1);
             return;
         }
@@ -997,9 +1019,20 @@ public class GitHttpServer implements AutoCloseable {
      * @param ref The task's incoming ref, or {@code null} for an unscoped endpoint.
      * @return The command, with the configuration in front.
      */
-    /** A reviewer's gate takes no push: said in the gate's log, answered with 403. */
-    private boolean refusedToReviewer(final String service) {
-        if (pinned == null || !"git-receive-pack".equals(service)) {
+    /**
+     * Whether this gate takes no push: one that shows a pinned ref, or one of a task without the
+     * right to push. Said in the gate's log, answered with 403.
+     */
+    private boolean takesNoPush(final String service) {
+        if (!"git-receive-pack".equals(service)) {
+            return false;
+        }
+        final String said = noPush;
+        if (said != null) {
+            System.err.println("refused: " + said);
+            return true;
+        }
+        if (pinned == null) {
             return false;
         }
         System.err.println("refused: a reviewer's gate takes no push");

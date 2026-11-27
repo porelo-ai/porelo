@@ -116,6 +116,15 @@ class GateServeHostPushTest {
         }
     }
 
+    @Test
+    void aGateServedForATaskWithoutTheRightToPushTakesItsOption() {
+        final Run run = serve(List.of("--no-push"));
+
+        assertThat(run.code()).as("served with --no-push: %s", run.err()).isZero();
+        assertThat(run.err()).as("what the gate said").doesNotContain("Unknown option");
+        assertThat(run.out()).as("the gate came up").contains("mirror");
+    }
+
     private record Run(int code, String out, String err) {}
 
     /** Serves the task {@code fix}'s gate for a second, with these arguments as well. */

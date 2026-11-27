@@ -36,9 +36,10 @@ class ReviewProfileTest {
             strings = {
                 "forge-page.sarif.json",
                 "submitted-comment.sarif.json",
-                "submitted-reply.sarif.json"
+                "submitted-reply.sarif.json",
+                "submitted-resolve.sarif.json"
             })
-    void aForgePageASubmittedCommentAndASubmittedReplyHoldToProfileTwo(final String fixture)
+    void aForgePageASubmittedCommentReplyAndResolveHoldToProfileTwo(final String fixture)
             throws IOException {
         assertThat(PROFILE_2.validate(fixture("fixtures/" + fixture), InputFormat.JSON))
                 .as("%s against profile 2", fixture)
@@ -169,6 +170,30 @@ class ReviewProfileTest {
         final Map<String, Object> empty = parse(fixture("fixtures/submitted-reply.sarif.json"));
         list(run(empty).get("results")).clear();
         assertThat(violations(empty)).as("a submission without a result").isNotEmpty();
+    }
+
+    @Test
+    void onlyASubmissionNamesTheThreadsItResolvesEachByAnIdAlone() throws IOException {
+        final Map<String, Object> both = parse(fixture("fixtures/submitted-reply.sarif.json"));
+        map(run(both).get("properties")).put("porelo/resolveThreads", List.of("1834527690"));
+        assertThat(violations(both)).as("a reply and a resolve in one submission").isEmpty();
+
+        final Map<String, Object> page = parse(fixture("fixtures/forge-page.sarif.json"));
+        map(run(page).get("properties")).put("porelo/resolveThreads", List.of("1834527690"));
+        assertThat(violations(page)).as("a forge's page naming a resolve").isNotEmpty();
+
+        for (final Object threads :
+                List.of(
+                        List.of(),
+                        List.of("1834527690", "1834527690"),
+                        List.of("18345 27690"),
+                        List.of("x".repeat(65)),
+                        List.of(7),
+                        "1834527690")) {
+            final Map<String, Object> doc = parse(fixture("fixtures/submitted-resolve.sarif.json"));
+            map(run(doc).get("properties")).put("porelo/resolveThreads", threads);
+            assertThat(violations(doc)).as("resolved threads %s", threads).isNotEmpty();
+        }
     }
 
     @Test
@@ -308,7 +333,8 @@ class ReviewProfileTest {
     }
 
     @Test
-    void aSubmissionIsAlwaysAPullRequestRun() throws IOException {
+    void aSubmissionIsAPullRequestRunOrAPushRun() throws IOException {
+        // A task that reads another task's waiting push submits on that push.
         final Map<String, Object> doc = parse(fixture("fixtures/submitted-comment.sarif.json"));
         final Map<String, Object> runProperties = map(run(doc).get("properties"));
         runProperties.remove("porelo/pullRequest");
@@ -316,7 +342,49 @@ class ReviewProfileTest {
         runProperties.put("porelo/project", "shop");
         runProperties.put("porelo/repository", "app");
         provenance(doc).put("repositoryUri", "urn:porelo:repository:shop:app");
-        assertThat(violations(doc)).as("a submission on a push").isNotEmpty();
+        assertThat(violations(doc)).as("a submission on a push").isEmpty();
+        runProperties.remove("porelo/push");
+        assertThat(violations(doc)).as("a push run without its push").isNotEmpty();
+    }
+
+    @Test
+    void aRejectIsOneTextOnAPushRunsSubmissionAndNothingElse() throws IOException {
+        assertThat(violations(parse(fixture("fixtures/submitted-reject.sarif.json"))))
+                .as("the submitted reject")
+                .isEmpty();
+
+        final Map<String, Object> located = parse(fixture("fixtures/submitted-reject.sarif.json"));
+        final Map<String, Object> comment = parse(fixture("fixtures/submitted-comment.sarif.json"));
+        results(located).get(0).put("locations", results(comment).get(0).get("locations"));
+        assertThat(violations(located)).as("a reject at a line").isNotEmpty();
+
+        for (final Map.Entry<String, Object> other :
+                Map.<String, Object>of(
+                                "porelo/anchorKind", "line",
+                                "porelo/diffSide", "new",
+                                "porelo/replyTo", "1834527690",
+                                "porelo/judgment", "approve")
+                        .entrySet()) {
+            final Map<String, Object> doc = parse(fixture("fixtures/submitted-reject.sarif.json"));
+            properties(results(doc).get(0)).put(other.getKey(), other.getValue());
+            assertThat(violations(doc)).as("a reject naming %s", other.getKey()).isNotEmpty();
+        }
+
+        final Map<String, Object> unlocated =
+                parse(fixture("fixtures/submitted-comment.sarif.json"));
+        results(unlocated).get(0).remove("locations");
+        results(unlocated).get(0).remove("fixes");
+        assertThat(violations(unlocated)).as("a comment without its line").isNotEmpty();
+
+        final Map<String, Object> atPullRequest =
+                parse(fixture("fixtures/submitted-comment.sarif.json"));
+        list(run(atPullRequest).get("results"))
+                .set(0, results(parse(fixture("fixtures/submitted-reject.sarif.json"))).get(0));
+        assertThat(violations(atPullRequest)).as("a reject at a pull request").isNotEmpty();
+
+        final Map<String, Object> page = parse(fixture("fixtures/forge-page.sarif.json"));
+        properties(results(page).get(0)).put("porelo/judgment", "reject");
+        assertThat(violations(page)).as("a reject on a forge's page").isNotEmpty();
     }
 
     // The JDK's "$" also matches before a final line feed, so each anchored value is tried with

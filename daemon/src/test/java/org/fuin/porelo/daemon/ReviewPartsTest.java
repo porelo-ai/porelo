@@ -3,6 +3,7 @@ package org.fuin.porelo.daemon;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,8 +12,9 @@ import java.util.List;
 import java.util.Optional;
 import org.fuin.porelo.app.PullRequestPins;
 import org.fuin.porelo.app.PullRequestPlace;
+import org.fuin.porelo.app.RecordedTaskRights;
+import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.app.RunPlaceCheck;
-import org.fuin.porelo.app.TaskReviewRole;
 import org.fuin.porelo.gate.review.CommentReading;
 import org.fuin.porelo.gate.review.ForgeInstance;
 import org.fuin.porelo.gate.review.ForgeInstances;
@@ -21,6 +23,7 @@ import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -47,10 +50,14 @@ class ReviewPartsTest {
 
     private final List<String> asked = new ArrayList<>();
 
-    private TaskReviewRole role(final Optional<String> forwarded) {
-        return new TaskReviewRole(
+    /** The real rights over a task that recorded own work, as a start naming no part does. */
+    private RecordedTaskRights role(final Optional<String> forwarded) throws IOException {
+        new RunPlace(TaskParts.ownWork(), null, TASK)
+                .writeTo(Files.createDirectories(dir.resolve("state").resolve(TASK)));
+        return new RecordedTaskRights(
                 task -> dir.resolve("state").resolve(task),
-                new TaskReviewRole.Entries() {
+                task -> dir.resolve("record").resolve(task),
+                new RecordedTaskRights.Entries() {
                     @Override
                     public boolean onHost() {
                         return false;
@@ -58,7 +65,7 @@ class ReviewPartsTest {
 
                     @Override
                     public String taskAccount(final String task) {
-                        return TaskReviewRole.taskForgeEntry(task);
+                        return RecordedTaskRights.taskForgeEntry(task);
                     }
 
                     @Override
@@ -170,7 +177,7 @@ class ReviewPartsTest {
     }
 
     @Test
-    void anAuthorWhoseTaskRecordsNoBranchIsNotPinnedAndItsGateIsNotAsked() {
+    void anAuthorWhoseTaskRecordsNoBranchIsNotPinnedAndItsGateIsNotAsked() throws IOException {
         final PullRequestPlace.AuthorPins pins =
                 ReviewParts.authorPins(
                         role(Optional.of(HEAD)),

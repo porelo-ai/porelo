@@ -390,34 +390,96 @@ window, hands it over as the definition says; without one nothing is passed and 
   with another is refused.
 - **Shown** on the task's row in `List` and `Watch` and in its record.
 
-## The role and place of a task's run
+## The parts and place of a task's run
 
-A task with a gate runs in a role, `AUTHOR` or `REVIEWER`, at a place: the gate push it works at. A start that
-names neither, as `porelo task start` and the window do, is an author at the task's own gate push, named by the
-task's name and, for a repository other than the project's own, by that repository. The daemon's `Start` and
-`CanStart` take `role` and `place`, as `porelo task start` takes `--role` and `--place`; before anything is made,
-whether the task runs or not, they refuse a reviewer at its own task's work (`RoleNotAllowed`), another task's
-push (`NotTheTasksPush`, with the head that waits there), and a reviewer at its own pull request. A pull request
-named by its https address is refused for a task without a gate, at a host whose forge this machine does not know
-(`UnknownForge`), and as `PlaceUnreadable` when the machine's forge file cannot be read (`ForgeFileUnreadable`),
-its forge adapter is not installed (`ForgeAdapterMissing`), or the vault does not hold its forge's token or is
-shut (`MissingForgeToken`); the vault is asked only whether it holds the token. A run at a pull request is an
-author's unless it names its role. An author writes its items at a pull request as the account that opened it:
-under the project's `builds` credential, on a host under the task's own account, and otherwise under the vault entry
-`git.author.<forge host>`, such as `git.author.github.com`, which holds that account's token and is never the forge's
-own `git.token.<host>`; without it the author's start there, its own pull request included, and `porelo review open
---role author` are refused as `PlaceUnreadable` (`MissingForgeToken`), naming the entry to store with `porelo vault
-put`. The task's own pull request (`ownPullRequest`, `--place own`) is an author's
-run at the pull request open from the task's branch, the one its builds are read from, at the upstream of its
-repository: the forge's adapter is asked at each start, with the forge's token lent for that call alone, and the
-answer is never kept. A task whose repository names no upstream, or from whose branch none is open, is refused
-as `NoPullRequest` with the branch; an adapter or a forge that does not answer as `PlaceUnreadable`
-(`Unreachable`), and a token the forge refuses as `PlaceUnreadable` (`MissingForgeToken`). A
-repository is named by its key or its full name. The task keeps its role and place through a stop and a reboot, and starting it again keeps them. Its
-row in `List` and `Watch` and its record in `porelo task records --json` carry `role`, `place` and `held`, the
-number of review items held back from the run; a task without a gate has no role and no place. A task whose
-hold journal cannot be read is listed without `held`, and the daemon's log and the `holds` line of `porelo doctor`
-name it; the other tasks are listed as before.
+The ideas behind the four parts, and the rules Porelo keeps itself, are on [What a task may do](rights.md#the-four-parts-of-a-start).
+
+A task runs with four parts, recorded at its first start: `rights`, what it may do (`push`, `reply`, `openThreads`,
+`resolveThreads`, `start`, `stop`, `done`, `report`, `reject`); `readLanded`, the tasks of its project whose landed
+work it reads; `writeAs`, the account it writes its items as at a pull request, `author` (the account that opened
+it) or `review` (the forge's own); and `projectServices`, whether it gets the project's credentials, package
+repositories and hosts. The daemon's `Start` and `CanStart` take them as members of their own, as `porelo task
+start` takes `--right` (repeatable), `--read-landed` and `--write-as`; `projectServices` is a member of the
+contract alone. A task with a gate works at a place: a gate push, named by its task's name and, for a repository
+other than the project's own, by that repository; a pull request by its https address; or its own pull request
+(`ownPullRequest`, `--place own`). A start naming no part and no place, as `porelo task start` and the window do,
+works at its own gate push with `push`, `reply` and the project's services.
+
+Absent and empty differ: an absent member takes its default, an empty list holds nothing. Any named `rights` replace
+the default set. Which defaults apply is decided by the workspace, which Porelo reads from the place and never from
+what the start claims:
+
+- **Its own work**: its own gate push, or the pull request open from its branch. Absent rights are `push` and
+  `reply`, and the services are on.
+- **Another task's work**: another task's push that waits at the gate of the project, or a pull request of the
+  project that is not the task's own, the one its forge names as open from the task's branch being another, or the
+  task being new or having recorded another task's work. It has no default rights, and a start there naming none
+  is refused; its services are always off.
+- **No gate** (`--read-only`, `--all-repositories`, `--no-gate`): absent rights are none, and the services are on.
+
+`writeAs` is taken only at a pull request, its own or another task's alike, and absent there is `author`; named at
+a gate push or with no place it is refused as `InvalidParameter`, never ignored. `role` and `reads`, which no start
+takes, are refused as `InvalidParameter` too.
+
+A start is refused before anything is made, whether the task runs or not. Porelo's own start rules refuse it as
+`StartRuleBroken` with the rule and the part that breaks it: `foreignWorkNamesNoRights` (another task's work with no
+rights named), `foreignWorkLeadsOut` (`push`, the project's services or another way out at another task's work),
+`rejectWithPush`, `rejectOverOwnWork` (`reject` anywhere but at another task's work) and `pushWithoutOwnWork` (`push` for a task
+without a gate).
+
+Another task's push is taken where it waits at the gate of the task's own project (`--place push:NAME`, `gatePush`
+with `name` and, for another repository, `repository`): the push named by the task's own name in another repository
+is another task's too. A push in a repository the project does not name is refused as `PlaceUnreadable`
+(`NotInProject`), a name nothing waits under as `PlaceUnreadable` (`NoSuchPush`), and a project file that does not
+read as `PlaceUnreadable` (`NotInProject`). Once the task is made, its run begins there: the push's head and base are
+pinned into the task's own repository, which its gate alone serves, and its workspace moves to that head; the push's
+threads at the gate are its conversation, and its items go into them as `task NAME`, without an account and without
+leaving the machine. A push that moves while the task reads it leaves the task at the commit it was pinned to; a
+start of the task again pins the head that waits then.
+
+A pull request named by its https address is refused for a task without a gate, at a repository the project does
+not name (`PlaceUnreadable`, `NotInProject`), before any token is lent, at a host whose forge this machine does not
+know (`UnknownForge`), and as `PlaceUnreadable` when the machine's forge file cannot be read
+(`ForgeFileUnreadable`), its forge adapter is not installed (`ForgeAdapterMissing`), or the vault does not hold its
+forge's token or is shut (`MissingForgeToken`); the vault is asked only whether it holds the token. A task writing
+as `author` at a pull request writes its items as the account that opened it: under the project's `builds`
+credential, on a host under the task's own account, and otherwise under the vault entry `git.author.<forge host>`,
+such as `git.author.github.com`, which holds that account's token and is never the forge's own `git.token.<host>`;
+without it the start there, its own pull request included, and `porelo review open` for it are refused as
+`PlaceUnreadable` (`MissingForgeToken`), naming the entry to store with `porelo vault put`.
+
+The task's own pull request is the one open from the task's branch, the one its builds are read from, at the upstream
+of its repository: the forge's adapter is asked at each start, with the forge's token lent for that call alone, and
+the answer is never kept. A task whose repository names no upstream, or from whose branch none is open, is refused
+as `NoPullRequest` with the branch, and a pull request named by its address is never taken for another task's work
+because that lookup failed; an adapter or a forge that does not answer is refused as `PlaceUnreadable`
+(`Unreachable`), and a token the forge refuses as `PlaceUnreadable` (`MissingForgeToken`). A repository is named by
+its key or its full name.
+
+The task keeps its parts and place through a stop and a reboot. Starting it again with no part named keeps them;
+naming different ones is refused as `RightsChanged`. An act its rights lack is refused with the rule
+`RightMissing: <right> (<act>)`: in the refusal of what the task handed to its mailbox, and in its gate's log for a
+push, which git shows the task only as a refused request. Its row in `List` and `Watch` and its record in `porelo task records --json` carry `workspace`
+(`own`, `foreign`, `readOnly`, `allRepositories` or `none`), the four parts, each written out, `place` and `held`,
+the number of review items held back from the run, which only a pull request holds: every item at a `guarded`
+project's, and a submission no certified key signed at an `online` project's. At a gate push a task's items go at
+once, signed or not, and at an `online` project's pull request a signed submission's items go at once, each an
+`unheld` line of the event log with its task and place; a task without a gate has no place. A task
+whose hold journal cannot be read is listed without `held`, and the daemon's log and the `holds` line of `porelo
+doctor` name it; the other tasks are listed as before.
+
+A task that reads another task's waiting push and holds the right `reject` may discard that push, as `porelo gate
+reject` does: it sends one submission to its mailbox's review address holding one result with `porelo/judgment`
+`reject`, whose message is the reason, at most 2000 characters. Its start records the right only with another
+task's work and without `push`; any other start holding it is refused as `StartRuleBroken` (`rejectWithPush`,
+`rejectOverOwnWork`). The reject is judged before anything of the submission goes on, by what the task's start
+recorded and never by what the submission names, signed or not: a task without the right is refused with the
+rule `RightMissing`, naming `reject`, a push of its own container, one its place does not name, one that moved since
+the run was pinned, one gone, and one the upstream already has (read anew when it acts) are refused, and nothing is
+discarded. Its comments and replies go first and the push is discarded last, only while it still points at the
+commit the run was pinned to. The task that pushed that commit is told the reason in a note from the rejecting task,
+`task:PROJECT:TASK`, never from a person; the event log's `rejected` entry names the rejecting task in its detail,
+and `review open` answers `rejectedBy` with it.
 
 ## Values a task is started with
 
@@ -447,14 +509,18 @@ declaration's `default`.
 
 ## What a task's agent is told
 
-A task whose project's MCP endpoint allows `Done` can declare its own work complete with
+Within what the project's MCP endpoint allows, each task's endpoint carries `Start`, `Stop`, `Done` and `Report` only
+where the rights its start recorded hold `start`, `stop`, `done` and `report`; a method its rights lack answers as
+one the endpoint does not have. The project file's `mcp` section stays the upper bound for every task.
+
+A task whose MCP endpoint carries `Done` can declare its own work complete with
 `Done(task: CONTAINER)`. It still sends the room the completion message its instructions ask for.
 Porelo records completion on the host, outside the task's mailbox mount. Once the task stops or its
 observed activity is `IDLE`, its state is `done`, with no waiting reason. New output reports working
 again while keeping the declaration; an ended run keeps its `ENDED` activity. A later start clears
 completion. See [task status](commands.md) for the activity values.
 
-A task whose project's MCP endpoint allows `Report`, and whose project file sets
+A task whose MCP endpoint carries `Report`, and whose project file sets
 [`limits.reports`](project-file.md#limits), can report back to whoever started it with
 `Report(task: CONTAINER, kind: ..., text: ...)`: a kind of one line and 1 to 64 characters with no format
 character, the word the caller's brief asks for, which Porelo passes on unread, and a plain text of at most 65536

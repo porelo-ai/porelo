@@ -535,11 +535,66 @@ public class TerminalSteps {
     @Given(
             "an online project called {string} pushing to a repository of its own, whose project file also says:")
     public void anOnlineProjectSaying(String name, String more) throws IOException {
+        anOnlineProjectPushingTo(name, null, more);
+    }
+
+    /**
+     * Creates a small git project on the machine of class {@code online} with a bare repository of
+     * its own, as {@link #anOnlineProjectSaying} does, its project file naming that repository by
+     * the address a suite's step settles: a forge the scenario serves it from.
+     *
+     * @param name The project's name and directory.
+     * @param address The upstream's address, or {@code null} for the bare repository's own path.
+     * @param more YAML appended to the project file, as for the other project steps.
+     * @throws IOException If the machine cannot be reached.
+     */
+    public void anOnlineProjectPushingTo(
+            String name, @org.jspecify.annotations.Nullable String address, String more)
+            throws IOException {
         final String upstream = projectName(name) + "/.git/upstream.git";
-        aProjectSaying(name, "online", "file://$HOME/" + upstream, more);
+        aProjectSaying(
+                name,
+                "online",
+                address == null ? "file://$HOME/" + upstream : upstreamAddress(address),
+                more);
         final Ssh.Output made = world.run("git init -q --bare -b main ~/" + upstream);
         assertThat(made.status()).as("no upstream for %s:%n%s", name, made.all()).isZero();
     }
+
+    /**
+     * Creates a small git project on the machine in a security class the scenario chooses, its
+     * project file naming an upstream a suite's step settles, such as a forge the scenario started.
+     *
+     * @param name The project's name and directory.
+     * @param securityClass Its class: {@code offline}, {@code guarded} or {@code online}.
+     * @param address The upstream's address.
+     * @param more YAML appended to the project file, as for the other project steps.
+     * @throws IOException If the machine cannot be reached.
+     */
+    public void aProjectNamingTheUpstream(
+            String name, String securityClass, String address, String more) throws IOException {
+        aProjectSaying(name, securityClass, upstreamAddress(address), more);
+    }
+
+    /**
+     * Refuses an upstream's address the shell would read as more than an address, before it goes
+     * into the double-quoted line the project file is written with.
+     *
+     * @param address The address a suite's step settled.
+     * @return The same address.
+     */
+    static String upstreamAddress(String address) {
+        if (!UPSTREAM.matcher(address).matches()) {
+            throw new IllegalArgumentException(
+                    "Not an upstream a step may name: '"
+                            + address
+                            + "'. An https address without quotes, '$', '`', '\\' or blanks.");
+        }
+        return address;
+    }
+
+    /** An https address with nothing in it the shell reads inside double quotes, nor a blank. */
+    private static final Pattern UPSTREAM = Pattern.compile("https://[A-Za-z0-9.:\\[\\]@%_~/+-]+");
 
     private void aProjectSaying(
             String name,

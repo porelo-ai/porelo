@@ -85,6 +85,13 @@ class AdapterForgeReviewTest {
         }
 
         @Override
+        public void resolve(final ForgeAccess access, final String url, final String thread) {
+            calls.add("resolve " + thread);
+            accesses.add(access);
+            next();
+        }
+
+        @Override
         public void close() {
             closed++;
         }
@@ -244,6 +251,35 @@ class AdapterForgeReviewTest {
         assertThat(review.post(REF, document, LENT))
                 .as("a failure that may have gone out")
                 .isEqualTo(new WriteOutcome.OutcomeUnknown());
+    }
+
+    @Test
+    void aResolveIsTheContractsAnswerWithTheLentTokenAndAForgeThatCannotKeepsItsThreadOpen() {
+        adapter.answers.add("done");
+        adapter.answers.add(new ForgeReviewRefused(ForgeReviewRefused.Reason.RESOLVE_UNSUPPORTED));
+        adapter.answers.add(new ForgeReviewRefused(ForgeReviewRefused.Reason.NO_SUCH_THREAD));
+        adapter.answers.add(
+                new ForgeReviewRefused(ForgeReviewRefused.Reason.WRITE_OUTCOME_UNKNOWN));
+        adapter.answers.add(new IllegalArgumentException("no thread id"));
+
+        assertThat(review.resolve(REF, "1834527690", LENT))
+                .as("resolved")
+                .isEqualTo(new WriteOutcome.Delivered("1834527690"));
+        assertThat(review.resolve(REF, "1834527690", LENT))
+                .as("a forge that cannot resolve a thread")
+                .isEqualTo(new WriteOutcome.Refused("ResolveUnsupported"));
+        assertThat(review.resolve(REF, "1834527690", LENT))
+                .as("a thread the forge does not know")
+                .isEqualTo(new WriteOutcome.Refused("NoSuchThread"));
+        assertThat(review.resolve(REF, "1834527690", LENT))
+                .as("sent without an answer")
+                .isEqualTo(new WriteOutcome.OutcomeUnknown());
+        assertThat(review.resolve(REF, "x", LENT))
+                .as("refused before it was sent")
+                .isEqualTo(new WriteOutcome.Refused("NoSuchThread"));
+        assertThat(adapter.accesses)
+                .as("the token lent for each call")
+                .containsOnly(new ForgeAccess("", TOKEN));
     }
 
     @Test

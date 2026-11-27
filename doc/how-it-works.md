@@ -183,12 +183,33 @@ repository's work to its `upstream` - the immediate Git destination: the host's 
 company forge, named in the project file.
 
 A task never sees another task's work, with one named exception: a task started to read it.
-`porelo task start --reads foo-1` (Tasks1 Start's `reads`) starts a reader whose gate shows it, read
+`porelo task start --read-landed foo-1` (Tasks1 Start's `readLanded`) starts a reader whose gate shows it, read
 only, where `foo-1`'s work landed once a gate forwarded it: `git ls-remote origin` lists
 `refs/porelo/landed/foo-1/<branch>`, and `git fetch` brings it as `origin/landed/foo-1/<branch>`.
-Work still waiting at the gate is shown to nobody, and no other task's work is shown. Tasks1 List
-and Watch say in a task's row where its work landed, as `landed`: the branch, the ref,
+Tasks1 List and Watch say in a task's row where its work landed, as `landed`: the branch, the ref,
 the name a reader sees and the commit, `[]` while it waits.
+
+Work still waiting at the gate is seen only by a task started to read exactly that push:
+`porelo task start --right reply --place push:foo-1` (Tasks1 Start's `place.gatePush`), in the
+same project as `foo-1`. Its gate shows that one push, pinned at its head and the base its review
+compares with, as `refs/porelo/pinned/<task>` alone; it serves the task's own copy holding only
+those two commits, so no other waiting push, not even of another task of the same project, can be
+fetched or asked for by its commit, and every push is refused. Its run's conversation is the push's
+threads at the gate, the ones `porelo gate comments` shows, and what it writes there is shown as
+`task NAME`; no account is used and nothing leaves the machine, so this serves a machine without a
+host forge and an `offline` project alike. Such a task gets what a task reading a pull request gets:
+no project services, no `push`, no added credentials, and a clearance that is never `allow` or
+`off`. A push of another project, or a name nothing waits under, is refused before anything is made.
+No other task's work is shown.
+
+What a task may do is set by its four parts, recorded at its first start and kept: `rights`
+(push, reply, open or resolve threads, start, stop, done, report, reject), `readLanded`, the
+account it writes as at a pull request (`writeAs`), and whether it gets the project's services
+(`projectServices`). Porelo decides from the place whether a task works on its own work or on
+another task's, and holds every start to its own rules: a task at another task's work names its
+rights, never pushes and never gets the project's services. See
+[Running](running.md#the-parts-and-place-of-a-tasks-run).
+What a task may do, and who decides, is on one page: [What a task may do](rights.md).
 
 Each project has a **security class**, and the class decides, never a flag on a task. `offline`:
 no external host resolves and no Git work leaves on its own; the Git mirror is the end of the line,
@@ -196,6 +217,18 @@ and `approve` refuses. `guarded`: only what the project declares resolves, and w
 gate approval. `online`: the gate passes the task's own branch on to the `upstream` at once, for
 review on the forge. A class is a promise about what cannot happen, so it is never widened: adding a
 destination to an `offline` project does not open it. See [security](security.md).
+
+**A task's comments and replies wait only where its work waits.** At a waiting push at the gate
+nothing is held: a task's comment or reply goes into the push's threads at once, shown as
+"task NAME", where the task that pushed and the task that reads it see each other's items at once.
+Towards a pull request the project's class decides: in a `guarded` project every item waits in
+`porelo gate held` until you release or refuse it; in an `online` project it goes to the forge at
+once, as the task's branch does; an `offline` project has no forge, and an item for a pull request
+there is refused. Nothing in the task decides it. A submission no certified key signed goes at a
+gate push as a signed one does, since nothing leaves the machine; towards a pull request it is
+held, marked `unsigned`, in every class, since only the hold shows you that. An item that went at once
+is not in `gate held`; the event log has it, as an `unheld` line with its task and place. What a
+forge's conversation brings in is read as before.
 
 ## The vault and the broker: the container never holds the credential
 
@@ -277,6 +310,12 @@ still read a refused message and deliver it. A project may set `mail.outgoing_fi
 then a task's outgoing message is only reported, never refused; a person holding it is shown what the
 filter would have refused. A person can hold a peer and read or release what is held, and nothing is
 ever edited. `porelo talk` shows and moves them; see [commands](commands.md#talk).
+
+A task started as a reviewer, whose recorded parts read another task's work, takes part in no
+conversation and writes to its review alone: what it read has not been reviewed, so none of it leaves
+the machine. A message it addresses to anyone else is refused by the rule `readsAnothersWork`, the
+task is told, and nothing of the message is kept; see
+[what the host guarantees](messages.md#what-the-host-guarantees).
 
 ## What Porelo does not do
 

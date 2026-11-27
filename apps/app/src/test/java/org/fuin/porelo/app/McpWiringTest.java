@@ -133,6 +133,16 @@ class McpWiringTest {
     @Test
     void theGuideIsToldTheMethodsTheFileHasTheEndpointCarryAndTheIdeasBound() throws Exception {
         final PoreloContext context = context();
+        // As its start records it: a task that may report.
+        final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));
+        RunPlace.recordParts(
+                state,
+                new org.fuin.porelo.gate.review.TaskParts(
+                        org.fuin.porelo.gate.review.TaskParts.Workspace.NONE,
+                        List.of(),
+                        true,
+                        org.fuin.porelo.gate.review.TaskParts.Account.AUTHOR,
+                        java.util.Set.of(org.fuin.porelo.gate.review.Right.REPORT)));
         final Path file = context.paths().projects().defaultProjectFile(PROJECT);
         Files.createDirectories(file.getParent());
         final String head =
@@ -160,6 +170,17 @@ class McpWiringTest {
 
         assertThat(McpWiring.told(context, TASK, PROJECT))
                 .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List", "Report"), 1));
+
+        RunPlace.recordParts(
+                state, org.fuin.porelo.gate.review.TaskParts.withoutGate(false, false));
+        assertThat(McpWiring.told(context, TASK, PROJECT))
+                .as("a task whose rights lack report is told only what its endpoint carries")
+                .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List"), 1));
+
+        Files.writeString(state.resolve("run-place"), "{\"parts\": 7}");
+        assertThat(McpWiring.told(context, TASK, PROJECT))
+                .as("a record that does not read holds no right")
+                .isEqualTo(new TaskGuideText.Endpoint(TASK, List.of("List"), 1));
 
         Files.writeString(file, head);
 

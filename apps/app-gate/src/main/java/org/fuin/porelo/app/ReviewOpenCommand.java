@@ -4,12 +4,10 @@ import java.io.PrintWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 import org.fuin.porelo.gate.review.PullRequestRef;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.wire.Json;
 import org.jspecify.annotations.Nullable;
 import picocli.CommandLine.Command;
@@ -17,12 +15,12 @@ import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 import picocli.CommandLine.Spec;
 
-/** Shows what is open at a place for one role, and the place's decision. */
+/** Shows what is open at a place for one task, and the place's decision. */
 @Command(
         name = "open",
         mixinStandardHelpOptions = true,
         description =
-                "Shows what is open at a place for one role and the place's decision, read anew"
+                "Shows what is open at a place for one task and the place's decision, read anew"
                         + " from the gate's records. Changes and starts nothing.")
 public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.ContextAware {
 
@@ -61,12 +59,11 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
     private boolean ownPullRequest;
 
     @Option(
-            names = "--role",
-            paramLabel = "AUTHOR|REVIEWER",
-            description = "The role asking. Default: AUTHOR.")
-    private @Nullable String role;
-
-    @Option(names = "--task", paramLabel = "<task>", description = "The task whose run asks.")
+            names = "--task",
+            paramLabel = "<task>",
+            description =
+                    "The task whose run asks, answered by its recorded parts. Default at a"
+                            + " --gate-push: the task that pushed.")
     private @Nullable String task;
 
     @Option(
@@ -105,12 +102,10 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
             return 64;
         }
         final ReviewOpen.Place place = place();
-        final @Nullable Role asking = role == null ? null : Role.of(role.toUpperCase(Locale.ROOT));
         final ReviewOpen.Answer answer;
         try {
             answer =
-                    (open == null ? ReviewOpen.of(context) : open)
-                            .answer(projectName, place, asking, task);
+                    (open == null ? ReviewOpen.of(context) : open).answer(projectName, place, task);
         } catch (ReviewOpen.Refused ex) {
             final Map<String, Object> shown = new LinkedHashMap<>();
             shown.put("refused", ex.error());
@@ -132,7 +127,7 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
         return 0;
     }
 
-    /** Why the arguments are refused, or null when they name one place and a known role. */
+    /** Why the arguments are refused, or null when they name one place. */
     private @Nullable String refusedArguments() {
         final int places =
                 (gatePush == null ? 0 : 1)
@@ -160,11 +155,6 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
         }
         if (gatePush != null && gatePush.isBlank()) {
             return "--gate-push needs the push's name";
-        }
-        if (role != null
-                && !"AUTHOR".equalsIgnoreCase(role)
-                && !"REVIEWER".equalsIgnoreCase(role)) {
-            return "--role is AUTHOR or REVIEWER, not " + TerminalText.line(role);
         }
         return null;
     }
@@ -211,6 +201,10 @@ public class ReviewOpenCommand implements Callable<Integer>, PoreloFactory.Conte
         text.append("decision  ").append(answer.decision().name());
         if (answer.decisionSince() != null) {
             text.append("  since ").append(answer.decisionSince());
+        }
+        final String rejectedBy = answer.rejectedBy();
+        if (rejectedBy != null) {
+            text.append("  by task ").append(TerminalText.line(rejectedBy));
         }
         text.append('\n');
         if (answer.head() != null) {

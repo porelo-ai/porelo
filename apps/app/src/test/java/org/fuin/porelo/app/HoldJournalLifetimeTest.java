@@ -11,7 +11,6 @@ import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewReply;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -46,7 +45,7 @@ class HoldJournalLifetimeTest {
         final int number = holds.startRun(TASK, place);
         final Push push = new Push("uc", "uc", "shell", "1".repeat(40), null, "0123456789ab");
         holds.hold(
-                new Run(place, Role.AUTHOR, new Pinned(push, null), number),
+                new Run(place, new Pinned(push, null), number),
                 TASK,
                 Direction.OUTGOING,
                 new ReviewReply("t-1", new Body("why")),

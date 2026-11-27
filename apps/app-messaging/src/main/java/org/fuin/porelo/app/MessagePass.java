@@ -78,6 +78,10 @@ public final class MessagePass {
 
     private MessageDispatch.Tasks tasks = container -> null;
 
+    // Until a pass is told the machine's records, every sender is taken as one that reads another
+    // task's work: fail closed.
+    private MessageDispatch.Readers readers = MessageDispatch.Readers.UNTOLD;
+
     /**
      * Constructor.
      *
@@ -175,6 +179,8 @@ public final class MessagePass {
                                         held.reason(),
                                         MessageRecord.OUT,
                                         held.mark()));
+        // Asked here as the dispatch asks it: an unsigned message never reaches the dispatch.
+        intake.reading(readers.readsAnothersWork(mailbox.root().getFileName().toString()));
         final List<String> taken = intake.take(mailbox);
         final List<String> unsigned = intake.takenUnsigned();
         for (final String message : taken) {
@@ -205,7 +211,7 @@ public final class MessagePass {
             // Even after exit 2: accepted/ holds only what the filter checked and passed; one not
             // judged stays in incoming/.
             dispatched =
-                    new MessageDispatch(replies, comments, tasks)
+                    new MessageDispatch(replies, comments, tasks, readers)
                             .dispatch(mailbox, mail, moderation, budget);
             for (final Map.Entry<String, String> queued : dispatched.queued().entrySet()) {
                 record.append(
@@ -423,6 +429,16 @@ public final class MessagePass {
     public void replying(final ReviewReplies review, final MessageDispatch.Tasks owners) {
         this.replies = review;
         this.tasks = owners;
+    }
+
+    /**
+     * Says which tasks read another task's work, whose messages go to their review alone, for the
+     * passes that follow.
+     *
+     * @param reading Which tasks they are, by the host's own record.
+     */
+    public void reading(final MessageDispatch.Readers reading) {
+        this.readers = java.util.Objects.requireNonNull(reading, "reading");
     }
 
     /**

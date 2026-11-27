@@ -379,7 +379,8 @@ final class TaskMethods {
     }
 
     /**
-     * Refuses the role and place a CanStart names as Start would refuse them.
+     * Refuses the parts and place a CanStart names as Start would refuse them: Porelo's own start
+     * rules and the account to write as too, with a place named or without one.
      *
      * @param context The machine.
      * @param parameters The call's parameters.
@@ -389,9 +390,6 @@ final class TaskMethods {
             final PoreloContext context,
             final Map<String, Object> parameters,
             final java.nio.file.Path projectFile) {
-        if (parameters.get("role") == null && parameters.get("place") == null) {
-            return;
-        }
         // Named and placed as Start names and places it, so its own push is the same here and
         // there.
         RunPlaces.taken(
@@ -399,10 +397,7 @@ final class TaskMethods {
                 parameters,
                 projectFile,
                 PoreloDaemon.taskName(parameters, PoreloDaemon.unnamed(parameters, context)),
-                PoreloDaemon.repositoryKey(projectFile, parameters),
-                !flag(parameters, "noGate")
-                        && !flag(parameters, "allRepositories")
-                        && !flag(parameters, "readOnly"));
+                PoreloDaemon.repositoryKey(projectFile, parameters));
     }
 
     /**
@@ -1263,6 +1258,9 @@ final class TaskMethods {
                                                                                 .names(context)))));
                         return;
                     }
+                    // A member the contract no longer has, or one of the wrong shape, is refused
+                    // first, with a project or without one.
+                    RunPlaces.asked(parameters);
                     if (named != null) {
                         // Refused as Start refuses them, and before anything else is asked.
                         canStartAt(context, parameters, named);
@@ -1440,7 +1438,6 @@ final class TaskMethods {
                     // lacks - and there is because the name comes back as a value.
                     final java.util.concurrent.atomic.AtomicReference<String> started =
                             new java.util.concurrent.atomic.AtomicReference<>("");
-                    final java.util.List<String> reads = reads(parameters);
                     final String callerKey = callerKey(parameters);
                     // Chosen once: the name the task runs under and the note about it are one
                     // value.
@@ -1448,14 +1445,13 @@ final class TaskMethods {
                             unnamed(parameters, context);
                     final TaskLaunch.Request asked = request(parameters, context, unnamed);
                     // Checked before anything is made, whether the task runs or not.
-                    final org.fuin.porelo.app.RunPlace runPlace =
+                    final org.fuin.porelo.app.StartParts runPlace =
                             RunPlaces.taken(
                                     context,
                                     parameters,
                                     asked.projectFile(),
                                     asked.task(),
                                     asked.repository(),
-                                    !asked.noGate() && !asked.reads(),
                                     org.fuin.porelo.app.RunPlaceCheck.Forges.of(context),
                                     reviews.checked());
                     final TaskLaunch launch =
@@ -1464,7 +1460,6 @@ final class TaskMethods {
                                             asked,
                                             new org.fuin.porelo.app.StartSteps(progress, sink))
                                     .waitingForSignIn(signIns, flag(parameters, "waitForSignIn"))
-                                    .reading(reads)
                                     .keyedBy(callerKey)
                                     .at(runPlace)
                                     .startingRuns(reviews::begin)
@@ -1499,6 +1494,19 @@ final class TaskMethods {
                     // the CLI makes first, so a stopped task answers the same over the socket as at
                     // a terminal.
                     final TaskLaunch.Existing existing = launch.startExisting(sink, sink);
+                    // A task brought back with other parts, or whose parts break a rule with this
+                    // start, is the contract's error rather than a line among others.
+                    final TaskLaunch.PartsRefused partsRefused = launch.partsRefused();
+                    if (existing != null && partsRefused != null) {
+                        final org.fuin.porelo.gate.review.TaskParts.Broken rule =
+                                partsRefused.rule();
+                        if (rule == null) {
+                            throw new VarlinkException(INTERFACE + ".RightsChanged", Map.of());
+                        }
+                        throw new VarlinkException(
+                                INTERFACE + ".StartRuleBroken",
+                                Map.of("rule", rule.rule(), "detail", rule.detail()));
+                    }
                     // Options that cannot go together are refused by the launch, first, as at the
                     // command line: no host is looked up and no credential checked for a start
                     // that was never going to be made.
@@ -2129,23 +2137,6 @@ final class TaskMethods {
 
     private static @Nullable Integer lastLines(final Map<String, Object> parameters) {
         return org.fuin.porelo.wire.varlink.VarlinkNumbers.intParameter(parameters, "last");
-    }
-
-    /** The tasks a start reads the landed work of: none when not given, refused when not names. */
-    static java.util.List<String> reads(final Map<String, Object> parameters) {
-        final Object given = parameters.get("reads");
-        if (given == null) {
-            return java.util.List.of();
-        }
-        if (given instanceof java.util.List<?> list
-                && list.stream().allMatch(String.class::isInstance)) {
-            final java.util.List<String> names = list.stream().map(String.class::cast).toList();
-            if (TaskLaunch.unreadable(names) == null) {
-                return names;
-            }
-        }
-        throw new VarlinkException(
-                "org.varlink.service.InvalidParameter", Map.of("parameter", "reads"));
     }
 
     /**

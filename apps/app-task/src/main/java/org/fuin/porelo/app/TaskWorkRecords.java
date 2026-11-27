@@ -103,7 +103,18 @@ public record TaskWorkRecords(PoreloContext context) {
             final String modelFrom,
             final @Nullable String effort)
             throws IOException {
-        started(container, project, repository, work, agent, model, modelFrom, effort, null, null);
+        started(
+                container,
+                project,
+                repository,
+                work,
+                agent,
+                model,
+                modelFrom,
+                effort,
+                null,
+                org.fuin.porelo.gate.review.TaskParts.ownWork(),
+                null);
     }
 
     /**
@@ -120,7 +131,8 @@ public record TaskWorkRecords(PoreloContext context) {
      * @param effort The effort it was started with, or {@code null} when its start named none.
      * @param callerKey The key its start was given, already checked, or {@code null} for none; the
      *     record carries it only when there is one.
-     * @param place Its run's role and place, or {@code null} for a task without a gate.
+     * @param parts The parts its start recorded.
+     * @param place Its run's place, or {@code null} for a task without a gate.
      * @throws IOException If it cannot be written.
      */
     public void started(
@@ -133,6 +145,7 @@ public record TaskWorkRecords(PoreloContext context) {
             final String modelFrom,
             final @Nullable String effort,
             final @Nullable String callerKey,
+            final org.fuin.porelo.gate.review.TaskParts parts,
             final @Nullable RunPlace place)
             throws IOException {
         if (!TaskUsage.validTask(container)) {
@@ -158,9 +171,9 @@ public record TaskWorkRecords(PoreloContext context) {
         record.put("toolCallsAsked", ToolCalls.DID_NOT_ASK);
         record.put("toolCalls", List.of());
         record.put("runs", Long.valueOf(0));
-        // Absent, as the task's row has none, for a task without a gate.
+        // As the task's row: its parts written out, and its place only for a task with a gate.
+        record.putAll(parts.document());
         if (place != null) {
-            record.put("role", place.role());
             record.put("place", place.place());
         }
         // Nothing of a run just started is held yet; an answer counts it anew while the task is

@@ -11,7 +11,7 @@ import org.fuin.porelo.gate.review.PlaceUnreadable;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
-import org.fuin.porelo.gate.review.ReviewRole;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.fuin.porelo.gate.review.WriteOutcome;
 
 /**
@@ -29,7 +29,8 @@ import org.fuin.porelo.gate.review.WriteOutcome;
  * with the next item and throws the failure at its end, named by its class, as it does when an
  * answer cannot be marked. The same for every place.
  *
- * <p>The credential is lent for each write and never kept.
+ * <p>The credential is lent for each write and never kept; a waiting push at the gate is written as
+ * the task itself, with {@link WaitingPushPlace#NO_ACCOUNT}, and no vault is asked.
  */
 public final class ReleasedSender {
 
@@ -47,7 +48,7 @@ public final class ReleasedSender {
         /**
          * Lends the credential of an entry.
          *
-         * @param entry The entry's name, as {@link ReviewRole#postingEntry} gives it.
+         * @param entry The entry's name, as {@link TaskRights#postingEntry} gives it.
          * @return The credential, to be used for one write and dropped.
          * @throws PlaceUnreadable As {@code MissingForgeToken} when the vault holds no such entry.
          */
@@ -58,7 +59,7 @@ public final class ReleasedSender {
 
     private final ReviewPlaces places;
 
-    private final ReviewRole role;
+    private final TaskRights role;
 
     private final Credentials credentials;
 
@@ -76,7 +77,7 @@ public final class ReleasedSender {
     public ReleasedSender(
             final ReviewHolds holds,
             final ReviewPlaces places,
-            final ReviewRole role,
+            final TaskRights role,
             final Credentials credentials,
             final Clock clock) {
         this.holds = Objects.requireNonNull(holds, "holds");
@@ -147,6 +148,14 @@ public final class ReleasedSender {
             throw new IllegalStateException(
                     "was not sent and stays due: " + ex.getClass().getSimpleName(), ex);
         }
+        if (!stillMay(held, place)) {
+            holds.mark(
+                    held.task(),
+                    held.id(),
+                    new WriteOutcome.Refused(rightRule(held)),
+                    clock.instant());
+            return false;
+        }
         final ForgeCredential credential = lent(held, place);
         try {
             // Recorded before the write: an item whose answer is never marked is not sent again.
@@ -176,10 +185,40 @@ public final class ReleasedSender {
     }
 
     /**
+     * Whether the task still holds the right its item needs at its place, asked anew for every kind
+     * before any credential is lent: a right taken away since the release sends nothing, and a
+     * record that no longer reads throws, which leaves the item due.
+     */
+    private boolean stillMay(final Held held, final ReviewPlace place) {
+        return switch (held.item()) {
+            case org.fuin.porelo.gate.review.ReviewComment comment ->
+                    role.mayOpenThread(held.task(), place);
+            case org.fuin.porelo.gate.review.ReviewReply reply -> role.mayReply(held.task(), place);
+            case org.fuin.porelo.gate.review.ForgeReply reply -> role.mayReply(held.task(), place);
+            case org.fuin.porelo.gate.review.ThreadResolve resolve ->
+                    role.mayResolve(held.task(), place);
+        };
+    }
+
+    /** The rule an item's right breaks, as the intake names it. */
+    private static String rightRule(final Held held) {
+        return switch (held.item()) {
+            case org.fuin.porelo.gate.review.ReviewComment comment -> RunIntake.MAY_NOT_OPEN;
+            case org.fuin.porelo.gate.review.ReviewReply reply -> RunIntake.MAY_NOT_REPLY;
+            case org.fuin.porelo.gate.review.ForgeReply reply -> RunIntake.MAY_NOT_REPLY;
+            case org.fuin.porelo.gate.review.ThreadResolve resolve -> RunIntake.MAY_NOT_RESOLVE;
+        };
+    }
+
+    /**
      * The credential for the item's write. A failure leaves the item due and is named by its class
      * alone, without its message or cause, which may hold what the vault was asked for.
      */
     private ForgeCredential lent(final Held held, final ReviewPlace place) {
+        if (place instanceof WaitingPushPlace) {
+            // A waiting push's threads are written as the task itself: no account, no vault.
+            return WaitingPushPlace.NO_ACCOUNT;
+        }
         try {
             return credentials.lend(role.postingEntry(held.task(), place));
         } catch (PlaceUnreadable ex) {

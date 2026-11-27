@@ -19,7 +19,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.app.PoreloContext;
 import org.fuin.porelo.app.PoreloPaths;
+import org.fuin.porelo.app.RunPlace;
 import org.fuin.porelo.core.config.XdgPaths;
+import org.fuin.porelo.gate.review.Right;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.TaskMode;
 import org.fuin.porelo.wire.TaskProfile;
@@ -113,6 +116,23 @@ class McpTaskSocketsTest {
                 new PoreloContext(runner, new PoreloPaths(xdg, dir.resolve("bin")), args -> 0);
         sockets = new McpTaskSockets(context);
         identity(context, LEAD, "uc", null);
+        // As the lead's start records it: its own work, with every right its endpoint can carry.
+        new RunPlace(
+                        new TaskParts(
+                                TaskParts.Workspace.OWN,
+                                List.of(),
+                                true,
+                                TaskParts.Account.AUTHOR,
+                                Set.of(
+                                        Right.PUSH,
+                                        Right.REPLY,
+                                        Right.START,
+                                        Right.STOP,
+                                        Right.DONE,
+                                        Right.REPORT)),
+                        null,
+                        "lead")
+                .writeTo(context.paths().tasks().containerState(LEAD));
         identity(context, "porelo-uc-child", "uc", null);
         return context;
     }
@@ -189,6 +209,8 @@ class McpTaskSocketsTest {
                         parent)
                 .writeTo(Files.createDirectories(where));
         final String task = where.getFileName().toString();
+        // The parts a start through an endpoint gives a child that names none.
+        new RunPlace(TaskParts.ownWork(), null, task).writeTo(where);
         identity(sockets.context(), task, "uc", null);
     }
 
@@ -966,6 +988,24 @@ class McpTaskSocketsTest {
         assertThat(call(socket, "Start", named("own", start("beta", "small", 30))))
                 .as("its own agent and model, named")
                 .containsKey("exitCode");
+    }
+
+    @Test
+    void aStartBringingBackItsOwnTaskWithOtherPartsIsRightsChanged() throws IOException {
+        // Harm: a child brought back with other parts than its start recorded changed what it may
+        // do for the rest of its life.
+        final Path socket = opened(HEAD + SECTION);
+        made(
+                sockets.context().paths().tasks().containerState("porelo-uc-own"),
+                "alpha",
+                null,
+                LEAD);
+        runner.answering("ps", stopped("porelo-uc-own", "uc"));
+        final Map<String, Object> fewer = named("own", start("alpha", null, 30));
+        fewer.put("rights", List.of("push"));
+
+        refused(socket, "Start", fewer, "RightsChanged", Map.of());
+        assertNothingStarted();
     }
 
     @Test

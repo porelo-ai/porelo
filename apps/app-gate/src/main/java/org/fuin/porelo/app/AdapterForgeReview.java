@@ -76,6 +76,15 @@ public final class AdapterForgeReview implements ForgeReview {
          */
         String post(ForgeAccess access, String url, byte[] document);
 
+        /**
+         * As {@link InstalledReviewReader#resolve}.
+         *
+         * @param access The API and the lent token.
+         * @param url The pull request.
+         * @param thread The thread's id.
+         */
+        void resolve(ForgeAccess access, String url, String thread);
+
         @Override
         void close();
     }
@@ -222,6 +231,36 @@ public final class AdapterForgeReview implements ForgeReview {
         }
     }
 
+    @Override
+    public WriteOutcome resolve(
+            final PullRequestRef ref, final String thread, final ForgeCredential credential) {
+        final Session session;
+        try {
+            session = open();
+        } catch (RuntimeException ex) {
+            // Never started, so nothing was sent.
+            return new WriteOutcome.Refused(PlaceUnreadable.Reason.UNREACHABLE.wireName());
+        }
+        try (session) {
+            session.resolve(access(credential), ref.url().toString(), thread);
+            return new WriteOutcome.Delivered(thread);
+        } catch (ForgeReviewRefused ex) {
+            return switch (ex.reason()) {
+                case RATE_LIMITED ->
+                        new WriteOutcome.RateLimited(Duration.ofSeconds(ex.retryAfterSeconds()));
+                case WRITE_OUTCOME_UNKNOWN -> new WriteOutcome.OutcomeUnknown();
+                // ResolveUnsupported among them: the thread stays open and it is not sent again.
+                default -> new WriteOutcome.Refused(ex.reason().wire());
+            };
+        } catch (IllegalArgumentException ex) {
+            // Refused before it was sent: no thread id of the contract's shape.
+            return new WriteOutcome.Refused(ForgeWrite.NO_SUCH_THREAD);
+        } catch (RuntimeException ex) {
+            // It may have gone out; whether the thread is resolved is unknown.
+            return new WriteOutcome.OutcomeUnknown();
+        }
+    }
+
     private Session open() {
         return sessions.open();
     }
@@ -305,6 +344,11 @@ public final class AdapterForgeReview implements ForgeReview {
             @Override
             public String post(final ForgeAccess access, final String url, final byte[] document) {
                 return reader.post(access, url, document);
+            }
+
+            @Override
+            public void resolve(final ForgeAccess access, final String url, final String thread) {
+                reader.resolve(access, url, thread);
             }
 
             @Override

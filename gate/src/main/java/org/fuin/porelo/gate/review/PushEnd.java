@@ -20,6 +20,8 @@ import org.jspecify.annotations.Nullable;
  * @param waitingSince When the push was taken at the gate, in whole seconds: the same as {@code at}
  *     while it waits, carried along by its end; null for an end of a push taken before waiting
  *     times were kept.
+ * @param rejectedBy The task that rejected the push, by its container name, for a reject a task
+ *     holding {@code reject} made; null for the owner account's reject and every other end.
  */
 public record PushEnd(
         String name,
@@ -29,9 +31,13 @@ public record PushEnd(
         @Nullable String mergedCommit,
         @Nullable String branch,
         Instant at,
-        @Nullable Instant waitingSince) {
+        @Nullable Instant waitingSince,
+        @Nullable String rejectedBy) {
 
     private static final String COMMIT = "[0-9a-f]{40}|[0-9a-f]{64}";
+
+    /** What a task's container name may be, as the gate names a rejecting task. */
+    private static final String CONTAINER = "[A-Za-z0-9][A-Za-z0-9_.-]{0,254}";
 
     /** How a push stopped waiting. */
     public enum End {
@@ -64,13 +70,38 @@ public record PushEnd(
             final @Nullable String mergedCommit,
             final @Nullable String branch,
             final Instant at) {
-        this(name, commit, end, openThreads, mergedCommit, branch, at, null);
+        this(name, commit, end, openThreads, mergedCommit, branch, at, null, null);
+    }
+
+    /**
+     * Constructor for an end no task rejected.
+     *
+     * @param name The push's name at the gate.
+     * @param commit The full commit that waited.
+     * @param end How it ended.
+     * @param openThreads The open threads a reject carried.
+     * @param mergedCommit The commit that went, or null.
+     * @param branch The branch it went onto, or null.
+     * @param at When the end was recorded.
+     * @param waitingSince When the push was taken, or null.
+     */
+    public PushEnd(
+            final String name,
+            final String commit,
+            final End end,
+            final int openThreads,
+            final @Nullable String mergedCommit,
+            final @Nullable String branch,
+            final Instant at,
+            final @Nullable Instant waitingSince) {
+        this(name, commit, end, openThreads, mergedCommit, branch, at, waitingSince, null);
     }
 
     /**
      * Refuses a blank name, a commit not written in full, a count below zero, a merged commit on a
      * reject or a waiting push or missing on the others, a waiting push whose waiting time is not
-     * its own, and cuts the times to whole seconds.
+     * its own, a rejecting task on any end but a reject or one that names no container, and cuts
+     * the times to whole seconds.
      */
     public PushEnd {
         Objects.requireNonNull(name, "name");
@@ -103,6 +134,9 @@ public record PushEnd(
         if (end == End.WAITING && !at.equals(waitingSince)) {
             throw new IllegalArgumentException("a waiting push waits since it was taken");
         }
+        if (rejectedBy != null && (end != End.REJECTED || !rejectedBy.matches(CONTAINER))) {
+            throw new IllegalArgumentException("only a reject names the task that made it");
+        }
     }
 
     /**
@@ -124,7 +158,20 @@ public record PushEnd(
      * @return A copy.
      */
     public PushEnd waitedSince(final @Nullable Instant since) {
-        return new PushEnd(name, commit, end, openThreads, mergedCommit, branch, at, since);
+        return new PushEnd(
+                name, commit, end, openThreads, mergedCommit, branch, at, since, rejectedBy);
+    }
+
+    /**
+     * Returns this reject as one a task holding {@code reject} made.
+     *
+     * @param task The rejecting task's container name.
+     * @return A copy.
+     */
+    public PushEnd by(final String task) {
+        Objects.requireNonNull(task, "task");
+        return new PushEnd(
+                name, commit, end, openThreads, mergedCommit, branch, at, waitingSince, task);
     }
 
     /**

@@ -165,11 +165,11 @@ public final class PullRequestPins implements PullRequestPinning {
     public Push pin(final PullRequestRef ref, final String task) throws PlaceUnreadable {
         final TaskGate gate = gates.locate(task);
         final RunPlace recorded = RunPlace.readFrom(gate.state());
-        if (recorded == null || !RunPlace.REVIEWER.equals(recorded.role())) {
+        if (recorded == null || !recorded.parts().readsAnothersWork()) {
             // Checked before any token is lent: no object is fetched for a task never pinned.
             throw new PlaceUnreadable(
                     PlaceUnreadable.Reason.NOT_IN_PROJECT,
-                    "task " + task + " is no reviewer's run");
+                    "task " + task + " does not read another task's work");
         }
         final String entry = ForgeInstance.CREDENTIAL_PREFIX + ref.forge();
         final PullRequestFacts facts = forge.facts(ref, credentials.lend(entry));

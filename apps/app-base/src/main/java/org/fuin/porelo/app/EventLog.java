@@ -62,6 +62,12 @@ public final class EventLog {
     public static final String ARRIVED = "arrived";
 
     /**
+     * A task's comment or reply that went to its place at once, held for nobody; the detail names
+     * the place and the item's kind, never its text.
+     */
+    public static final String UNHELD = "unheld";
+
+    /**
      * A hash the anchor holds, and when it was anchored.
      *
      * @param hash The hash.
@@ -171,6 +177,27 @@ public final class EventLog {
             System.err.println(
                     "porelo: the event log could not record '" + kind + "': " + ex.getMessage());
         }
+    }
+
+    /**
+     * Appends an event whose act must not happen untraced: the act waits for it, and does not
+     * happen when it cannot be written.
+     *
+     * @param context The machine.
+     * @param kind One of the constants here.
+     * @param project The project, or "".
+     * @param task The task's container, or "".
+     * @param detail What happened, in words and values; never a secret.
+     * @throws IOException If the log cannot be written; the caller then refuses the act.
+     */
+    public static void recordOrRefuse(
+            final PoreloContext context,
+            final String kind,
+            final String project,
+            final String task,
+            final String detail)
+            throws IOException {
+        of(context).append(kind, project, task, detail);
     }
 
     /**

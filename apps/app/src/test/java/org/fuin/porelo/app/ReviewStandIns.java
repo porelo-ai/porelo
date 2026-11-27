@@ -1,6 +1,7 @@
 package org.fuin.porelo.app;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,13 +130,18 @@ final class ReviewStandIns {
             return Optional.ofNullable(last);
         }
 
+        /** Who set each thread's state, as it was stamped. */
+        final Map<String, Origin> stateBy = new HashMap<>();
+
         @Override
-        public ReviewThread state(final Push push, final String thread, final ThreadState state)
+        public ReviewThread state(
+                final Push push, final String thread, final ThreadState state, final Origin by)
                 throws ReviewRefused {
             if (!push.equals(threadPush.get(thread))) {
                 throw new ReviewRefused(new ReviewRefusal(ReviewError.NO_SUCH_THREAD, null));
             }
             states.put(thread, state);
+            stateBy.put(thread, by);
             return thread(thread);
         }
 
@@ -168,7 +174,10 @@ final class ReviewStandIns {
         }
     }
 
-    /** Parts over these stand-ins, with the pushes that wait. */
+    /**
+     * Parts over these stand-ins, with the pushes that wait; a task may reply in a push's threads
+     * and open none, as one recorded with the default parts.
+     */
     static CommentIntake.Parts parts(final Check check, final Store store, final Writer writer) {
         return new CommentIntake.Parts(
                 (project, repository, name) -> {
@@ -182,6 +191,7 @@ final class ReviewStandIns {
                 check,
                 store,
                 writer,
-                push -> new ReviewCounts.Counts(0, 0, List.of()));
+                push -> new ReviewCounts.Counts(0, 0, List.of()),
+                (container, push, item) -> item instanceof ReviewReply);
     }
 }

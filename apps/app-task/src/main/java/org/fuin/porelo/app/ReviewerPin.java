@@ -47,9 +47,9 @@ final class ReviewerPin {
             final RunPlace.Pin pin)
             throws IOException {
         final RunPlace recorded = RunPlace.readFrom(state);
-        if (recorded == null || !RunPlace.REVIEWER.equals(recorded.role())) {
+        if (recorded == null || !recorded.parts().readsAnothersWork()) {
             throw new IllegalStateException(
-                    "only a reviewer's run is pinned; " + task + " is none");
+                    "only a run that reads another task's work is pinned; " + task + " is none");
         }
         commit(git, mirror, pin.head());
         final String base = pin.base();

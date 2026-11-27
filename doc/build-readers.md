@@ -72,13 +72,18 @@ that serves no review, or another review version, before it asks it anything. Th
   next page.
 - **`post(access, url, document)`**: writes one released result, a profile 2 submission of exactly one result, and
   answers the thread it answered or the id of the new thread's root, the forge's native id in decimal.
+- **`resolve(access, url, thread)`**: marks one thread of the pull request resolved, as the account the token
+  stands for, and answers nothing; a thread the forge already shows resolved is done, so a second call changes
+  nothing. A forge that has no way to resolve a thread answers `ResolveUnsupported` and writes nothing: the thread
+  stays open, and Porelo marks the item not delivered for that reason and never sends it again.
 
 `access` carries the forge's REST base URL ("" for its public one) and the token lent for that call alone. Nothing
 of the forge's own format crosses, and no method reaches a verdict: `approved` is what the forge shows, read only.
 Porelo hands every document on as bytes and parses none here. The refusals are `RateLimited`, `CredentialRefused`,
 `NoSuchPullRequest`, `NoSuchThread`, `Unreachable`, `NotInProfile` (a general or file comment, or anything profile 2
-cannot carry, naming the field) and `WriteOutcomeUnknown`: a post that was sent with no answer saying whether it was
-written, which Porelo never sends again. An adapter never logs the token and never puts it in an error.
+cannot carry, naming the field), `ResolveUnsupported` and `WriteOutcomeUnknown`: a post or a resolve that was sent
+with no answer saying whether it was written. Porelo never sends such a post again; the contract allows a resolve
+again once the conversation, read anew, still shows the thread open, and this Porelo never sends it again either. An adapter never logs the token and never puts it in an error.
 
 Porelo holds what an adapter answers to profile 2's shapes before it uses it, and refuses anything else as the
 adapter's fault:
@@ -91,7 +96,7 @@ adapter's fault:
 - **Messages:** what an adapter says reaches a message with the lent token replaced by `[token]` and cut to 512
   characters.
 - **A broken answer:** a frame that is no varlink answer, or a connection that breaks, ends the adapter, and the
-  next call starts it again. During a post either is `WriteOutcomeUnknown`; a post refused before it is sent - a
+  next call starts it again. During a post or a resolve either is `WriteOutcomeUnknown`; a post refused before it is sent - a
   submission over 1 MiB, or an adapter that will not start again - is safe to send again.
 
 ## The verdict, the jobs and their logs

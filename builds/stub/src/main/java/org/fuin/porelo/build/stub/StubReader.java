@@ -84,9 +84,13 @@ import org.jspecify.annotations.Nullable;
  * is that same account, as {@code id} and {@code login}. Every {@code forge-account} result carries
  * {@code porelo/createdAt}: the one its page in the answers gives, else {@link #FIRST_CREATED_AT}
  * one second later per result before it in the conversation. A reply names a thread the
- * conversation holds or is refused; a new comment opens a thread of its own. A {@code reviewRefuse}
- * refuses every review call, a reason of {@link ForgeReviewRefused.Reason} with its {@code
- * retryAfter} or {@code field}; the {@code token} holds for the review calls too.
+ * conversation holds or is refused; a new comment opens a thread of its own. Each {@code Resolve}
+ * of a thread the conversation holds is written as one line to the same file - its address, the
+ * thread under {@code resolve} and the account - and every page afterwards shows that thread
+ * resolved; a pull request whose answers say {@code "resolveUnsupported": true} answers {@code
+ * ResolveUnsupported} instead and writes nothing. A {@code reviewRefuse} refuses every review call,
+ * a reason of {@link ForgeReviewRefused.Reason} with its {@code retryAfter} or {@code field}; the
+ * {@code token} holds for the review calls too.
  */
 public final class StubReader implements BuildReader, ReviewReader {
 
@@ -307,7 +311,12 @@ public final class StubReader implements BuildReader, ReviewReader {
         final Object replyTo = properties.get("porelo/replyTo");
         final String thread;
         if (replyTo == null) {
-            thread = Long.toString(FIRST_THREAD + posted().size());
+            thread =
+                    Long.toString(
+                            FIRST_THREAD
+                                    + posted().stream()
+                                            .filter(each -> each.containsKey("document"))
+                                            .count());
         } else {
             thread = String.valueOf(replyTo);
             if (!threads(conversation(review, url)).contains(thread)) {
@@ -336,6 +345,46 @@ public final class StubReader implements BuildReader, ReviewReader {
             throw new ForgeReviewRefused(ForgeReviewRefused.Reason.UNREACHABLE);
         }
         return thread;
+    }
+
+    /**
+     * Resolves a thread the conversation holds as one line beside the posts, which every page
+     * written afterwards shows; a thread already resolved is done and writes nothing again. A pull
+     * request whose answers say {@code "resolveUnsupported": true} plays a forge that cannot
+     * resolve a thread and writes nothing.
+     */
+    @Override
+    public synchronized void resolve(
+            final ForgeAccess access, final String url, final String thread) {
+        final Map<?, ?> review = review(access, url);
+        if (Boolean.TRUE.equals(review.get("resolveUnsupported"))) {
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.RESOLVE_UNSUPPORTED);
+        }
+        final List<Map<String, Object>> pages = conversation(review, url);
+        if (!threads(pages).contains(thread)) {
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.NO_SUCH_THREAD);
+        }
+        if ("resolved".equals(stateOf(pages, thread))) {
+            return;
+        }
+        final Map<String, Object> as = postingAs(access, review);
+        final Map<String, Object> line = new LinkedHashMap<>();
+        line.put("url", url);
+        line.put("resolve", thread);
+        // The account it was resolved as, as the forge would show it; never the token.
+        line.put("account", text(as.get("porelo/forgeAccountName")));
+        line.put("accountId", text(as.get("porelo/forgeAccountId")));
+        try {
+            Files.writeString(
+                    posts(),
+                    Json.write(line) + "\n",
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
+        } catch (IOException ex) {
+            // Not written where the conversation is read from: the thread stays open.
+            throw new ForgeReviewRefused(ForgeReviewRefused.Reason.UNREACHABLE);
+        }
     }
 
     /**
@@ -417,6 +466,12 @@ public final class StubReader implements BuildReader, ReviewReader {
         }
         final List<Object> added = new ArrayList<>();
         final Map<String, Object> postedAs = postedAs(review);
+        final Set<String> resolved = new HashSet<>();
+        for (final Map<?, ?> post : posted()) {
+            if (url.equals(post.get("url")) && post.get("resolve") instanceof String thread) {
+                resolved.add(thread);
+            }
+        }
         for (final Map<?, ?> post : posted()) {
             if (url.equals(post.get("url")) && post.get("document") instanceof Map<?, ?> doc) {
                 final Map<String, Object> result = onlyResult(Json.write(doc));
@@ -436,11 +491,35 @@ public final class StubReader implements BuildReader, ReviewReader {
         }
         attach(pages.getLast(), added);
         dated(pages);
+        resolved(pages, resolved);
         final List<Map<String, Object>> spilled = new ArrayList<>();
         for (final Map<String, Object> page : pages) {
             spilled.addAll(spill(page));
         }
         return spilled;
+    }
+
+    /** Shows every result of a resolved thread as resolved, as a forge's page does. */
+    private static void resolved(final List<Map<String, Object>> pages, final Set<String> threads) {
+        if (threads.isEmpty()) {
+            return;
+        }
+        for (final Map<String, Object> page : pages) {
+            final List<Object> results = new ArrayList<>();
+            for (final Object each : results(page)) {
+                if (each instanceof Map<?, ?> given) {
+                    final Map<String, Object> result = copy(given);
+                    final Map<String, Object> properties = properties(result);
+                    if (threads.contains(text(properties.get("porelo/threadId")))) {
+                        properties.put("porelo/threadState", "resolved");
+                    }
+                    results.add(result);
+                } else {
+                    results.add(each);
+                }
+            }
+            attach(page, results, true);
+        }
     }
 
     /**

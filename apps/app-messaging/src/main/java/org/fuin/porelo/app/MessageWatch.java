@@ -435,6 +435,7 @@ public final class MessageWatch implements AutoCloseable {
         pass.marking(marks());
         pass.replying(replies, this::taskOf);
         pass.commenting(comments);
+        pass.reading(container -> ReadingTasks.readsAnothersWork(context, container));
         return pass;
     }
 
@@ -956,7 +957,9 @@ public final class MessageWatch implements AutoCloseable {
             final String container = mailbox.getFileName().toString();
             final Project own = given != null && named.contains(container) ? given : null;
             final String project = projectOf(container);
-            if (project == null) {
+            if (project == null || ReadingTasks.readsAnothersWork(context, container)) {
+                // A task that reads another task's work is in no conversation, whatever its
+                // mailbox: never enrolled, it is no member a pass acts for.
                 continue;
             }
             final Mail peers = own != null ? withSiblings(own, container) : peersOf(container);

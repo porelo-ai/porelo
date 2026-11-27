@@ -38,9 +38,9 @@ import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewReply;
-import org.fuin.porelo.gate.review.ReviewRole;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
+import org.fuin.porelo.gate.review.TaskParts;
+import org.fuin.porelo.gate.review.TaskRights;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -91,6 +91,50 @@ class ReleasedSenderTest {
         assertThat(fixture.sender().send()).as("items written").isZero();
         assertThat(fixture.place.written).as("items handed to the place").isEmpty();
         assertThat(fixture.holds.marks).as("items marked").isEmpty();
+    }
+
+    @Test
+    void aHeldCommentOfATaskWhoseRecordNoLongerReadsIsNeverSent() {
+        // The right is asked anew for every kind before a credential is lent, not for a resolve
+        // alone.
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(
+                held(
+                        "c",
+                        PLACE,
+                        HeldState.RELEASED,
+                        new org.fuin.porelo.gate.review.ReviewComment(
+                                new org.fuin.porelo.gate.review.LineAnchor(
+                                        "src/Cart.java",
+                                        org.fuin.porelo.gate.review.Side.NEW,
+                                        3,
+                                        3),
+                                new Body("said c"),
+                                null)));
+        fixture.role.unreadable.add(TASK);
+
+        assertThatThrownBy(() -> fixture.sender().send())
+                .as("the pass says the item failed before its write")
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(fixture.place.written).as("nothing handed to the place").isEmpty();
+        assertThat(fixture.role.lent).as("no credential lent").isZero();
+        assertThat(fixture.holds.state("c")).as("still due").isEqualTo(HeldState.RELEASED);
+    }
+
+    @Test
+    void aHeldReplyOfATaskThatLostTheRightIsRefusedUnsent() {
+        final Fixture fixture = new Fixture();
+        fixture.holds.add(held("r", PLACE, HeldState.RELEASED, null, null));
+        fixture.role.withdrawn.add(TASK);
+
+        assertThat(fixture.sender().send()).as("written").isZero();
+
+        assertThat(fixture.place.written).as("nothing handed to the place").isEmpty();
+        assertThat(fixture.role.lent).as("no credential lent").isZero();
+        assertThat(fixture.holds.items.get("r").reason())
+                .as("refused for the right it lost")
+                .isEqualTo(RunIntake.MAY_NOT_REPLY);
     }
 
     @Test
@@ -353,12 +397,27 @@ class ReleasedSenderTest {
     // Stand-ins ---------------------------------------------------------------------------------
 
     private static Held held(
+            final String id, final String place, final HeldState state, final ReviewItem item) {
+        return held(id, place, state, null, null, item);
+    }
+
+    private static Held held(
             final String id,
             final String place,
             final HeldState state,
             final @Nullable String reason,
             final @Nullable Instant retryAt) {
-        final ReviewItem item = new ReviewReply("t-1", new Body("said " + id));
+        return held(
+                id, place, state, reason, retryAt, new ReviewReply("t-1", new Body("said " + id)));
+    }
+
+    private static Held held(
+            final String id,
+            final String place,
+            final HeldState state,
+            final @Nullable String reason,
+            final @Nullable Instant retryAt,
+            final ReviewItem item) {
         return new Held(
                 id,
                 Direction.OUTGOING,
@@ -368,7 +427,7 @@ class ReleasedSenderTest {
                 COMMIT,
                 item,
                 null,
-                HoldJournal.digest(item),
+                HoldJournal.digest(item, place, COMMIT),
                 START.minusSeconds(60),
                 state,
                 reason,
@@ -647,13 +706,29 @@ class ReleasedSenderTest {
     }
 
     /** One posting entry for every place, another for the empty one, none for the missing ones. */
-    private static final class FakeRole implements ReviewRole {
+    private static final class FakeRole implements TaskRights {
 
         final Set<String> missing = new HashSet<>();
+
+        /** The tasks whose record no longer reads, as the recorded rights answer them. */
+        final Set<String> unreadable = new HashSet<>();
+
+        /** The tasks that hold no right any more. */
+        final Set<String> withdrawn = new HashSet<>();
+
+        int lent;
+
+        private boolean may(final String task) {
+            if (unreadable.contains(task)) {
+                throw new IllegalStateException("task " + task + " recorded no parts");
+            }
+            return !withdrawn.contains(task);
+        }
 
         @Override
         public String postingEntry(final String task, final ReviewPlace place)
                 throws PlaceUnreadable {
+            lent++;
             if (missing.contains(place.name())) {
                 throw new PlaceUnreadable(
                         PlaceUnreadable.Reason.MISSING_FORGE_TOKEN, "no entry for the account");
@@ -662,7 +737,7 @@ class ReleasedSenderTest {
         }
 
         @Override
-        public Role role(final String task) {
+        public TaskParts parts(final String task) {
             throw new UnsupportedOperationException();
         }
 
@@ -678,6 +753,21 @@ class ReleasedSenderTest {
 
         @Override
         public boolean mayOpenThread(final String task, final ReviewPlace place) {
+            return may(task);
+        }
+
+        @Override
+        public boolean mayReply(final String task, final ReviewPlace place) {
+            return may(task);
+        }
+
+        @Override
+        public boolean mayResolve(final String task, final ReviewPlace place) {
+            return may(task);
+        }
+
+        @Override
+        public boolean mayReject(final String task, final ReviewPlace place) {
             throw new UnsupportedOperationException();
         }
 

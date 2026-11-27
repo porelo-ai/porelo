@@ -38,6 +38,8 @@ public record ForgeComment(
             }
             case ReviewReply _ ->
                     throw new IllegalArgumentException("a forge's reply is a forge reply");
+            case ThreadResolve _ ->
+                    throw new IllegalArgumentException("a forge's page carries no resolve");
         }
     }
 

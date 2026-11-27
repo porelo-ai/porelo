@@ -225,11 +225,53 @@ class HoldJournalTest {
     }
 
     @Test
+    void aResolvesDigestBindsItsPlaceItsPinnedCommitAndItsThreadAndNoOtherKindsDecisionReleasesIt()
+            throws Exception {
+        // A resolve carries no text: what a decision binds to is where, against what and which
+        // thread, and no decision shown a reply's digest may release it, nor the reverse.
+        final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
+        final Run first = run(holds, PLACE, FIRST_HEAD);
+        final Held resolve =
+                holds.hold(first, TASK, Direction.OUTGOING, new ThreadResolve("t-9"), null, null);
+        final Held reply =
+                holds.hold(
+                        first,
+                        TASK,
+                        Direction.OUTGOING,
+                        new ReviewReply("t-9", new Body("ok")),
+                        null,
+                        null);
+
+        assertThat(resolve.digest())
+                .as("a resolve: its kind, its place, its pinned commit and its thread")
+                .isEqualTo(sha256("7:resolve\n13:" + PLACE + "\n40:" + FIRST_HEAD + "\n3:t-9\n"));
+        assertThat(HoldJournal.digest(new ThreadResolve("t-9"), OTHER_PLACE, FIRST_HEAD))
+                .as("the same thread's resolve at another place")
+                .isNotEqualTo(resolve.digest());
+        assertThat(HoldJournal.digest(new ThreadResolve("t-9"), PLACE, SECOND_HEAD))
+                .as("the same thread's resolve against another commit")
+                .isNotEqualTo(resolve.digest());
+        assertThatThrownBy(() -> holds.decide(TASK, resolve.id(), reply.digest(), Decision.RELEASE))
+                .as("a release of the resolve shown the reply's digest")
+                .isInstanceOf(HoldRefused.class);
+        assertThatThrownBy(() -> holds.decide(TASK, reply.id(), resolve.digest(), Decision.RELEASE))
+                .as("a release of the reply shown the resolve's digest")
+                .isInstanceOf(HoldRefused.class);
+        assertThat(new HoldJournal(dir.resolve("holds"), ticking()).find(TASK, resolve.id()))
+                .as("the resolve read back from the journal")
+                .hasValueSatisfying(
+                        held -> {
+                            assertThat(held.item()).isEqualTo(new ThreadResolve("t-9"));
+                            assertThat(held.digest()).isEqualTo(resolve.digest());
+                        });
+    }
+
+    @Test
     void theCountAndTheUndecidedListFollowDecisionsOldestFirst() throws Exception {
         final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
         final Run run = run(holds, PLACE, FIRST_HEAD);
         final Held one = holds.hold(run, TASK, Direction.OUTGOING, comment("one"), null, null);
-        final Run theirs = new Run(PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), 1);
+        final Run theirs = new Run(PLACE, new Pinned(push(FIRST_HEAD), null), 1);
         holds.startRun(OTHER_TASK, PLACE);
         final Held other =
                 holds.hold(theirs, OTHER_TASK, Direction.OUTGOING, comment("o"), null, null);
@@ -370,7 +412,7 @@ class HoldJournalTest {
         final HoldJournal holds = new HoldJournal(root, ticking());
         final Run run = run(holds, PLACE, FIRST_HEAD);
         holds.hold(run, TASK, Direction.OUTGOING, comment("broken"), null, null);
-        final Run theirs = new Run(PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), 1);
+        final Run theirs = new Run(PLACE, new Pinned(push(FIRST_HEAD), null), 1);
         holds.startRun(OTHER_TASK, PLACE);
         final Held healthy =
                 holds.hold(theirs, OTHER_TASK, Direction.OUTGOING, comment("o"), null, null);
@@ -477,9 +519,8 @@ class HoldJournalTest {
     void aHoldForARunNotStartedAtItsPlaceIsRefused() throws Exception {
         final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
         final Run first = run(holds, PLACE, FIRST_HEAD);
-        final Run ahead = new Run(PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), 2);
-        final Run elsewhere =
-                new Run(OTHER_PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), 1);
+        final Run ahead = new Run(PLACE, new Pinned(push(FIRST_HEAD), null), 2);
+        final Run elsewhere = new Run(OTHER_PLACE, new Pinned(push(FIRST_HEAD), null), 1);
 
         assertThatThrownBy(
                         () -> holds.hold(ahead, TASK, Direction.OUTGOING, comment("a"), null, null))
@@ -645,7 +686,7 @@ class HoldJournalTest {
         holds.startRun(OTHER_TASK, PLACE);
         final Held theirs =
                 holds.hold(
-                        new Run(PLACE, Role.AUTHOR, new Pinned(push(SECOND_HEAD), null), 1),
+                        new Run(PLACE, new Pinned(push(SECOND_HEAD), null), 1),
                         OTHER_TASK,
                         Direction.OUTGOING,
                         comment("theirs"),
@@ -950,7 +991,7 @@ class HoldJournalTest {
         final String container = "porelo-shop_review-2";
         final HoldJournal holds = new HoldJournal(dir.resolve("holds"), ticking());
         final int number = holds.startRun(container, PLACE);
-        final Run run = new Run(PLACE, Role.REVIEWER, new Pinned(push(FIRST_HEAD), null), number);
+        final Run run = new Run(PLACE, new Pinned(push(FIRST_HEAD), null), number);
 
         final Held held = holds.hold(run, container, Direction.OUTGOING, comment("x"), null, null);
 
@@ -978,7 +1019,7 @@ class HoldJournalTest {
         assertThat(signed.unsigned()).as("the signed item as held").isFalse();
         assertThat(unsigned.digest())
                 .as("the mark is no part of the item's content")
-                .isEqualTo(HoldJournal.digest(comment("unsigned")));
+                .isEqualTo(HoldJournal.digest(comment("unsigned"), PLACE, FIRST_HEAD));
         assertThat(reread.undecided(TASK))
                 .as("both items, read back")
                 .extracting(Held::id, Held::unsigned)
@@ -1044,7 +1085,7 @@ class HoldJournalTest {
 
     private static Run run(final HoldJournal holds, final String place, final String head) {
         final int number = holds.startRun(TASK, place);
-        return new Run(place, Role.REVIEWER, new Pinned(push(head), null), number);
+        return new Run(place, new Pinned(push(head), null), number);
     }
 
     private static Held released(final HoldJournal holds, final Run run, final String text)
@@ -1094,6 +1135,7 @@ class HoldJournalTest {
                     case ReviewReply reply -> reply.thread();
                     case ForgeReply reply -> reply.thread();
                     case ReviewComment comment -> "t-" + guid;
+                    case ThreadResolve resolve -> resolve.thread();
                 };
         return new Kept(
                 guid,

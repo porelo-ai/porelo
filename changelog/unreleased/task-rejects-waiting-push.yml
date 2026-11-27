@@ -1,0 +1,2 @@
+title: A task that reads another task's waiting push and holds the right reject discards it through its mailbox, with a reason told to the pushing task as that task's words
+type: added

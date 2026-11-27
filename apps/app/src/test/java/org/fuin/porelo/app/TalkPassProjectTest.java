@@ -434,6 +434,36 @@ class TalkPassProjectTest {
     }
 
     @Test
+    void aTaskThatReadsAnotherTasksWorkIsNoMemberOfItsProjectsConversation() throws Exception {
+        // Listed as a member by its mailbox alone, a reader that was never enrolled was handed
+        // what the room held for it, and the pass said a failure for it each time it came back.
+        final PoreloContext context = context();
+        register(context, "web", "mail:\n  transports:\n    room: {}\n");
+        final Path inbound = room(context, "web");
+        recorded(context, "porelo-web-work", "web");
+        recorded(context, "porelo-web-read", "web");
+        RunPlace.recordParts(
+                Files.createDirectories(context.paths().tasks().containerState("porelo-web-read")),
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        List.of(org.fuin.porelo.gate.review.Right.REPLY)));
+        final Mailbox work = new Mailbox(context.paths().messaging().mailbox("porelo-web-work"));
+        work.create();
+        final Mailbox reader = new Mailbox(context.paths().messaging().mailbox("porelo-web-read"));
+        reader.create();
+        posted(inbound, "m-1", "read");
+
+        final int code = pass(context, "porelo-web-work", "--project", "web");
+
+        assertThat(code).as(err.toString()).isZero();
+        assertThat(reader.inbound().resolve("m-1.json"))
+                .as("nothing of the room reaches a task that reads another task's work: " + err)
+                .doesNotExist();
+        assertThat(runner.invocations())
+                .as("the transport is never asked to act for it: " + err)
+                .noneMatch(command -> command.arguments().contains("porelo-web-read"));
+    }
+
+    @Test
     void aRemovedTaskOfAProjectNoLongerFollowedIsGivenNoOtherProjectsConversation()
             throws Exception {
         // A removed task must not receive a different project's room through a shared name prefix.

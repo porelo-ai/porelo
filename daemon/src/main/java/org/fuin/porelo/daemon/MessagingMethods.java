@@ -296,6 +296,9 @@ final class MessagingMethods {
                                     .enrolledIn(
                                             org.fuin.porelo.app.MessageRelease.enrolled(
                                                     context, text(parameters, "task")))
+                                    .reading(
+                                            org.fuin.porelo.app.ReadingTasks.readsAnothersWork(
+                                                    context, text(parameters, "task")))
                                     .decide(
                                             mailboxOf(context, parameters),
                                             text(parameters, "id"),

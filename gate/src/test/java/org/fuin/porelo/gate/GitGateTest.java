@@ -678,6 +678,69 @@ class GitGateTest {
         assertThat(gate.log("task-1", null)).contains("add agent.txt");
     }
 
+    @Test
+    void aGateToldToRefusePushesTakesNoPushOfItsTaskYetServesItsFetches() throws IOException {
+
+        // The gate of a task whose start recorded no right to push: nothing it sends is taken,
+        // its own ref and its rescue included, while what the gate holds of it is still fetched.
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final TaskToken token = TaskToken.mint();
+        final String own = GitGate.INCOMING + "task-1";
+        git(root, "init", work.toString());
+        git(work, "config", "http.extraHeader", "Authorization: " + token.basicAuthorization());
+        makeCommit("agent.txt", "written by the agent");
+        // What the gate already holds of the task, put there past the server.
+        git(work, "push", mirror.toString(), "HEAD:" + own);
+        final String held = git(work, "rev-parse", "HEAD").standardOutput().strip();
+        makeCommit("later.txt", "written after the gate was told to refuse");
+        final String refused = git(work, "rev-parse", "HEAD").standardOutput().strip();
+        final GitHttpServer server =
+                new GitHttpServer(
+                                new InetSocketAddress(InetAddress.getLoopbackAddress(), 0),
+                                mirror,
+                                token,
+                                new GitSubprocess(),
+                                own)
+                        .refusingPushes("RightMissing: push (push to the gate)");
+        server.start();
+        try (server) {
+            assertThatThrownBy(() -> git(work, "push", url(server), "HEAD:" + own))
+                    .as("a push to the task's own ref")
+                    .isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(
+                            () -> git(work, "push", url(server), "HEAD:" + own + GitGate.RESCUED))
+                    .as("a push to the task's rescue ref")
+                    .isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(() -> git(work, "push", url(server), ":" + own))
+                    .as("a deletion of the task's own ref")
+                    .isInstanceOf(RuntimeException.class);
+
+            git(work, "fetch", "-q", url(server), own + ":refs/remotes/gate/own");
+            assertThat(git(work, "rev-parse", "refs/remotes/gate/own").standardOutput().strip())
+                    .as("what the gate holds of the task, fetched through it")
+                    .isEqualTo(held);
+        }
+
+        assertThat(git(mirror, "rev-parse", own).standardOutput().strip())
+                .as("the task's own ref did not move")
+                .isEqualTo(held);
+        assertThat(gate.resolves(own + GitGate.RESCUED))
+                .as("whether a rescue ref was made")
+                .isFalse();
+        assertThat(
+                        runner.run(
+                                        Command.of(
+                                                "git",
+                                                "--git-dir",
+                                                mirror.toString(),
+                                                "cat-file",
+                                                "-e",
+                                                refused))
+                                .successful())
+                .as("whether the refused push's commit reached the mirror")
+                .isFalse();
+    }
+
     /**
      * An online task's gate: passes its incoming ref on to the upstream as {@code porelo/<task>},
      * as the task's gate does.
@@ -2115,6 +2178,110 @@ class GitGateTest {
         gate.reject("task-1");
 
         assertThat(gate.pending()).isEmpty();
+    }
+
+    @Test
+    void aTasksRejectDeletesTheWaitingRefStandingAtItsCommitAndNoOtherRef() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String judged = commitInMirror("the judged work");
+        final String other = commitInMirror("another task's work");
+        incoming("task-1", judged);
+        incoming("task-1" + GitGate.RESCUED, judged);
+        incoming("task-2", other);
+
+        gate.rejectAt("task-1", judged);
+
+        assertThat(incomingRefs())
+                .as("the judged push gone, the rescue and the other task's push untouched")
+                .doesNotContainKey("task-1")
+                .containsEntry("task-1" + GitGate.RESCUED, judged)
+                .containsEntry("task-2", other);
+    }
+
+    @Test
+    void aTasksRejectLeavesARefThatMovedToAnotherCommitAndSaysSo() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String judged = commitInMirror("the judged work");
+        final String pushedSince = commitInMirror("pushed after the judging");
+        incoming("task-1", pushedSince);
+
+        assertThatThrownBy(() -> gate.rejectAt("task-1", judged))
+                .as("a commit nobody judged is not discarded")
+                .isInstanceOf(GateException.class);
+        assertThat(incomingRefs())
+                .as("the push still waits at the commit pushed since")
+                .containsEntry("task-1", pushedSince);
+    }
+
+    @Test
+    void aTasksRejectOfAPushThatIsGoneSaysSo() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String judged = commitInMirror("the judged work");
+
+        assertThatThrownBy(() -> gate.rejectAt("task-1", judged))
+                .as("nothing waits under the name")
+                .isInstanceOf(GateException.class);
+    }
+
+    @Test
+    void aTasksRejectRefusesARescuedPushANameOutsideTheIncomingRefsAndAShortCommit() {
+        final GitGate gate = gate(GateMode.GATEKEEPING, null);
+        final String judged = commitInMirror("the judged work");
+        incoming("task-1", judged);
+        incoming("task-1" + GitGate.RESCUED, judged);
+        git(root, "--git-dir", mirror.toString(), "update-ref", "refs/heads/main", judged);
+
+        assertThatThrownBy(() -> gate.rejectAt("task-1" + GitGate.RESCUED, judged))
+                .as("rescued work is a person's to decide")
+                .isInstanceOf(GateException.class)
+                .hasMessageContaining("rescued");
+        for (final String name : List.of("../../heads/main", "a/../../heads/main", "-d", "")) {
+            assertThatThrownBy(() -> gate.rejectAt(name, judged))
+                    .as("a name that could leave the incoming refs: '%s'", name)
+                    .isInstanceOf(GateException.class);
+        }
+        assertThatThrownBy(() -> gate.rejectAt("task-1", judged.substring(0, 12)))
+                .as("a commit id that is not full")
+                .isInstanceOf(GateException.class);
+
+        assertThat(incomingRefs())
+                .as("nothing incoming deleted")
+                .containsEntry("task-1", judged)
+                .containsEntry("task-1" + GitGate.RESCUED, judged);
+        assertThat(
+                        git(root, "--git-dir", mirror.toString(), "rev-parse", "refs/heads/main")
+                                .standardOutput()
+                                .strip())
+                .as("the branch outside the incoming refs untouched")
+                .isEqualTo(judged);
+    }
+
+    /** Makes a commit of an empty tree in the mirror and returns its id. */
+    private String commitInMirror(final String message) {
+        final String tree = object("tree", "");
+        return git(root, "--git-dir", mirror.toString(), "commit-tree", tree, "-m", message)
+                .standardOutput()
+                .strip();
+    }
+
+    /** The mirror's incoming refs, by name below the namespace, with the commit each points at. */
+    private Map<String, String> incomingRefs() {
+        final Map<String, String> refs = new java.util.TreeMap<>();
+        for (final String line :
+                git(
+                                root,
+                                "--git-dir",
+                                mirror.toString(),
+                                "for-each-ref",
+                                "--format=%(refname) %(objectname)",
+                                GitGate.INCOMING)
+                        .standardOutput()
+                        .lines()
+                        .toList()) {
+            final String[] fields = line.split(" ");
+            refs.put(fields[0].substring(GitGate.INCOMING.length()), fields[1]);
+        }
+        return refs;
     }
 
     private void pushAs(String name) throws IOException {

@@ -16,7 +16,7 @@ Feature: A task's runs at a pull request on GitHub, each answer released before 
         And the installed forge adapter "github" reads "github.com"
         And a scratch repository in the test organization has a pull request on GitHub
         And in its next run the stub agent submits "submitted-comment.sarif.json" at the pull request on GitHub
-        When the task "reviewer" is run by the stub agent as reviewer at the pull request on GitHub
+        When the task "reviewer" is run by the stub agent as review with the rights "reply, openThreads" at the pull request on GitHub
         Then it exits zero
         And the task "reviewer" holds 1 outgoing item
         And the pull request on GitHub has no review comment
@@ -26,7 +26,7 @@ Feature: A task's runs at a pull request on GitHub, each answer released before 
         # The next run is handed what the test identity answered there, and answers in the same thread.
         When the test identity answers the task's thread on GitHub: "Why refuse it there and not in the form?"
         And in its next run the stub agent replies to every open thread it is given at the pull request on GitHub
-        And the task "reviewer" is run by the stub agent as reviewer at the pull request on GitHub
+        And the task "reviewer" is run by the stub agent as review with the rights "reply, openThreads" at the pull request on GitHub
         Then it exits zero
         And the task was given "Why refuse it there and not in the form?"
         And the task "reviewer" holds 1 outgoing item
@@ -37,7 +37,7 @@ Feature: A task's runs at a pull request on GitHub, each answer released before 
             | The check now runs first; LoginTest.expiredTokenIsDenied shows it.  |
         When the test identity answers the task's thread on GitHub: "And a blank user name?"
         And in its next run the stub agent replies to every open thread it is given at the pull request on GitHub
-        And the task "reviewer" is run by the stub agent as reviewer at the pull request on GitHub
+        And the task "reviewer" is run by the stub agent as review with the rights "reply, openThreads" at the pull request on GitHub
         Then it exits zero
         And the task was given "And a blank user name?"
         When the owner account releases what the task "reviewer" holds

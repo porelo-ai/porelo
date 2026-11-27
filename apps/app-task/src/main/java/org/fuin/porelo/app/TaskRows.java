@@ -104,8 +104,9 @@ final class TaskRows {
                 within,
                 ended(row.get("ended")),
                 null,
-                // Absent from an older daemon, which is no task that only reads.
-                flag(row, "readOnly"),
+                // Read only on its one repository or on every one, as the daemon recorded it.
+                "readOnly".equals(row.get("workspace"))
+                        || "allRepositories".equals(row.get("workspace")),
                 // Absent where the start named none, and from an older daemon.
                 absent(row, "effort"));
     }

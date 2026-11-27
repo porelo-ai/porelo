@@ -100,6 +100,20 @@ final class ReviewMethods {
                                     answering(
                                             () -> reader.post(access(parameters), url, document))));
                 });
+
+        server.method(
+                ReviewProtocol.INTERFACE,
+                "Resolve",
+                (parameters, replies) -> {
+                    final String url = required(parameters, "url");
+                    final String thread = required(parameters, "thread");
+                    answering(
+                            () -> {
+                                reader.resolve(access(parameters), url, thread);
+                                return thread;
+                            });
+                    replies.last(Map.of());
+                });
     }
 
     /**

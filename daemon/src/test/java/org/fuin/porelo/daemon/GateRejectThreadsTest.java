@@ -94,7 +94,12 @@ class GateRejectThreadsTest {
         threads.keep(push, comment("one"), OWNER, null);
         threads.keep(push, comment("two"), OWNER, null);
         final String resolved = threads.keep(push, comment("three"), OWNER, null).thread();
-        threads.state(push, resolved, ThreadState.RESOLVED);
+        threads.state(
+                push,
+                resolved,
+                ThreadState.RESOLVED,
+                org.fuin.porelo.gate.review.Origin.of(
+                        new org.fuin.porelo.gate.review.OwnerAccount()));
         final Instant before = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
         GateMethods.reject(
@@ -302,7 +307,11 @@ class GateRejectThreadsTest {
         }
 
         @Override
-        public ReviewThread state(final Push push, final String thread, final ThreadState state) {
+        public ReviewThread state(
+                final Push push,
+                final String thread,
+                final ThreadState state,
+                final org.fuin.porelo.gate.review.Origin by) {
             throw new UnsupportedOperationException("a reject changes no thread");
         }
     }

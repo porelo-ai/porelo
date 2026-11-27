@@ -27,7 +27,7 @@ would change the answer.
 | A first start takes no project.yml without a yes | a person's yes to the text at a terminal; this machine's own copy of it is what starts; same upstream and same hash is the same project; no comparison to an adapter; only on the `default` path | [entry](#a-first-start-takes-no-projectyml-without-a-yes) |
 | A project's own file is judged by its newest change alone | accepted: an admin's signature on the newest change to `project.yml` is what counts, an older one is refused, and a file it names needs none, so a snippet file gets around `egress` while the image is built | [entry](#a-projects-own-file-is-judged-by-its-newest-change-alone) |
 | Several attempts share one credential | not split or queued; a reached limit said per attempt; five attempts by default | [entry](#several-attempts-share-one-credential) |
-| A reviewer task reviews only its own project | another project's waiting work is never read | [entry](#a-reviewer-task-reviews-only-its-own-project) |
+| A task reads only its own project's work | another project's work is never read; the place decides whether a task reads its own work or another task's | [entry](#a-task-reads-only-its-own-projects-work) |
 | A time limit does not cut off a person who is watching | a start may shorten the limit, never lengthen it; an attached person is warned and the stop waits for their detach (not yet built) | [entry](#a-time-limit-does-not-cut-off-a-person-who-is-watching) |
 | What carries an agent's words is kept for a period | `task.log` and a session's recording cut after 30 days, even while the task lives; a setting | [entry](#what-carries-an-agents-words-is-kept-for-a-period) |
 | A kernel of its own for a task is measured before it is decided | adopted only on measured answers: it works, the ruleset still fails closed, its cost | [entry](#a-kernel-of-its-own-for-a-task-is-measured-before-it-is-decided) |
@@ -1149,10 +1149,13 @@ reached limit is said per attempt, naming the credential, so a stalled attempt i
 attempts per start is the default ceiling. N attempts use up a subscription's limit about N times as fast; the person
 chose N.
 
-## A reviewer task reviews only its own project
+## A task reads only its own project's work
 
-A task in the role reviewer reads the waiting work of other tasks of its own project only. Reading another project's
-work would carry code across the line Porelo keeps between projects everywhere else.
+A task reads another task's work only at a place of its own project: a pull request of one of the project's
+repositories, or the landed work of a task it names. Reading another project's work would carry code across the line
+Porelo keeps between projects everywhere else. Whether a start reads its own work or another task's is decided by
+Porelo from the place, never from a word the start names: a task has no role, only its four parts, `rights`,
+`readLanded`, `writeAs` and `projectServices`, held to Porelo's own start rules.
 
 ## An approve lands as a merge carrying provenance; a fast-forward is a project's choice
 

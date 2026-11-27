@@ -1,6 +1,7 @@
 package org.fuin.porelo.build.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
@@ -83,6 +84,40 @@ class InstalledReviewReaderTest {
     }
 
     @Test
+    void resolvesAThreadAndHearsAForgeThatCannotAndAThreadItDoesNotHold() throws IOException {
+        try (InstalledReviewReader reader =
+                new InstalledReviewReader(java(FakeReviewReader.class), "fake", socket())) {
+
+            assertThatCode(() -> reader.resolve(ACCESS, OPEN, FakeReviewReader.RESOLVABLE))
+                    .as("a thread the forge resolves answers nothing")
+                    .doesNotThrowAnyException();
+            assertThatCode(() -> reader.resolve(ACCESS, OPEN, FakeReviewReader.RESOLVABLE))
+                    .as("a second call for the same thread is done too")
+                    .doesNotThrowAnyException();
+            assertThatThrownBy(() -> reader.resolve(ACCESS, OPEN, FakeReviewReader.UNRESOLVABLE))
+                    .as("a forge that cannot resolve a thread says so")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(
+                                                    ForgeReviewRefused.Reason.RESOLVE_UNSUPPORTED));
+            assertThatThrownBy(() -> reader.resolve(ACCESS, OPEN, "404"))
+                    .as("a thread the pull request does not hold")
+                    .isInstanceOfSatisfying(
+                            ForgeReviewRefused.class,
+                            refused ->
+                                    assertThat(refused.reason())
+                                            .as("reason")
+                                            .isEqualTo(ForgeReviewRefused.Reason.NO_SUCH_THREAD));
+            assertThatThrownBy(() -> reader.resolve(ACCESS, OPEN, "seven"))
+                    .as("a thread id that is no decimal number is not sent")
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+    }
+
+    @Test
     void postsASubmissionAsTheBytesItWasGivenAndHearsItsThread() throws IOException {
         final String submission = "{\"kind\": \"submission\", \"text\": \"Grüße\"}";
         try (InstalledReviewReader reader =
@@ -158,7 +193,8 @@ class InstalledReviewReaderTest {
                                                     ForgeReviewRefused.Reason.CREDENTIAL_REFUSED));
             assertThatThrownBy(() -> reader.post(ACCESS, OPEN, bytes("broken")))
                     .as(
-                            "the adapter's own failure is a fault of the installation, without the token")
+                            "the adapter's own failure is a fault of the installation, without the"
+                                    + " token")
                     .isInstanceOf(BuildReaderException.class)
                     .hasMessageContaining(ReviewProtocol.INTERFACE + ".Failed")
                     .hasMessageContaining("the adapter broke")

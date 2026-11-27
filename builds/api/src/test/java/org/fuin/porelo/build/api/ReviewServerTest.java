@@ -25,13 +25,14 @@ class ReviewServerTest {
                         .map(match -> ReviewProtocol.INTERFACE + "." + match.group(1))
                         .collect(Collectors.toSet());
         assertThat(declared)
-                .as("the review contract declares its five methods and none that reaches a verdict")
+                .as("the review contract declares its six methods and none that reaches a verdict")
                 .containsExactlyInAnyOrder(
                         ReviewProtocol.DESCRIBE,
                         ReviewProtocol.PULL_REQUEST,
                         ReviewProtocol.PULL_REQUEST_OF,
                         ReviewProtocol.COMMENTS,
-                        ReviewProtocol.POST);
+                        ReviewProtocol.POST,
+                        ReviewProtocol.RESOLVE);
         try (BuildServer server =
                 new BuildServer(new FakeReviewReader(), directory.resolve("r.sock"))) {
             assertThat(

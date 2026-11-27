@@ -30,6 +30,8 @@ class ProfileTranslatorTest {
 
     private final ProfileTranslator translator = new ProfileTranslator();
 
+    private static final String PULL_REQUEST = "https://github.com/shop/app/pull/42";
+
     @Test
     void aForgePageBecomesItsForgeAccountsCommentsAndRepliesAtTheirPlaces() throws Exception {
         final ProfileRead read =
@@ -136,6 +138,32 @@ class ProfileTranslatorTest {
     }
 
     @Test
+    void aSubmittedResolveBecomesTheTasksResolveOfItsThreadAfterTheResults() throws Exception {
+        assertThat(
+                        translator
+                                .read(fixture("fixtures/submitted-resolve.sarif.json"), FROM_TASK)
+                                .items())
+                .as("the submitted resolve, the task's, naming its thread alone")
+                .containsExactly(
+                        new ProfileItem(null, null, TASK, new ThreadResolve("1834527690"), null));
+        final String both =
+                text("fixtures/submitted-reply.sarif.json")
+                        .replace(
+                                "\"porelo/baseRevisionId\": \"9f8e7d6c5b4a39281706f5e4d3c2b1a098765432\"",
+                                "\"porelo/baseRevisionId\": \"9f8e7d6c5b4a39281706f5e4d3c2b1a098765432\","
+                                        + " \"porelo/resolveThreads\": [\"1834527690\"]");
+        assertThat(translator.read(both.getBytes(StandardCharsets.UTF_8), FROM_TASK).items())
+                .as("a reply and then the resolve of its thread")
+                .extracting(ProfileItem::item)
+                .hasSize(2)
+                .last()
+                .isEqualTo(new ThreadResolve("1834527690"));
+        assertThat(refused(text("fixtures/submitted-resolve.sarif.json"), ADAPTER).rule())
+                .as("a resolve through a forge's adapter")
+                .isEqualTo("channel: /properties/porelo~1documentKind");
+    }
+
+    @Test
     void aPercentEncodedPathIsTakenAsTheRawPath() throws Exception {
         final String submitted =
                 text("fixtures/submitted-comment.sarif.json")
@@ -217,6 +245,56 @@ class ProfileTranslatorTest {
         assertThat(refused.rule())
                 .as("a forge account named by a blank")
                 .isEqualTo("record: forge account at /runs/0/results/0");
+    }
+
+    @Test
+    void aSubmittedRejectIsItsReasonAndNoItem() throws Exception {
+        final ProfileRead read =
+                translator.read(fixture("fixtures/submitted-reject.sarif.json"), FROM_TASK);
+        assertThat(read.items()).as("a reject is no comment or reply").isEmpty();
+        assertThat(read.reject())
+                .as("its reason, as given")
+                .isEqualTo(
+                        new Body(
+                                "The login now accepts a blank password; this cannot be reviewed into shape."));
+        assertThat(
+                        translator
+                                .read(fixture("fixtures/submitted-comment.sarif.json"), FROM_TASK)
+                                .reject())
+                .as("a submission without one")
+                .isNull();
+    }
+
+    @Test
+    void aSubmissionNamesThePlaceItsRunNamesAndAPageNamesNone() throws Exception {
+        assertThat(
+                        translator
+                                .read(fixture("fixtures/submitted-reject.sarif.json"), FROM_TASK)
+                                .named())
+                .as("a push run, by project, repository and push")
+                .containsExactly("push:shop/app/fix-login");
+        assertThat(
+                        translator
+                                .read(fixture("fixtures/submitted-comment.sarif.json"), FROM_TASK)
+                                .named())
+                .as("a pull request run, by its address")
+                .containsExactly("pullRequest:" + PULL_REQUEST);
+        assertThat(translator.read(fixture("fixtures/forge-page.sarif.json"), ADAPTER).named())
+                .as("a page binds nothing")
+                .isEmpty();
+    }
+
+    @Test
+    void aSubmissionWithTwoRejectsIsRefusedAsAWhole() throws Exception {
+        final String one = text("fixtures/submitted-reject.sarif.json");
+        final int start = one.indexOf("{", one.indexOf("\"results\""));
+        // The reject's result holds no array, so the results end at the first bracket after it.
+        final int end = one.lastIndexOf("}", one.indexOf("]", start)) + 1;
+        final String result = one.substring(start, end);
+        final String two = one.replace(result, result + ",\n" + result);
+        assertThat(refused(two, FROM_TASK).rule())
+                .as("two rejects in one submission")
+                .isEqualTo("submission: more than one reject at /runs/0/results/1");
     }
 
     private ProfileRefused refused(final String document, final ProfileChannel channel) {

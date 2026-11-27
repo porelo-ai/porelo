@@ -29,6 +29,17 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class SenderMarkWiringTest {
 
+    /** A pass told that no task here reads another task's work. */
+    private static MessagePass atOwnWork(
+            final org.fuin.porelo.core.process.CommandRunner runner,
+            final @org.jspecify.annotations.Nullable Path filter,
+            final TransportDirectory transports,
+            final org.fuin.porelo.wire.LimitFactors limits) {
+        final MessagePass pass = new MessagePass(runner, filter, transports, limits);
+        pass.reading(MessageDispatch.Readers.NONE);
+        return pass;
+    }
+
     @TempDir Path dir;
 
     /** Each {@code --shown} line a transport was handed, read while it was there. */
@@ -219,7 +230,7 @@ class SenderMarkWiringTest {
         Files.writeString(
                 mailbox.accepted().resolve("m-2.json" + MessageDispatch.RELEASED_SUFFIX), "");
         final MessagePass pass =
-                new MessagePass(
+                atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(transports)),
@@ -276,7 +287,7 @@ class SenderMarkWiringTest {
         Files.writeString(
                 mailbox.accepted().resolve("m-1.json" + MessageDispatch.RELEASED_SUFFIX), "");
         final MessagePass pass =
-                new MessagePass(
+                atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -309,7 +320,7 @@ class SenderMarkWiringTest {
                 mailbox.outboxNew().resolve("m.json"),
                 "{\"messageId\":\"m\",\"role\":\"ROLE_USER\"}");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -393,7 +404,7 @@ class SenderMarkWiringTest {
                 "{\"messageId\":\"c\",\"role\":\"ROLE_AGENT\"}");
         Files.createDirectories(mailbox.hold().resolve("c.json").resolve("in-the-way"));
         final MessagePass pass =
-                new MessagePass(
+                atOwnWork(
                         runner,
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -428,7 +439,7 @@ class SenderMarkWiringTest {
         Files.writeString(mailbox.outboxNew().resolve(longest), "{\"messageId\":\"b\"}");
         Files.writeString(mailbox.outboxNew().resolve("c.json"), "{\"messageId\":\"c\"}");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -451,7 +462,7 @@ class SenderMarkWiringTest {
         executable(filter);
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(dir.resolve("none"))),
@@ -478,7 +489,7 @@ class SenderMarkWiringTest {
         runner.answering(" send ", "{}");
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(transports)),
@@ -501,7 +512,7 @@ class SenderMarkWiringTest {
         runner.failing(" send ", 65, "no such peer");
         final Mailbox mailbox = releasedUnsigned(dir, "reviewer");
 
-        new MessagePass(
+        atOwnWork(
                         runner,
                         filter,
                         new TransportDirectory(List.of(transports)),
@@ -520,7 +531,7 @@ class SenderMarkWiringTest {
         Files.writeString(
                 mailbox.outboxNew().resolve("m-1.json"),
                 "{\"messageId\":\"m-1\",\"role\":\"ROLE_AGENT\"}");
-        new MessagePass(
+        atOwnWork(
                         runner,
                         null,
                         new TransportDirectory(List.of(dir.resolve("none"))),

@@ -46,7 +46,10 @@ final class UnassembledReview {
 
                 @Override
                 public ReviewThread state(
-                        final Push push, final String thread, final ThreadState state) {
+                        final Push push,
+                        final String thread,
+                        final ThreadState state,
+                        final org.fuin.porelo.gate.review.Origin by) {
                     throw new IllegalStateException("no review is assembled to hold the thread");
                 }
             };

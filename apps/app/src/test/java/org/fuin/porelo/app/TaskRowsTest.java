@@ -102,13 +102,20 @@ class TaskRowsTest {
 
     @Test
     void aTaskThatOnlyReadsIsSaidSoOnItsRowAndReadBackSo() {
+        // The row names the workspace its start recorded; the daemon writes it beside the row.
         final Map<String, Object> row = new java.util.HashMap<>(everythingSet().asMap());
-        assertThat(row).as("a task that works on its repository").containsEntry("readOnly", false);
+        row.put("workspace", "own");
+        assertThat(TaskRows.read(row).readOnly())
+                .as("a task that works on its repository")
+                .isFalse();
 
-        row.put("readOnly", true);
-        assertThat(TaskRows.read(row).asMap()).containsEntry("readOnly", true);
+        row.put("workspace", "readOnly");
+        assertThat(TaskRows.read(row).readOnly()).as("read only on its repository").isTrue();
 
-        row.remove("readOnly");
+        row.put("workspace", "allRepositories");
+        assertThat(TaskRows.read(row).readOnly()).as("reading every repository").isTrue();
+
+        row.remove("workspace");
         assertThat(TaskRows.read(row).readOnly()).as("an older daemon's row").isFalse();
     }
 }

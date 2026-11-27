@@ -33,6 +33,9 @@ public final class ReviewProtocol {
     /** Writes one released result. */
     public static final String POST = INTERFACE + ".Post";
 
+    /** Marks one thread of a pull request resolved. */
+    public static final String RESOLVE = INTERFACE + ".Resolve";
+
     /** The most bytes of one page's document. */
     public static final int MOST_PAGE_BYTES = 1024 * 1024;
 

@@ -878,34 +878,22 @@ final class GateMethods {
             rejected = org.fuin.porelo.app.PersonNote.Rejected.unreadable(ex);
         }
         gate.reject(name, false, true);
-        org.fuin.porelo.app.EventLog.record(
-                context,
-                org.fuin.porelo.app.EventLog.REJECTED,
-                text(parameters, "project"),
-                name,
-                "discarded, through the daemon");
-        // The task the work came from is told, reason or not: an agent whose work silently
-        // vanished hands it over again.
-        boolean told;
-        try {
-            told =
-                    org.fuin.porelo.app.PersonNote.rejectedWork(
-                            context,
-                            GateSupport.byName(context, text(parameters, "project")),
-                            name,
-                            empty(parameters, "reason"),
-                            rejected,
-                            store,
-                            writer);
-        } catch (java.io.IOException ex) {
-            told = false;
+        // The end is kept before the task is told, so a note that cannot be written loses none.
+        final org.fuin.porelo.app.PushRejection.Outcome outcome =
+                org.fuin.porelo.app.PushRejection.byOwner(
+                        context,
+                        GateSupport.byName(context, text(parameters, "project")),
+                        name,
+                        "discarded, through the daemon",
+                        rejected,
+                        empty(parameters, "reason"),
+                        store,
+                        writer);
+        final java.io.IOException notKept = outcome.unkept();
+        if (notKept != null) {
+            unkept("discarded " + name, notKept);
         }
-        try {
-            new org.fuin.porelo.app.GateEnds(context)
-                    .rejected(text(parameters, "project"), name, rejected, store);
-        } catch (java.io.IOException ex) {
-            unkept("discarded " + name, ex);
-        }
+        final boolean told = outcome.told();
         return Map.of("rejected", name, "told", told);
     }
 
@@ -1008,7 +996,11 @@ final class GateMethods {
                                                 text(parameters, "thread"),
                                                 flag(parameters, "reopen")
                                                         ? ThreadState.OPEN
-                                                        : ThreadState.RESOLVED);
+                                                        : ThreadState.RESOLVED,
+                                                // Never offered to a task: the owner account's.
+                                                org.fuin.porelo.gate.review.Origin.of(
+                                                        new org.fuin.porelo.gate.review
+                                                                .OwnerAccount()));
                     } catch (ReviewRefused ex) {
                         throw refused(ex.refusal(), push);
                     }
@@ -1072,10 +1064,14 @@ final class GateMethods {
                     }
                     // The parameters are refused as such before anything is read.
                     final String project = text(parameters, "project");
-                    final org.fuin.porelo.gate.review.Role role = role(parameters);
+                    if (parameters.containsKey("role")) {
+                        // No member of the contract any more: the answer follows the task's
+                        // recorded parts.
+                        throw invalid("role");
+                    }
                     final Map<String, Object> answer;
                     try {
-                        answer = open.answer(project, place, role, task).fields();
+                        answer = open.answer(project, place, task).fields();
                     } catch (org.fuin.porelo.app.ReviewOpen.Refused ex) {
                         throw new VarlinkException(INTERFACE + "." + ex.error(), ex.fields());
                     } catch (RuntimeException ex) {
@@ -1319,23 +1315,6 @@ final class GateMethods {
             return new org.fuin.porelo.app.ReviewOpen.OwnPullRequest();
         }
         throw invalid("place");
-    }
-
-    /** The role a ReviewOpen names: absent is the author's, a name the contract lacks refused. */
-    private static org.fuin.porelo.gate.review.@org.jspecify.annotations.Nullable Role role(
-            final Map<String, Object> parameters) {
-        final Object role = parameters.get("role");
-        if (role == null) {
-            return null;
-        }
-        if (!(role instanceof String word)) {
-            throw invalid("role");
-        }
-        try {
-            return org.fuin.porelo.gate.review.Role.of(word);
-        } catch (IllegalArgumentException ex) {
-            throw invalid("role");
-        }
     }
 
     private static VarlinkException invalid(final String parameter) {

@@ -25,6 +25,7 @@ import org.fuin.porelo.gate.review.PullRequestFacts;
 import org.fuin.porelo.gate.review.PullRequestRef;
 import org.fuin.porelo.gate.review.PullRequestState;
 import org.fuin.porelo.gate.review.Push;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.gate.review.WriteOutcome;
 import org.fuin.porelo.runtime.ContainerName;
 import org.fuin.porelo.testing.FakeCommandRunner;
@@ -118,7 +119,14 @@ class PullRequestPinsTest {
 
     @BeforeEach
     void reviewer() throws IOException {
-        new RunPlace(RunPlace.REVIEWER, null, "shop-2").writeTo(state);
+        new RunPlace(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        null,
+                        "shop-2")
+                .writeTo(state);
         pins =
                 new PullRequestPins(
                         adapter,
@@ -267,7 +275,7 @@ class PullRequestPinsTest {
 
     @Test
     void aTaskThatIsNoReviewerIsRefusedBeforeAnyTokenIsLent() throws IOException {
-        new RunPlace(RunPlace.AUTHOR, null, "shop-2").writeTo(state);
+        new RunPlace(TaskParts.ownWork(), null, "shop-2").writeTo(state);
 
         assertThatThrownBy(() -> pins.pin(REF, TASK))
                 .as("an author's task is never pinned")
@@ -565,7 +573,20 @@ class PullRequestPinsTest {
                 GateSupport.mirror(machine, DefaultProject.NAME, "app").resolve("objects"));
         TaskIdentityFixture.running(
                 machine.paths(), container, DefaultProject.NAME, "review-shop", id);
-        RunPlace.record(machine, container, new RunPlace(RunPlace.REVIEWER, "app", "shop-2"));
+        RunPlace.record(
+                machine,
+                container,
+                new RunPlace(
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        "app",
+                        "shop-2"),
+                org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                        java.util.List.of(
+                                org.fuin.porelo.gate.review.Right.REPLY,
+                                org.fuin.porelo.gate.review.Right.OPEN_THREADS)));
         return machine;
     }
 

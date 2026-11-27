@@ -143,6 +143,63 @@ class StubReviewTest {
     }
 
     @Test
+    void resolvesAThreadOnceAsTheTokensAccountAndEveryPageAfterwardsShowsItResolved()
+            throws IOException {
+        // The forge stand-in a test reads the resolve from: one line beside the posts, the thread
+        // resolved on the pages, and a second resolve of it done without a second line.
+        final StubReader stub =
+                new StubReader(
+                        answers(
+                                "",
+                                page(
+                                        result(THREAD, "Check the expiry first.")
+                                                .replace("\"resolved\"", "\"open\""))));
+
+        stub.resolve(ACCESS, PR, THREAD);
+        stub.resolve(ACCESS, PR, THREAD);
+
+        final List<String> lines = Files.readAllLines(stub.posts(), StandardCharsets.UTF_8);
+        assertThat(lines).as("one resolve recorded").hasSize(1);
+        final Map<?, ?> logged = (Map<?, ?>) Json.parse(lines.getFirst());
+        assertThat(List.of(logged.get("url"), logged.get("resolve"), logged.get("account")))
+                .as("its address, its thread and the account it was resolved as")
+                .containsExactly(PR, THREAD, StubReader.ACCOUNT_NAME);
+        assertThat(logged.containsKey("document")).as("no document, no post").isFalse();
+        assertThat(lines.getFirst()).as("never the token").doesNotContain(TOKEN);
+        assertThat(properties(valid(stub.comments(ACCESS, PR, null)).getFirst()))
+                .as("the thread as the conversation shows it now")
+                .containsEntry("porelo/threadState", "resolved");
+        assertThatThrownBy(() -> stub.resolve(ACCESS, PR, "77"))
+                .as("a thread the conversation does not hold")
+                .isInstanceOfSatisfying(
+                        ForgeReviewRefused.class,
+                        refused ->
+                                assertThat(refused.reason())
+                                        .as("reason")
+                                        .isEqualTo(ForgeReviewRefused.Reason.NO_SUCH_THREAD));
+    }
+
+    @Test
+    void aForgeItsAnswersSayCannotResolveAnswersResolveUnsupportedAndWritesNothing()
+            throws IOException {
+        final StubReader stub =
+                new StubReader(
+                        answers(
+                                ", \"resolveUnsupported\": true",
+                                page(result(THREAD, "Check the expiry first."))));
+
+        assertThatThrownBy(() -> stub.resolve(ACCESS, PR, THREAD))
+                .as("a forge that cannot resolve a thread")
+                .isInstanceOfSatisfying(
+                        ForgeReviewRefused.class,
+                        refused ->
+                                assertThat(refused.reason())
+                                        .as("reason")
+                                        .isEqualTo(ForgeReviewRefused.Reason.RESOLVE_UNSUPPORTED));
+        assertThat(stub.posts()).as("nothing written").doesNotExist();
+    }
+
+    @Test
     void writesEachPostToItsLogWithoutTheToken() throws IOException {
         final StubReader stub = new StubReader(answers());
 

@@ -76,7 +76,11 @@ import org.jspecify.annotations.Nullable;
  *       first and its last line in decimal, the text, and the suggestion's replacement only when it
  *       has one;
  *   <li>a reply in one of Porelo's threads: {@code reply}, the thread's id, the text;
- *   <li>a reply in a forge's thread: {@code forge reply}, the forge's thread id, the text.
+ *   <li>a reply in a forge's thread: {@code forge reply}, the forge's thread id, the text;
+ *   <li>a thread marked resolved, which carries no text: {@code resolve}, the place's name, the
+ *       pinned commit in full, the thread's id. A decision shown a comment's or a reply's digest
+ *       never releases a resolve, nor the reverse, and one shown a resolve's never releases the
+ *       same thread's resolve at another place or commit.
  * </ul>
  *
  * <p>For example, a reply {@code ok} in thread {@code t-9} is the SHA-256 of {@code
@@ -126,10 +130,14 @@ public final class HoldJournal implements ReviewHolds {
      * Returns the digest of an item's exact content, as a decision on it must name.
      *
      * @param item The item.
+     * @param place The place's name it is held for; part of a resolve's digest alone.
+     * @param commit The commit its run pinned, in full; part of a resolve's digest alone.
      * @return The SHA-256 of its canonical form, in lowercase hex.
      */
-    public static String digest(final ReviewItem item) {
+    public static String digest(final ReviewItem item, final String place, final String commit) {
         Objects.requireNonNull(item, "item");
+        Objects.requireNonNull(place, "place");
+        Objects.requireNonNull(commit, "commit");
         final List<String> fields = new ArrayList<>();
         switch (item) {
             case ReviewComment comment -> {
@@ -157,6 +165,13 @@ public final class HoldJournal implements ReviewHolds {
                 fields.add("forge reply");
                 fields.add(reply.thread());
                 fields.add(reply.body().text());
+            }
+            case ThreadResolve resolve -> {
+                // No text to bind a decision to: where, against what, and which thread.
+                fields.add("resolve");
+                fields.add(place);
+                fields.add(commit);
+                fields.add(resolve.thread());
             }
         }
         final ByteArrayOutputStream canonical = new ByteArrayOutputStream();
@@ -241,7 +256,7 @@ public final class HoldJournal implements ReviewHolds {
                         run.push().head(),
                         item,
                         received,
-                        digest(item),
+                        digest(item, run.place(), run.push().head()),
                         clock.instant(),
                         HeldState.UNDECIDED,
                         rule,
@@ -830,6 +845,10 @@ public final class HoldJournal implements ReviewHolds {
                 written.put("thread", reply.thread());
                 written.put("body", reply.body().text());
             }
+            case ThreadResolve resolve -> {
+                written.put("kind", "resolve");
+                written.put("thread", resolve.thread());
+            }
         }
         return written;
     }
@@ -853,7 +872,11 @@ public final class HoldJournal implements ReviewHolds {
         final Instant at = time(ReviewComments.text(entry, "at"));
         final ReviewItem item = item(ReviewComments.object(entry.get("item"), "item"));
         final String digest = ReviewComments.text(entry, "digest");
-        if (!digest.equals(digest(item))) {
+        if (!digest.equals(
+                digest(
+                        item,
+                        ReviewComments.text(entry, "place"),
+                        ReviewComments.text(entry, "commit")))) {
             throw new IllegalArgumentException("an item's digest is not its content's");
         }
         return new Held(
@@ -939,8 +962,12 @@ public final class HoldJournal implements ReviewHolds {
     }
 
     private static ReviewItem item(final Map<?, ?> item) {
+        final String kind = ReviewComments.text(item, "kind");
+        if ("resolve".equals(kind)) {
+            return new ThreadResolve(ReviewComments.text(item, "thread"));
+        }
         final Body body = new Body(ReviewComments.text(item, "body"));
-        return switch (ReviewComments.text(item, "kind")) {
+        return switch (kind) {
             case "comment" -> {
                 final String suggestion = ReviewComments.optional(item, "suggestion");
                 yield new ReviewComment(

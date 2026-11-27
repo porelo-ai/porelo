@@ -1,0 +1,2 @@
+title: A task can be started with `--place push:NAME` to read another task's push waiting at the gate of its own project; its gate serves that pinned push alone, read only, and its conversation is the push's threads at the gate, with no account and nothing leaving the machine
+type: added

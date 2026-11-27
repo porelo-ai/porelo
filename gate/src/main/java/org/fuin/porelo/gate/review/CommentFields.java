@@ -30,7 +30,8 @@ public final class CommentFields {
     private CommentFields() {}
 
     /**
-     * Checks an item's fields: a comment's anchor, text and replacement; a reply's text.
+     * Checks an item's fields: a comment's anchor, text and replacement; a reply's text; a
+     * resolve's thread id.
      *
      * @param item What was given.
      * @return The refusal by rule, or empty when the fields may stand.
@@ -40,6 +41,11 @@ public final class CommentFields {
             case ReviewComment comment -> comment(comment);
             case ReviewReply reply -> body(reply.body());
             case ForgeReply reply -> body(reply.body());
+            // The record holds its thread id to its shape; judged again so the rule has its name.
+            case ThreadResolve resolve ->
+                    ThreadResolve.THREAD.matcher(resolve.thread()).matches()
+                            ? Optional.empty()
+                            : refused(ReviewError.TEXT_REFUSED, "thread");
         };
     }
 

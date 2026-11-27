@@ -618,7 +618,7 @@ type ReviewRun (
   findings: int
 )
 
-# What is open at a place for one role, and the place's decision, read anew from the gate's records and
+# What is open at a place for one task, and the place's decision, read anew from the gate's records and
 # the forge's answer at each call; Porelo stores nothing for it and starts nothing. Every time is UTC,
 # RFC 3339, in whole seconds. Never offered through MCP. 'porelo review open --json' answers the same.
 # Refused as PlaceUnreadable, UnknownForge, NoPullRequest, for a pull request address the forge does not
@@ -627,9 +627,8 @@ type ReviewRun (
 method ReviewOpen(
   project: string,
   place: Place,
-  # The role asking; absent means AUTHOR.
-  role: ?(AUTHOR, REVIEWER),
   # The task whose run asks; required for pullRequest and ownPullRequest, whose side and held items are its.
+  # Absent at a gate push it is the task that pushed. The answer follows that task's recorded parts.
   task: ?string
 ) -> (
   # The commit reviewed at the place: at the gate the push's waiting head, on a pull request its head, for a
@@ -639,6 +638,11 @@ method ReviewOpen(
   # after one that carried none, APPROVED when Approve forwarded it, LANDED when Landed found it merged
   # elsewhere. On a pull request: OPEN, APPROVED (an approving review stands), MERGED, CLOSED (unmerged).
   decision: (OPEN, RETURNED, REJECTED, LANDED, APPROVED, MERGED, CLOSED),
+  # The task that rejected the push, by its name: set exactly when decision is RETURNED or REJECTED and a
+  # task holding the right reject made it, with decisionSince the time it did. Absent when the owner
+  # account rejected, and for every other decision. The event log's rejected entry names the same task
+  # in its detail.
+  rejectedBy: ?string,
   # The forwarded commit at the gate, the merge commit on a pull request; absent until one exists.
   mergedCommit: ?string,
   # The branch that commit went onto, at both places, such as "main"; absent with mergedCommit.
@@ -648,7 +652,8 @@ method ReviewOpen(
   # it is OPEN or APPROVED, since the forge does not say when its head was pushed. Absent also when
   # complete is false for a missing time.
   decisionSince: ?string,
-  # Open threads whose last item is not the asking role's side; resolved threads and held items are none.
+  # Open threads whose last item is not the asking task's: at a gate push not written by that task, on a
+  # pull request not by the account its start recorded. Resolved threads and held items are none.
   points: []OpenPoint,
   # Findings no one answered, counted apart from points.
   findings: int,
@@ -699,8 +704,9 @@ type HeldItem (
   direction: (outgoing, incoming),
   # Where it goes: for an outgoing item the place, for an incoming one the task's run.
   destination: string,
-  # What it does there: comment (opens a thread at a file's lines) or reply (answers a thread).
-  operation: (comment, reply),
+  # What it does there: comment (opens a thread at a file's lines), reply (answers a thread) or resolve (marks a
+  # thread resolved; only a task's run sends one).
+  operation: (comment, reply, resolve),
   # A comment's file, repository-relative; absent for a reply.
   path: ?string,
   # A comment's side: old (the base's file) or new (the reviewed commit's); absent for a reply.
@@ -708,16 +714,17 @@ type HeldItem (
   # A comment's first and last line, inclusive, counted from 1; absent for a reply.
   startLine: ?int,
   endLine: ?int,
-  # The thread a reply answers, by its id at the place; absent for a comment.
+  # The thread a reply answers or a resolve marks, by its id at the place; absent for a comment.
   thread: ?string,
   # A comment's proposed replacement of its lines, exact and unescaped; absent when it has none.
   suggestion: ?string,
   # The commit the run pinned, in full; the item is written against it.
   commit: string,
-  # The item's exact text, unescaped: what is released is exactly this.
-  text: string,
-  # SHA-256 of the item's content (operation, path, side, lines, thread, text, suggestion) in lowercase hex, as
-  # Porelo computes it; DecideItem names the digest it was shown, and a client never computes it.
+  # The item's exact text, unescaped: what is released is exactly this; absent for a resolve, which says nothing.
+  text: ?string,
+  # SHA-256 of the item's content (operation, path, side, lines, thread, text, suggestion; for a resolve the place,
+  # the pinned commit and the thread) in lowercase hex, as Porelo computes it; DecideItem names the digest it was
+  # shown, and a client never computes it.
   digest: string,
   # The name of the forge account that wrote an incoming item, such as "octocat", which a client shows as
   # "forge account octocat"; absent for an outgoing one.

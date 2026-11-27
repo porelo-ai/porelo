@@ -106,7 +106,9 @@ public final class TaskReviewReplies implements ReviewReplies {
             return Optional.of(ReviewError.TEXT_REFUSED.wireName());
         }
         try {
-            parts.intake().take(producer, pushOf(task, thread), reply, null);
+            // Its rights and place are recorded by its container; the thread shows it as before.
+            parts.intake()
+                    .takeAsTask(task.container(), producer, pushOf(task, thread), List.of(reply));
             return Optional.empty();
         } catch (ReviewRefused ex) {
             return Optional.of(words(ex.refusal()));

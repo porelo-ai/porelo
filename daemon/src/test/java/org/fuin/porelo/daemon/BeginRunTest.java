@@ -67,7 +67,12 @@ class BeginRunTest {
     void aPullRequestAtAForgeTheMachineDoesNotKnowIsRefusedTyped() throws Exception {
         final PoreloContext context = context();
         RunPlace.atPullRequest(
-                        RunPlace.REVIEWER, "shop-2", "https://review.stub.invalid/uc/shop/pull/7")
+                        org.fuin.porelo.gate.review.TaskParts.anothersWork(
+                                java.util.List.of(
+                                        org.fuin.porelo.gate.review.Right.REPLY,
+                                        org.fuin.porelo.gate.review.Right.OPEN_THREADS)),
+                        "shop-2",
+                        "https://review.stub.invalid/uc/shop/pull/7")
                 .writeTo(Files.createDirectories(context.paths().tasks().containerState(TASK)));
         final HeldRuns runs = new HeldRuns();
         final ReviewParts parts = ReviewParts.of(context, runs);

@@ -171,12 +171,22 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
     private boolean buildsUnwatched;
 
     @Option(
+            names = "--no-push",
+            description =
+                    "The task's start recorded no right to push: every push and every signature"
+                            + " is refused before git runs.")
+    private boolean noPush;
+
+    @Option(
             names = "--seconds",
             paramLabel = "<n>",
             description = "Stop after this long. Zero means run until killed.")
     private int seconds;
 
     @Spec private CommandSpec spec;
+
+    /** What the gate's log says of a push by a task without the right, as every missing right. */
+    static final String NO_PUSH_SAID = "RightMissing: push (push to the gate)";
 
     /**
      * The pass-on of a task's gate on a host: a push to the host's forge on its loopback, with the
@@ -581,6 +591,9 @@ public class GateServeCommand implements Callable<Integer>, PoreloFactory.Contex
                                     (kind, named, task, detail) ->
                                             EventLog.record(context, kind, named, task, detail),
                                     java.time.Clock.systemUTC()));
+                }
+                if (noPush) {
+                    server.refusingPushes(NO_PUSH_SAID);
                 }
                 server.start();
                 writePidFile(err);

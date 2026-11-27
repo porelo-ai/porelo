@@ -1,5 +1,5 @@
 # Version 1 of what a forge adapter answers Porelo about one pull request's review: its facts, the open pull request
-# from a branch, its whole conversation one page at a time, and one released result written. Nothing of a forge's own
+# from a branch, its whole conversation one page at a time, one released result written and one thread resolved. Nothing of a forge's own
 # format crosses: a conversation and a submission are review profile 2 documents. No method reaches a verdict; the
 # adapter reads what the forge says and writes what Porelo released, and decides nothing.
 # The token comes with each call over the owner-only socket, lent for that call alone; an adapter keeps no secret of
@@ -43,6 +43,12 @@ method Comments(api: string, token: string, url: string, cursor: ?string)
 # its root comment's REST id.
 method Post(api: string, token: string, url: string, document: string) -> (thread: string)
 
+# Marks one thread of the pull request resolved, as the account the token stands for. thread is the thread's id as
+# Comments and Post give it. A thread the forge already shows resolved is answered as done, so a second call for
+# the same thread changes nothing. A forge that cannot resolve a thread answers ResolveUnsupported and writes
+# nothing; a thread the pull request does not hold is NoSuchThread.
+method Resolve(api: string, token: string, url: string, thread: string) -> ()
+
 # The forge limits how often it is asked; retryAfter is in seconds, 0 when it did not say.
 error RateLimited(retryAfter: int)
 
@@ -58,8 +64,12 @@ error NoSuchThread()
 # The forge did not answer, or answered something that is not an answer.
 error Unreachable()
 
-# A Post was sent and no answer says whether it was written; Porelo never sends it again.
+# A Post or Resolve was sent and no answer says whether it was written. Porelo never sends a Post again. It
+# sends a Resolve again only after the pull request's conversation, read anew, still shows the thread open.
 error WriteOutcomeUnknown()
+
+# The forge has no way to mark a thread resolved; the thread stays open.
+error ResolveUnsupported()
 
 # What the forge holds or was asked to write is something profile 2 cannot carry, such as a general or a file
 # comment; field names the first point of it.

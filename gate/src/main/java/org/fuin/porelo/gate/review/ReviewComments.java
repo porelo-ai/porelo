@@ -156,6 +156,9 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                                             case ForgeReply reply ->
                                                     // A forge's thread is never one of a push's.
                                                     throw refused(ReviewError.NO_SUCH_THREAD);
+                                            case ThreadResolve resolve ->
+                                                    throw new IllegalArgumentException(
+                                                            "a resolve sets its thread's state");
                                         };
                                 final Kept kept =
                                         new Kept(
@@ -228,11 +231,18 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     }
 
     @Override
-    public ReviewThread state(final Push push, final String thread, final ThreadState state)
+    public ReviewThread state(
+            final Push push, final String thread, final ThreadState state, final Origin by)
             throws ReviewRefused {
         Objects.requireNonNull(push, "push");
         Objects.requireNonNull(thread, "thread");
         Objects.requireNonNull(state, "state");
+        Objects.requireNonNull(by, "by");
+        if (by.producer() instanceof Task && state != ThreadState.RESOLVED) {
+            throw new IllegalArgumentException("a task only resolves a thread");
+        }
+        // Refused before anything is written: a forge's account sets no state at the gate.
+        producer(by.producer());
         return io(
                 () -> {
                     final Optional<Path> found = container(push, false);
@@ -251,8 +261,8 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                                 if (now.state() == state) {
                                     return now;
                                 }
-                                append(container, journal, stateEntry(push, thread, state));
-                                return new ReviewThread(thread, state, now.items());
+                                append(container, journal, stateEntry(push, thread, state, by));
+                                return new ReviewThread(thread, state, now.items(), by.producer());
                             });
                 });
     }
@@ -574,9 +584,10 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     }
 
     private static String stateEntry(
-            final Push push, final String thread, final ThreadState state) {
+            final Push push, final String thread, final ThreadState state, final Origin by) {
         final Map<String, @Nullable Object> entry = head("state", push);
         entry.put("thread", thread);
+        entry.put("producer", producer(by.producer()));
         entry.put(
                 "state",
                 switch (state) {
@@ -624,6 +635,8 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
             }
             case ForgeReply reply ->
                     throw new IllegalArgumentException("a forge reply is never kept at the gate");
+            case ThreadResolve resolve ->
+                    throw new IllegalArgumentException("a resolve is never kept as an item");
         }
         return written;
     }
@@ -681,7 +694,8 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                                 case "open" -> ThreadState.OPEN;
                                 case "resolved" -> ThreadState.RESOLVED;
                                 default -> throw new IllegalArgumentException("an unknown state");
-                            });
+                            },
+                            producer(object(entry.get("producer"), "producer")));
             default -> throw new IllegalArgumentException("an unknown entry");
         };
     }
@@ -803,7 +817,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
     private record ItemEntry(Push push, Scope scope, @Nullable String id, Kept kept)
             implements Entry {}
 
-    private record StateEntry(Push push, Scope scope, String thread, ThreadState state)
+    private record StateEntry(Push push, Scope scope, String thread, ThreadState state, Producer by)
             implements Entry {}
 
     /** A container's journal as read: its bytes, to append to, and its entries. */
@@ -815,7 +829,7 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
          */
         Map<String, ReviewThread> threads(final Push push) {
             final Map<String, List<Kept>> items = new LinkedHashMap<>();
-            final Map<String, ThreadState> states = new LinkedHashMap<>();
+            final Map<String, StateEntry> states = new LinkedHashMap<>();
             for (final Entry entry : entries) {
                 if (!entry.scope().covers(push)) {
                     continue;
@@ -824,17 +838,22 @@ public final class ReviewComments implements ReviewStore, ReviewCounts {
                     case ItemEntry kept ->
                             items.computeIfAbsent(kept.kept().thread(), t -> new ArrayList<>())
                                     .add(kept.kept());
-                    case StateEntry state -> states.put(state.thread(), state.state());
+                    case StateEntry state -> states.put(state.thread(), state);
                 }
             }
             final Map<String, ReviewThread> threads = new LinkedHashMap<>();
             for (final Map.Entry<String, List<Kept>> thread : items.entrySet()) {
+                final StateEntry state = states.get(thread.getKey());
                 threads.put(
                         thread.getKey(),
-                        new ReviewThread(
-                                thread.getKey(),
-                                states.getOrDefault(thread.getKey(), ThreadState.OPEN),
-                                thread.getValue()));
+                        state == null
+                                ? new ReviewThread(
+                                        thread.getKey(), ThreadState.OPEN, thread.getValue())
+                                : new ReviewThread(
+                                        thread.getKey(),
+                                        state.state(),
+                                        thread.getValue(),
+                                        state.by()));
             }
             return threads;
         }

@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.Decision;
 import org.fuin.porelo.gate.review.Direction;
 import org.fuin.porelo.gate.review.ForgeReply;
@@ -18,10 +19,12 @@ import org.fuin.porelo.gate.review.Held;
 import org.fuin.porelo.gate.review.LineAnchor;
 import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewError;
+import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefusal;
 import org.fuin.porelo.gate.review.ReviewRefused;
 import org.fuin.porelo.gate.review.ReviewReply;
 import org.fuin.porelo.gate.review.Suggestion;
+import org.fuin.porelo.gate.review.ThreadResolve;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -80,7 +83,7 @@ public final class HeldItemRows {
 
     /**
      * Returns an item as the contract's {@code HeldItem}: its text and suggestion exact and
-     * unescaped, absent fields left out.
+     * unescaped, absent fields left out; a resolve as its own operation, its thread and no text.
      *
      * @param held The item.
      * @return Its fields, in the contract's order.
@@ -116,9 +119,16 @@ public final class HeldItemRows {
                 row.put("operation", "reply");
                 row.put("thread", reply.thread());
             }
+            case ThreadResolve resolve -> {
+                row.put("operation", "resolve");
+                row.put("thread", resolve.thread());
+            }
         }
         row.put("commit", held.commit());
-        row.put("text", held.item().body().text());
+        final Body text = ReviewItem.text(held.item());
+        if (text != null) {
+            row.put("text", text.text());
+        }
         row.put("digest", held.digest());
         final String from = held.from();
         if (from != null) {
@@ -186,7 +196,10 @@ public final class HeldItemRows {
             if (from != null) {
                 text.append("  from forge account ").append(TerminalText.line(from)).append('\n');
             }
-            indented(text, each.item().body().text());
+            final Body said = ReviewItem.text(each.item());
+            if (said != null) {
+                indented(text, said.text());
+            }
             if (row.get("suggestion") instanceof String suggestion) {
                 text.append("  suggests\n");
                 indented(text, suggestion);

@@ -3,34 +3,45 @@ package org.fuin.porelo.app;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import org.fuin.porelo.gate.review.CommentCheck;
 import org.fuin.porelo.gate.review.CurrentRuns;
 import org.fuin.porelo.gate.review.Direction;
+import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.ProfileChannel;
 import org.fuin.porelo.gate.review.ProfileItem;
+import org.fuin.porelo.gate.review.ProfileRead;
 import org.fuin.porelo.gate.review.ProfileReading;
 import org.fuin.porelo.gate.review.ProfileRefused;
+import org.fuin.porelo.gate.review.PullRequestFacts;
+import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewComment;
+import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewHolds;
 import org.fuin.porelo.gate.review.ReviewPlace;
 import org.fuin.porelo.gate.review.ReviewPlaces;
 import org.fuin.porelo.gate.review.ReviewRefusal;
-import org.fuin.porelo.gate.review.ReviewRole;
+import org.fuin.porelo.gate.review.ReviewReply;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Run;
 import org.fuin.porelo.gate.review.Task;
+import org.fuin.porelo.gate.review.TaskRights;
+import org.fuin.porelo.gate.review.ThreadResolve;
 
 /**
- * Takes a run's submission from its task, author or reviewer, and holds each of its comments and
- * replies for the owner account's release, bound to the run's place, its pinned commit and the
- * digest of the item's exact text.
+ * Takes a run's submission from its task and sends its comments and replies towards the run's
+ * place: held for the owner account's release, bound to the run's place, its pinned commit and the
+ * digest of the item's exact text, or written at once, as {@link HoldingRule} decides by the place
+ * and the project's security class, never by anything of the task.
  *
  * <p>The one way a task's words go towards a place: the submission is read as the task's, judged by
- * the task's role there, checked against the run's pinned push, and held only when every item
- * passes. It keeps nothing itself; whether a named thread exists is the place's to say when a
- * released item is written.
+ * the task's recorded rights there, checked against the run's pinned push, and held or written only
+ * when every item passes. It keeps nothing itself; whether a named thread exists is the place's to
+ * say when an item is written.
  *
- * <p>A submission no certified key signed is judged the same, and each of its items is held marked
- * unsigned, so the owner account sees it as such before deciding.
+ * <p>A submission no certified key signed is judged the same. At a gate push its items go at once,
+ * as a signed one's do; toward a pull request each is held marked unsigned, so the owner account
+ * sees it as such before deciding.
  *
  * <p>A refusal holds nothing of the submission. A failure of the hold store itself may leave the
  * items before it held: undecided and shown to the owner account, never released by this class.
@@ -51,14 +62,26 @@ public final class RunIntake implements ReviewerComments {
      */
     static final String NOT_OWN = "intake: item not the task's own";
 
-    /** The rule a new comment breaks where the task may only reply. */
-    static final String REPLIES_ONLY = "role: only replies at this place";
+    /** The rule a submission breaks that names another place than its run's. */
+    static final String NOT_ITS_RUN = "intake: names a place that is not the place of its run";
+
+    /** The rule a new comment breaks where the task holds no right to open a thread. */
+    static final String MAY_NOT_OPEN = rightMissing(Right.OPEN_THREADS, "open a thread");
+
+    /** The rule a reply breaks where the task holds no right to answer in a thread. */
+    static final String MAY_NOT_REPLY = rightMissing(Right.REPLY, "reply in a thread");
+
+    /** The rule a resolve breaks where the task holds no right to mark a thread resolved. */
+    static final String MAY_NOT_RESOLVE = rightMissing(Right.RESOLVE_THREADS, "resolve a thread");
+
+    /** A forge's thread id as the review contract bounds it. */
+    private static final Pattern FORGE_THREAD = Pattern.compile("[0-9]{1,64}");
 
     private final ProfileReading reading;
 
     private final CommentCheck check;
 
-    private final ReviewRole role;
+    private final TaskRights rights;
 
     private final ReviewHolds holds;
 
@@ -66,30 +89,54 @@ public final class RunIntake implements ReviewerComments {
 
     private final ReviewPlaces places;
 
+    private final HoldingRule rule;
+
+    private final UnheldWrites unheld;
+
+    /** Judges a submission's reject; none is taken until a machine wires its gate. */
+    private volatile TaskReject.Judge judge = TaskReject.NONE;
+
     /**
      * Constructor with what reads, judges, checks and holds, and what knows a task's run and its
      * place.
      *
      * @param reading The one input path for profile documents.
      * @param check The check of an item against the run's pinned push.
-     * @param role What the task's role allows it at a place.
+     * @param rights What the task's recorded parts allow it at a place.
      * @param holds Where items wait for the owner account's decision.
      * @param currentRuns The run each task is in now.
      * @param places Finds a run's place by its name.
+     * @param rule Whether a run's items wait for the owner account or go at once.
+     * @param unheld Writes the items that go at once.
      */
     public RunIntake(
             final ProfileReading reading,
             final CommentCheck check,
-            final ReviewRole role,
+            final TaskRights rights,
             final ReviewHolds holds,
             final CurrentRuns currentRuns,
-            final ReviewPlaces places) {
+            final ReviewPlaces places,
+            final HoldingRule rule,
+            final UnheldWrites unheld) {
         this.reading = Objects.requireNonNull(reading, "reading");
         this.check = Objects.requireNonNull(check, "check");
-        this.role = Objects.requireNonNull(role, "role");
+        this.rights = Objects.requireNonNull(rights, "rights");
         this.holds = Objects.requireNonNull(holds, "holds");
         this.currentRuns = Objects.requireNonNull(currentRuns, "currentRuns");
         this.places = Objects.requireNonNull(places, "places");
+        this.rule = Objects.requireNonNull(rule, "rule");
+        this.unheld = Objects.requireNonNull(unheld, "unheld");
+    }
+
+    /**
+     * Takes a submission's reject with this judgment, from now on.
+     *
+     * @param judge Judges and acts on a reject.
+     * @return This intake.
+     */
+    public RunIntake rejecting(final TaskReject.Judge judge) {
+        this.judge = Objects.requireNonNull(judge, "judge");
+        return this;
     }
 
     @Override
@@ -108,10 +155,17 @@ public final class RunIntake implements ReviewerComments {
             throw new ProfileRefused(PLACE_UNREACHABLE);
         }
         final Task own = new Task(task);
-        final List<ProfileItem> items =
-                reading.read(document, new ProfileChannel.FromTask(own)).items();
-        if (items.isEmpty()) {
+        final ProfileRead read = reading.read(document, new ProfileChannel.FromTask(own));
+        final List<ProfileItem> items = read.items();
+        if (items.isEmpty() && read.reject() == null) {
             throw new ProfileRefused(NO_ITEM);
+        }
+        // A place a run names is its run's own or none: the run decides where its items go.
+        final String runsPlace = ownPlace(run);
+        for (final String named : read.named()) {
+            if (!runsPlace.equals(named)) {
+                throw new ProfileRefused(NOT_ITS_RUN);
+            }
         }
         // The channel stamps the producer and a submission carries no id or thread; anything else
         // was not read as this task's.
@@ -122,8 +176,16 @@ public final class RunIntake implements ReviewerComments {
         }
         // Every item is judged before any is held, so a refusal holds nothing of the submission.
         for (final ProfileItem each : items) {
-            if (each.item() instanceof ReviewComment && !role.mayOpenThread(task, place.get())) {
-                throw new ProfileRefused(REPLIES_ONLY);
+            if (each.item() instanceof ReviewComment && !rights.mayOpenThread(task, place.get())) {
+                throw new ProfileRefused(MAY_NOT_OPEN);
+            }
+            // A reply is read as a forge's or a push's, by where it goes; either needs the right.
+            if ((each.item() instanceof ReviewReply || each.item() instanceof ForgeReply)
+                    && !rights.mayReply(task, place.get())) {
+                throw new ProfileRefused(MAY_NOT_REPLY);
+            }
+            if (each.item() instanceof ThreadResolve && !rights.mayResolve(task, place.get())) {
+                throw new ProfileRefused(MAY_NOT_RESOLVE);
             }
         }
         for (final ProfileItem each : items) {
@@ -131,10 +193,75 @@ public final class RunIntake implements ReviewerComments {
             if (refused.isPresent()) {
                 throw new ProfileRefused(rule(refused.get()));
             }
+            if (each.item() instanceof ThreadResolve resolve
+                    && !atPlace(run, place.get(), resolve.thread())) {
+                throw new ProfileRefused(rule(new ReviewRefusal(ReviewError.NO_SUCH_THREAD, null)));
+            }
         }
-        for (final ProfileItem each : items) {
-            holds.hold(run, task, Direction.OUTGOING, each.item(), null, null, unsigned);
+        // Judged with every item, before any goes; the push is discarded last.
+        final TaskReject.Act last = judge.judge(task, run, place.get(), read.reject());
+        final HoldingRule.Way way = rule.way(run, place.get(), unsigned);
+        if (way != HoldingRule.Way.HOLD) {
+            if (!items.isEmpty()) {
+                unheld.write(way, run, task, items.stream().map(ProfileItem::item).toList());
+            }
+        } else {
+            // Never with a reject: its judging refused every place but a waiting push, where
+            // nothing is held.
+            for (final ProfileItem each : items) {
+                holds.hold(run, task, Direction.OUTGOING, each.item(), null, null, unsigned);
+            }
         }
+        try {
+            last.run();
+        } catch (ProfileRefused refused) {
+            if (items.isEmpty() || way == HoldingRule.Way.HOLD) {
+                throw refused;
+            }
+            // Its items are the reject's reasons and went first; the answer says they stay.
+            throw new ProfileRefused(
+                    refused.rule()
+                            + ". "
+                            + items.size()
+                            + (items.size() == 1 ? " item" : " items")
+                            + " written. push not discarded");
+        }
+    }
+
+    /** The place a run's submission may name, as {@link ProfileRead#named} writes it. */
+    private static String ownPlace(final Run run) {
+        final PullRequestFacts facts = run.pinned().facts();
+        if (facts != null) {
+            return "pullRequest:" + facts.ref().url();
+        }
+        final Push push = run.push();
+        return "push:" + push.project() + "/" + push.repository() + "/" + push.name();
+    }
+
+    /**
+     * Whether a thread a resolve names is one at the run's place, as far as the intake can see it:
+     * at a gate push one of the pinned push's threads; at a pull request, whose conversation the
+     * intake does not hold, a thread id of the forge contract's shape, 1 to 64 digits, which the
+     * forge answers {@code NoSuchThread} for when it holds no such thread.
+     */
+    private static boolean atPlace(final Run run, final ReviewPlace place, final String thread) {
+        if (place instanceof WaitingPushPlace push) {
+            return push.holdsThread(run.push(), thread);
+        }
+        // Neither kind of place: no thread is one of it.
+        return run.pinned().facts() != null && FORGE_THREAD.matcher(thread).matches();
+    }
+
+    /**
+     * Returns the rule an act breaks whose right the task's start did not record: {@code
+     * RightMissing: <right> (<act>)}, the right by its contract word.
+     *
+     * @param right The right the act needs.
+     * @param act What was tried.
+     * @return The rule.
+     */
+    static String rightMissing(final Right right, final String act) {
+        return "RightMissing: " + right.word() + " (" + act + ")";
     }
 
     /** Names a check's refusal by its contract error and rule, never by the item's text. */

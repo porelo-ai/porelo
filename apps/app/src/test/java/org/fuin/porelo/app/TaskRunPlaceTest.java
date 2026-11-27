@@ -17,8 +17,8 @@ import org.fuin.porelo.gate.review.HoldJournal;
 import org.fuin.porelo.gate.review.Pinned;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewReply;
-import org.fuin.porelo.gate.review.Role;
 import org.fuin.porelo.gate.review.Run;
+import org.fuin.porelo.gate.review.TaskParts;
 import org.fuin.porelo.testing.FakeCommandRunner;
 import org.fuin.porelo.wire.Json;
 import org.fuin.porelo.wire.Sidecar;
@@ -28,8 +28,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A task's row and record carry its run's role and the gate push it works at, as its start recorded
- * them, and how many of its items wait for the owner account's decision.
+ * A task's row and record carry its workspace and its four parts, each written out, and the gate
+ * push it works at, as its start recorded them, and how many of its items wait for the owner
+ * account's decision.
  */
 class TaskRunPlaceTest {
 
@@ -60,7 +61,7 @@ class TaskRunPlaceTest {
     }
 
     @Test
-    void aRowCarriesTheAuthorsRoleAtItsOwnGatePushAndNothingHeld() throws IOException {
+    void aRowCarriesTheDefaultPartsWrittenOutAtItsOwnGatePushAndNothingHeld() throws IOException {
         final Path state = context.paths().tasks().containerState(TASK);
         profile(state);
         RunPlace.ownPush("demo", "demo", "fix").writeTo(state);
@@ -68,7 +69,14 @@ class TaskRunPlaceTest {
 
         final Map<String, Object> row = rows().getFirst();
 
-        assertThat(row).as("the run's role").containsEntry("role", "AUTHOR");
+        assertThat(row)
+                .as("its workspace and its parts, each written out")
+                .containsEntry("workspace", "own")
+                .containsEntry("rights", List.of("push", "reply"))
+                .containsEntry("readLanded", List.of())
+                .containsEntry("writeAs", "author")
+                .containsEntry("projectServices", Boolean.TRUE)
+                .doesNotContainKeys("role", "readOnly");
         assertThat(row)
                 .as("its own push, the project's own repository left out")
                 .containsEntry("place", Map.of("gatePush", Map.of("name", "fix")));
@@ -89,21 +97,43 @@ class TaskRunPlaceTest {
     }
 
     @Test
-    void aTaskWhoseStartRecordedNoPlaceHasNoRoleNoPlaceAndNothingHeld() throws IOException {
-        // A task without a gate, or one started before a run's place was recorded.
+    void aTaskWhoseStartRecordedNothingShowsPartsHoldingNothingNoPlaceAndNothingHeld()
+            throws IOException {
+        // One started before a task's parts were recorded.
         profile(context.paths().tasks().containerState(TASK));
         runner.answering("ps", row(true));
 
         final Map<String, Object> row = rows().getFirst();
 
         assertThat(row)
-                .as("no role and no place without a gate")
+                .as("no role and no place without a record")
                 .doesNotContainKeys("role", "place");
+        assertThat(row)
+                .as("the parts that hold nothing, which is what it is given")
+                .containsEntry("workspace", "none")
+                .containsEntry("rights", List.of())
+                .containsEntry("projectServices", Boolean.FALSE);
         assertThat(row).as("held is never absent").containsEntry("held", 0);
     }
 
     @Test
-    void aTaskTheMachinesRestartTookDownKeepsItsRoleAndPlace() throws IOException {
+    void aTaskWithoutAGateShowsTheKindItRecordedAndNoPlace() throws IOException {
+        final Path state = context.paths().tasks().containerState(TASK);
+        profile(state);
+        RunPlace.recordParts(
+                state,
+                new TaskParts.Asked(null, null, null, null, false, true, false).withoutGate());
+        runner.answering("ps", row(true));
+
+        assertThat(rows().getFirst())
+                .as("read only on its repository, no right, no place")
+                .containsEntry("workspace", "readOnly")
+                .containsEntry("rights", List.of())
+                .doesNotContainKey("place");
+    }
+
+    @Test
+    void aTaskTheMachinesRestartTookDownKeepsItsPartsAndPlace() throws IOException {
         // The runtime directory went with the reboot; the record a reboot does not reach holds
         // them.
         final Path record = context.paths().tasks().taskRecord(TASK);
@@ -114,12 +144,12 @@ class TaskRunPlaceTest {
         assertThat(context.paths().tasks().containerState(TASK)).doesNotExist();
         assertThat(rows().getFirst())
                 .as("read from the durable record")
-                .containsEntry("role", "AUTHOR")
+                .containsEntry("workspace", "own")
                 .containsEntry("place", Map.of("gatePush", Map.of("name", "fix")));
     }
 
     @Test
-    void theRoleAndPlaceAreSavedWhereARebootDoesNotReachThem() throws IOException {
+    void thePartsAndPlaceAreSavedWhereARebootDoesNotReachThem() throws IOException {
         final Path state = Files.createDirectories(context.paths().tasks().containerState(TASK));
         RunPlace.ownPush("demo", null, "fix").writeTo(state);
 
@@ -127,11 +157,11 @@ class TaskRunPlaceTest {
 
         assertThat(RunPlace.readFrom(context.paths().tasks().taskRecord(TASK)))
                 .as("the saved copy")
-                .isEqualTo(new RunPlace("AUTHOR", null, "fix"));
+                .isEqualTo(new RunPlace(TaskParts.ownWork(), null, "fix"));
     }
 
     @Test
-    void aMalformedRecordGivesNoRoleAndNoPlaceNeverAMadeUpOne() throws IOException {
+    void aMalformedRecordGivesNoPlaceAndNoRightNeverAMadeUpOne() throws IOException {
         final Path state = context.paths().tasks().containerState(TASK);
         profile(state);
         runner.answering("ps", row(true));
@@ -148,7 +178,8 @@ class TaskRunPlaceTest {
 
             assertThat(rows().getFirst())
                     .as("refused: %s", written)
-                    .doesNotContainKeys("role", "place");
+                    .doesNotContainKeys("role", "place")
+                    .containsEntry("rights", List.of());
         }
     }
 
@@ -162,7 +193,7 @@ class TaskRunPlaceTest {
         RunPlace.ownPush("demo", null, "fix").writeTo(record);
         runner.answering("ps", row(true));
 
-        RunPlace.record(context, TASK, null);
+        RunPlace.record(context, TASK, null, TaskParts.withoutGate(false, false));
 
         assertThat(rows().getFirst())
                 .as("no place from the saved copy of the task before")
@@ -171,7 +202,7 @@ class TaskRunPlaceTest {
     }
 
     @Test
-    void aTasksRecordCarriesItsRunsRoleItsPlaceAndNothingHeld() throws IOException {
+    void aTasksRecordCarriesItsPartsItsPlaceAndNothingHeld() throws IOException {
         new TaskWorkRecords(context)
                 .started(
                         TASK,
@@ -183,11 +214,14 @@ class TaskRunPlaceTest {
                         "agent",
                         null,
                         null,
+                        TaskParts.ownWork(),
                         RunPlace.ownPush("demo", "demo", "fix"));
 
         final Map<?, ?> record = recordsAnswered().getFirst();
 
-        assertThat(record.get("role")).as("the run's role").isEqualTo("AUTHOR");
+        assertThat(record.get("workspace")).as("its workspace").isEqualTo("own");
+        assertThat(record.get("rights")).as("its rights").isEqualTo(List.of("push", "reply"));
+        assertThat(record.containsKey("role")).as("no role").isFalse();
         assertThat(record.get("place"))
                 .as("its own gate push")
                 .isEqualTo(Map.of("gatePush", Map.of("name", "fix")));
@@ -195,13 +229,25 @@ class TaskRunPlaceTest {
     }
 
     @Test
-    void aRecordOfATaskWithoutAGateHasNoRoleNoPlaceAndNothingHeld() throws IOException {
+    void aRecordOfATaskWithoutAGateHasItsPartsNoPlaceAndNothingHeld() throws IOException {
         new TaskWorkRecords(context)
-                .started(TASK, "demo", "demo", null, "an-agent", null, "agent", null, null, null);
+                .started(
+                        TASK,
+                        "demo",
+                        "demo",
+                        null,
+                        "an-agent",
+                        null,
+                        "agent",
+                        null,
+                        null,
+                        TaskParts.withoutGate(false, false),
+                        null);
 
         final Map<?, ?> record = recordsAnswered().getFirst();
 
-        assertThat(record.containsKey("role")).as("no role without a gate").isFalse();
+        assertThat(record.containsKey("role")).as("no role").isFalse();
+        assertThat(record.get("workspace")).as("no workspace").isEqualTo("none");
         assertThat(record.containsKey("place")).as("no place without a gate").isFalse();
         assertThat(record.get("held")).as("nothing held").isEqualTo(0L);
     }
@@ -235,6 +281,7 @@ class TaskRunPlaceTest {
                         "agent",
                         null,
                         null,
+                        TaskParts.ownWork(),
                         RunPlace.ownPush("demo", "demo", "fix"));
         final HoldJournal holds = new HoldJournal(context.paths().gate().reviewHolds());
         final Held held = holdOne(holds);
@@ -288,6 +335,7 @@ class TaskRunPlaceTest {
                         "agent",
                         null,
                         null,
+                        TaskParts.ownWork(),
                         RunPlace.ownPush("demo", "demo", "fix"));
         holdOne(new HoldJournal(context.paths().gate().reviewHolds()));
         Files.writeString(
@@ -364,6 +412,7 @@ class TaskRunPlaceTest {
                 "agent",
                 null,
                 null,
+                TaskParts.ownWork(),
                 RunPlace.ownPush("demo", "demo", "fix"));
         final String startedAt = String.valueOf(recordsAnswered().getFirst().get("startedAt"));
         holdOne(new HoldJournal(context.paths().gate().reviewHolds()));
@@ -386,7 +435,7 @@ class TaskRunPlaceTest {
         final int number = holds.startRun(TASK, place);
         final Push push = new Push("demo", "demo", "fix", "1".repeat(40), null, "0123456789ab");
         return holds.hold(
-                new Run(place, Role.AUTHOR, new Pinned(push, null), number),
+                new Run(place, new Pinned(push, null), number),
                 TASK,
                 Direction.OUTGOING,
                 new ReviewReply("t-1", new Body("why")),
