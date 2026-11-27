@@ -666,73 +666,7 @@ final class GateMethods {
                 });
 
         server.method(
-                "Approve",
-                (parameters, replies) -> {
-                    // The single call that sends anything anywhere, and it makes the caller name
-                    // where.
-                    final GitGate gate = gate(parameters, context);
-                    final String name = text(parameters, "name");
-                    final String commit = text(parameters, "commit").strip();
-                    if (commit.isEmpty()) {
-                        // Refused first as the approval would be - a mistyped name, an offline
-                        // project, no upstream - so the commit offered is one that can go.
-                        final GitGate.Waiting waiting = gate.approvable(name);
-                        throw new VarlinkException(
-                                INTERFACE + ".CommitNotNamed",
-                                Map.of("name", name, "waiting", waiting.commit()));
-                    }
-                    final String branch = approvalBranch(parameters, context);
-                    final String pullRequest;
-                    try {
-                        if (flag(parameters, "signed")) {
-                            pullRequest =
-                                    org.fuin.porelo.app.GateSupport.approveSigned(
-                                            gate, text(parameters, "name"), branch, commit);
-                        } else {
-                            pullRequest = gate.approve(text(parameters, "name"), branch, commit);
-                        }
-                    } catch (org.fuin.porelo.app.PushRefused ex) {
-                        throw new VarlinkException(INTERFACE + ".PushRefused", ex.details());
-                    } catch (org.fuin.porelo.gate.GateException.MovedSinceReview ex) {
-                        // Typed, so an interface says it in its own words and offers the review
-                        // again.
-                        throw moved(text(parameters, "name"), ex.reviewed(), ex.now());
-                    } catch (org.fuin.porelo.gate.GateException.BranchExists ex) {
-                        // Typed, so an interface offers another branch in the same dialog instead
-                        // of showing git's text.
-                        throw new VarlinkException(
-                                INTERFACE + ".BranchExists",
-                                Map.of("branch", ex.branch(), "at", ex.at()));
-                    }
-                    org.fuin.porelo.app.EventLog.record(
-                            context,
-                            org.fuin.porelo.app.EventLog.APPROVED,
-                            text(parameters, "project"),
-                            text(parameters, "name"),
-                            (flag(parameters, "signed")
-                                            ? "signed and forwarded onto "
-                                            : "forwarded onto ")
-                                    + branch
-                                    + ", reviewed at "
-                                    + commit
-                                    + ", through the daemon");
-                    try {
-                        new org.fuin.porelo.app.GateEnds(context)
-                                .approved(
-                                        text(parameters, "project"),
-                                        gate,
-                                        text(parameters, "name"),
-                                        commit,
-                                        branch);
-                    } catch (java.io.IOException ex) {
-                        unkept("forwarded " + text(parameters, "name"), ex);
-                    }
-                    final Map<String, Object> reply = new java.util.LinkedHashMap<>();
-                    reply.put("forwarded", text(parameters, "name"));
-                    reply.put("branch", branch);
-                    if (pullRequest != null) reply.put("pullRequest", pullRequest);
-                    replies.last(reply);
-                });
+                "Approve", (parameters, replies) -> replies.last(approve(parameters, context)));
 
         // For work merged elsewhere: the interface takes it as a bundle, a person merges and signs
         // it on their own computer and pushes it, and Landed clears it once the upstream holds it
@@ -794,36 +728,7 @@ final class GateMethods {
                     }
                 });
 
-        server.method(
-                "Landed",
-                (parameters, replies) -> {
-                    final GitGate gate = gate(parameters, context);
-                    final String branch = text(parameters, "branch");
-                    if (branch.isEmpty()) {
-                        throw new VarlinkException(
-                                INTERFACE + ".BranchRequired",
-                                Map.of("name", text(parameters, "name")));
-                    }
-                    final GitGate.Landing landing = gate.landed(text(parameters, "name"), branch);
-                    try {
-                        new org.fuin.porelo.app.GateEnds(context)
-                                .landed(
-                                        text(parameters, "project"),
-                                        text(parameters, "name"),
-                                        landing,
-                                        branch);
-                    } catch (java.io.IOException ex) {
-                        unkept("cleared " + text(parameters, "name") + " as landed", ex);
-                    }
-                    replies.last(
-                            Map.of(
-                                    "landed",
-                                    landing.landed(),
-                                    "commit",
-                                    landing.commit(),
-                                    "detail",
-                                    landing.detail()));
-                });
+        server.method("Landed", (parameters, replies) -> replies.last(landed(parameters, context)));
 
         server.method(
                 "Reject",
@@ -833,10 +738,116 @@ final class GateMethods {
                                 reject(parameters, context, comments.store(), comments.writer())));
     }
 
+    /**
+     * Forwards a reviewed push onto a branch of its upstream and keeps the end for its task.
+     *
+     * @param parameters The call's parameters.
+     * @param context This machine.
+     * @return The reply.
+     */
+    static Map<String, Object> approve(
+            final Map<String, Object> parameters, final PoreloContext context) {
+        // The single call that sends anything anywhere, and it makes the caller name
+        // where.
+        final GitGate gate = gate(parameters, context);
+        final String name = text(parameters, "name");
+        final String commit = text(parameters, "commit").strip();
+        if (commit.isEmpty()) {
+            // Refused first as the approval would be - a mistyped name, an offline
+            // project, no upstream - so the commit offered is one that can go.
+            final GitGate.Waiting waiting = gate.approvable(name);
+            throw new VarlinkException(
+                    INTERFACE + ".CommitNotNamed",
+                    Map.of("name", name, "waiting", waiting.commit()));
+        }
+        final String branch = approvalBranch(parameters, context);
+        final String pullRequest;
+        try {
+            if (flag(parameters, "signed")) {
+                pullRequest =
+                        org.fuin.porelo.app.GateSupport.approveSigned(
+                                gate, text(parameters, "name"), branch, commit);
+            } else {
+                pullRequest = gate.approve(text(parameters, "name"), branch, commit);
+            }
+        } catch (org.fuin.porelo.app.PushRefused ex) {
+            throw new VarlinkException(INTERFACE + ".PushRefused", ex.details());
+        } catch (org.fuin.porelo.gate.GateException.MovedSinceReview ex) {
+            // Typed, so an interface says it in its own words and offers the review
+            // again.
+            throw moved(text(parameters, "name"), ex.reviewed(), ex.now());
+        } catch (org.fuin.porelo.gate.GateException.BranchExists ex) {
+            // Typed, so an interface offers another branch in the same dialog instead
+            // of showing git's text.
+            throw new VarlinkException(
+                    INTERFACE + ".BranchExists", Map.of("branch", ex.branch(), "at", ex.at()));
+        }
+        org.fuin.porelo.app.EventLog.record(
+                context,
+                org.fuin.porelo.app.EventLog.APPROVED,
+                text(parameters, "project"),
+                text(parameters, "name"),
+                (flag(parameters, "signed") ? "signed and forwarded onto " : "forwarded onto ")
+                        + branch
+                        + ", reviewed at "
+                        + commit
+                        + ", through the daemon");
+        @org.jspecify.annotations.Nullable String endUnkept = null;
+        try {
+            new org.fuin.porelo.app.GateEnds(context)
+                    .approved(
+                            text(parameters, "project"),
+                            gate,
+                            text(parameters, "name"),
+                            commit,
+                            branch);
+        } catch (java.io.IOException ex) {
+            endUnkept = unkept("forwarded " + text(parameters, "name"), ex);
+        }
+        final Map<String, Object> reply = new java.util.LinkedHashMap<>();
+        reply.put("forwarded", text(parameters, "name"));
+        reply.put("branch", branch);
+        if (pullRequest != null) reply.put("pullRequest", pullRequest);
+        if (endUnkept != null) reply.put("endUnkept", endUnkept);
+        return reply;
+    }
+
+    /**
+     * Clears a push that was merged elsewhere once the upstream holds it, and keeps the end for its
+     * task.
+     *
+     * @param parameters The call's parameters.
+     * @param context This machine.
+     * @return The reply.
+     */
+    static Map<String, Object> landed(
+            final Map<String, Object> parameters, final PoreloContext context) {
+        final GitGate gate = gate(parameters, context);
+        final String branch = text(parameters, "branch");
+        if (branch.isEmpty()) {
+            throw new VarlinkException(
+                    INTERFACE + ".BranchRequired", Map.of("name", text(parameters, "name")));
+        }
+        final GitGate.Landing landing = gate.landed(text(parameters, "name"), branch);
+        @org.jspecify.annotations.Nullable String endUnkept = null;
+        try {
+            new org.fuin.porelo.app.GateEnds(context)
+                    .landed(text(parameters, "project"), text(parameters, "name"), landing, branch);
+        } catch (java.io.IOException ex) {
+            endUnkept = unkept("cleared " + text(parameters, "name") + " as landed", ex);
+        }
+        final Map<String, Object> reply = new java.util.LinkedHashMap<>();
+        reply.put("landed", landing.landed());
+        reply.put("commit", landing.commit());
+        reply.put("detail", landing.detail());
+        if (endUnkept != null) reply.put("endUnkept", endUnkept);
+        return reply;
+    }
+
     // The gate's work is done and stays done; the end the task's review reads is said missing in
-    // the daemon's log, never undone or refused.
-    private static void unkept(final String done, final java.io.IOException ex) {
-        FileFailure.said(done + ", and its end could not be kept for the task", ex);
+    // the daemon's log and, as a sentence, in the reply, never undone or refused.
+    private static String unkept(final String done, final java.io.IOException ex) {
+        return FileFailure.said(done + ", and its end could not be kept for the task", ex);
     }
 
     /**
@@ -891,10 +902,13 @@ final class GateMethods {
                         writer);
         final java.io.IOException notKept = outcome.unkept();
         if (notKept != null) {
-            unkept("discarded " + name, notKept);
+            final Map<String, Object> reply = new java.util.LinkedHashMap<>();
+            reply.put("rejected", name);
+            reply.put("told", outcome.told());
+            reply.put("endUnkept", unkept("discarded " + name, notKept));
+            return reply;
         }
-        final boolean told = outcome.told();
-        return Map.of("rejected", name, "told", told);
+        return Map.of("rejected", name, "told", outcome.told());
     }
 
     /**

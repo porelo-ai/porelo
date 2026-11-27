@@ -1,0 +1,2 @@
+title: The daemon's Approve, Reject and Landed replies carry endUnkept when a push's end could not be kept for its task, and gate approve and gate reject exit 74 for it like the checkout's approval.
+type: changed

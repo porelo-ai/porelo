@@ -161,6 +161,6 @@ public class GateRejectCommand implements Callable<Integer>, PoreloFactory.Conte
                         + ", and its end could not be kept for the task: "
                         + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
         err.flush();
-        return 70;
+        return GateEnds.UNKEPT;
     }
 }

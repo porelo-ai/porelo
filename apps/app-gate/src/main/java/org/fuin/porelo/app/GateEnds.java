@@ -21,6 +21,12 @@ import org.jspecify.annotations.Nullable;
  */
 public final class GateEnds {
 
+    /**
+     * Exit: the work was approved, rejected or brought back, and how its push ended could not be
+     * kept for its task. The one code every command line path gives for it.
+     */
+    public static final int UNKEPT = 74;
+
     private final PoreloContext context;
 
     private final Clock clock;

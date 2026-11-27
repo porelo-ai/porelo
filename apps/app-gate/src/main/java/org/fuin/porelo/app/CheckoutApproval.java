@@ -50,9 +50,6 @@ final class CheckoutApproval {
      */
     static final int UNBOUND = 70;
 
-    /** Exit: the work was brought back, and how its push ended could not be kept for its task. */
-    static final int UNKEPT = 74;
-
     /** Asks the person a question. */
     @FunctionalInterface
     interface Asker {
@@ -215,7 +212,7 @@ final class CheckoutApproval {
                                 gateProject.name(), gate, chosen.name(), captured.commit(), branch);
             } catch (java.io.IOException ex) {
                 return refuse(
-                        UNKEPT,
+                        GateEnds.UNKEPT,
                         "brought "
                                 + chosen.name()
                                 + " back, and its end could not be kept for the task: "

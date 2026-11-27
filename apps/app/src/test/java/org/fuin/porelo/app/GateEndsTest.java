@@ -124,6 +124,34 @@ class GateEndsTest {
     }
 
     @Test
+    void anApprovalWhoseEndCannotBeKeptExitsWithTheUnkeptCodeAndStillForwards() throws Exception {
+        unwritableEnds();
+
+        final Run approval = run("approve", "--commit", waiting);
+
+        assertThat(approval.code()).as(approval.err()).isEqualTo(GateEnds.UNKEPT).isEqualTo(74);
+        assertThat(approval.err())
+                .contains("porelo: forwarded writer, and its end could not be kept for the task");
+        assertThat(git(upstream, "rev-parse", "refs/heads/porelo/writer"))
+                .as("the push was forwarded all the same")
+                .isEqualTo(waiting);
+    }
+
+    @Test
+    void aRejectWhoseEndCannotBeKeptExitsWithTheUnkeptCodeAndStillDiscards() throws Exception {
+        unwritableEnds();
+
+        final Run reject = run("reject");
+
+        assertThat(reject.code()).as(reject.err()).isEqualTo(GateEnds.UNKEPT).isEqualTo(74);
+        assertThat(reject.err())
+                .contains("porelo: discarded writer, and its end could not be kept for the task");
+        assertThat(git(gate.mirror(), "for-each-ref", GitGate.INCOMING))
+                .as("the push was discarded all the same")
+                .doesNotContain("writer");
+    }
+
+    @Test
     void aLandingKeepsTheCommitFoundOnTheBranch() throws Exception {
         // Merged elsewhere: the person pushed the work to the upstream themselves.
         git(work, "push", "-q", "origin", "HEAD:main");
@@ -198,6 +226,13 @@ class GateEndsTest {
         assertThat(ends().read(RECORDED).orElseThrow().end())
                 .as("the later task's push changes nothing of the earlier task's container")
                 .isEqualTo(PushEnd.End.REJECTED);
+    }
+
+    // A file where the ends' store's directory should be: nothing can be written there.
+    private void unwritableEnds() throws Exception {
+        final Path store = context.paths().gate().reviewComments();
+        Files.createDirectories(store.getParent());
+        Files.writeString(store, "no directory");
     }
 
     private PushEnds ends() {

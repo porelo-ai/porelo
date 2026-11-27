@@ -136,6 +136,160 @@ class GateRejectThreadsTest {
         assertThat(end.openThreads()).as("a reject that carried no thread").isZero();
     }
 
+    @Test
+    void aRejectWhoseEndCannotBeKeptSaysSoInItsReplyAndStillDiscardsThePush() throws Exception {
+        final Waiting waiting = waiting();
+        unwritableEnds(waiting);
+
+        final Map<String, Object> reply =
+                GateMethods.reject(
+                        Map.of("project", "uc", "name", "t", "repository", "backend"),
+                        waiting.context(),
+                        new Store(),
+                        (push, threads, cursor) -> {
+                            throw new IllegalStateException("no open thread to write");
+                        });
+
+        assertThat(reply)
+                .containsEntry("rejected", "t")
+                .containsEntry("told", true)
+                .extractingByKey("endUnkept", org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .startsWith("discarded t, and its end could not be kept for the task");
+        assertThat(git(waiting.mirror(), "for-each-ref", "refs/porelo/incoming/"))
+                .as("the push was discarded all the same")
+                .doesNotContain("incoming/t");
+    }
+
+    @Test
+    void aRejectWhoseEndWasKeptHasNoEndUnkeptInItsReply() throws Exception {
+        final Waiting waiting = waiting();
+
+        final Map<String, Object> reply =
+                GateMethods.reject(
+                        Map.of("project", "uc", "name", "t", "repository", "backend"),
+                        waiting.context(),
+                        new Store(),
+                        (push, threads, cursor) -> {
+                            throw new IllegalStateException("no open thread to write");
+                        });
+
+        assertThat(reply).containsOnlyKeys("rejected", "told");
+    }
+
+    @Test
+    void anApprovalWhoseEndCannotBeKeptSaysSoInItsReplyAndStillForwardsThePush() throws Exception {
+        final Waiting waiting = waiting();
+        unwritableEnds(waiting);
+
+        final Map<String, Object> reply = GateMethods.approve(approval(waiting), waiting.context());
+
+        assertThat(reply)
+                .containsEntry("forwarded", "t")
+                .containsEntry("branch", "porelo/t")
+                .extractingByKey("endUnkept", org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .startsWith("forwarded t, and its end could not be kept for the task");
+        assertThat(git(dir.resolve("backend.git"), "rev-parse", "refs/heads/porelo/t"))
+                .as("the push was forwarded all the same")
+                .isEqualTo(waiting.head());
+    }
+
+    @Test
+    void anApprovalWhoseEndWasKeptHasNoEndUnkeptInItsReply() throws Exception {
+        final Waiting waiting = waiting();
+
+        final Map<String, Object> reply = GateMethods.approve(approval(waiting), waiting.context());
+
+        assertThat(reply).containsOnlyKeys("forwarded", "branch");
+        assertThat(ends(waiting).read(RECORDED).orElseThrow().end())
+                .as("the end was kept")
+                .isEqualTo(PushEnd.End.APPROVED);
+    }
+
+    @Test
+    void aLandingWhoseEndCannotBeKeptSaysSoInItsReplyAndStillClearsThePush() throws Exception {
+        final Waiting waiting = waiting();
+        landedUpstream();
+        unwritableEnds(waiting);
+
+        final Map<String, Object> reply =
+                GateMethods.landed(
+                        Map.of(
+                                "project",
+                                "uc",
+                                "repository",
+                                "backend",
+                                "name",
+                                "t",
+                                "branch",
+                                "main"),
+                        waiting.context());
+
+        assertThat(reply)
+                .containsEntry("landed", true)
+                .containsEntry("commit", waiting.head())
+                .containsEntry("detail", "")
+                .extractingByKey("endUnkept", org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                .startsWith("cleared t as landed, and its end could not be kept for the task");
+        assertThat(git(waiting.mirror(), "for-each-ref", "refs/porelo/incoming/"))
+                .as("the push was cleared all the same")
+                .doesNotContain("incoming/t");
+    }
+
+    @Test
+    void aLandingWhoseEndWasKeptHasNoEndUnkeptInItsReply() throws Exception {
+        final Waiting waiting = waiting();
+        landedUpstream();
+
+        final Map<String, Object> reply =
+                GateMethods.landed(
+                        Map.of(
+                                "project",
+                                "uc",
+                                "repository",
+                                "backend",
+                                "name",
+                                "t",
+                                "branch",
+                                "main"),
+                        waiting.context());
+
+        assertThat(reply).containsOnlyKeys("landed", "commit", "detail");
+        assertThat(ends(waiting).read(RECORDED).orElseThrow().end())
+                .as("the end was kept")
+                .isEqualTo(PushEnd.End.LANDED);
+    }
+
+    // A file where the ends' store's directory should be: nothing can be written there.
+    private static void unwritableEnds(final Waiting waiting) throws Exception {
+        final Path store = waiting.context().paths().gate().reviewComments();
+        Files.createDirectories(store.getParent());
+        Files.writeString(store, "no directory");
+    }
+
+    private static Map<String, Object> approval(final Waiting waiting) {
+        return Map.of(
+                "project",
+                "uc",
+                "repository",
+                "backend",
+                "name",
+                "t",
+                "commit",
+                waiting.head(),
+                "branch",
+                "porelo/t");
+    }
+
+    // The work was merged elsewhere and pushed to the upstream's main by hand.
+    private void landedUpstream() {
+        git(
+                dir.resolve("work"),
+                "push",
+                "-q",
+                dir.resolve("backend.git").toString(),
+                "HEAD:refs/heads/main");
+    }
+
     private static PushEnds ends(final Waiting waiting) {
         return new PushEnds(waiting.context().paths().gate().reviewComments());
     }

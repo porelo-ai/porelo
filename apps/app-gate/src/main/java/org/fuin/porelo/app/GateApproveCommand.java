@@ -238,7 +238,7 @@ public class GateApproveCommand implements Callable<Integer>, PoreloFactory.Cont
                                 + ", and its end could not be kept for the task: "
                                 + TalkReadCommand.shown(String.valueOf(ex.getMessage())));
                 err.flush();
-                exit = 70;
+                exit = GateEnds.UNKEPT;
                 return null;
             }
             exit = 0;
