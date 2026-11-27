@@ -271,6 +271,31 @@ class TaskLifecycleCommandsTest {
     }
 
     @Test
+    void aTaskBroughtBackIsCheckedAsThePersonsOwnStartIs(@TempDir Path dir) throws IOException {
+
+        // Harm: after a reboot every task stayed down, each "not back" because the start it went
+        // through had no check of its parts and place, which only the person's own command got.
+        final PoreloContext context = context(dir);
+        final Path file = dir.resolve("project.yml");
+        Files.writeString(
+                file,
+                "project:\n  name: uc\n  security_class: guarded\nimage:\n  from: ubuntu:24.04\n");
+        Files.createDirectories(dir.resolve("data/porelo/projects"));
+        Files.writeString(dir.resolve("data/porelo/projects/uc"), file + "\n");
+        Files.createDirectories(dir.resolve("data/porelo/mirrors/uc.git/objects"));
+        tasks("porelo-uc-work\tExited (143)\t1700000000\t1700000100\tuc\tguarded\tuc\t\n");
+        takenDownByARestart(dir, "porelo-uc-work");
+
+        execute(context, "task", "start", "--restarted");
+
+        assertThat(out.toString())
+                .as("what --restarted said")
+                .contains("porelo-uc-work")
+                .doesNotContain("no project 'uc' here")
+                .doesNotContain("checks no start's parts and place");
+    }
+
+    @Test
     void aTaskMadeUnderTheNewNamesIsBroughtBackAndContinuedByTheTaskItsRecordNames(
             @TempDir Path dir) throws IOException {
 

@@ -1921,6 +1921,15 @@ public class TaskRunCommand implements Callable<Integer>, PoreloFactory.ContextA
                                     spec.root().userObject().getClass(), new PoreloFactory(context))
                             .setParameterExceptionHandler(CliErrors.handler())
                             .setExecutionExceptionHandler(CliErrors.failures(context.paths()));
+            // The tree is built from the root's class alone, so its start has no check of its parts
+            // and place until it is given the one this command was given.
+            final StartPlaces check = places;
+            if (check != null
+                    && start.getSubcommands().get("task") instanceof picocli.CommandLine group
+                    && group.getSubcommands().get("start") instanceof picocli.CommandLine nested
+                    && nested.getCommand() instanceof TaskRunCommand run) {
+                run.placedBy(check);
+            }
             start.setOut(new PrintWriter(said));
             start.setErr(new PrintWriter(said));
             final int code =
