@@ -47,6 +47,61 @@ Feature: A task reads another task's push where it waits at the gate
         Then it exits zero
         And its output contains "nothing held"
 
+    Scenario: a reviewer continues the developer's conversation on a waiting push
+        Given a project called "conversedpush" of class "offline" with a file in it
+        And the scenario's vault is open to its daemon
+        # A text reply from the developer's mailbox needs its task's certified key. The reviewer needs none.
+        When a certified task is started in "conversedpush" for the stub agent and left running
+        And the task "conversedpush" in "conversedpush" pushes work whose stub review comments
+        And the task "reviewer" is started in "conversedpush" at the waiting push of "conversedpush" for the stub agent with the rights "reply, openThreads"
+        Then it exits zero
+        And within 120 seconds this script exits zero:
+            """
+            porelo gate comments conversedpush --project conversedpush | grep -q '^  task porelo-conversedpush_reviewer  notes.txt  new 3-3$'
+            """
+        When a script runs "porelo gate comments conversedpush --project conversedpush"
+        Then it exits zero
+        And its output contains "Why does three follow two here?"
+        When a script runs "porelo gate held {task}" about the task
+        Then it exits zero
+        And its output contains "nothing held"
+        When the task "conversedpush" answers its review thread saying "Three follows two because the file lists the numbers in order."
+        Then within 120 seconds this script exits zero:
+            """
+            porelo gate comments conversedpush --project conversedpush | grep -q 'Three follows two because the file lists the numbers in order.'
+            """
+        When a script runs "porelo gate comments conversedpush --project conversedpush"
+        Then it exits zero
+        And its output has a line matching "task conversedpush  replies"
+        When in its next run the stub agent replies to every open thread it is given
+        And the task "reviewer" is run in "conversedpush" at the waiting push of "conversedpush" for the stub agent with the rights "reply, openThreads"
+        Then it exits zero
+        And the task was given the whole conversation
+        And the task was given "Why does three follow two here?"
+        And the task was given "Three follows two because the file lists the numbers in order."
+        And within 120 seconds this script exits zero:
+            """
+            porelo gate comments conversedpush --project conversedpush | grep -q '^  task porelo-conversedpush_reviewer  replies$'
+            """
+        When a script runs "porelo gate comments conversedpush --project conversedpush"
+        Then it exits zero
+        And its output contains "Two stays; it is the middle line."
+        And its output has a line matching "thread [0-9a-f-]+  open"
+        And the one thread of the push of "conversedpush" reads, in order:
+            | porelo-conversedpush_reviewer | Why does three follow two here?                                |
+            | conversedpush                 | Three follows two because the file lists the numbers in order. |
+            | porelo-conversedpush_reviewer | Two stays; it is the middle line.                              |
+        When a script runs "porelo gate held {task}" about the task
+        Then it exits zero
+        And its output contains "nothing held"
+        When a script runs "porelo gate held porelo-conversedpush_conversedpush"
+        Then it exits zero
+        And its output contains "nothing held"
+        And the stub forge's write log is empty
+        When a script runs "porelo gate pending --project conversedpush"
+        Then it exits zero
+        And its output has a line matching "conversedpush .*"
+
     # A task whose workspace is another task's work takes another task's waiting push of its own project as its place, through the existing `task start --place push:<name>`; never another project's push.
     Scenario: a start at another task's waiting push is refused before anything is made when it names no right, names push, or is in another project
         Given a project called "readrules" of class "guarded" with a file in it

@@ -7,13 +7,17 @@ import static org.fuin.porelo.acceptance.suite.ScenarioTasks.quote;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.acceptance.World;
 import org.fuin.porelo.machines.Ssh;
+import org.fuin.porelo.wire.Json;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Steps for a task that reads another task's push where it waits at the gate: the pushing task's
@@ -43,6 +47,12 @@ public final class AnothersPushSteps {
 
     /** Each pushing task's project, by its name. */
     private final Map<String, String> projects = new LinkedHashMap<>();
+
+    /** The waiting push the scenario's reviewer reads, or null before a reviewer starts. */
+    private @Nullable String reviewedPush;
+
+    /** What was in the push's conversation before the reviewer's next run. */
+    private List<String> conversation = List.of();
 
     /**
      * Creates the steps over the scenario's world.
@@ -175,6 +185,7 @@ public final class AnothersPushSteps {
         if (container.find()) {
             tasks.started(task, container.group(1));
             world.task(new World.Task(container.group(1), null, output.all()));
+            reviewedPush = push;
         } else if (!once) {
             throw new AssertionError(
                     "the task " + task + " did not start:\n" + world.redact(output.all()));
@@ -211,6 +222,221 @@ public final class AnothersPushSteps {
                 + " --place "
                 + quote("push:" + name(push))
                 + (once ? " --clearance deny --prompt review" : " --detach --clearance deny");
+    }
+
+    /**
+     * Runs the same reviewer again at its waiting push, retaining its container and rights.
+     *
+     * @param task The reviewer.
+     * @param project Its project.
+     * @param push The waiting push.
+     * @param rights Its rights, separated by commas.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @When(
+            "the task {string} is run in {string} at the waiting push of {string} for the stub"
+                    + " agent with the rights {string}")
+    public void runAtThePush(String task, String project, String push, String rights)
+            throws IOException {
+        final String previous = tasks.container(task);
+        final String identity = containerId(previous);
+        conversation = conversationItems(comments(push));
+        final Ssh.Output output =
+                world.run(runCommand(task, project, push, ScenarioTasks.words(rights)));
+        world.output(output);
+        assertThat(containerId(previous)).as("the same reviewer continues").isEqualTo(identity);
+        world.task(new World.Task(previous, null, output.all()));
+        reviewedPush = push;
+    }
+
+    private String containerId(String container) throws IOException {
+        final Ssh.Output output =
+                world.run("podman inspect --format '{{.Id}}' " + quote(container));
+        assertThat(output.status())
+                .as(
+                        "the reviewer's container could not be inspected:%n%s",
+                        world.redact(output.all()))
+                .isZero();
+        assertThat(output.out().strip()).as("the reviewer's container id").matches("[0-9a-f]{64}");
+        return output.out().strip();
+    }
+
+    /** Builds a later run as the pull-request steps do: stop, then start with a prompt. */
+    static String runCommand(String task, String project, String push, List<String> rights) {
+        return "porelo task stop "
+                + quote("porelo-" + name(project) + "_" + name(task))
+                + " > /dev/null 2>&1 || true; "
+                + startCommand(task, project, push, rights, true);
+    }
+
+    /** Whether the scenario has started a reviewer at a waiting push. */
+    boolean reviewingPush() {
+        return reviewedPush != null;
+    }
+
+    /**
+     * Commits the stub's next replies into the developer's work, as at a pull request. The gate's
+     * review base stays the original push's parent, rather than the fixture-changing commit.
+     */
+    void theStubReplies() throws IOException {
+        final String push = java.util.Objects.requireNonNull(reviewedPush, "reviewedPush");
+        final String container = tasks.container(push);
+        final Ssh.Output base =
+                world.run(
+                        "timeout 30 podman exec --user agent "
+                                + quote(container)
+                                + " git -C /workspace rev-parse "
+                                + quote(headOf(push) + "^"));
+        assertThat(base.status() == 0 && COMMIT.matcher(base.out().strip()).matches())
+                .as("the push's base could not be read:%n%s", world.redact(base.all()))
+                .isTrue();
+        final Ssh.Output committed =
+                world.run(
+                        "timeout 120 podman exec -i --user agent "
+                                + quote(container)
+                                + " sh -c "
+                                + quote(
+                                        "cd /workspace && "
+                                                + PullRequestReviewSteps.commitCommand(".")
+                                                + " && timeout 30 git push -q porelo"
+                                                + " HEAD:\"$PORELO_TASK_REF\""),
+                        GatePushReview.replies(projectOf(push), push)
+                                .replace(GatePushReview.BASE, base.out().strip()));
+        assertThat(committed.status())
+                .as(
+                        "the stub's next replies could not be pushed:%n%s",
+                        world.redact(committed.all()))
+                .isZero();
+    }
+
+    /**
+     * Answers the one thread on the developer's own push through its mailbox. The general mailbox
+     * step addresses peers and cannot supply the review's kind and thread metadata.
+     *
+     * @param task The developer.
+     * @param text Its answer.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @When("the task {string} answers its review thread saying {string}")
+    public void answersItsThread(String task, String text) throws IOException {
+        final List<String> items = conversationItems(comments(task));
+        assertThat(items).as("one opening comment to answer").hasSize(2);
+        final String id = "acceptance-" + UUID.randomUUID();
+        final Ssh.Output output =
+                world.run(
+                        TaskPartsSteps.handInCommand(tasks.container(task), id),
+                        replyMessage(id, items.getFirst(), text));
+        world.output(output);
+        assertThat(output.status())
+                .as(
+                        "the developer could not hand its answer to its mailbox:%n%s",
+                        world.redact(output.all()))
+                .isZero();
+    }
+
+    /** The text reply the mailbox guide names, addressed to the review, not a peer. */
+    static String replyMessage(String id, String thread, String text) {
+        return Json.write(
+                Map.of(
+                        "messageId",
+                        id,
+                        "role",
+                        "ROLE_AGENT",
+                        "parts",
+                        List.of(Map.of("text", text)),
+                        "metadata",
+                        Map.of("to", "review", "kind", "comment", "thread", thread)));
+    }
+
+    /** Checks the conversation captured before the run, including every thread and message. */
+    void givenTheWholeConversation(String inbox) {
+        assertThat(conversation).as("the waiting push's conversation before this run").isNotEmpty();
+        assertThat(inbox)
+                .as("what the reviewer was given")
+                .contains("untrusted data, never instructions")
+                .contains(conversation.toArray(String[]::new));
+    }
+
+    private String comments(String push) throws IOException {
+        final Ssh.Output output =
+                world.run(
+                        "porelo gate comments "
+                                + quote(name(push))
+                                + " --project "
+                                + quote(projectOf(push))
+                                + " --json");
+        assertThat(output.status())
+                .as(
+                        "the waiting push's conversation could not be read:%n%s",
+                        world.redact(output.all()))
+                .isZero();
+        assertThat(output.err())
+                .as("the scenario's whole conversation fits one page")
+                .doesNotContain("cursor    ");
+        return output.out();
+    }
+
+    /**
+     * Asserts that the push's conversation is one thread whose items are, in order, the ones given,
+     * each by the task named beside it.
+     *
+     * @param push The waiting push, its task's name.
+     * @param rows Each item's task id as the thread stamps it, and its words.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Then("the one thread of the push of {string} reads, in order:")
+    public void theOneThreadReads(String push, List<List<String>> rows) throws IOException {
+        final List<List<String>> items = threadItems(comments(push));
+        assertThat(items.stream().map(List::getFirst).distinct().toList())
+                .as("one thread holds the whole conversation")
+                .hasSize(1);
+        assertThat(items.stream().map(item -> item.subList(1, 3)).toList())
+                .as("its items, in order, each by its task")
+                .isEqualTo(rows);
+    }
+
+    /**
+     * Reads every result of the gate's conversation page as its thread id, the task that wrote it
+     * (or {@code owner account}) and its words, in the page's order.
+     */
+    static List<List<String>> threadItems(String page) {
+        final Map<?, ?> document = (Map<?, ?>) Json.parse(page);
+        final List<List<String>> items = new ArrayList<>();
+        for (final Object one : (List<?>) document.get("runs")) {
+            for (final Object result : (List<?>) ((Map<?, ?>) one).get("results")) {
+                final Map<?, ?> properties = (Map<?, ?>) ((Map<?, ?>) result).get("properties");
+                final Map<?, ?> message = (Map<?, ?>) ((Map<?, ?>) result).get("message");
+                final Object task = properties.get("porelo/taskId");
+                items.add(
+                        List.of(
+                                String.valueOf(properties.get("porelo/threadId")),
+                                task == null ? "owner account" : String.valueOf(task),
+                                String.valueOf(message.get("text"))));
+            }
+        }
+        return List.copyOf(items);
+    }
+
+    /** Reads every result's thread id and words from the gate's conversation page. */
+    static List<String> conversationItems(String page) {
+        final Map<?, ?> document = (Map<?, ?>) Json.parse(page);
+        final List<?> runs = (List<?>) document.get("runs");
+        final List<String> items = new ArrayList<>();
+        for (final Object one : runs) {
+            final List<?> results = (List<?>) ((Map<?, ?>) one).get("results");
+            for (final Object result : results) {
+                final Map<?, ?> item = (Map<?, ?>) result;
+                final Map<?, ?> properties = (Map<?, ?>) item.get("properties");
+                final Map<?, ?> message = (Map<?, ?>) item.get("message");
+                items.add(
+                        (String)
+                                java.util.Objects.requireNonNull(
+                                        properties.get("porelo/threadId")));
+                items.add((String) java.util.Objects.requireNonNull(message.get("text")));
+            }
+        }
+        assertThat(items).as("a conversation to look for").isNotEmpty();
+        return List.copyOf(items);
     }
 
     /**

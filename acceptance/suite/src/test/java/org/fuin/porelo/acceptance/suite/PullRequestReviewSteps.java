@@ -42,6 +42,8 @@ public final class PullRequestReviewSteps {
 
     private final StubGitForge gitForge;
 
+    private final AnothersPushSteps waitingPush;
+
     /** The project the scenario's reviewers start in, or {@code null} for the default one. */
     private @Nullable String project;
 
@@ -86,10 +88,14 @@ public final class PullRequestReviewSteps {
      *
      * @param world The scenario's world.
      * @param projects The kit's steps that make a scenario's projects.
+     * @param waitingPush The scenario's steps at a waiting push, which share the conversation
+     *     steps.
      */
-    public PullRequestReviewSteps(World world, TerminalSteps projects) {
+    public PullRequestReviewSteps(
+            World world, TerminalSteps projects, AnothersPushSteps waitingPush) {
         this.world = world;
         this.projects = projects;
+        this.waitingPush = waitingPush;
         final ForgeStub.Script script =
                 new ForgeStub.Script() {
                     @Override
@@ -170,7 +176,8 @@ public final class PullRequestReviewSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @Given(
-            "an online project called {string} pushing to {string} on the stub git forge, whose project file also says:")
+            "an online project called {string} pushing to {string} on the stub git forge, whose"
+                    + " project file also says:")
     public void anOnlineProjectOnTheForge(String name, String written, String more)
             throws IOException {
         final String address = url(written);
@@ -212,7 +219,8 @@ public final class PullRequestReviewSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @Given(
-            "the stub forge has the pull request {string} from the task's branch in {string}, opened by {string}")
+            "the stub forge has the pull request {string} from the task's branch in {string},"
+                    + " opened by {string}")
     public void aPullRequestFromTheTasksBranch(String written, String project, String account)
             throws IOException {
         final String url = url(written);
@@ -320,14 +328,12 @@ public final class PullRequestReviewSteps {
                 + "; rm -rf \"$r\"; mkdir -p \"$r/src/main/java/org/example/shop\";"
                 + " git init -q -b "
                 + BASE_BRANCH
-                + " \"$r\";"
-                + " seq 1 120 | sed 's/^/line /' > \"$r/src/main/java/org/example/shop/Login.java\";"
-                + " seq 1 120 | sed 's/^/line /' > \"$r/src/main/java/org/example/shop/Session.java\";"
-                + " echo 'the project' > \"$r/README.md\";"
-                + " git -C \"$r\" add -A;"
-                + " git -C \"$r\" -c user.email=forge@localhost -c user.name=forge commit -qm"
-                + " 'acceptance: the base';"
-                + " git -C \"$r\" checkout -q -b "
+                + " \"$r\"; seq 1 120 | sed 's/^/line /' >"
+                + " \"$r/src/main/java/org/example/shop/Login.java\"; seq 1 120 | sed 's/^/line /'"
+                + " > \"$r/src/main/java/org/example/shop/Session.java\"; echo 'the project' >"
+                + " \"$r/README.md\"; git -C \"$r\" add -A; git -C \"$r\" -c"
+                + " user.email=forge@localhost -c user.name=forge commit -qm 'acceptance: the"
+                + " base'; git -C \"$r\" checkout -q -b "
                 + HEAD_BRANCH;
     }
 
@@ -387,7 +393,8 @@ public final class PullRequestReviewSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @When(
-            "the task {string} is run by the stub agent as {word} with the rights {string} at {string}")
+            "the task {string} is run by the stub agent as {word} with the rights {string} at"
+                    + " {string}")
     public void aRun(String task, String account, String rights, String url) throws IOException {
         run(task, account, ScenarioTasks.words(rights), url);
     }
@@ -577,7 +584,11 @@ public final class PullRequestReviewSteps {
      */
     @Given("in its next run the stub agent replies to every open thread it is given")
     public void theStubReplies() throws IOException {
-        commitReviewFile(StubReview.replies(pullRequest(), base()));
+        if (waitingPush.reviewingPush()) {
+            waitingPush.theStubReplies();
+        } else {
+            commitReviewFile(StubReview.replies(pullRequest(), base()));
+        }
     }
 
     /**
@@ -602,7 +613,8 @@ public final class PullRequestReviewSteps {
     private String pullRequest() {
         if (pullRequest == null) {
             throw new AssertionError(
-                    "No pull request yet: start with 'Given the stub forge has the pull request ...'");
+                    "No pull request yet: start with 'Given the stub forge has the pull request"
+                            + " ...'");
         }
         return pullRequest;
     }
@@ -917,6 +929,26 @@ public final class PullRequestReviewSteps {
     }
 
     /**
+     * Asserts that the stub forge received no write at any pull request.
+     *
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Then("the stub forge's write log is empty")
+    public void theWholeWriteLogIsEmpty() throws IOException {
+        final Ssh.Output output =
+                world.run(
+                        "f="
+                                + ForgeStub.DIRECTORY
+                                + "/"
+                                + ForgeStub.writeLogFile()
+                                + "; if [ -e \"$f\" ]; then cat \"$f\"; fi");
+        assertThat(output.status())
+                .as("the forge's write log could not be read:%n%s", world.redact(output.all()))
+                .isZero();
+        assertThat(ForgeStub.writeLog(output.out())).as("every write to the forge").isEmpty();
+    }
+
+    /**
      * Asserts the account every write to a pull request went out under.
      *
      * @param url The pull request.
@@ -964,6 +996,10 @@ public final class PullRequestReviewSteps {
      */
     @Then("the task was given the whole conversation")
     public void givenTheWholeConversation() throws IOException {
+        if (waitingPush.reviewingPush()) {
+            waitingPush.givenTheWholeConversation(inbox());
+            return;
+        }
         assertThat(forge.threads()).as("the forge's side wrote no thread to look for").isNotEmpty();
         assertThat(inbox())
                 .as("what the task was given")
@@ -998,7 +1034,8 @@ public final class PullRequestReviewSteps {
                 world.run(
                         "timeout 30 podman exec --user agent "
                                 + quote(world.task().container())
-                                + " sh -c 'cat /run/porelo/mail/inbox/new/* /run/porelo/mail/inbox/cur/* 2>/dev/null; true'");
+                                + " sh -c 'cat /run/porelo/mail/inbox/new/*"
+                                + " /run/porelo/mail/inbox/cur/* 2>/dev/null; true'");
         assertThat(inbox.status())
                 .as("the task's mailbox could not be read:%n%s", world.redact(inbox.all()))
                 .isZero();
@@ -1036,9 +1073,10 @@ public final class PullRequestReviewSteps {
                                 + quote(world.task().container())
                                 + " sh -c "
                                 + quote(
-                                        "cd /workspace && git -c user.email=agent@localhost -c user.name=agent"
-                                                + " commit -q --allow-empty -m 'acceptance: a reviewer pushes'"
-                                                + " && timeout 30 git push -q porelo HEAD:\"$PORELO_TASK_REF\""));
+                                        "cd /workspace && git -c user.email=agent@localhost -c"
+                                                + " user.name=agent commit -q --allow-empty -m"
+                                                + " 'acceptance: a reviewer pushes' && timeout 30 git"
+                                                + " push -q porelo HEAD:\"$PORELO_TASK_REF\""));
         assertThat(push.status())
                 .as("a push from the reviewer was taken:%n%s", world.redact(push.all()))
                 .isNotZero();
@@ -1059,10 +1097,10 @@ public final class PullRequestReviewSteps {
                                 + quote(world.task().container())
                                 + " sh -c "
                                 + quote(
-                                        "IFS= read -r v; n=$(find / -xdev -type f -readable 2>/dev/null | wc -l);"
-                                                + " echo \"searched $n\";"
-                                                + " grep -rlsF -e \"$v\" / --exclude-dir=proc --exclude-dir=sys"
-                                                + " | sed 's/^/holds: /'; true"),
+                                        "IFS= read -r v; n=$(find / -xdev -type f -readable"
+                                                + " 2>/dev/null | wc -l); echo \"searched $n\"; grep"
+                                                + " -rlsF -e \"$v\" / --exclude-dir=proc"
+                                                + " --exclude-dir=sys | sed 's/^/holds: /'; true"),
                         world.secret(variable) + "\n");
         assertThat(search.out())
                 .as("the container's files could not be searched:%n%s", world.redact(search.all()))

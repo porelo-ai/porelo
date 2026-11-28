@@ -30,7 +30,8 @@ class AnothersPushTest {
 
         assertThat(exit)
                 .as(
-                        "a dry run of reading-anothers-push.feature finds an undefined or ambiguous step")
+                        "a dry run of reading-anothers-push.feature finds an undefined or ambiguous"
+                                + " step")
                 .isZero();
     }
 
@@ -135,6 +136,70 @@ class AnothersPushTest {
                 .contains("--right 'reply' --place 'push:author'")
                 .endsWith("--detach --clearance deny")
                 .doesNotContain("--prompt");
+    }
+
+    @Test
+    void aReadersNextRunKeepsItsTaskProjectRightsAndWaitingPush() {
+        assertThat(
+                        AnothersPushSteps.runCommand(
+                                "reader", "shop", "author", List.of("reply", "openThreads")))
+                .startsWith("porelo task stop 'porelo-shop_reader'")
+                .endsWith(
+                        "porelo task start 'reader' --project 'shop' --repository 'shop'"
+                                + " --agent stub --right 'reply' --right 'openThreads'"
+                                + " --place 'push:author' --clearance deny --prompt review")
+                .doesNotContain("ssh-agent", "--write-as", "task remove");
+    }
+
+    @Test
+    void theDevelopersAnswerNamesTheReviewThreadAndNoPeerTransport() {
+        final Map<?, ?> message =
+                (Map<?, ?>)
+                        Json.parse(
+                                AnothersPushSteps.replyMessage(
+                                        "answer-1", "thread-1", "Three follows two."));
+
+        assertThat(message.get("messageId")).isEqualTo("answer-1");
+        assertThat(message.get("role")).isEqualTo("ROLE_AGENT");
+        assertThat(message.get("metadata"))
+                .isEqualTo(Map.of("to", "review", "kind", "comment", "thread", "thread-1"));
+        assertThat(message.get("parts")).isEqualTo(List.of(Map.of("text", "Three follows two.")));
+    }
+
+    @Test
+    void theWholeWaitingPushConversationIncludesTheOpeningAndTheDevelopersAnswer() {
+        final String page =
+                """
+                {"runs":[{"results":[
+                  {"message":{"text":"Why three?"},"properties":{"porelo/threadId":"thread-1"}},
+                  {"message":{"text":"Three follows two."},"properties":{"porelo/threadId":"thread-1"}}
+                ]}]}
+                """;
+
+        assertThat(AnothersPushSteps.conversationItems(page))
+                .containsExactly("thread-1", "Why three?", "thread-1", "Three follows two.");
+        assertThatThrownBy(
+                        () -> AnothersPushSteps.conversationItems("{\"runs\":[{\"results\":[]}]}"))
+                .isInstanceOf(AssertionError.class);
+    }
+
+    @Test
+    void aThreadsItemsAreReadInOrderWithTheirThreadAndTheirTask() {
+        // The step judges one thread and its order; an item of the owner account has no task id.
+        final String page =
+                """
+                {"runs":[{"results":[
+                  {"message":{"text":"Why three?"},"properties":{"porelo/threadId":"t-1","porelo/taskId":"porelo-p_reviewer"}},
+                  {"message":{"text":"Because."},"properties":{"porelo/threadId":"t-1","porelo/taskId":"p"}},
+                  {"message":{"text":"Why two?"},"properties":{"porelo/threadId":"t-2"}}
+                ]}]}
+                """;
+
+        assertThat(AnothersPushSteps.threadItems(page))
+                .containsExactly(
+                        List.of("t-1", "porelo-p_reviewer", "Why three?"),
+                        List.of("t-1", "p", "Because."),
+                        List.of("t-2", "owner account", "Why two?"));
     }
 
     @Test
