@@ -80,6 +80,10 @@ that list in `package`, right after the images are built, and fails unless it is
 target changed. A native profile turns it on and names its images in `porelo.cpu.images`; an image not named there
 is not checked.
 
+It also reads which GraalVM built each image, from the `com.oracle.svm.core.VM` string the image carries, and fails
+for GraalVM CE 25.1 up to but not including 25.6: their Base64 decoder writes past its buffer on a malformed string
+ending in an extra `=` (CVE-2026-114938). An image whose builder it cannot read is refused too.
+
 ### FFM metadata
 
 Panama downcalls are not discovered by native-image's static analysis. An unregistered one is not a

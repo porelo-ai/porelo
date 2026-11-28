@@ -12,10 +12,10 @@ image:
             && rm -rf /var/lib/apt/lists/*
         # GraalVM at the pin porelo-buildtools' porelo-machines holds (machines.graalvm.url and .sha256), checked
         # against its digest. Moved by hand with that pin until a reader can take it from there.
-        RUN tag=graal-25.4.4.1.1 file=graalvm-community-jdk-25i4-25.0.4.1.1_linux-x64_bin.tar.gz \
+        RUN tag=graal-25.6.5.1 file=graalvm-community-jdk-25i6-25.0.5.1_linux-x64_bin.tar.gz \
             && curl -fsSL -o /tmp/graalvm.tar.gz \
                 "https://github.com/graalvm/graalvm-ce-builds/releases/download/$tag/$file" \
-            && echo "05ccbbe783210b6886ff7b08fcd0b061c5dce4852b05db87284fc0e24abb08e2  /tmp/graalvm.tar.gz" \
+            && echo "d792848db26f1602f0a5cf2cd9279d9a652d32ab450d891ce616c9ca67e359d0  /tmp/graalvm.tar.gz" \
                 | sha256sum -c - \
             && mkdir -p /opt/graalvm \
             && tar -xzf /tmp/graalvm.tar.gz -C /opt/graalvm --strip-components=1 \

@@ -1,0 +1,2 @@
+title: Every native image is built by GraalVM CE 25.6, and porelo-cpu-check fails the package phase for an image built by GraalVM CE 25.1 to 25.5, whose Base64 decoder writes past its buffer on a malformed string (CVE-2026-114938), or for one whose builder it cannot read
+type: security
