@@ -61,13 +61,18 @@ public final class Leg {
     /** The tag of a scenario at a real pull request on GitHub, which needs a test identity. */
     private static final String GITHUB = "@github";
 
+    /** The tag of a scenario on a Forgejo the run names, which a leg has none of. */
+    private static final String FORGEJO = "@forgejo";
+
     private static final String MACHINE_WIDE_EXCLUDED =
             "not "
                     + MACHINE_WIDE
                     + " and not @upgrade and not "
                     + PACKAGE_ONLY
                     + " and not "
-                    + GITHUB;
+                    + GITHUB
+                    + " and not "
+                    + FORGEJO;
 
     /**
      * How the product is built, named once and identical to what CI runs.
