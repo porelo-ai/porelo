@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.fuin.porelo.core.project.Mail;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -120,6 +121,46 @@ class MailboxGuideTest {
                 .as("a comment, a reply and a resolve, read as the task's")
                 .extracting(item -> item.item().getClass().getSimpleName())
                 .containsExactly("ReviewComment", "ForgeReply", "ThreadResolve");
+    }
+
+    @Test
+    void everyExampleWithADocumentCarriesTheProfilesSchema() throws Exception {
+        // A task copies an example verbatim: one without the profile's $schema is refused on the
+        // first try, and a later example would bring the same refusal back.
+        final Map<?, ?> profile =
+                (Map<?, ?>)
+                        org.fuin.porelo.wire.Json.parseExact(
+                                new String(
+                                        Objects.requireNonNull(
+                                                        MailboxGuideTest.class.getResourceAsStream(
+                                                                "/org/fuin/porelo/build/api/review/review-profile-2.schema.json"),
+                                                        "the profile's schema")
+                                                .readAllBytes(),
+                                        java.nio.charset.StandardCharsets.UTF_8));
+        final Object wanted =
+                ((Map<?, ?>) ((Map<?, ?>) profile.get("properties")).get("$schema")).get("const");
+        final String text = MailboxGuide.text();
+        int documents = 0;
+        for (int at = text.indexOf("```json\n"); at >= 0; at = text.indexOf("```json\n", at)) {
+            final int start = at + "```json\n".length();
+            final int end = text.indexOf("```", start);
+            final String example = text.substring(start, end);
+            at = end + 3;
+            if (!example.contains("\"data\"")) {
+                continue;
+            }
+            final Map<?, ?> message = (Map<?, ?>) org.fuin.porelo.wire.Json.parseExact(example);
+            for (final Object part : (List<?>) message.get("parts")) {
+                final Object data = ((Map<?, ?>) part).get("data");
+                if (data != null) {
+                    documents++;
+                    assertThat(((Map<?, ?>) data).get("$schema"))
+                            .as("the $schema of the document in\n%s", example)
+                            .isEqualTo(wanted);
+                }
+            }
+        }
+        assertThat(documents).as("the guide's examples with a document").isGreaterThanOrEqualTo(2);
     }
 
     @Test
