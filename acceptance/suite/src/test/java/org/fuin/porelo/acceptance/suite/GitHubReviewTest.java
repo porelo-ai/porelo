@@ -178,7 +178,7 @@ class GitHubReviewTest {
 
         assertThatThrownBy(
                         () ->
-                                GitHubReviewSteps.requireAdapter(
+                                PullRequestReviewSteps.requireAdapter(
                                         refused, "github", "github.com", UnaryOperator.identity()))
                 .as("the step when the adapter is not installed")
                 .isInstanceOf(AssertionError.class)
@@ -190,7 +190,8 @@ class GitHubReviewTest {
     void anInstalledAdapterLetsTheScenarioGoOn() {
         final Ssh.Output added = new Ssh.Output("added     github.com read by github\n", "", 0);
 
-        GitHubReviewSteps.requireAdapter(added, "github", "github.com", UnaryOperator.identity());
+        PullRequestReviewSteps.requireAdapter(
+                added, "github", "github.com", UnaryOperator.identity());
 
         assertThat(added.status()).as("porelo forge add's exit").isZero();
     }

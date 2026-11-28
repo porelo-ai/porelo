@@ -304,6 +304,34 @@ when a step fails. No approval is posted: GitHub refuses one on one's own pull r
 
 The suite's default selection and the ordinary legs exclude `@github`, as they exclude `@upgrade`.
 
+`gate/pr-review-forgejo.feature` exercises the same conversation through the installed `forgejo` adapter.
+On the test machine, as the test account, run
+`bash acceptance/suite/src/test/resources/org/fuin/porelo/acceptance/forgejo/forgejo-pod.sh <new-directory>`;
+it loads `/opt/images/forgejo-17.0.0.tar` when needed and serves Forgejo on `https://127.0.0.1:3443/` with SQLite
+and an install lock. When Maven runs on another host, such as a build box beside the test VM, pass
+`--address <the test machine's IPv4 address>` before the directory: Forgejo then listens there and its certificate
+names that address, so Porelo on the test machine and the suite on the other host use one URL; copy `ca.pem` to
+the other host and name its path there. Run Maven and set `PORELO_FORGEJO_URL` from the directory's `url` file,
+`PORELO_FORGEJO_TEST_TOKEN` from `token`, `PORELO_FORGEJO_TEST_OWNER` from `owner`, and `PORELO_FORGEJO_CA` to
+the path of its `ca.pem`. The files have
+mode 0600; the script prints paths, never the token or a private key. The suite trusts only that CA and checks
+the server's IP SAN; git uses the same CA. The token has `write:repository`, `write:issue` and `write:user`
+scopes (Forgejo 17 asks `write:user` to create the scratch repository), reaches the Porelo-Vault through standard input as `git.token.<the URL's host>`, and owns the scratch
+repository. Select `@forgejo` and `gate/pr-review-forgejo.feature` in the command above; all four missing or
+blank variables fail instead of skipping. The suite's default selection excludes `@forgejo`; a custom tag
+expression must exclude it unless running this feature. The step
+`the forge adapter "forgejo" trusts the test instance's certificate` appends the CA through SSH to the suite
+account's `porelo/ca-certificates.pem` under `$XDG_CONFIG_HOME`, its default when that is unset or not absolute.
+It creates a missing file with mode 0600, preserves existing authorities, and removes exactly its addition at
+the end of the scenario; a file it created is removed when no other authorities were added. Remove the container and its directory with
+`forgejo-pod.sh --remove <directory>`. The suite's `/api/v1` calls, each seen answering on
+Forgejo 17.0.0, are `GET /user`, `POST /user/repos`, `GET /repos/{owner}/{repo}/branches/{branch}` (Forgejo lists a
+pushed branch a moment after the push, and a pull request opened before answers 404),
+`POST /repos/{owner}/{repo}/pulls`, `GET /repos/{owner}/{repo}/pulls/{index}/reviews` (paged),
+`GET /repos/{owner}/{repo}/pulls/{index}/reviews/{id}/comments` (one answer: Forgejo ignores page and limit there),
+`POST /repos/{owner}/{repo}/pulls/{index}/reviews` and `DELETE /repos/{owner}/{repo}`; the script's readiness check
+is `GET /version`. The recorded-response tests pin their request and response shapes.
+
 ## The documentation site
 
 The site at `https://porelo-ai.github.io` is built in the repository `porelo-ai/porelo-ai.github.io`, from this

@@ -33,8 +33,8 @@
         <porelo.acceptance.parallelism>1</porelo.acceptance.parallelism>
         <porelo.acceptance.parallel>false</porelo.acceptance.parallel>
         <!-- Package replacement has its own disposable account and pinned inputs, and the pull request on
-             GitHub a test identity and organization; select each explicitly. -->
-        <cucumber.filter.tags>not @upgrade and not @github</cucumber.filter.tags>
+             GitHub or Forgejo a test identity; select each explicitly. -->
+        <cucumber.filter.tags>not @upgrade and not @github and not @forgejo</cucumber.filter.tags>
         <!-- Nothing to publish: this module is a test harness. -->
         <maven.deploy.skip>true</maven.deploy.skip>
         <maven.install.skip>true</maven.install.skip>

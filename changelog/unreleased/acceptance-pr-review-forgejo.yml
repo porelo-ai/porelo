@@ -1,0 +1,2 @@
+title: "An acceptance scenario selected by `@forgejo` runs the pull request conversation once against a Forgejo instance through the forgejo forge adapter, over https with the test instance's own authority"
+type: added

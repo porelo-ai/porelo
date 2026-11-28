@@ -64,6 +64,39 @@ final class StubReview {
     }
 
     /**
+     * Makes the file that has the stub submit one comment on one line, with no suggestion: the
+     * comment of {@code submitted-comment.sarif.json} on its first line, saying the text given. The
+     * one comment a forge takes that cannot reply in a thread, comment on several lines or carry a
+     * suggestion; an answer there is such a comment on the same line.
+     *
+     * @param url The pull request.
+     * @param base The pull request's base commit.
+     * @param text What the comment says.
+     * @return The file's text.
+     */
+    static String singleLine(String url, String base, String text) {
+        final String fixture = "submitted-comment.sarif.json";
+        final Map<String, Object> document = at(ForgeStub.fixture(fixture), url, base);
+        final Map<String, Object> run = first(document);
+        final Map<String, Object> comment =
+                map(list(run.get("results"), "results").getFirst(), "the comment");
+        comment.remove("fixes");
+        comment.put("message", Map.of("text", text));
+        final Map<String, Object> location =
+                map(list(comment.get("locations"), "its locations").getFirst(), "its location");
+        final Map<String, Object> physical =
+                map(location.get("physicalLocation"), "its physical location");
+        final Map<String, Object> region = map(physical.get("region"), "its region");
+        region.put("endLine", region.get("startLine"));
+        physical.put("region", region);
+        location.put("physicalLocation", physical);
+        comment.put("locations", List.of(location));
+        run.put("results", List.of(comment));
+        document.put("runs", List.of(run));
+        return "submit " + fixture + "\n" + Json.write(document) + "\n";
+    }
+
+    /**
      * Makes the file that has the stub reply to every open thread it is given, with the reply of
      * {@code submitted-reply.sarif.json}.
      *
@@ -113,7 +146,8 @@ final class StubReview {
      * @return The repository's https address.
      */
     static String repositoryOf(String url) {
-        final int pull = url.lastIndexOf("/pull/");
+        // GitHub's pull request lies under /pull/, Forgejo's under /pulls/.
+        final int pull = Math.max(url.lastIndexOf("/pull/"), url.lastIndexOf("/pulls/"));
         if (pull < 0) {
             throw new AssertionError("not a pull request's address: " + url);
         }

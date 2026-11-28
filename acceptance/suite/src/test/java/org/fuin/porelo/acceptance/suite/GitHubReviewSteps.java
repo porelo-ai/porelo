@@ -10,9 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.function.UnaryOperator;
 import org.fuin.porelo.acceptance.World;
-import org.fuin.porelo.machines.Ssh;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -56,47 +54,6 @@ public final class GitHubReviewSteps {
         final Path target = Path.of("target");
         Files.createDirectories(target);
         github = new GitHubScratch(identity, Files.createTempDirectory(target, "github-scratch-"));
-    }
-
-    /**
-     * Sets the forge file to read a host with an installed adapter; a missing adapter stops the
-     * scenario with Porelo's own answer.
-     *
-     * @param adapter The adapter.
-     * @param host The forge's host.
-     * @throws IOException If the machine cannot be reached.
-     */
-    @Given("the installed forge adapter {string} reads {string}")
-    public void theAdapterReads(String adapter, String host) throws IOException {
-        final Ssh.Output output =
-                world.run("porelo forge add " + quote(host) + " --adapter " + quote(adapter));
-        world.output(output);
-        requireAdapter(output, adapter, host, world::redact);
-    }
-
-    /**
-     * Fails when Porelo did not set the forge file, naming the adapter and showing what Porelo
-     * answered.
-     *
-     * @param output What {@code porelo forge add} printed.
-     * @param adapter The adapter.
-     * @param host The forge's host.
-     * @param redact What removes secrets from a text shown.
-     */
-    static void requireAdapter(
-            Ssh.Output output, String adapter, String host, UnaryOperator<String> redact) {
-        if (output.status() != 0) {
-            throw new AssertionError(
-                    "the forge adapter "
-                            + adapter
-                            + " cannot read "
-                            + host
-                            + " in the suite's account; install it there first. porelo forge add"
-                            + " exited "
-                            + output.status()
-                            + ":\n"
-                            + redact.apply(output.all()));
-        }
     }
 
     /**
@@ -146,7 +103,8 @@ public final class GitHubReviewSteps {
      * @throws IOException If the machine cannot be reached.
      */
     @When(
-            "the task {string} is run by the stub agent as {word} with the rights {string} at the pull request on GitHub")
+            "the task {string} is run by the stub agent as {word} with the rights {string} at the"
+                    + " pull request on GitHub")
     public void aRun(String task, String account, String rights) throws IOException {
         review.aRun(task, account, rights, github().url());
     }
@@ -224,9 +182,5 @@ public final class GitHubReviewSteps {
                     "No test identity yet: start with 'Given the GitHub test identity ...'");
         }
         return scratch;
-    }
-
-    private static String quote(String value) {
-        return "'" + value.replace("'", "'\\''") + "'";
     }
 }

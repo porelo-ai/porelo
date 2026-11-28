@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.fuin.porelo.acceptance.TerminalSteps;
@@ -110,6 +111,47 @@ public final class PullRequestReviewSteps {
                 };
         this.gitForge = new StubGitForge(script);
         this.forge = new ForgeStub(script, gitForge);
+    }
+
+    /**
+     * Sets the forge file to read a host with an installed adapter; a missing adapter stops the
+     * scenario with Porelo's own answer.
+     *
+     * @param adapter The adapter.
+     * @param host The forge's host.
+     * @throws IOException If the machine cannot be reached.
+     */
+    @Given("the installed forge adapter {string} reads {string}")
+    public void theAdapterReads(String adapter, String host) throws IOException {
+        final Ssh.Output output =
+                world.run("porelo forge add " + quote(host) + " --adapter " + quote(adapter));
+        world.output(output);
+        requireAdapter(output, adapter, host, world::redact);
+    }
+
+    /**
+     * Fails when Porelo did not set the forge file, naming the adapter and showing what Porelo
+     * answered.
+     *
+     * @param output What {@code porelo forge add} printed.
+     * @param adapter The adapter.
+     * @param host The forge's host.
+     * @param redact What removes secrets from a text shown.
+     */
+    static void requireAdapter(
+            Ssh.Output output, String adapter, String host, UnaryOperator<String> redact) {
+        if (output.status() != 0) {
+            throw new AssertionError(
+                    "the forge adapter "
+                            + adapter
+                            + " cannot read "
+                            + host
+                            + " in the suite's account; install it there first. porelo forge add"
+                            + " exited "
+                            + output.status()
+                            + ":\n"
+                            + redact.apply(output.all()));
+        }
     }
 
     /**
@@ -775,8 +817,12 @@ public final class PullRequestReviewSteps {
             assertThat(output.status())
                     .as("the %s of %s was refused:%n%s", decision, item.get("id"), output.all())
                     .isZero();
+            lastDecision = world.redact(output.all());
         }
     }
+
+    /** What the last decision printed, for a failure's message. */
+    private String lastDecision = "";
 
     /**
      * Asserts that a task holds nothing.
@@ -843,6 +889,29 @@ public final class PullRequestReviewSteps {
     @Then("the task holds {int} {word} item(s)")
     public void theTaskHolds(int count, String direction) throws IOException {
         holds(world.task().container(), count, direction);
+    }
+
+    /**
+     * What Porelo says a task holds, every direction and state, for a failure's message.
+     *
+     * @param task The task.
+     * @return {@code porelo gate held}'s output, with the scenario's secrets replaced.
+     * @throws IOException If the machine cannot be reached.
+     */
+    String heldNow(String task) throws IOException {
+        final Ssh.Output output =
+                world.run("porelo gate held " + quote(containerOf(task, project)) + " --json");
+        final String container = containerOf(task, project);
+        final Ssh.Output journal =
+                world.run(
+                        "for f in \"${XDG_STATE_HOME:-$HOME/.local/state}/porelo/review-holds/\""
+                                + quote(container)
+                                + "/*; do echo \"== $f\"; cat \"$f\"; echo; done");
+        return world.redact(output.all())
+                + "\nthe last decision said: "
+                + lastDecision
+                + "\nthe task's hold journal:\n"
+                + world.redact(journal.all());
     }
 
     private List<Map<String, Object>> held(String task) throws IOException {
