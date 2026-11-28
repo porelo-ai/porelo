@@ -179,6 +179,12 @@ final class ReviewStandIns {
      * and open none, as one recorded with the default parts.
      */
     static CommentIntake.Parts parts(final Check check, final Store store, final Writer writer) {
+        return parts(check, store, writer, (container, push, item) -> item instanceof ReviewReply);
+    }
+
+    /** Parts over these stand-ins, with the pushes that wait and what a task may write. */
+    static CommentIntake.Parts parts(
+            final Check check, final Store store, final Writer writer, final TaskWrites tasks) {
         return new CommentIntake.Parts(
                 (project, repository, name) -> {
                     for (final Push push : List.of(SHOP, OTHER)) {
@@ -192,6 +198,6 @@ final class ReviewStandIns {
                 store,
                 writer,
                 push -> new ReviewCounts.Counts(0, 0, List.of()),
-                (container, push, item) -> item instanceof ReviewReply);
+                tasks);
     }
 }

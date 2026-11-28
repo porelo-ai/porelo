@@ -129,6 +129,8 @@ public final class UnheldWrites {
         }
         try {
             comments.takeAsTask(task, new Task(task), run.push(), items);
+        } catch (TaskRightMissing ex) {
+            throw new ProfileRefused(ex.rule());
         } catch (ReviewRefused ex) {
             throw new ProfileRefused("threads: " + ex.refusal().error().wireName());
         }

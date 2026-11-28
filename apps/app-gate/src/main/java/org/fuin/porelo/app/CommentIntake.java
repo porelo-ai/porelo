@@ -17,6 +17,7 @@ import org.fuin.porelo.gate.review.OwnerAccount;
 import org.fuin.porelo.gate.review.Producer;
 import org.fuin.porelo.gate.review.Push;
 import org.fuin.porelo.gate.review.ReviewAnchors;
+import org.fuin.porelo.gate.review.ReviewComment;
 import org.fuin.porelo.gate.review.ReviewComments;
 import org.fuin.porelo.gate.review.ReviewCounts;
 import org.fuin.porelo.gate.review.ReviewError;
@@ -27,6 +28,7 @@ import org.fuin.porelo.gate.review.ReviewReply;
 import org.fuin.porelo.gate.review.ReviewSarif;
 import org.fuin.porelo.gate.review.ReviewStore;
 import org.fuin.porelo.gate.review.ReviewWriter;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Task;
 import org.fuin.porelo.gate.review.ThreadResolve;
 import org.fuin.porelo.gate.review.ThreadState;
@@ -160,7 +162,15 @@ public final class CommentIntake {
                 // A new thread anywhere in the push, a reply in any of its threads.
             }
             case Task _ -> {
-                if (container == null || !tasks.may(container, push, item)) {
+                if (container == null) {
+                    throw noSuchThread();
+                }
+                // The right first, said as the task's start lacks it; then the place, unsaid.
+                final Optional<String> missing = missingRight(container, item);
+                if (missing.isPresent()) {
+                    throw new TaskRightMissing(missing.get());
+                }
+                if (!tasks.may(container, push, item)) {
                     throw noSuchThread();
                 }
             }
@@ -177,6 +187,28 @@ public final class CommentIntake {
         if (item instanceof ThreadResolve resolve && !holds(push, resolve.thread())) {
             throw noSuchThread();
         }
+    }
+
+    /**
+     * The rule a task's item breaks that needs a right its start did not record; empty for a
+     * forge's reply, which no right lets into a push.
+     */
+    private Optional<String> missingRight(final String container, final ReviewItem item) {
+        return switch (item) {
+            case ReviewComment _ ->
+                    tasks.holds(container, Right.OPEN_THREADS)
+                            ? Optional.empty()
+                            : Optional.of(RunIntake.MAY_NOT_OPEN);
+            case ReviewReply _ ->
+                    tasks.holds(container, Right.REPLY)
+                            ? Optional.empty()
+                            : Optional.of(RunIntake.MAY_NOT_REPLY);
+            case ThreadResolve _ ->
+                    tasks.holds(container, Right.RESOLVE_THREADS)
+                            ? Optional.empty()
+                            : Optional.of(RunIntake.MAY_NOT_RESOLVE);
+            case ForgeReply _ -> Optional.empty();
+        };
     }
 
     /** Whether a thread of that id is one of this push's. */

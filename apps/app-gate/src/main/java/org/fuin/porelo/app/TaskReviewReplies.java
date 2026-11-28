@@ -110,6 +110,9 @@ public final class TaskReviewReplies implements ReviewReplies {
             parts.intake()
                     .takeAsTask(task.container(), producer, pushOf(task, thread), List.of(reply));
             return Optional.empty();
+        } catch (TaskRightMissing ex) {
+            // Said as the right its start lacks, in the one form a missing right is said in.
+            return Optional.of(ex.rule());
         } catch (ReviewRefused ex) {
             return Optional.of(words(ex.refusal()));
         }

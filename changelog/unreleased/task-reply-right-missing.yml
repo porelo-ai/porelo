@@ -1,0 +1,2 @@
+title: "A task that answers in a waiting push's thread without the reply right is told RightMissing: reply in its mailbox, not NoSuchThread"
+type: fixed

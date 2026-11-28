@@ -6,7 +6,9 @@ import static org.fuin.porelo.app.ReviewStandIns.OTHER;
 import static org.fuin.porelo.app.ReviewStandIns.SHOP;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import org.fuin.porelo.gate.review.Body;
 import org.fuin.porelo.gate.review.ForgeReply;
 import org.fuin.porelo.gate.review.Kept;
@@ -19,6 +21,7 @@ import org.fuin.porelo.gate.review.ReviewError;
 import org.fuin.porelo.gate.review.ReviewItem;
 import org.fuin.porelo.gate.review.ReviewRefused;
 import org.fuin.porelo.gate.review.ReviewReply;
+import org.fuin.porelo.gate.review.Right;
 import org.fuin.porelo.gate.review.Side;
 import org.fuin.porelo.gate.review.Task;
 import org.junit.jupiter.api.Test;
@@ -164,10 +167,76 @@ class CommentIntakeTaskTest {
         assertThat(store.kept).as("nothing kept").isEmpty();
     }
 
-    /** Allows every item or none, and records what it was asked. */
+    @Test
+    void aTaskWithoutOpenThreadsThatOpensAThreadIsToldTheRightItLacks() {
+        // Said as the right, so the task knows a comment is not its to give; nothing is kept.
+        writes.held.remove(Right.OPEN_THREADS);
+
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER, new Task("shop-2"), SHOP, List.of(COMMENT)))
+                .isInstanceOfSatisfying(
+                        TaskRightMissing.class,
+                        ex -> {
+                            assertThat(ex.rule())
+                                    .isEqualTo("RightMissing: openThreads (open a thread)");
+                            assertThat(error(ex))
+                                    .as("still the contract's error on the wire")
+                                    .isEqualTo(ReviewError.NO_SUCH_THREAD);
+                        });
+        assertThat(store.kept).as("nothing kept").isEmpty();
+    }
+
+    @Test
+    void aTaskWithoutReplyThatAnswersIsToldTheRightItLacksWhoeverOpenedTheThread()
+            throws Exception {
+        final String thread = store.opened(SHOP, Origin.of(new OwnerAccount()), COMMENT);
+        writes.held.remove(Right.REPLY);
+
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER,
+                                        new Task("shop-2"),
+                                        SHOP,
+                                        List.of(new ForgeReply(thread, new Body("Fixed.")))))
+                .isInstanceOfSatisfying(
+                        TaskRightMissing.class,
+                        ex ->
+                                assertThat(ex.rule())
+                                        .isEqualTo("RightMissing: reply (reply in a thread)"));
+        assertThat(store.kept).as("only the owner account's comment").hasSize(1);
+    }
+
+    @Test
+    void aTaskHoldingTheRightsWritesNothingAtAPushThatIsNotItsPlace() {
+        // The rights are held; the push is not its place, which is not said beyond NoSuchThread.
+        writes.allowed = false;
+
+        assertThatThrownBy(
+                        () ->
+                                intake.takeAsTask(
+                                        CONTAINER, new Task("shop-2"), OTHER, List.of(COMMENT)))
+                .isInstanceOfSatisfying(
+                        ReviewRefused.class,
+                        ex -> {
+                            assertThat(ex).isNotInstanceOf(TaskRightMissing.class);
+                            assertThat(error(ex)).isEqualTo(ReviewError.NO_SUCH_THREAD);
+                        });
+        assertThat(store.kept).as("nothing kept").isEmpty();
+    }
+
+    /** Allows every item or none, holds the rights it is given, and records what it was asked. */
     private static final class Writes implements TaskWrites {
         boolean allowed = true;
+        final Set<Right> held = EnumSet.allOf(Right.class);
         final List<String> asked = new ArrayList<>();
+
+        @Override
+        public boolean holds(final String container, final Right right) {
+            return held.contains(right);
+        }
 
         @Override
         public boolean may(final String container, final Push push, final ReviewItem item) {

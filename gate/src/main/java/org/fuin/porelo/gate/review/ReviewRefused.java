@@ -2,8 +2,11 @@ package org.fuin.porelo.gate.review;
 
 import java.util.Objects;
 
-/** Thrown where an interface answers a refusal instead of a result. */
-public final class ReviewRefused extends Exception {
+/**
+ * Thrown where an interface answers a refusal instead of a result. Open for a refusal that says
+ * more to its producer than the contract's error, which it still answers on the wire.
+ */
+public class ReviewRefused extends Exception {
 
     private static final long serialVersionUID = 1L;
 
@@ -25,7 +28,7 @@ public final class ReviewRefused extends Exception {
      *
      * @return The refusal.
      */
-    public ReviewRefusal refusal() {
+    public final ReviewRefusal refusal() {
         return refusal;
     }
 }

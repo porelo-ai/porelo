@@ -137,6 +137,21 @@ public final class RecordedTaskWrites implements TaskWrites {
     }
 
     /**
+     * {@inheritDoc}
+     *
+     * <p>By the parts its start recorded; a record that cannot be read is left to {@link #may},
+     * which refuses everything then.
+     */
+    @Override
+    public boolean holds(final String container, final Right right) {
+        try {
+            return rights.parts(container).holds(right);
+        } catch (RuntimeException ex) {
+            return true;
+        }
+    }
+
+    /**
      * Whether the push is one the task may write in, in its own project: for own work its own push,
      * whether its recorded place is that push or its own pull request; for a reader exactly the
      * gate push its recorded place names.

@@ -55,6 +55,36 @@ class TaskReviewRepliesTest {
     }
 
     @Test
+    void aTaskWithoutReplyIsToldInItsMailboxTheRightItLacks() {
+        // The one form a missing right is said in, which the mailbox's refusal carries as it is.
+        final TaskWrites noReply =
+                new TaskWrites() {
+                    @Override
+                    public boolean may(
+                            final String container,
+                            final Push push,
+                            final org.fuin.porelo.gate.review.ReviewItem item) {
+                        return false;
+                    }
+
+                    @Override
+                    public boolean holds(
+                            final String container, final org.fuin.porelo.gate.review.Right right) {
+                        return right != org.fuin.porelo.gate.review.Right.REPLY;
+                    }
+                };
+        final TaskReviewReplies replies =
+                new TaskReviewReplies(
+                        task -> List.of(SHOP),
+                        task -> List.of("shop", "web"),
+                        ReviewStandIns.parts(check, store, new ReviewStandIns.Writer(), noReply));
+
+        assertThat(replies.take(OWNER, thread, "Fixed."))
+                .contains("RightMissing: reply (reply in a thread)");
+        assertThat(store.kept).as("only the owner account's comment").hasSize(1);
+    }
+
+    @Test
     void theTasksReplyIsKeptInItsOwnPushsThreadStampedAsTheTask() {
         assertThat(replies(SHOP).take(OWNER, thread, "Fixed: the order is kept now.")).isEmpty();
 
